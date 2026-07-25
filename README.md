@@ -59,10 +59,17 @@ Two consequences worth knowing:
   way to validate a standalone implementation. Runs here start from an unstressed
   state (`Szero=0`). If your problem has a relaxation time comparable to or longer
   than the observation window, that initial condition matters — check it.
-- **PTT and Giesekus** are not implemented. They are named in IMRv2's comments and
-  `f_display.m`, but no stress kernel exists for them in the source, so there is no
-  reference trajectory to validate against. Adding them would mean shipping
-  unvalidated code, which defeats the purpose of this repo.
+- **PTT and Giesekus** are not implemented, and cannot be within this scope.
+  They are the two models in this family whose radial stress field **cannot** be
+  reduced to a finite set of ODEs: Warnez & Johnsen (2015) state that "for the
+  Giesekus and Phan-Thien-Tanner models, partial differential equations must be
+  solved in the surrounding medium; for the remaining models, the PDEs can be
+  reduced to ordinary differential equations." Giesekus's quadratic stress term
+  and PTT's trace function block the reduction that lets UCM/Oldroyd-B collapse to
+  the two internal variables Z₁, Z₂. This is why IMRv2's ODE path
+  (`f_stress.m`) stops at `stress=5` and these models appear only in the spectral
+  solver with `Nv` radial points. They need a spatially-discretised stress field —
+  the same boundary as the thermal model.
 
 ### Note on the upstream reference
 
@@ -146,4 +153,8 @@ The reference implementation and the underlying physics:
 - Estrada, Barajas, Henann, Johnsen & Franck, *High strain-rate soft material
   characterization via inertial cavitation*, JMPS (2018).
   <https://doi.org/10.1016/j.jmps.2017.12.006>
+- Warnez & Johnsen, *Numerical modeling of bubble dynamics in viscoelastic media
+  with relaxation*, Physics of Fluids 27, 063103 (2015) — the viscoelastic
+  formulation, and the ODE-reducible vs PDE-requiring distinction.
+  <https://doi.org/10.1063/1.4922598>
 - IMRv2: <https://github.com/InertialMicrocavitationRheometry/IMRv2>

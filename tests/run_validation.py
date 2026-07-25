@@ -40,6 +40,7 @@ for lab, kw, ref in [
     ("histotripsy pulse",        dict(wave_type=2, pA=1e5, omega=2*np.pi/2e-5, DT=3e-5, mn=2), "ref_histo.csv"),
     ("vapor=1 (T=298.15K)",      dict(vapor=1, T8=298.15),                     "ref_vapor.csv"),
     ("bubtherm=1 (thermal PDE)", dict(bubtherm=1, Nt=25),                      "ref_bubtherm.csv"),
+    ("medtherm=1 (liquid layer)", dict(bubtherm=1, medtherm=1, Nt=25, Mt=25),  "ref_medtherm.csv"),
 ]:
     ml = np.loadtxt(f"{_d}/{ref}")
     py = imr_fast.simulate(_t, _R0, _R0/6, 2500., 0.1, **kw)

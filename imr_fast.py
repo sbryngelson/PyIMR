@@ -21,17 +21,33 @@ shipped default is 1.47 (default_case.m), overridable via 'kappa' in
 varargin. Runs that need a different kappa are out of scope until this is
 exposed as a parameter.
 
-bubtherm=1 implements ONLY IMRv2's "elseif bubtherm" branch (f_imr_fd.m):
-gas-phase thermal PDE, isothermal-wall-equivalent clamp (thetadot[-1]=0,
-i.e. medtherm=0), dry gas (kv0=0, vapor=0). Its Pdot uses bare P (kappa*P),
+bubtherm=1 implements IMRv2's "elseif bubtherm" branch (f_imr_fd.m): gas-phase
+thermal PDE, dry gas (kv0=0, vapor=0). With medtherm=0, the wall is an
+isothermal-equivalent clamp (thetadot[-1]=0). Its Pdot uses bare P (kappa*P),
 NOT (P-Pv) -- this is IMRv2's actual equation for this branch, not a
 simplification; the bubtherm=0 polytropic branch's Pdot uses (P-Pv) and the
 two are NOT reconciled/harmonized, since they are genuinely different
-equations in the source. NOT valid outside the above (medtherm, masstrans,
-Gilmore, PTT, Giesekus). Re-validate before extending.
+equations in the source.
+
+medtherm=1 (requires bubtherm=1) adds the liquid boundary layer: a stretched
+exterior grid (Mt points, Lt controls the stretching), advection+diffusion+
+viscous-dissipation RHS for Tm, and the wall temperature theta[-1] is NOT a
+free state -- it is solved every RHS call via a 1-D root-find (scipy.optimize
+.newton, matching IMRv2's fzero-from-single-guess; f_bubble_wall_thermal_bc)
+enforcing heat-flux continuity across the interface, warm-started from the
+previous call's solution. thetadot[-1]=0 and Tmdot[0]=0 always (both slots
+are formally-integrated-but-frozen; their real continuity is the warm-start
+guess, external to the ODE state -- exactly mirroring IMRv2's own
+theta_bw_guess closure variable). GRADIENTS ARE NOT VALIDATED for medtherm=1:
+naive autodiff through the root-find would need the implicit function
+theorem, not attempted here.
+
+NOT valid outside the above (masstrans, Gilmore, PTT, Giesekus). Re-validate
+before extending.
 """
 import numpy as np
 from scipy.integrate import solve_ivp
+from scipy.optimize import newton
 from thermal_fd import finite_diff_mat
 
 P8 = 101325.0      # far-field pressure (Pa)
@@ -47,6 +63,11 @@ KAPOVER = (KAPPA - 1.0) / KAPPA
 # normalization constant, not a physical mixture average at a given state.
 _ATG, _BTG = 5.28e-5, 1.165e-2
 _ATV, _BTV = 3.30e-5, 1.742e-2
+
+# liquid (medium) thermal properties, IMRv2 defaults (default_case.m); water-like
+_KM = 0.55          # liquid thermal conductivity (W/m/K)
+_CP = 4.181e3        # liquid specific heat (J/kg/K)
+_LT = 2.0            # exterior-grid stretching length (default_case.m)
 
 
 def pvsat(T):
@@ -79,13 +100,21 @@ def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
     chi = T8 * K8 / (P8 * R0 * Uc)
     alpha_g = _ATG * T8 / K8
     beta_g = _BTG / K8
+    # medium (liquid) thermal groups, f_call_params.m -- Dm=Km/(rho*Cp) is the
+    # standard liquid thermal-diffusivity formula (confirmed from source, not
+    # assumed); needed only when medtherm=1 but cheap to compute unconditionally
+    Dm = _KM / (RHO * _CP)
+    Foh = Dm / (Uc * R0)
+    iota = _KM / (K8 * _LT)
+    Br = Uc ** 2 / (_CP * T8)
     return dict(t0=t0, Ca=Ca, Re8=Re8, iWe=1.0 / We, req=Req / R0,
                 Pb=P0 / P8 + Pv_star, Pv=Pv_star,
                 De=(lam1 * Uc / R0 if lam1 > 0 else 0.0),
                 LAM=(lam2 / lam1 if lam1 > 0 else 0.0),
                 Cstar=C8 / Uc, alphax=alphax,
                 ee=pA / P8, om=omega * t0, tw=TW / t0, dt=DT / t0, mn=mn,
-                wave_type=wave_type, chi=chi, alpha_g=alpha_g, beta_g=beta_g)
+                wave_type=wave_type, chi=chi, alpha_g=alpha_g, beta_g=beta_g,
+                Foh=Foh, iota=iota, Br=Br, Lt=_LT)
 
 
 def _stress(stress, p, R, Rd, Z):
@@ -153,7 +182,35 @@ def _JdotA(stress, p):
     return 4.0 / p['Re8'] if stress in (1, 2, 3, 4) else 4.0 * p['LAM'] / p['Re8']
 
 
-def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None):
+def _dissipation(stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6):
+    """taugradu, f_stress_dissipation.m, finite-difference (non-spectral) mode.
+    fnu=0 always (nu_model not supported), so Br/(Re8+DRe*fnu) simplifies to
+    Br/Re8 exactly."""
+    Ca, Re8, Br, ax = p['Ca'], p['Re8'], p['Br'], p['alphax']
+    Rst = p['req'] / R
+    x2 = (yT3 - 1.0 + Rst ** 3) ** (2.0 / 3.0)
+    ix2 = 1.0 / x2
+    x4 = x2 ** 2
+    base = (12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6
+            + 2.0 * Br / Ca * iyT3 * (Rd / R) * (yT2 * ix2 - iyT4 * x4))
+    if stress == 2:
+        return base * (1.0 + ax * (x4 * iyT4 + 2.0 * yT2 * ix2 - 3.0))
+    return base   # stress in {1, 3, 5}: identical to the base formula
+
+
+def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
+    """Solve heat-flux continuity at the wall for theta[-1], f_bubble_wall_thermal_bc.m.
+    theta_tail = [theta[-2], theta[-3]], Tm_tail = [Tm[1], Tm[2]] (0-indexed)."""
+    def resid(theta_bw):
+        Tw = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_g)) / alpha_g
+        lhs = grad_Tm[0] * Tw + grad_Tm[1] * Tm_tail[0] + grad_Tm[2] * Tm_tail[1]
+        rhs = grad_Trans[0] * theta_bw + grad_Trans[1] * theta_tail[0] + grad_Trans[2] * theta_tail[1]
+        return lhs + rhs
+    return newton(resid, guess, tol=1e-13, maxiter=100)
+
+
+def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
+          medtherm=0, mt=None):
     R = max(y[0], 1e-8)
     Rd = y[1]
     Pv = p['Pv']
@@ -161,8 +218,16 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None):
     if bubtherm:
         P = y[2]
         Nt = ygrid.size
-        theta = y[3:3 + Nt]
-        Zstart = 3 + Nt
+        theta = y[3:3 + Nt].copy()
+        if medtherm:
+            Tm = y[3 + Nt:3 + Nt + mt['Mt']].copy()
+            theta[-1] = _wall_theta_bw(mt['wall_guess'][0], [theta[-2], theta[-3]],
+                                        [Tm[1], Tm[2]], p['alpha_g'],
+                                        mt['grad_Tm'], mt['grad_Trans'])
+            mt['wall_guess'][0] = theta[-1]
+            Zstart = 3 + Nt + mt['Mt']
+        else:
+            Zstart = 3 + Nt
     else:
         P = (p['Pb'] - Pv) * R ** (-3 * KAPPA) + Pv          # f_imr_fd.m:412
         Zstart = 2
@@ -175,7 +240,9 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None):
 
     thetadot = None
     if bubtherm:
-        # f_imr_fd.m, "elseif bubtherm" branch, kv0=0 (dry gas) simplification
+        # f_imr_fd.m, "elseif bubtherm" branch, kv0=0 (dry gas) simplification.
+        # Identical whether medtherm is on or off -- only theta[-1]'s VALUE
+        # differs (wall-BC solve above vs. frozen at its initial value).
         alpha_g, beta_g, chi = p['alpha_g'], p['beta_g'], p['chi']
         T = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_g)) / alpha_g
         dtheta = D1 @ theta
@@ -189,6 +256,32 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None):
         thetadot[-1] = 0.0
     else:
         Pdot = -3 * KAPPA * (p['Pb'] - Pv) * R ** (-3 * KAPPA - 1) * Rd
+
+    Tmdot = None
+    if medtherm:
+        # f_imr_fd.m "surrounding temperature" block. xi[-1]=-1 exactly (the
+        # far-field point) makes yT[-1]=inf -- an algebraic singularity
+        # inherent to IMRv2's own xi=1+(j-1)*deltaYm formula (confirmed:
+        # xi_last = 1+Nm*(-2/Nm) = -1 identically, not introduced by this
+        # port), producing a transient inf*0=nan in the last entry of
+        # med_advection/taugradu. Harmless: Tmdot[-1]=0.0 unconditionally
+        # overwrites it and that state slot's value never depends on it
+        # (same frozen-slot pattern as theta[-1] without medtherm).
+        Tm[0] = T[-1]                                    # wall Dirichlet clamp
+        dTm = mt['D1m'] @ Tm
+        ddTm = mt['D2m'] @ Tm
+        xi, yT, yT2, yT3, iyT3, iyT4, iyT6 = (mt['xi'], mt['yT'], mt['yT2'],
+                                               mt['yT3'], mt['iyT3'], mt['iyT4'], mt['iyT6'])
+        Lt, Foh, iota = p['Lt'], p['Foh'], p['iota']
+        with np.errstate(divide='ignore', invalid='ignore'):
+            med_advection = ((1 + xi) ** 2 / (Lt * R)
+                              * (Rd / yT2 * (1 - yT3) / 2 + Foh / R * ((xi + 1) / (2 * Lt) - 1 / yT))
+                              * dTm)
+            med_diffusion = Foh / R ** 2 * (xi + 1) ** 4 / Lt ** 2 * ddTm / 4
+            taugradu = _dissipation(stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6)
+        Tmdot = med_advection + med_diffusion + taugradu
+        Tmdot[0] = 0.0
+        Tmdot[-1] = 0.0
 
     if radial == 1:                                     # Rayleigh-Plesset
         Rdd = (P - 1 - Pf8 - iWe / R + S - 1.5 * Rd ** 2) / R
@@ -206,6 +299,8 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None):
     if bubtherm:
         out.append(Pdot)
         out.extend(thetadot.tolist())
+    if medtherm:
+        out.extend(Tmdot.tolist())
     if dZ is not None:
         out.extend(dZ.tolist())
     return out
@@ -213,14 +308,19 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None):
 
 def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
              radial=1, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0,
-             mn=0.0, wave_type=0, bubtherm=0, Nt=25, rtol=1e-8, atol=1e-10):
+             mn=0.0, wave_type=0, bubtherm=0, Nt=25, medtherm=0, Mt=25,
+             rtol=1e-8, atol=1e-10):
     """Bubble radius R(t)/R0 at times tv (seconds). Returns NaN array on failure.
 
     bubtherm=1: dry gas (vapor must be 0) thermal PDE -- see module docstring
     for exact scope. Nt is the number of interior grid points.
+    medtherm=1 (requires bubtherm=1): adds the liquid boundary layer, Mt
+    exterior grid points. Gradients not validated for medtherm=1.
     """
     if bubtherm and vapor:
         raise ValueError("bubtherm=1 currently requires vapor=0 (dry gas only)")
+    if medtherm and not bubtherm:
+        raise ValueError("medtherm=1 requires bubtherm=1")
     p = params(R0, Req, G, mu, lam1, lam2, alphax, vapor, T8,
                pA, omega, TW, DT, mn, wave_type, bubtherm)
     tn = np.asarray(tv) / p['t0']
@@ -229,8 +329,29 @@ def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
         D2 = finite_diff_mat(Nt, 2, tm_check=0)
         ygrid = np.linspace(0.0, 1.0, Nt)
         theta0 = [0.0] * Nt
-        y0 = [1.0, 0.0, p['Pb']] + theta0 + [0.0] * _nZ(stress)
-        args = (p, stress, radial, 1, D1, D2, ygrid)
+        y0 = [1.0, 0.0, p['Pb']] + theta0
+        mt = None
+        if medtherm:
+            Nm = Mt - 1
+            deltaYm = -2.0 / Nm
+            xi = 1.0 + np.arange(Mt) * deltaYm
+            # xi[-1]=-1 exactly (see _rhs's medtherm block docstring) -> yT[-1]=inf;
+            # harmless, that grid point's Tmdot is unconditionally zeroed in _rhs.
+            with np.errstate(divide='ignore', invalid='ignore'):
+                yT = (2.0 / (xi + 1.0) - 1.0) * p['Lt'] + 1.0
+                yT2, yT3 = yT ** 2, yT ** 3
+                iyT3, iyT4, iyT6 = yT ** -3, yT ** -4, yT ** -6
+            coeff = np.array([-1.5, 2.0, -0.5])
+            deltaY = 1.0 / (Nt - 1)
+            grad_Tm = 2 * p['chi'] * p['iota'] / deltaYm * coeff
+            grad_Trans = -coeff * p['chi'] / deltaY
+            mt = dict(Mt=Mt, xi=xi, yT=yT, yT2=yT2, yT3=yT3, iyT3=iyT3, iyT4=iyT4,
+                      iyT6=iyT6, D1m=finite_diff_mat(Mt, 1, tm_check=1),
+                      D2m=finite_diff_mat(Mt, 2, tm_check=1),
+                      grad_Tm=grad_Tm, grad_Trans=grad_Trans, wall_guess=[-1e-4])
+            y0 = y0 + [1.0] * Mt
+        y0 = y0 + [0.0] * _nZ(stress)
+        args = (p, stress, radial, 1, D1, D2, ygrid, medtherm, mt)
     else:
         y0 = [1.0, 0.0] + [0.0] * _nZ(stress)
         args = (p, stress, radial)

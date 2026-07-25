@@ -2,6 +2,7 @@
 import sys, os, numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import imr_fast, constitutive as C
+from imr_nonlinear import simulate_nonlinear
 from imr_grad import simulate_grad, NP
 from imr_fast import params
 
@@ -72,6 +73,26 @@ print("  Gent finite-extensibility lock-up detection")
 for Jm, st, exp in [(5., 3., False), (500., 3., True)]:
     got = C.lock_free(C.gent(1., Jm), st); ok = (got == exp); fail += (not ok)
     print(f"    Jm={Jm:<6} stretch={st}  lock_free={got} (expect {exp})  {'PASS' if ok else 'FAIL'}")
+
+print("\n"+"="*64); print("2b. NONLINEAR MEMORY (Giesekus / PTT) reduction limits"); print("="*64)
+_De, _LAM = 2.0, 0.2
+_tv = np.linspace(0, 1.2e-4, 300)
+_p0 = params(225e-6, 225e-6/6, 2500., .1)
+_ucm = imr_fast.simulate(_tv, 225e-6, 225e-6/6, 2500., .1, stress=5,
+                         lam1=_De*_p0['t0'], lam2=_LAM*_De*_p0['t0'])
+print("  alpha->0 (Giesekus) and eps->0 (PTT) must both reproduce UCM/Oldroyd-B")
+for _m, _kw in [('giesekus', dict(alpha=0.0)), ('ptt', dict(eps=0.0))]:
+    _R = simulate_nonlinear(_tv, 225e-6, 225e-6/6, 2500., .1, _De, _LAM,
+                            model=_m, NM=480, **_kw)
+    _mx = np.nanmax(np.abs(_R-_ucm))
+    _ok = _mx < 5e-3; fail += (not _ok)      # discretisation-limited, converging in NM
+    print(f"    {_m:>9} -> UCM   max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+print("  nonlinear parameter must produce distinct physics")
+for _m, _k, _v in [('giesekus','alpha',0.2), ('ptt','eps',0.2)]:
+    _R = simulate_nonlinear(_tv, 225e-6, 225e-6/6, 2500., .1, _De, _LAM,
+                            model=_m, NM=480, **{_k: _v})
+    _mx = np.nanmax(np.abs(_R-_ucm)); _ok = _mx > 0.05; fail += (not _ok)
+    print(f"    {_m:>9} {_k}=0.2  max|dR| vs UCM={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 
 print("\n"+"="*64); print("3. GRADIENTS (forward sensitivities) vs finite differences"); print("="*64)
 p = params(225e-6, 225e-6/6, 2500., .1)

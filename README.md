@@ -20,6 +20,7 @@ python3 tests/run_validation.py     # full validation suite
 | `imr_fast.py` | forward solver — **11 ms/solve, 40–90× faster than IMRv2** |
 | `imr_grad.py` | differentiable solver via forward sensitivity equations — exact analytic ∂R/∂c |
 | `constitutive.py` | constitutive suite: stress integrals computed numerically from strain-energy / viscosity functions |
+| `imr_nonlinear.py` | Giesekus & Phan-Thien-Tanner via a Lagrangian material-point ODE system |
 | `tests/run_validation.py` | validation against IMRv2 reference trajectories + closed forms + model-reduction limits |
 
 ## Scope
@@ -59,17 +60,11 @@ Two consequences worth knowing:
   way to validate a standalone implementation. Runs here start from an unstressed
   state (`Szero=0`). If your problem has a relaxation time comparable to or longer
   than the observation window, that initial condition matters — check it.
-- **PTT and Giesekus** are not implemented, and cannot be within this scope.
-  They are the two models in this family whose radial stress field **cannot** be
-  reduced to a finite set of ODEs: Warnez & Johnsen (2015) state that "for the
-  Giesekus and Phan-Thien-Tanner models, partial differential equations must be
-  solved in the surrounding medium; for the remaining models, the PDEs can be
-  reduced to ordinary differential equations." Giesekus's quadratic stress term
-  and PTT's trace function block the reduction that lets UCM/Oldroyd-B collapse to
-  the two internal variables Z₁, Z₂. This is why IMRv2's ODE path
-  (`f_stress.m`) stops at `stress=5` and these models appear only in the spectral
-  solver with `Nv` radial points. They need a spatially-discretised stress field —
-  the same boundary as the thermal model.
+- **PTT and Giesekus** *are* implemented, in `imr_nonlinear.py` — see below. They
+  are often described as requiring PDEs in the surrounding medium (Warnez &
+  Johnsen 2015), which is why IMRv2's ODE path stops at `stress=5`. That framing
+  is Eulerian. What they actually lack is **analytic closure** of the stress
+  integral, which is not the same thing as needing a PDE.
 
 ### Note on the upstream reference
 
@@ -134,6 +129,30 @@ Gent materials lock when $I_1-3\ge J_m$. At bubble stretch $\lambda_w$,
 $I_1\approx2\lambda_w^2$, so $J_m=5$ is unphysical for **any** stretch ≥ 2, and
 IMR's typical stretch 2–10 range needs $J_m\gtrsim200$. `lock_free()` detects this
 rather than returning garbage.
+
+## Nonlinear memory: Giesekus and PTT
+
+Giesekus's quadratic term and PTT's trace function prevent the stress integral
+from closing into a finite set of moments — unlike UCM/Oldroyd-B, which collapses
+to two variables (Z₁, Z₂). But with a **known** velocity field the constitutive
+law contains only the *material* derivative, so in a Lagrangian frame each
+material point obeys an ODE in time, with no spatial derivatives and no coupling
+between points:
+
+$$\mathbf L=\mathrm{diag}(-2a,a,a),\quad a=\frac{R^2\dot R}{r^3},\qquad
+\dot\tau_{ii}=-\frac{\tau_{ii}}{De}+2L_{ii}\tau_{ii}+2\eta_p D_{ii}/De-(\text{nonlinear})$$
+
+`imr_nonlinear.simulate_nonlinear` integrates this on a wall-clustered Lagrangian
+grid (the near-wall region needs the resolution: incompressibility maps
+$r_0\in[1,1.1]$ onto $r\in[0.1,0.69]$ at collapse) and evaluates
+$S=\int_R^\infty \frac{2}{r}(\tau_{rr}-\tau_{\theta\theta})\,dr$ by quadrature.
+
+Validated by reduction: `alpha=0` (Giesekus) and `eps=0` (PTT) both reproduce the
+IMRv2-validated UCM to **3.5e-03** at `NM=480`, converging in `NM`
+(1.4e-01 → 6.7e-02 → 1.2e-02 → 3.5e-03 for NM = 30, 60, 120, 480).
+
+**Cost:** 2·NM extra ODE states — ~0.12 s/solve at NM=480, about 11× the
+closed-form models. Use `imr_fast` when the model admits closure.
 
 ## Gradients
 

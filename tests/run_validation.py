@@ -46,6 +46,10 @@ for lab, kw, ref in [
                                                                                "ref_masstrans_medtherm.csv"),
     ("stress=0 (no stress)",     dict(stress=0),                                                "ref_stress0.csv"),
     ("stress=4 (qKV Zener)",     dict(stress=4, lam1=2.0*_t0, lam2=0.4*_t0, alphax=0.25),        "ref_stress4.csv"),
+    ("radial=3 (KM enthalpy, Tait)",     dict(radial=3),                                        "ref_radial3.csv"),
+    ("radial=4 (Gilmore, Tait)",         dict(radial=4),                                        "ref_radial4.csv"),
+    ("radial=3+Zener",  dict(radial=3, stress=3, lam1=2.0*_t0, lam2=0.4*_t0),          "ref_radial3_zener.csv"),
+    ("radial=4+Zener",  dict(radial=4, stress=3, lam1=2.0*_t0, lam2=0.4*_t0),          "ref_radial4_zener.csv"),
 ]:
     ml = np.loadtxt(f"{_d}/{ref}")
     py = imr_fast.simulate(_t, _R0, _R0/6, 2500., 0.1, **kw)

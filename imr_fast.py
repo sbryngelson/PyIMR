@@ -1,7 +1,9 @@
 """Fast Python IMR solver -- a validated slice of IMRv2.
 
 Covers:
-  radial   1 (Rayleigh-Plesset), 2 (Keller-Miksis, pressure form)
+  radial   1 (Rayleigh-Plesset), 2 (Keller-Miksis, pressure form),
+           3 (Keller-Miksis, enthalpy form, Tait EoS liquid),
+           4 (Gilmore, Tait EoS liquid)
   bubtherm 0 (polytropic, kappa) or 1 (gas thermal PDE)
            medtherm 0 or 1 (liquid boundary layer, requires bubtherm=1)
            masstrans 0 or 1 (vapor mass transfer, requires bubtherm=1 and
@@ -77,6 +79,15 @@ SURF = 0.07        # surface tension (N/m)
 KAPPA = 1.4        # polytropic exponent (see module docstring)
 C8 = 1484.0        # far-field sound speed (m/s)
 KAPOVER = (KAPPA - 1.0) / KAPPA
+
+# Tait equation-of-state constants for the liquid, IMRv2 defaults
+# (default_case.m: GAM, nstate), used by radial=3,4. sam/no are fixed
+# combinations of these plus P8 (f_imr_fd.m: sam=1+GAMa, no=(nstate-1)/nstate).
+_GAM_TAIT = 3049.13e5
+_NSTATE_TAIT = 7.15
+_GAMA_TAIT = _GAM_TAIT / P8
+_SAM_TAIT = 1.0 + _GAMA_TAIT
+_NO_TAIT = (_NSTATE_TAIT - 1.0) / _NSTATE_TAIT
 
 # gas / vapor thermal-conductivity linear-in-T fit coefficients, IMRv2 defaults
 # (default_case.m). K8 is IMRv2's reference conductivity: it mixes gas AND
@@ -436,6 +447,27 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
                + R / Cs * (Pdot + iWe * Rd / R ** 2 + Sdot - Pf8dot)
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
         den = (1 - Rd / Cs) * R + _JdotA(stress, p) / Cs
+        Rdd = num / den
+    elif radial == 3:                                   # Keller-Miksis, enthalpy, Tait EoS
+        Cs = p['Cstar']
+        Pb = P - iWe / R + _GAMA_TAIT + S
+        hB = (_SAM_TAIT / _NO_TAIT) * ((Pb / _SAM_TAIT) ** _NO_TAIT - 1.0)
+        hH = (_SAM_TAIT / Pb) ** (1.0 / _NSTATE_TAIT)
+        num = ((1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot
+               + R / Cs * hH * (Pdot + iWe * Rd / R ** 2 + Sdot)
+               - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
+        den = (1 - Rd / Cs) * R + _JdotA(stress, p) * hH / Cs
+        Rdd = num / den
+    elif radial == 4:                                   # Gilmore, Tait EoS
+        Pb = P - iWe / R + _GAMA_TAIT + S
+        rho = (Pb / _SAM_TAIT) ** (1.0 / _NSTATE_TAIT)
+        Cs = np.sqrt(_NSTATE_TAIT * Pb / rho)
+        hB = (_SAM_TAIT / _NO_TAIT) * ((Pb / _SAM_TAIT) ** _NO_TAIT - 1.0)
+        hH = (_SAM_TAIT / Pb) ** (1.0 / _NSTATE_TAIT)
+        num = ((1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot
+               + R / Cs * hH * (Pdot + iWe * Rd / R ** 2 + Sdot)
+               - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
+        den = (1 - Rd / Cs) * R + _JdotA(stress, p) * hH / Cs
         Rdd = num / den
     else:
         raise ValueError(f"radial={radial} not supported")

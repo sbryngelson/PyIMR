@@ -32,6 +32,12 @@ for lab, kw, ref in [
     ("UCM/OldB De=2.0",      dict(stress=5, lam1=2.0*_t0, lam2=0.4*_t0),           "ref_ucm_De020.csv"),
     ("Keller-Miksis NHKV",   dict(stress=1, radial=2),                             "ref_km_nhkv.csv"),
     ("Keller-Miksis Zener",  dict(stress=3, radial=2, lam1=2.0*_t0, lam2=0.4*_t0), "ref_km_zener.csv"),
+    ("Gaussian forcing pA=5e4",  dict(wave_type=1, pA=5e4, TW=5e-6, DT=2e-5),  "ref_gauss_pA50.csv"),
+    ("Gaussian forcing pA=2e5",  dict(wave_type=1, pA=2e5, TW=5e-6, DT=2e-5),  "ref_gauss_pA200.csv"),
+    ("constant offset pA=3e4",   dict(wave_type=0, pA=3e4),                    "ref_imp_pA30.csv"),
+    ("Heaviside step pA=5e4",    dict(wave_type=3, pA=5e4, TW=3e-5),           "ref_heav_pA50.csv"),
+    ("histotripsy pulse",        dict(wave_type=2, pA=1e5, omega=2*np.pi/2e-5, DT=3e-5, mn=2), "ref_histo.csv"),
+    ("vapor=1 (T=298.15K)",      dict(vapor=1, T8=298.15),                     "ref_vapor.csv"),
 ]:
     ml = np.loadtxt(f"{_d}/{ref}")
     py = imr_fast.simulate(_t, _R0, _R0/6, 2500., 0.1, **kw)

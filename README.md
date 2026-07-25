@@ -31,13 +31,13 @@ configuration it was built for:
 |---|---|
 | `radial` | **1** Rayleigh–Plesset, **2** Keller–Miksis (pressure form) |
 | `bubtherm` | 0 — polytropic, κ=1.4 (no thermal PDE) |
-| `masstrans`, `vapor` | 0 |
-| `wave_type`, `pA` | 0 — free collapse, no acoustic forcing |
+| `masstrans` | 0 |
+| `vapor` | **0 or 1** (saturation pressure at `T8`) |
+| `wave_type` | **0** constant offset, **1** Gaussian, **2** histotripsy, **3** Heaviside step (`pA`, `TW`, `DT`, `omega`, `mn`) |
 | `stress` | **1** neo-Hookean KV, **2** quadratic KV (`alphax`), **3** linear Maxwell/Jeffreys/Zener, **5** UCM/Oldroyd-B |
 
 **It will silently give wrong answers outside this scope** — Gilmore, thermal
-PDE, mass transfer, vapor, acoustic forcing, PTT, or Giesekus. Re-validate before
-extending.
+PDE, mass transfer, PTT, or Giesekus. Re-validate before extending.
 
 `collapse=1` (shooting-computed initial stress) is **not** implemented; runs start
 from an unstressed state (`Szero=0`).
@@ -54,6 +54,9 @@ Against IMRv2 reference trajectories:
 | UCM–Oldroyd-B (`stress=5`), De = 0.5 / 2.0 | 2.2e-05 / 6.2e-05 |
 | Keller–Miksis (`radial=2`) + NHKV | 8.6e-06 |
 | Keller–Miksis (`radial=2`) + Zener | 2.3e-05 |
+| Gaussian forcing, pA = 5e4 / 2e5 Pa | 1.2e-05 / 1.1e-05 |
+| constant-offset / Heaviside / histotripsy forcing | 3.6e-05 / 1.4e-05 / 1.1e-05 |
+| `vapor=1` (saturation pressure at 298.15 K) | 1.5e-05 |
 
 Deviations are at integrator-tolerance level, not model error.
 

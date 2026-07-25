@@ -44,6 +44,8 @@ for lab, kw, ref in [
     ("masstrans=1 (vapor transfer)", dict(bubtherm=1, vapor=1, masstrans=1, Nt=25), "ref_masstrans.csv"),
     ("masstrans=1+medtherm=1 (coupled)", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=25, Mt=25),
                                                                                "ref_masstrans_medtherm.csv"),
+    ("stress=0 (no stress)",     dict(stress=0),                                                "ref_stress0.csv"),
+    ("stress=4 (qKV Zener)",     dict(stress=4, lam1=2.0*_t0, lam2=0.4*_t0, alphax=0.25),        "ref_stress4.csv"),
 ]:
     ml = np.loadtxt(f"{_d}/{ref}")
     py = imr_fast.simulate(_t, _R0, _R0/6, 2500., 0.1, **kw)

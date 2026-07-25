@@ -6,9 +6,12 @@ Covers:
            medtherm 0 or 1 (liquid boundary layer, requires bubtherm=1)
            masstrans 0 or 1 (vapor mass transfer, requires bubtherm=1 and
                              vapor=1; may be combined with medtherm=1)
-  stress   1 (neo-Hookean Kelvin-Voigt)
+  stress   0 (no stress)
+           1 (neo-Hookean Kelvin-Voigt)
            2 (quadratic Kelvin-Voigt, strain-stiffening, alphax)
            3 (linear Maxwell / Jeffreys / Zener, 1 internal variable)
+           4 (linear Maxwell / Jeffreys / Zener, quadratic KV elastic term,
+              1 internal variable -- stress=3's counterpart to stress=2)
            5 (UCM / Oldroyd-B, 2 internal variables)
   forcing  wave_type 0 (constant offset), 1 (Gaussian), 2 (histotripsy),
            3 (Heaviside step); pA = amplitude
@@ -172,6 +175,8 @@ def _stress(stress, p, R, Rd, Z):
     """Return (S, Sdot, dZdt) matching f_stress.m."""
     Rst = p['req'] / R
     Ca, Re8, De, LAM, ax = p['Ca'], p['Re8'], p['De'], p['LAM'], p['alphax']
+    if stress == 0:                                     # no stress
+        return 0.0, 0.0, None
     if stress == 1:                                     # neo-Hookean KV
         S = -(5 - 4 * Rst - Rst ** 4) / (2 * Ca) - 4.0 / Re8 * Rd / R
         Sdot = -2 * Rd / R * (Rst + Rst ** 4) / Ca + 4.0 / Re8 * (Rd / R) ** 2
@@ -190,6 +195,16 @@ def _stress(stress, p, R, Rd, Z):
         Ze = -0.5 * (R ** 3 / Ca) * (5 - Rst ** 4 - 4 * Rst)
         Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R ** 2 * Rd
         Sdot = Z1d / R ** 3 - 3 * Rd / R ** 4 * Z1 + 4 * LAM / Re8 * (Rd / R) ** 2
+        return S, Sdot, np.array([Z1d])
+    if stress == 4:                                     # Zener / Jeffreys / Maxwell, quadratic KV
+        Z1 = Z[0]
+        S = Z1 / R ** 3 - 4 * LAM / Re8 * Rd / R
+        strainhard = (3 * ax - 1) / (2 * Ca)
+        Ze = R ** 3 * (strainhard * (5 - Rst ** 4 - 4 * Rst)
+                       + (2 * ax / Ca) * (0.675 + 0.125 * Rst ** 8
+                                          + 0.2 * Rst ** 5 + Rst ** 2 - 2 / Rst))
+        Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R ** 2 * Rd
+        Sdot = Z1d / R ** 3 - 3 * Rd / R ** 4 * Z1 + 4 * LAM / Re8 * Rd ** 2 / R ** 2
         return S, Sdot, np.array([Z1d])
     if stress == 5:                                     # UCM / Oldroyd-B
         Z1, Z2 = Z[0], Z[1]
@@ -225,7 +240,7 @@ def _pinf(tn, p):
 
 def _nZ(stress):
     """Number of internal stress variables."""
-    return {1: 0, 2: 0, 3: 1, 5: 2}[stress]
+    return {0: 0, 1: 0, 2: 0, 3: 1, 4: 1, 5: 2}[stress]
 
 
 def _JdotA(stress, p):

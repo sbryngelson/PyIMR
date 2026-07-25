@@ -1,77 +1,120 @@
-"""Fast Python IMR simulator — narrow slice of IMRv2 (radial=1 RP, bubtherm=0
-polytropic, no vapor/mass-transfer/forcing), stress=1 (NHKV) and stress=3 (Zener/SLS).
+"""Fast Python IMR solver -- a validated slice of IMRv2.
+
+Covers:
+  radial   1 (Rayleigh-Plesset), 2 (Keller-Miksis, pressure form)
+  bubtherm 0 (polytropic, kappa)     masstrans/vapor 0
+  stress   1 (neo-Hookean Kelvin-Voigt)
+           2 (quadratic Kelvin-Voigt, strain-stiffening, alphax)
+           3 (linear Maxwell / Jeffreys / Zener, 1 internal variable)
+           5 (UCM / Oldroyd-B, 2 internal variables)
+  forcing  none (free collapse)
+
 Equations transcribed from IMRv2/src/{f_radial_eq,f_stress,f_call_params}.m.
-MUST be validated against MATLAB output before use (see validate())."""
+Validated against IMRv2 reference trajectories -- see tests/run_validation.py.
+NOT valid outside the above (Gilmore, thermal PDE, mass transfer, vapor,
+acoustic forcing, PTT, Giesekus). Re-validate before extending.
+"""
 import numpy as np
 from scipy.integrate import solve_ivp
 
-P8=101325.0; RHO=1064.0; SURF=0.07; KAPPA=1.4
+P8 = 101325.0      # far-field pressure (Pa)
+RHO = 1064.0       # far-field density (kg/m^3)
+SURF = 0.07        # surface tension (N/m)
+KAPPA = 1.4        # polytropic exponent
+C8 = 1484.0        # far-field sound speed (m/s)
 
-def params(R0,Req,G,mu,lam1=0.0,lam2=0.0):
-    Uc=np.sqrt(P8/RHO); t0=R0/Uc
-    Ca=P8/G if G>0 else np.inf
-    Re8=P8*R0/(mu*Uc)
-    We=P8*R0/(2*SURF); iWe=1.0/We
-    req=Req/R0
-    P0=(P8+2*SURF/Req)*(Req/R0)**(3*KAPPA)          # polytropic branch
-    Pb=P0/P8
-    De=lam1*Uc/R0 if lam1>0 else 0.0
-    LAM=(lam2/lam1) if lam1>0 else 0.0
-    return dict(t0=t0,Ca=Ca,Re8=Re8,iWe=iWe,req=req,Pb=Pb,De=De,LAM=LAM)
 
-def _rhs(t,y,p,stress):
-    R,Rd=y[0],y[1]; R=max(R,1e-8)
-    Rst=p['req']/R
-    P=p['Pb']*R**(-3*KAPPA)
-    if stress==1:
-        S=-(5-4*Rst-Rst**4)/(2*p['Ca'])-4.0/p['Re8']*Rd/R
-        Rdd=(P-1-p['iWe']/R+S-1.5*Rd**2)/R
-        return [Rd,Rdd]
+def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25):
+    """Nondimensional groups, matching f_call_params.m."""
+    Uc = np.sqrt(P8 / RHO)
+    t0 = R0 / Uc
+    Ca = P8 / G if G > 0 else np.inf
+    Re8 = P8 * R0 / (mu * Uc)
+    We = P8 * R0 / (2 * SURF)
+    P0 = (P8 + 2 * SURF / Req) * (Req / R0) ** (3 * KAPPA)
+    return dict(t0=t0, Ca=Ca, Re8=Re8, iWe=1.0 / We, req=Req / R0, Pb=P0 / P8,
+                De=(lam1 * Uc / R0 if lam1 > 0 else 0.0),
+                LAM=(lam2 / lam1 if lam1 > 0 else 0.0),
+                Cstar=C8 / Uc, alphax=alphax)
+
+
+def _stress(stress, p, R, Rd, Z):
+    """Return (S, Sdot, dZdt) matching f_stress.m."""
+    Rst = p['req'] / R
+    Ca, Re8, De, LAM, ax = p['Ca'], p['Re8'], p['De'], p['LAM'], p['alphax']
+    if stress == 1:                                     # neo-Hookean KV
+        S = -(5 - 4 * Rst - Rst ** 4) / (2 * Ca) - 4.0 / Re8 * Rd / R
+        Sdot = -2 * Rd / R * (Rst + Rst ** 4) / Ca + 4.0 / Re8 * (Rd / R) ** 2
+        return S, Sdot, None
+    if stress == 2:                                     # quadratic KV
+        S = ((3 * ax - 1) * (5 - Rst ** 4 - 4 * Rst) / (2 * Ca)
+             - 4.0 / Re8 * Rd / R
+             + (2 * ax / Ca) * (27 / 40 + Rst ** 8 / 8 + Rst ** 5 / 5 + Rst ** 2 - 2 / Rst))
+        Sdot = ((Rd / R) * ((3 * ax - 1) / (2 * Ca)) * (4 * Rst ** 4 + 4 * Rst)
+                + 4 * (Rd / R) ** 2 / Re8
+                - 2 * ax / Ca * Rd / R * (Rst ** 8 + Rst ** 5 + 2 * Rst ** 2 + 2 / Rst))
+        return S, Sdot, None
+    if stress == 3:                                     # Zener / Jeffreys / Maxwell
+        Z1 = Z[0]
+        S = Z1 / R ** 3 - 4 * LAM / Re8 * Rd / R
+        Ze = -0.5 * (R ** 3 / Ca) * (5 - Rst ** 4 - 4 * Rst)
+        Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R ** 2 * Rd
+        Sdot = Z1d / R ** 3 - 3 * Rd / R ** 4 * Z1 + 4 * LAM / Re8 * (Rd / R) ** 2
+        return S, Sdot, np.array([Z1d])
+    if stress == 5:                                     # UCM / Oldroyd-B
+        Z1, Z2 = Z[0], Z[1]
+        Z1d = -(1 / De - 2 * Rd / R) * Z1 + 2 * (LAM - 1) / (Re8 * De) * R ** 2 * Rd
+        Z2d = -(1 / De + Rd / R) * Z2 + 2 * (LAM - 1) / (Re8 * De) * R ** 2 * Rd
+        S = (Z1 + Z2) / R ** 3 - 4 * LAM / Re8 * Rd / R
+        Sdot = ((Z1d + Z2d) / R ** 3 - 3 * Rd / R ** 4 * (Z1 + Z2)
+                + 4 * LAM / Re8 * Rd ** 2 / R ** 2)
+        return S, Sdot, np.array([Z1d, Z2d])
+    raise ValueError(f"stress={stress} not supported")
+
+
+def _nZ(stress):
+    """Number of internal stress variables."""
+    return {1: 0, 2: 0, 3: 1, 5: 2}[stress]
+
+
+def _JdotA(stress, p):
+    """f_call_params.m: 4/Re8 for stress 1-4, 4*LAM/Re8 for stress 5-6."""
+    return 4.0 / p['Re8'] if stress in (1, 2, 3, 4) else 4.0 * p['LAM'] / p['Re8']
+
+
+def _rhs(_t, y, p, stress, radial):
+    R = max(y[0], 1e-8)
+    Rd = y[1]
+    Z = y[2:] if _nZ(stress) else None
+    S, Sdot, dZ = _stress(stress, p, R, Rd, Z)
+    P = p['Pb'] * R ** (-3 * KAPPA)
+    iWe = p['iWe']
+    if radial == 1:                                     # Rayleigh-Plesset
+        Rdd = (P - 1 - iWe / R + S - 1.5 * Rd ** 2) / R
+    elif radial == 2:                                   # Keller-Miksis (pressure form)
+        Cs = p['Cstar']
+        Pdot = -3 * KAPPA * p['Pb'] * R ** (-3 * KAPPA - 1) * Rd
+        num = ((1 + Rd / Cs) * (P - 1 - iWe / R + S)
+               + R / Cs * (Pdot + iWe * Rd / R ** 2 + Sdot)
+               - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
+        den = (1 - Rd / Cs) * R + _JdotA(stress, p) / Cs
+        Rdd = num / den
     else:
-        Z1=y[2]
-        S=Z1/R**3-4*p['LAM']/p['Re8']*Rd/R
-        Ze=-0.5*(R**3/p['Ca'])*(5-Rst**4-4*Rst)
-        Z1d=-(Z1-Ze)/p['De']+4*(p['LAM']-1)/(p['Re8']*p['De'])*R**2*Rd
-        Rdd=(P-1-p['iWe']/R+S-1.5*Rd**2)/R
-        return [Rd,Rdd,Z1d]
+        raise ValueError(f"radial={radial} not supported")
+    out = [Rd, Rdd]
+    if dZ is not None:
+        out.extend(dZ.tolist())
+    return out
 
-def simulate(tv,R0,Req,G,mu,stress=1,lam1=0.0,lam2=0.0,rtol=1e-8,atol=1e-10):
-    p=params(R0,Req,G,mu,lam1,lam2)
-    tn=np.asarray(tv)/p['t0']
-    y0=[1.0,0.0] if stress==1 else [1.0,0.0,0.0]
-    s=solve_ivp(_rhs,(tn[0],tn[-1]),y0,t_eval=tn,args=(p,stress),
-                method='LSODA',rtol=rtol,atol=atol)
-    if not s.success or s.y.shape[1]!=len(tn): return np.full(len(tn),np.nan)
+
+def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
+             radial=1, rtol=1e-8, atol=1e-10):
+    """Bubble radius R(t)/R0 at times tv (seconds). Returns NaN array on failure."""
+    p = params(R0, Req, G, mu, lam1, lam2, alphax)
+    tn = np.asarray(tv) / p['t0']
+    y0 = [1.0, 0.0] + [0.0] * _nZ(stress)
+    s = solve_ivp(_rhs, (tn[0], tn[-1]), y0, t_eval=tn, args=(p, stress, radial),
+                  method='LSODA', rtol=rtol, atol=atol)
+    if not s.success or s.y.shape[1] != len(tn):
+        return np.full(len(tn), np.nan)
     return s.y[0]
-
-def validate(refdir='tests'):
-    """compare against saved MATLAB trajectories"""
-    R0=225e-6; Uc=np.sqrt(P8/RHO); t0=R0/Uc
-    t=np.loadtxt(f'{refdir}/imr2_t.csv'); A=np.loadtxt(f'{refdir}/imr2_s06.csv',delimiter=',')
-    Gg=np.loadtxt(f'{refdir}/imr2_G.csv'); Mg=np.loadtxt(f'{refdir}/imr2_M.csv')
-    out=[]
-    # (a) Zener truth: De=2 -> lam1=2*t0, lam2=0.2*lam1, G=2500, mu=0.1, s=6
-    ml=A[:,0]; py=simulate(t,R0,R0/6,2500.,0.1,stress=3,lam1=2*t0,lam2=0.4*t0)
-    out.append(('Zener truth De=2 s=6',ml,py))
-    # (b) NHKV at 3 grid points
-    for k in [0, 30, len(Gg)*len(Mg)-1]:
-        gi,mi=k//len(Mg),k%len(Mg)
-        ml=A[:,1+k]; py=simulate(t,R0,R0/6,Gg[gi],Mg[mi],stress=1)
-        out.append((f'NHKV G={Gg[gi]:.0f} mu={Mg[mi]:.4f}',ml,py))
-    print(f"{'case':34s} {'max|dR|':>10} {'RMS dR':>10} {'verdict':>10}")
-    ok=True
-    for lab,ml,py in out:
-        d=np.abs(ml-py); mx,rms=np.nanmax(d),np.sqrt(np.nanmean(d**2))
-        v='PASS' if mx<2e-3 else 'FAIL'; ok&=(mx<2e-3)
-        print(f"{lab:34s} {mx:>10.2e} {rms:>10.2e} {v:>10}")
-    return ok
-
-if __name__=='__main__':
-    import time
-    ok=validate()
-    t=np.loadtxt(f'{refdir}/imr2_t.csv'); R0=225e-6
-    n=20; st=time.time()
-    for _ in range(n): simulate(t,R0,R0/6,600.,0.02,stress=1)
-    dt=(time.time()-st)/n
-    print(f"\nspeed: {dt*1000:.1f} ms/solve  ({1/dt:.0f} solves/s)  vs MATLAB ~400-1000 ms")
-    print("VALIDATION", "PASSED" if ok else "FAILED")

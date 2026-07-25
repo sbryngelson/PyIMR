@@ -7,7 +7,36 @@ from imr_fast import params
 
 fail = 0
 print("="*64); print("1. FORWARD SOLVER vs IMRv2 reference trajectories"); print("="*64)
-if not imr_fast.validate(refdir=os.path.dirname(os.path.abspath(__file__))): fail += 1
+_d = os.path.dirname(os.path.abspath(__file__))
+_R0 = 225e-6; _t0 = _R0/np.sqrt(101325/1064)
+_t2 = np.loadtxt(f"{_d}/imr2_t.csv"); _A = np.loadtxt(f"{_d}/imr2_s06.csv", delimiter=',')
+_Gg = np.loadtxt(f"{_d}/imr2_G.csv"); _Mg = np.loadtxt(f"{_d}/imr2_M.csv")
+_checks = [("Zener truth De=2 s=6",
+            imr_fast.simulate(_t2,_R0,_R0/6,2500.,.1,stress=3,lam1=2*_t0,lam2=.4*_t0), _A[:,0])]
+for _k in [0, 30, len(_Gg)*len(_Mg)-1]:
+    _gi,_mi = _k//len(_Mg), _k % len(_Mg)
+    _checks.append((f"NHKV G={_Gg[_gi]:.0f} mu={_Mg[_mi]:.4f}",
+                    imr_fast.simulate(_t2,_R0,_R0/6,_Gg[_gi],_Mg[_mi],stress=1), _A[:,1+_k]))
+for _lab,_py,_ml in _checks:
+    _mx = np.nanmax(np.abs(_ml-_py)); _ok = _mx < 2e-3; fail += (not _ok)
+    print(f"    {_lab:30s} max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+
+print("\n"+"="*64); print("1b. EXTENDED FEATURES vs IMRv2 references"); print("="*64)
+_d = os.path.dirname(os.path.abspath(__file__))
+_R0=225e-6; _t0=_R0/np.sqrt(101325/1064)
+_t = np.loadtxt(f"{_d}/ref_t.csv")
+for lab, kw, ref in [
+    ("qKV alphax=0.10",      dict(stress=2, alphax=0.10),                          "ref_qkv_a010.csv"),
+    ("qKV alphax=0.25",      dict(stress=2, alphax=0.25),                          "ref_qkv_a025.csv"),
+    ("UCM/OldB De=0.5",      dict(stress=5, lam1=0.5*_t0, lam2=0.1*_t0),           "ref_ucm_De005.csv"),
+    ("UCM/OldB De=2.0",      dict(stress=5, lam1=2.0*_t0, lam2=0.4*_t0),           "ref_ucm_De020.csv"),
+    ("Keller-Miksis NHKV",   dict(stress=1, radial=2),                             "ref_km_nhkv.csv"),
+    ("Keller-Miksis Zener",  dict(stress=3, radial=2, lam1=2.0*_t0, lam2=0.4*_t0), "ref_km_zener.csv"),
+]:
+    ml = np.loadtxt(f"{_d}/{ref}")
+    py = imr_fast.simulate(_t, _R0, _R0/6, 2500., 0.1, **kw)
+    mx = np.nanmax(np.abs(ml-py)); ok = mx < 2e-3; fail += (not ok)
+    print(f"    {lab:24s} max|dR|={mx:.2e}  {'PASS' if ok else 'FAIL'}")
 
 print("\n"+"="*64); print("2. CONSTITUTIVE SUITE"); print("="*64)
 G = Req = 1.0

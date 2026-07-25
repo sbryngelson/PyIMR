@@ -29,15 +29,15 @@ configuration it was built for:
 
 | option | setting |
 |---|---|
-| `radial` | 1 — Rayleigh–Plesset (no Keller–Miksis / Gilmore) |
+| `radial` | **1** Rayleigh–Plesset, **2** Keller–Miksis (pressure form) |
 | `bubtherm` | 0 — polytropic, κ=1.4 (no thermal PDE) |
 | `masstrans`, `vapor` | 0 |
 | `wave_type`, `pA` | 0 — free collapse, no acoustic forcing |
-| `stress` | 1 (neo-Hookean Kelvin–Voigt), 3 (linear Maxwell / Jeffreys / Zener) |
+| `stress` | **1** neo-Hookean KV, **2** quadratic KV (`alphax`), **3** linear Maxwell/Jeffreys/Zener, **5** UCM/Oldroyd-B |
 
-**It will silently give wrong answers outside this scope** — Keller–Miksis,
-thermal effects, mass transfer, vapor, acoustic forcing, qKV (`stress=2`), or
-UCM/Oldroyd-B (`stress=5`). Re-validate before extending.
+**It will silently give wrong answers outside this scope** — Gilmore, thermal
+PDE, mass transfer, vapor, acoustic forcing, PTT, or Giesekus. Re-validate before
+extending.
 
 `collapse=1` (shooting-computed initial stress) is **not** implemented; runs start
 from an unstressed state (`Szero=0`).
@@ -50,6 +50,10 @@ Against IMRv2 reference trajectories:
 |---|---|
 | Zener truth, De=2, stretch 6 | 2.6e-05 |
 | NHKV across (G, µ) grid | 2.5e-05 – 6.3e-05 |
+| qKV (`stress=2`), alphax = 0.10 / 0.25 | 9.1e-06 / 1.7e-05 |
+| UCM–Oldroyd-B (`stress=5`), De = 0.5 / 2.0 | 2.2e-05 / 6.2e-05 |
+| Keller–Miksis (`radial=2`) + NHKV | 8.6e-06 |
+| Keller–Miksis (`radial=2`) + Zener | 2.3e-05 |
 
 Deviations are at integrator-tolerance level, not model error.
 

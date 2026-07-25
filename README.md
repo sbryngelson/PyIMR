@@ -39,8 +39,37 @@ configuration it was built for:
 **It will silently give wrong answers outside this scope** — Gilmore, thermal
 PDE, mass transfer, PTT, or Giesekus. Re-validate before extending.
 
-`collapse=1` (shooting-computed initial stress) is **not** implemented; runs start
-from an unstressed state (`Szero=0`).
+## Deliberate scope: ODE integrators only
+
+Everything here is a **system of ODEs** — Rayleigh–Plesset or Keller–Miksis for the
+wall motion, plus internal stress variables for the memory models. That is what
+makes it fast, and what makes exact forward-sensitivity gradients practical.
+
+**Out of scope by design:** models requiring spatial discretization inside the
+bubble or the surrounding medium — the thermal PDE (`bubtherm=1`, `medtherm=1`)
+and mass transfer (`masstrans=1`). These are a different class of solver, and
+adding them would sacrifice both the speed and the gradient machinery that are the
+point of this package. Use IMRv2 for those.
+
+Two consequences worth knowing:
+
+- **`collapse=1`** (shooting-computed initial stress) is **not** implemented, and
+  cannot be added in isolation: IMRv2 requires `bubtherm=1`, `medtherm=1`,
+  `masstrans=1` *and* `vapor=1` before it will accept `collapse=1`, so there is no
+  way to validate a standalone implementation. Runs here start from an unstressed
+  state (`Szero=0`). If your problem has a relaxation time comparable to or longer
+  than the observation window, that initial condition matters — check it.
+- **PTT and Giesekus** are not implemented. They are named in IMRv2's comments and
+  `f_display.m`, but no stress kernel exists for them in the source, so there is no
+  reference trajectory to validate against. Adding them would mean shipping
+  unvalidated code, which defeats the purpose of this repo.
+
+### Note on the upstream reference
+
+`IMRv2/src/f_init_stress.m` line 44 uses a variable `z1` that is never defined in
+that file. It sits in the `De == 0 || De == Inf` branch, which is unreachable for
+the `stress=3,4` cases that actually call the function — so it is a latent bug in
+dead code rather than an active one, but it is worth reporting upstream.
 
 ## Validation status
 

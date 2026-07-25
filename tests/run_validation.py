@@ -42,6 +42,8 @@ for lab, kw, ref in [
     ("bubtherm=1 (thermal PDE)", dict(bubtherm=1, Nt=25),                      "ref_bubtherm.csv"),
     ("medtherm=1 (liquid layer)", dict(bubtherm=1, medtherm=1, Nt=25, Mt=25),  "ref_medtherm.csv"),
     ("masstrans=1 (vapor transfer)", dict(bubtherm=1, vapor=1, masstrans=1, Nt=25), "ref_masstrans.csv"),
+    ("masstrans=1+medtherm=1 (coupled)", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=25, Mt=25),
+                                                                               "ref_masstrans_medtherm.csv"),
 ]:
     ml = np.loadtxt(f"{_d}/{ref}")
     py = imr_fast.simulate(_t, _R0, _R0/6, 2500., 0.1, **kw)

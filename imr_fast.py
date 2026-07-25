@@ -5,7 +5,7 @@ Covers:
   bubtherm 0 (polytropic, kappa) or 1 (gas thermal PDE)
            medtherm 0 or 1 (liquid boundary layer, requires bubtherm=1)
            masstrans 0 or 1 (vapor mass transfer, requires bubtherm=1 and
-                             vapor=1; NOT yet supported together with medtherm=1)
+                             vapor=1; may be combined with medtherm=1)
   stress   1 (neo-Hookean Kelvin-Voigt)
            2 (quadratic Kelvin-Voigt, strain-stiffening, alphax)
            3 (linear Maxwell / Jeffreys / Zener, 1 internal variable)
@@ -50,11 +50,15 @@ thermal conductivity/diffusivity (kv-weighted gas/vapor), extra mass-transfer
 terms in Pdot/Uvel/thetadot, and a new kvdot equation. kv[-1] (the wall value)
 is set algebraically every RHS call via vapor-liquid equilibrium (_kv_of_T,
 f_kv_of_T.m) using T[-1] computed with the STALE (pre-update) kv[-1] --
-IMRv2's own one-step lag, replicated exactly, not reconciled. Only supported
-with medtherm=0 (theta[-1] then never evolves, so T[-1]===1 identically --
-no implicit solve needed); medtherm=1+masstrans=1 needs a separate, harder
-3-term coupled wall BC (f_bubble_wall_full_bc) not yet implemented. GRADIENTS
-NOT VALIDATED for masstrans=1 either.
+IMRv2's own one-step lag, replicated exactly, not reconciled. With medtherm=0,
+theta[-1] never evolves (frozen at its initial value), so T[-1]===1
+identically and no implicit solve is needed for the wall BC itself. With
+medtherm=1 also set, theta[-1] is instead solved via a 3-term coupled
+root-find (_wall_theta_bw_full, f_bubble_wall_full_bc) that additionally
+enforces vapor-mass-flux continuity (via a preliminary Clausius-Clapeyron
+kv estimate at the candidate wall temperature) alongside heat-flux
+continuity; alpha_m in that solve also uses the stale kv[-1], same lag.
+GRADIENTS NOT VALIDATED for masstrans=1 (with or without medtherm=1).
 
 NOT valid outside the above (Gilmore, PTT, Giesekus). Re-validate before
 extending.
@@ -263,6 +267,27 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
     return newton(resid, guess, tol=1e-13, maxiter=100)
 
 
+def _wall_theta_bw_full(guess, theta_tail, Tm_tail, kv_tail, kv_end_stale, P,
+                         alpha_v, alpha_g, T8, Rvg_ratio, Rva_diff, Rg_star,
+                         grad_Tm, grad_Trans, grad_C):
+    """Solve coupled heat-flux + vapor-mass-flux continuity at the wall for
+    theta[-1], f_bubble_wall_full_bc.m. alpha_m uses kv_end_stale (the raw,
+    pre-update kv[-1] state) -- the same one-step lag as _kv_of_T's own
+    caller, not reconciled/updated mid-solve. theta_tail/Tm_tail/kv_tail =
+    [x[-2], x[-3]] (0-indexed), matching MATLAB's end-1:-1:end-2."""
+    alpha_m = kv_end_stale * alpha_v + (1.0 - kv_end_stale) * alpha_g
+
+    def resid(theta_bw):
+        Tw = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_m)) / alpha_m
+        kvw = _kv_of_T(Tw, P, T8, Rvg_ratio)
+        lhs = grad_Tm[0] * Tw + grad_Tm[1] * Tm_tail[0] + grad_Tm[2] * Tm_tail[1]
+        rhs = grad_Trans[0] * theta_bw + grad_Trans[1] * theta_tail[0] + grad_Trans[2] * theta_tail[1]
+        scalar = P / ((kvw * Rva_diff + Rg_star) * (Tw * (1.0 - kvw)))
+        extra = scalar * (grad_C[0] * kvw + grad_C[1] * kv_tail[0] + grad_C[2] * kv_tail[1])
+        return lhs + rhs + extra
+    return newton(resid, guess, tol=1e-13, maxiter=100)
+
+
 def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
           medtherm=0, mt=None, masstrans=0):
     R = max(y[0], 1e-8)
@@ -282,11 +307,15 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         if masstrans:
             kv = y[idx:idx + Nt].copy()
             idx += Nt
-        # boundary condition evaluation, f_imr_fd.m order: solve BEFORE T/kv[-1].
-        # medtherm+masstrans coupled (f_bubble_wall_full_bc, 3-term residual)
-        # is a separate, not-yet-implemented increment -- simulate() rejects
-        # that combination before _rhs is ever called with both set.
-        if medtherm:
+        # boundary condition evaluation, f_imr_fd.m order: solve BEFORE T/kv[-1]
+        if medtherm and masstrans:
+            theta[-1] = _wall_theta_bw_full(
+                mt['wall_guess'][0], [theta[-2], theta[-3]], [Tm[1], Tm[2]],
+                [kv[-2], kv[-3]], kv[-1], P, p['alpha_v'], p['alpha_g'], p['T8'],
+                p['Rv_star'] / p['Rg_star'], p['Rv_star'] - p['Rg_star'], p['Rg_star'],
+                mt['grad_Tm'], mt['grad_Trans'], mt['grad_C'])
+            mt['wall_guess'][0] = theta[-1]
+        elif medtherm:
             theta[-1] = _wall_theta_bw(mt['wall_guess'][0], [theta[-2], theta[-3]],
                                         [Tm[1], Tm[2]], p['alpha_g'],
                                         mt['grad_Tm'], mt['grad_Trans'])
@@ -421,13 +450,10 @@ def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
     medtherm=1 (requires bubtherm=1): adds the liquid boundary layer, Mt
     exterior grid points. Gradients not validated for medtherm=1.
     masstrans=1 (requires bubtherm=1 and vapor=1): adds the wall vapor mass
-    fraction kv(y,t) field and its coupling into T/Pdot/Uvel/thetadot.
-    NOT YET SUPPORTED together with medtherm=1 (separate, harder coupled
-    wall BC -- f_bubble_wall_full_bc -- not yet implemented).
+    fraction kv(y,t) field and its coupling into T/Pdot/Uvel/thetadot. With
+    medtherm=1 also set, theta[-1] is solved via the coupled 3-term wall BC
+    (f_bubble_wall_full_bc) instead of the thermal-only one.
     """
-    if masstrans and medtherm:
-        raise NotImplementedError("masstrans=1 with medtherm=1 (coupled wall BC) "
-                                   "is not yet implemented")
     if masstrans and not vapor:
         raise ValueError("masstrans=1 requires vapor=1")
     if bubtherm and vapor and not masstrans:
@@ -460,10 +486,12 @@ def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
             deltaY = 1.0 / (Nt - 1)
             grad_Tm = 2 * p['chi'] * p['iota'] / deltaYm * coeff
             grad_Trans = -coeff * p['chi'] / deltaY
+            grad_C = -coeff * p['Fom'] * p['L_heat_star'] / deltaY
             mt = dict(Mt=Mt, xi=xi, yT=yT, yT2=yT2, yT3=yT3, iyT3=iyT3, iyT4=iyT4,
                       iyT6=iyT6, D1m=finite_diff_mat(Mt, 1, tm_check=1),
                       D2m=finite_diff_mat(Mt, 2, tm_check=1),
-                      grad_Tm=grad_Tm, grad_Trans=grad_Trans, wall_guess=[-1e-4])
+                      grad_Tm=grad_Tm, grad_Trans=grad_Trans, grad_C=grad_C,
+                      wall_guess=[-1e-4])
             y0 = y0 + [1.0] * Mt
         if masstrans:
             y0 = y0 + [p['kv0']] * Nt

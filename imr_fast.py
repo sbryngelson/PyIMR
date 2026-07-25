@@ -2,8 +2,10 @@
 
 Covers:
   radial   1 (Rayleigh-Plesset), 2 (Keller-Miksis, pressure form)
-  bubtherm 0 (polytropic, kappa) or 1 (gas thermal PDE, dry/vapor=0 only)
-           medtherm 0     masstrans 0     vapor 0 or 1
+  bubtherm 0 (polytropic, kappa) or 1 (gas thermal PDE)
+           medtherm 0 or 1 (liquid boundary layer, requires bubtherm=1)
+           masstrans 0 or 1 (vapor mass transfer, requires bubtherm=1 and
+                             vapor=1; NOT yet supported together with medtherm=1)
   stress   1 (neo-Hookean Kelvin-Voigt)
            2 (quadratic Kelvin-Voigt, strain-stiffening, alphax)
            3 (linear Maxwell / Jeffreys / Zener, 1 internal variable)
@@ -42,8 +44,20 @@ theta_bw_guess closure variable). GRADIENTS ARE NOT VALIDATED for medtherm=1:
 naive autodiff through the root-find would need the implicit function
 theorem, not attempted here.
 
-NOT valid outside the above (masstrans, Gilmore, PTT, Giesekus). Re-validate
-before extending.
+masstrans=1 (requires bubtherm=1, vapor=1) implements IMRv2's "if bubtherm &&
+masstrans" branch: a wall vapor mass fraction field kv(y,t), a mixture
+thermal conductivity/diffusivity (kv-weighted gas/vapor), extra mass-transfer
+terms in Pdot/Uvel/thetadot, and a new kvdot equation. kv[-1] (the wall value)
+is set algebraically every RHS call via vapor-liquid equilibrium (_kv_of_T,
+f_kv_of_T.m) using T[-1] computed with the STALE (pre-update) kv[-1] --
+IMRv2's own one-step lag, replicated exactly, not reconciled. Only supported
+with medtherm=0 (theta[-1] then never evolves, so T[-1]===1 identically --
+no implicit solve needed); medtherm=1+masstrans=1 needs a separate, harder
+3-term coupled wall BC (f_bubble_wall_full_bc) not yet implemented. GRADIENTS
+NOT VALIDATED for masstrans=1 either.
+
+NOT valid outside the above (Gilmore, PTT, Giesekus). Re-validate before
+extending.
 """
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -69,6 +83,13 @@ _KM = 0.55          # liquid thermal conductivity (W/m/K)
 _CP = 4.181e3        # liquid specific heat (J/kg/K)
 _LT = 2.0            # exterior-grid stretching length (default_case.m)
 
+# mass-transfer / vapor-species properties, IMRv2 defaults (default_case.m)
+_RU = 8.3144598      # universal gas constant (J/mol/K)
+_MWV = 18.01528e-3   # molar mass, water vapor (kg/mol)
+_MWG = 28.966e-3     # molar mass, non-condensible gas / air (kg/mol)
+_D0 = 24.2e-6        # binary (vapor-in-gas) diffusion coefficient (m^2/s)
+_LHEAT = 2264.76e3   # latent heat of vaporization (J/kg)
+
 
 def pvsat(T):
     """Saturation vapour pressure (Pa), f_pvsat.m."""
@@ -76,7 +97,8 @@ def pvsat(T):
 
 
 def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
-           pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0):
+           pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0,
+           masstrans=0):
     """Nondimensional groups, matching f_call_params.m.
 
     P0's exponent depends on bubtherm (f_call_params.m:158-163): 3*kappa
@@ -94,12 +116,15 @@ def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
     P0_exp = 3 if bubtherm else 3 * KAPPA
     P0 = (P8 + 2 * SURF / Req - Pv) * (Req / R0) ** P0_exp
     Pv_star = Pv / P8
+    Pb = P0 / P8 + Pv_star
     # thermal groups (f_call_params.m); cheap, computed unconditionally so
     # bubtherm=1 needs no separate params() path
     K8 = 0.5 * (_ATG * T8 + _BTG + _ATV * T8 + _BTV)
     chi = T8 * K8 / (P8 * R0 * Uc)
     alpha_g = _ATG * T8 / K8
     beta_g = _BTG / K8
+    alpha_v = _ATV * T8 / K8
+    beta_v = _BTV / K8
     # medium (liquid) thermal groups, f_call_params.m -- Dm=Km/(rho*Cp) is the
     # standard liquid thermal-diffusivity formula (confirmed from source, not
     # assumed); needed only when medtherm=1 but cheap to compute unconditionally
@@ -107,14 +132,36 @@ def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
     Foh = Dm / (Uc * R0)
     iota = _KM / (K8 * _LT)
     Br = Uc ** 2 / (_CP * T8)
+    # mass-transfer / vapor-species groups (f_call_params.m). kv0 (the initial/
+    # reference vapor mass fraction) is only physically meaningful for vapor=1
+    # (Pv_star>0) -- confirmed from source: with Pv_star=0 the mass-ratio
+    # formula below is a 0/0-type limit that IEEE arithmetic resolves to
+    # kv0=0, matching the dry-gas (bubtherm-only) case exactly.
+    Rv = _RU / _MWV
+    Rg = _RU / _MWG
+    Rnondim = P8 / (RHO * T8)
+    Rv_star = Rv / Rnondim
+    Rg_star = Rg / Rnondim
+    Fom = _D0 / (Uc * R0)
+    L_heat_star = _LHEAT / Uc ** 2
+    if masstrans and vapor == 0:
+        raise ValueError("masstrans=1 requires vapor=1 (kv0's formula is only "
+                          "physically meaningful with Pv_star>0)")
+    if Pv_star > 0:
+        kv0 = 1.0 / (1.0 + (Rv_star / Rg_star) * (Pb / Pv_star - 1.0))
+    else:
+        kv0 = 0.0
     return dict(t0=t0, Ca=Ca, Re8=Re8, iWe=1.0 / We, req=Req / R0,
-                Pb=P0 / P8 + Pv_star, Pv=Pv_star,
+                Pb=Pb, Pv=Pv_star, T8=T8,
                 De=(lam1 * Uc / R0 if lam1 > 0 else 0.0),
                 LAM=(lam2 / lam1 if lam1 > 0 else 0.0),
                 Cstar=C8 / Uc, alphax=alphax,
                 ee=pA / P8, om=omega * t0, tw=TW / t0, dt=DT / t0, mn=mn,
                 wave_type=wave_type, chi=chi, alpha_g=alpha_g, beta_g=beta_g,
-                Foh=Foh, iota=iota, Br=Br, Lt=_LT)
+                alpha_v=alpha_v, beta_v=beta_v,
+                Foh=Foh, iota=iota, Br=Br, Lt=_LT,
+                Rv_star=Rv_star, Rg_star=Rg_star, Fom=Fom,
+                L_heat_star=L_heat_star, kv0=kv0)
 
 
 def _stress(stress, p, R, Rd, Z):
@@ -198,6 +245,13 @@ def _dissipation(stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6):
     return base   # stress in {1, 3, 5}: identical to the base formula
 
 
+def _kv_of_T(Tw, P, T8, Rvg_ratio):
+    """Wall vapor mass fraction from vapor-liquid equilibrium, f_kv_of_T.m.
+    Tw is nondimensional; pvsat() takes a dimensional temperature."""
+    theta_var = Rvg_ratio * (P / (pvsat(Tw * T8) / P8) - 1.0)
+    return 1.0 / (1.0 + theta_var)
+
+
 def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
     """Solve heat-flux continuity at the wall for theta[-1], f_bubble_wall_thermal_bc.m.
     theta_tail = [theta[-2], theta[-3]], Tm_tail = [Tm[1], Tm[2]] (0-indexed)."""
@@ -210,24 +264,34 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
 
 
 def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
-          medtherm=0, mt=None):
+          medtherm=0, mt=None, masstrans=0):
     R = max(y[0], 1e-8)
     Rd = y[1]
     Pv = p['Pv']
 
+    kv = None
     if bubtherm:
         P = y[2]
         Nt = ygrid.size
         theta = y[3:3 + Nt].copy()
+        idx = 3 + Nt
+        Tm = None
         if medtherm:
-            Tm = y[3 + Nt:3 + Nt + mt['Mt']].copy()
+            Tm = y[idx:idx + mt['Mt']].copy()
+            idx += mt['Mt']
+        if masstrans:
+            kv = y[idx:idx + Nt].copy()
+            idx += Nt
+        # boundary condition evaluation, f_imr_fd.m order: solve BEFORE T/kv[-1].
+        # medtherm+masstrans coupled (f_bubble_wall_full_bc, 3-term residual)
+        # is a separate, not-yet-implemented increment -- simulate() rejects
+        # that combination before _rhs is ever called with both set.
+        if medtherm:
             theta[-1] = _wall_theta_bw(mt['wall_guess'][0], [theta[-2], theta[-3]],
                                         [Tm[1], Tm[2]], p['alpha_g'],
                                         mt['grad_Tm'], mt['grad_Trans'])
             mt['wall_guess'][0] = theta[-1]
-            Zstart = 3 + Nt + mt['Mt']
-        else:
-            Zstart = 3 + Nt
+        Zstart = idx
     else:
         P = (p['Pb'] - Pv) * R ** (-3 * KAPPA) + Pv          # f_imr_fd.m:412
         Zstart = 2
@@ -239,21 +303,58 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
     iWe = p['iWe']
 
     thetadot = None
+    kvdot = None
     if bubtherm:
-        # f_imr_fd.m, "elseif bubtherm" branch, kv0=0 (dry gas) simplification.
-        # Identical whether medtherm is on or off -- only theta[-1]'s VALUE
-        # differs (wall-BC solve above vs. frozen at its initial value).
         alpha_g, beta_g, chi = p['alpha_g'], p['beta_g'], p['chi']
-        T = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_g)) / alpha_g
-        dtheta = D1 @ theta
-        ddtheta = D2 @ theta
-        Pdot = 3.0 / R * (chi * (KAPPA - 1.0) * dtheta[-1] / R - KAPPA * P * Rd)
-        Uvel = (chi / R * (KAPPA - 1.0) * dtheta - ygrid * R * Pdot / 3.0) / (KAPPA * P)
-        Kstar = alpha_g * T + beta_g
-        diffusion = (chi * ddtheta / R ** 2 + Pdot) * (KAPOVER * Kstar * T / P)
-        advection = -dtheta * (Uvel - ygrid * Rd) / R
-        thetadot = advection + diffusion
-        thetadot[-1] = 0.0
+        if masstrans:
+            # f_imr_fd.m, "if bubtherm && masstrans" branch. T is computed with
+            # the STALE (pre-update) kv[-1] -- matches source order exactly
+            # (T computed once, THEN kv[-1] is freshly overwritten below); this
+            # one-step lag is IMRv2's own behavior, not reconciled/"fixed" here.
+            alpha_v, beta_v = p['alpha_v'], p['beta_v']
+            Rv_star, Rg_star = p['Rv_star'], p['Rg_star']
+            Rva_diff = Rv_star - Rg_star
+            Fom = p['Fom']
+            alpha_m = kv * alpha_v + (1.0 - kv) * alpha_g
+            T = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_m)) / alpha_m
+            kv[-1] = _kv_of_T(T[-1], P, p['T8'], Rv_star / Rg_star)
+            dtheta = D1 @ theta
+            ddtheta = D2 @ theta
+            dkv = D1 @ kv
+            ddkv = D2 @ kv
+            Rmix = kv * Rv_star + (1.0 - kv) * Rg_star
+            RDkv = (Rva_diff / Rmix) * dkv
+            Pdot = 3.0 / R * (chi * (KAPPA - 1.0) * dtheta[-1] / R - KAPPA * P * Rd
+                              + KAPPA * P * Fom * Rv_star * dkv[-1]
+                              / (T[-1] * R * Rmix[-1] * (1.0 - kv[-1])))
+            Uvel = ((chi / R * (KAPPA - 1.0) * dtheta - ygrid * R * Pdot / 3.0) / (KAPPA * P)
+                    + Fom / R * RDkv)
+            Kstar_g = alpha_g * T + beta_g
+            Kstar_v = alpha_v * T + beta_v
+            Kstar = kv * Kstar_v + (1.0 - kv) * Kstar_g
+            nonlinear_term = (chi * ddtheta / R ** 2 + Pdot) * (KAPOVER * Kstar * T / P)
+            advection_term = -dtheta * (Uvel - ygrid * Rd) / R
+            mass_diffusion = (Fom / R ** 2) * (Rva_diff / Rmix) * dkv * dtheta
+            thetadot = advection_term + nonlinear_term + mass_diffusion
+            thetadot[-1] = 0.0
+            nonlinear_diffusion = dkv * (dtheta / (np.sqrt(1.0 + 2.0 * alpha_m * theta) * T) + RDkv)
+            advection_term2 = (Uvel - Rd * ygrid) / R * dkv
+            kvdot = Fom / R ** 2 * (ddkv - nonlinear_diffusion) - advection_term2
+            kvdot[-1] = 0.0
+        else:
+            # f_imr_fd.m, "elseif bubtherm" branch, kv0=0 (dry gas) simplification.
+            # Identical whether medtherm is on or off -- only theta[-1]'s VALUE
+            # differs (wall-BC solve above vs. frozen at its initial value).
+            T = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_g)) / alpha_g
+            dtheta = D1 @ theta
+            ddtheta = D2 @ theta
+            Pdot = 3.0 / R * (chi * (KAPPA - 1.0) * dtheta[-1] / R - KAPPA * P * Rd)
+            Uvel = (chi / R * (KAPPA - 1.0) * dtheta - ygrid * R * Pdot / 3.0) / (KAPPA * P)
+            Kstar = alpha_g * T + beta_g
+            diffusion = (chi * ddtheta / R ** 2 + Pdot) * (KAPOVER * Kstar * T / P)
+            advection = -dtheta * (Uvel - ygrid * Rd) / R
+            thetadot = advection + diffusion
+            thetadot[-1] = 0.0
     else:
         Pdot = -3 * KAPPA * (p['Pb'] - Pv) * R ** (-3 * KAPPA - 1) * Rd
 
@@ -301,6 +402,8 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         out.extend(thetadot.tolist())
     if medtherm:
         out.extend(Tmdot.tolist())
+    if masstrans:
+        out.extend(kvdot.tolist())
     if dZ is not None:
         out.extend(dZ.tolist())
     return out
@@ -309,20 +412,32 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
 def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
              radial=1, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0,
              mn=0.0, wave_type=0, bubtherm=0, Nt=25, medtherm=0, Mt=25,
-             rtol=1e-8, atol=1e-10):
+             masstrans=0, rtol=1e-8, atol=1e-10):
     """Bubble radius R(t)/R0 at times tv (seconds). Returns NaN array on failure.
 
-    bubtherm=1: dry gas (vapor must be 0) thermal PDE -- see module docstring
-    for exact scope. Nt is the number of interior grid points.
+    bubtherm=1: dry gas (vapor=0) or, with masstrans=1, vapor-mass-transfer
+    thermal PDE -- see module docstring for exact scope. Nt is the number of
+    interior grid points.
     medtherm=1 (requires bubtherm=1): adds the liquid boundary layer, Mt
     exterior grid points. Gradients not validated for medtherm=1.
+    masstrans=1 (requires bubtherm=1 and vapor=1): adds the wall vapor mass
+    fraction kv(y,t) field and its coupling into T/Pdot/Uvel/thetadot.
+    NOT YET SUPPORTED together with medtherm=1 (separate, harder coupled
+    wall BC -- f_bubble_wall_full_bc -- not yet implemented).
     """
-    if bubtherm and vapor:
-        raise ValueError("bubtherm=1 currently requires vapor=0 (dry gas only)")
+    if masstrans and medtherm:
+        raise NotImplementedError("masstrans=1 with medtherm=1 (coupled wall BC) "
+                                   "is not yet implemented")
+    if masstrans and not vapor:
+        raise ValueError("masstrans=1 requires vapor=1")
+    if bubtherm and vapor and not masstrans:
+        raise ValueError("bubtherm=1 with vapor=1 currently requires masstrans=1")
     if medtherm and not bubtherm:
         raise ValueError("medtherm=1 requires bubtherm=1")
+    if masstrans and not bubtherm:
+        raise ValueError("masstrans=1 requires bubtherm=1")
     p = params(R0, Req, G, mu, lam1, lam2, alphax, vapor, T8,
-               pA, omega, TW, DT, mn, wave_type, bubtherm)
+               pA, omega, TW, DT, mn, wave_type, bubtherm, masstrans)
     tn = np.asarray(tv) / p['t0']
     if bubtherm:
         D1 = finite_diff_mat(Nt, 1, tm_check=0)
@@ -350,8 +465,10 @@ def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
                       D2m=finite_diff_mat(Mt, 2, tm_check=1),
                       grad_Tm=grad_Tm, grad_Trans=grad_Trans, wall_guess=[-1e-4])
             y0 = y0 + [1.0] * Mt
+        if masstrans:
+            y0 = y0 + [p['kv0']] * Nt
         y0 = y0 + [0.0] * _nZ(stress)
-        args = (p, stress, radial, 1, D1, D2, ygrid, medtherm, mt)
+        args = (p, stress, radial, 1, D1, D2, ygrid, medtherm, mt, masstrans)
     else:
         y0 = [1.0, 0.0] + [0.0] * _nZ(stress)
         args = (p, stress, radial)

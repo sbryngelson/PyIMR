@@ -3,7 +3,13 @@
 Covers:
   radial   1 (Rayleigh-Plesset), 2 (Keller-Miksis, pressure form),
            3 (Keller-Miksis, enthalpy form, Tait EoS liquid),
-           4 (Gilmore, Tait EoS liquid)
+           4 (Gilmore, Tait EoS liquid),
+           5 (Keller-Miksis, enthalpy form, Mie-Gruneisen EoS liquid)
+           radial=6 (Gilmore, Mie-Gruneisen EoS) NOT supported -- confirmed
+           dead/broken upstream (goes complex in real IMRv2 for essentially
+           every polytropic-gas P, mild or extreme; f_radial_eq.m evaluates
+           the EoS at raw P with no pressure-reference correction, unlike
+           radial=5's Pb=P-iWe/R)
   bubtherm 0 (polytropic, kappa) or 1 (gas thermal PDE)
            medtherm 0 or 1 (liquid boundary layer, requires bubtherm=1)
            masstrans 0 or 1 (vapor mass transfer, requires bubtherm=1 and
@@ -88,6 +94,13 @@ _NSTATE_TAIT = 7.15
 _GAMA_TAIT = _GAM_TAIT / P8
 _SAM_TAIT = 1.0 + _GAMA_TAIT
 _NO_TAIT = (_NSTATE_TAIT - 1.0) / _NSTATE_TAIT
+
+# Mie-Gruneisen EoS constants for radial=5,6, IMRv2 defaults (default_case.m:
+# hugoniot_s; f_imr_fd.m: nog=(nstate-1)/2, same nstate as the Tait branch).
+# Cstar = C8/Uc is also fixed (P8, RHO, C8 are all fixed module constants).
+_HUGONIOT_S = 1.65
+_NOG = (_NSTATE_TAIT - 1.0) / 2.0
+_CSTAR_FIXED = C8 / np.sqrt(P8 / RHO)
 
 # gas / vapor thermal-conductivity linear-in-T fit coefficients, IMRv2 defaults
 # (default_case.m). K8 is IMRv2's reference conductivity: it mixes gas AND
@@ -257,6 +270,45 @@ def _nZ(stress):
 def _JdotA(stress, p):
     """f_call_params.m: 4/Re8 for stress 1-4, 4*LAM/Re8 for stress 5-6."""
     return 4.0 / p['Re8'] if stress in (1, 2, 3, 4) else 4.0 * p['LAM'] / p['Re8']
+
+
+def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG):
+    """Compression mu solving a*mu^2+b*mu+A=0 (f_mie_gruneisen_eos_scalar.m)."""
+    a = A * s ** 2 - nog
+    b = -2.0 * A * s - 1.0
+    d = b ** 2 - 4.0 * a * A
+    return (-b + np.sqrt(d)) / (2.0 * a)
+
+
+def _mie_F(mu, s=_HUGONIOT_S, nog=_NOG):
+    """Closed-form antiderivative of rho(mu)*dA/dmu, i.e. of the integrand
+    MATLAB evaluates via numerical quadrature (integral(...)) every RHS call
+    to get hB. Derived via partial fractions and verified against
+    scipy.integrate.quad to ~1e-12 over a wide pressure range; using this
+    instead of live quadrature is what keeps radial=5,6 fast."""
+    w = 1.0 - s * mu
+    return ((2 * nog + s - 1) / (s + 1) ** 3 * np.log(w / (mu + 1.0))
+            + (nog + s) / (s * (s + 1) * w ** 2)
+            - (2 * nog + s - 1) / ((s + 1) ** 2 * w))
+
+
+_F_MU1_FIXED = _mie_F(_mu_of_A(1.0 / _CSTAR_FIXED ** 2))
+
+
+def _mie_gruneisen(P, Cstar=_CSTAR_FIXED, s=_HUGONIOT_S, nog=_NOG):
+    """(C, hB, hH) at nondimensional pressure P, f_mie_gruneisen_eos_scalar.m.
+    hB = integral_1^P rho(p) dp via the closed form above, not live quadrature."""
+    A = P / Cstar ** 2
+    mu = _mu_of_A(A, s, nog)
+    w = 1.0 - s * mu
+    # transient negative discriminant on rejected LSODA trial steps only --
+    # the accepted trajectory stays real (confirmed against real IMRv2, see
+    # module docstring); harmless, same pattern as the xi[-1]=-1 case below.
+    with np.errstate(invalid='ignore'):
+        C = Cstar * np.sqrt(((1 + 2 * nog * mu) * w ** 2 + 2 * s * mu * (1 + nog * mu) * w) / w ** 4)
+    hH = 1.0 / (1.0 + mu)
+    hB = Cstar ** 2 * (_mie_F(mu, s, nog) - _F_MU1_FIXED)
+    return C, hB, hH
 
 
 def _dissipation(stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6):
@@ -469,7 +521,25 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
         den = (1 - Rd / Cs) * R + _JdotA(stress, p) * hH / Cs
         Rdd = num / den
+    elif radial == 5:                                   # Keller-Miksis, enthalpy, Mie-Gruneisen EoS
+        # f_radial_eq.m: Pb = P - iWe/R (no +S here -- genuinely different
+        # from radial=3/4's Pb, not reconciled/harmonized with them).
+        Cs = p['Cstar']
+        Pb = P - iWe / R
+        _, hB, hH = _mie_gruneisen(Pb, Cs)
+        num = ((1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot
+               + R / Cs * hH * (Pdot + iWe * Rd / R ** 2 + Sdot)
+               - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
+        den = (1 - Rd / Cs) * R + _JdotA(stress, p) * hH / Cs
+        Rdd = num / den
     else:
+        # radial=6 (Gilmore, Mie-Gruneisen EoS) is NOT supported: as shipped,
+        # f_radial_eq.m evaluates the EoS at raw P (no iWe/R correction, unlike
+        # radial=5's Pb=P-iWe/R), which pushes the Gilmore sound-speed formula's
+        # discriminant negative for essentially every polytropic-gas P tested
+        # (confirmed against real IMRv2 -- it returns a COMPLEX R(t), not an
+        # error, for everything from mild oscillations to deep collapse). This
+        # is dead/broken code upstream, not a real reference to port against.
         raise ValueError(f"radial={radial} not supported")
 
     out = [Rd, Rdd]

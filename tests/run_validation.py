@@ -39,6 +39,7 @@ for lab, kw, ref in [
     ("Heaviside step pA=5e4",    dict(wave_type=3, pA=5e4, TW=3e-5),           "ref_heav_pA50.csv"),
     ("histotripsy pulse",        dict(wave_type=2, pA=1e5, omega=2*np.pi/2e-5, DT=3e-5, mn=2), "ref_histo.csv"),
     ("vapor=1 (T=298.15K)",      dict(vapor=1, T8=298.15),                     "ref_vapor.csv"),
+    ("bubtherm=1 (thermal PDE)", dict(bubtherm=1, Nt=25),                      "ref_bubtherm.csv"),
 ]:
     ml = np.loadtxt(f"{_d}/{ref}")
     py = imr_fast.simulate(_t, _R0, _R0/6, 2500., 0.1, **kw)

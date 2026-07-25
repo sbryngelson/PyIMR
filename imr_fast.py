@@ -2,7 +2,8 @@
 
 Covers:
   radial   1 (Rayleigh-Plesset), 2 (Keller-Miksis, pressure form)
-  bubtherm 0 (polytropic, kappa)     masstrans 0     vapor 0 or 1
+  bubtherm 0 (polytropic, kappa) or 1 (gas thermal PDE, dry/vapor=0 only)
+           medtherm 0     masstrans 0     vapor 0 or 1
   stress   1 (neo-Hookean Kelvin-Voigt)
            2 (quadratic Kelvin-Voigt, strain-stiffening, alphax)
            3 (linear Maxwell / Jeffreys / Zener, 1 internal variable)
@@ -10,19 +11,42 @@ Covers:
   forcing  wave_type 0 (constant offset), 1 (Gaussian), 2 (histotripsy),
            3 (Heaviside step); pA = amplitude
 
-Equations transcribed from IMRv2/src/{f_radial_eq,f_stress,f_call_params}.m.
-Validated against IMRv2 reference trajectories -- see tests/run_validation.py.
-NOT valid outside the above (Gilmore, thermal PDE, mass transfer, PTT,
-Giesekus). Re-validate before extending.
+Equations transcribed from IMRv2/src/{f_radial_eq,f_stress,f_call_params,
+f_imr_fd}.m. Validated against IMRv2 reference trajectories -- see
+tests/run_validation.py.
+
+KAPPA=1.4 is a fixed module constant (not exposed as a per-call override),
+matching what the reference trajectories were generated with; IMRv2's own
+shipped default is 1.47 (default_case.m), overridable via 'kappa' in
+varargin. Runs that need a different kappa are out of scope until this is
+exposed as a parameter.
+
+bubtherm=1 implements ONLY IMRv2's "elseif bubtherm" branch (f_imr_fd.m):
+gas-phase thermal PDE, isothermal-wall-equivalent clamp (thetadot[-1]=0,
+i.e. medtherm=0), dry gas (kv0=0, vapor=0). Its Pdot uses bare P (kappa*P),
+NOT (P-Pv) -- this is IMRv2's actual equation for this branch, not a
+simplification; the bubtherm=0 polytropic branch's Pdot uses (P-Pv) and the
+two are NOT reconciled/harmonized, since they are genuinely different
+equations in the source. NOT valid outside the above (medtherm, masstrans,
+Gilmore, PTT, Giesekus). Re-validate before extending.
 """
 import numpy as np
 from scipy.integrate import solve_ivp
+from thermal_fd import finite_diff_mat
 
 P8 = 101325.0      # far-field pressure (Pa)
 RHO = 1064.0       # far-field density (kg/m^3)
 SURF = 0.07        # surface tension (N/m)
-KAPPA = 1.4        # polytropic exponent
+KAPPA = 1.4        # polytropic exponent (see module docstring)
 C8 = 1484.0        # far-field sound speed (m/s)
+KAPOVER = (KAPPA - 1.0) / KAPPA
+
+# gas / vapor thermal-conductivity linear-in-T fit coefficients, IMRv2 defaults
+# (default_case.m). K8 is IMRv2's reference conductivity: it mixes gas AND
+# vapor coefficients even when vapor=0, because it is used purely as a
+# normalization constant, not a physical mixture average at a given state.
+_ATG, _BTG = 5.28e-5, 1.165e-2
+_ATV, _BTV = 3.30e-5, 1.742e-2
 
 
 def pvsat(T):
@@ -31,23 +55,37 @@ def pvsat(T):
 
 
 def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
-           pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0):
-    """Nondimensional groups, matching f_call_params.m."""
+           pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0):
+    """Nondimensional groups, matching f_call_params.m.
+
+    P0's exponent depends on bubtherm (f_call_params.m:158-163): 3*kappa
+    (polytropic/adiabatic initial-state assumption) when bubtherm==0, but
+    plain 3 (pure geometric volume relation) when bubtherm!=0 -- these are
+    NOT the same formula, and using the wrong one silently gives a P(0)
+    off by ~8.6x for these test parameters, not a subtle error.
+    """
     Uc = np.sqrt(P8 / RHO)
     t0 = R0 / Uc
     Ca = P8 / G if G > 0 else np.inf
     Re8 = P8 * R0 / (mu * Uc)
     We = P8 * R0 / (2 * SURF)
     Pv = vapor * pvsat(T8)
-    P0 = (P8 + 2 * SURF / Req - Pv) * (Req / R0) ** (3 * KAPPA)
+    P0_exp = 3 if bubtherm else 3 * KAPPA
+    P0 = (P8 + 2 * SURF / Req - Pv) * (Req / R0) ** P0_exp
     Pv_star = Pv / P8
+    # thermal groups (f_call_params.m); cheap, computed unconditionally so
+    # bubtherm=1 needs no separate params() path
+    K8 = 0.5 * (_ATG * T8 + _BTG + _ATV * T8 + _BTV)
+    chi = T8 * K8 / (P8 * R0 * Uc)
+    alpha_g = _ATG * T8 / K8
+    beta_g = _BTG / K8
     return dict(t0=t0, Ca=Ca, Re8=Re8, iWe=1.0 / We, req=Req / R0,
                 Pb=P0 / P8 + Pv_star, Pv=Pv_star,
                 De=(lam1 * Uc / R0 if lam1 > 0 else 0.0),
                 LAM=(lam2 / lam1 if lam1 > 0 else 0.0),
                 Cstar=C8 / Uc, alphax=alphax,
                 ee=pA / P8, om=omega * t0, tw=TW / t0, dt=DT / t0, mn=mn,
-                wave_type=wave_type)
+                wave_type=wave_type, chi=chi, alpha_g=alpha_g, beta_g=beta_g)
 
 
 def _stress(stress, p, R, Rd, Z):
@@ -115,20 +153,47 @@ def _JdotA(stress, p):
     return 4.0 / p['Re8'] if stress in (1, 2, 3, 4) else 4.0 * p['LAM'] / p['Re8']
 
 
-def _rhs(tn, y, p, stress, radial):
+def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None):
     R = max(y[0], 1e-8)
     Rd = y[1]
-    Z = y[2:] if _nZ(stress) else None
-    S, Sdot, dZ = _stress(stress, p, R, Rd, Z)
     Pv = p['Pv']
-    P = (p['Pb'] - Pv) * R ** (-3 * KAPPA) + Pv          # f_imr_fd.m:412
+
+    if bubtherm:
+        P = y[2]
+        Nt = ygrid.size
+        theta = y[3:3 + Nt]
+        Zstart = 3 + Nt
+    else:
+        P = (p['Pb'] - Pv) * R ** (-3 * KAPPA) + Pv          # f_imr_fd.m:412
+        Zstart = 2
+
+    nz = _nZ(stress)
+    Z = y[Zstart:Zstart + nz] if nz else None
+    S, Sdot, dZ = _stress(stress, p, R, Rd, Z)
     Pf8, Pf8dot = _pinf(tn, p)
     iWe = p['iWe']
+
+    thetadot = None
+    if bubtherm:
+        # f_imr_fd.m, "elseif bubtherm" branch, kv0=0 (dry gas) simplification
+        alpha_g, beta_g, chi = p['alpha_g'], p['beta_g'], p['chi']
+        T = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_g)) / alpha_g
+        dtheta = D1 @ theta
+        ddtheta = D2 @ theta
+        Pdot = 3.0 / R * (chi * (KAPPA - 1.0) * dtheta[-1] / R - KAPPA * P * Rd)
+        Uvel = (chi / R * (KAPPA - 1.0) * dtheta - ygrid * R * Pdot / 3.0) / (KAPPA * P)
+        Kstar = alpha_g * T + beta_g
+        diffusion = (chi * ddtheta / R ** 2 + Pdot) * (KAPOVER * Kstar * T / P)
+        advection = -dtheta * (Uvel - ygrid * Rd) / R
+        thetadot = advection + diffusion
+        thetadot[-1] = 0.0
+    else:
+        Pdot = -3 * KAPPA * (p['Pb'] - Pv) * R ** (-3 * KAPPA - 1) * Rd
+
     if radial == 1:                                     # Rayleigh-Plesset
         Rdd = (P - 1 - Pf8 - iWe / R + S - 1.5 * Rd ** 2) / R
     elif radial == 2:                                   # Keller-Miksis (pressure form)
         Cs = p['Cstar']
-        Pdot = -3 * KAPPA * (p['Pb'] - Pv) * R ** (-3 * KAPPA - 1) * Rd
         num = ((1 + Rd / Cs) * (P - 1 - Pf8 - iWe / R + S)
                + R / Cs * (Pdot + iWe * Rd / R ** 2 + Sdot - Pf8dot)
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
@@ -136,7 +201,11 @@ def _rhs(tn, y, p, stress, radial):
         Rdd = num / den
     else:
         raise ValueError(f"radial={radial} not supported")
+
     out = [Rd, Rdd]
+    if bubtherm:
+        out.append(Pdot)
+        out.extend(thetadot.tolist())
     if dZ is not None:
         out.extend(dZ.tolist())
     return out
@@ -144,13 +213,28 @@ def _rhs(tn, y, p, stress, radial):
 
 def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
              radial=1, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0,
-             mn=0.0, wave_type=0, rtol=1e-8, atol=1e-10):
-    """Bubble radius R(t)/R0 at times tv (seconds). Returns NaN array on failure."""
+             mn=0.0, wave_type=0, bubtherm=0, Nt=25, rtol=1e-8, atol=1e-10):
+    """Bubble radius R(t)/R0 at times tv (seconds). Returns NaN array on failure.
+
+    bubtherm=1: dry gas (vapor must be 0) thermal PDE -- see module docstring
+    for exact scope. Nt is the number of interior grid points.
+    """
+    if bubtherm and vapor:
+        raise ValueError("bubtherm=1 currently requires vapor=0 (dry gas only)")
     p = params(R0, Req, G, mu, lam1, lam2, alphax, vapor, T8,
-               pA, omega, TW, DT, mn, wave_type)
+               pA, omega, TW, DT, mn, wave_type, bubtherm)
     tn = np.asarray(tv) / p['t0']
-    y0 = [1.0, 0.0] + [0.0] * _nZ(stress)
-    s = solve_ivp(_rhs, (tn[0], tn[-1]), y0, t_eval=tn, args=(p, stress, radial),
+    if bubtherm:
+        D1 = finite_diff_mat(Nt, 1, tm_check=0)
+        D2 = finite_diff_mat(Nt, 2, tm_check=0)
+        ygrid = np.linspace(0.0, 1.0, Nt)
+        theta0 = [0.0] * Nt
+        y0 = [1.0, 0.0, p['Pb']] + theta0 + [0.0] * _nZ(stress)
+        args = (p, stress, radial, 1, D1, D2, ygrid)
+    else:
+        y0 = [1.0, 0.0] + [0.0] * _nZ(stress)
+        args = (p, stress, radial)
+    s = solve_ivp(_rhs, (tn[0], tn[-1]), y0, t_eval=tn, args=args,
                   method='LSODA', rtol=rtol, atol=atol)
     if not s.success or s.y.shape[1] != len(tn):
         return np.full(len(tn), np.nan)

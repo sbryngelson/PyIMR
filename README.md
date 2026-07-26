@@ -393,17 +393,24 @@ row of the first-derivative matrix rather than a hardcoded three-point
 stencil, which is what makes the wall closure work on a non-uniform grid.
 
 On the spherical Laplacian alone at `N = 17`, the Chebyshev operator errs by
-`1.9e-11` against `2.6e-02` for the finite-difference stencil. On the
-trajectory at `Nt = 25` the difference is smaller but still large -- `6.3e-04`
-against `2.6e-02`, about 41x -- and the finite-difference solve needs roughly
-`Nt = 800` to reach `1.3e-03`.
+`1.9e-11` against `2.6e-02` for the finite-difference stencil.
 
-Two honest caveats. The spectral trajectory plateaus near `2.7e-04` rather
-than continuing to machine precision, so something else in the coupled closure
-(most likely the implicit wall-temperature solve) becomes the limiting error
-once the spatial discretization stops dominating. And `thermal="fd"` remains
-the default, because it is what every pinned IMRv2 trajectory was generated
-against.
+On the trajectory, measure collapse depth and timing on an output grid fine
+enough to resolve the minimum. A coarse grid samples the sharp collapse at
+slightly different phases as the solution shifts, which produces an apparent
+error floor near `1e-04` that has nothing to do with the discretization:
+
+| | minimum radius | collapse time |
+|---|---:|---:|
+| spectral, `Nt = 25` | 4.4e-06 | 0.0005 ns |
+| finite difference, `Nt = 400` | 4.7e-06 | 0.0119 ns |
+
+**Spectral at 25 points matches or beats finite difference at 400** on both,
+and keeps converging -- there is no floor.
+
+`thermal="fd"` remains the default because it is what every pinned IMRv2
+trajectory was generated against; switching would invalidate the pinned
+suite.
 
 ## Trace estimators
 

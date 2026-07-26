@@ -39,8 +39,25 @@ def test_material_tangent_matches_centered_difference(radial, measured):
 
 
 def test_coupled_heat_mass_transfer_output_tangent(measured):
-  """Two orders looser than the mechanical tangents above, cause not yet
-  established -- tracked in issue #24."""
+  """Two orders looser than the mechanical tangents above. The cause is time
+  integration of the augmented state/tangent system, not an error in the
+  tangent equations -- issue #24, resolved.
+
+  The two measurements that separate those. The error is flat in the
+  finite-difference step across a 16x range (8.33e-05, 8.43e-05, 8.34e-05 at
+  h = 0.2, 0.05, 0.0125), which rules out truncation in the check; and it falls
+  by more than two orders at rtol=1e-12/atol=1e-14, which a defect in the
+  tangent equations would not do.
+
+  Step-independence alone is *not* enough to conclude the tangent is fine --
+  it is also the signature of a broken derivative, which is how #10's
+  Powell-Eyring defect and #43's spectral wall stencils both presented. The
+  tolerance response is what distinguishes them.
+
+  The tolerance here stays at 2e-3 rather than tightening to the measured
+  8e-05: it bounds the physical claim, and the achieved value is reported in
+  the measured-values table where a drift is visible without a failure.
+  """
   config = imr_fast.SimulationConfig(
     R0, REQ, NHKV, bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=7, Mt=7, rtol=1e-9, atol=1e-11
   )

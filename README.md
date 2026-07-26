@@ -354,6 +354,34 @@ gradients take about 1.9 times one prepared forward solve on the development
 machine. Thermal and sampled-forcing branches use the same forward-mode
 reference implementation and augmented sparse BDF structure where appropriate.
 
+### Gradient accuracy
+
+Tangent accuracy is not uniform across configurations, and the difference is
+large enough to matter for anything built on the gradients. Measured against
+centered differences on the production RHS:
+
+| configuration | relative error | limited by |
+|---|---|---|
+| mechanical, `radial = 1`–`5` | ~7e-07 | the finite-difference check |
+| coupled heat/mass transfer, `thermal = "spectral"` | ~5e-05 | time integration |
+| coupled heat/mass transfer, `thermal = "fd"` | ~8e-05 | time integration |
+
+The thermal tangents are **correct, not defective**: their error is flat in the
+finite-difference step across a 16x range, which rules out truncation in the
+check, and it falls by more than two orders when `rtol`/`atol` are tightened,
+which rules out an error in the tangent equations. What bounds them is the
+accuracy to which the augmented state/tangent system is integrated, so
+tightening to `rtol = 1e-12, atol = 1e-14` buys roughly two orders — at a large
+cost in runtime, since the coupled tangent solve is already the slowest thing
+in the package.
+
+The mechanical tangents show clean `h^2` convergence before reaching their
+noise floor; the thermal ones do not, because they are already at it.
+
+Gradient-based optimizers and Laplace/EIG calculations on coupled thermal
+models are therefore working with about four to five significant digits, not
+the seven the mechanical path gives.
+
 Prepared inference uses normalized bounded coordinates, dimensional Gaussian
 radius likelihoods, analytic sensitivity Jacobians, deterministic
 Latin-hypercube starts, and optional process-parallel batch evaluation:

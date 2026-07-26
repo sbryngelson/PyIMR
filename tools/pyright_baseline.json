@@ -1,0 +1,368 @@
+[
+  {
+    "file": "_imr_prepare.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"csr_array | None\" cannot be assigned to parameter \"jacobian_sparsity\" of type \"csr_matrix | None\" in function \"__init__\" Type \"csr_array | None\" is not assignable to type \"csr_matrix | None\" Type \"csr_array\" is not assignable to type \"csr_matrix | None\" \"csr_array\" is not assignable to \"csr_matrix\" \"csr_array\" is not assignable to \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_prepare.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"float\" cannot be assigned to parameter \"rtol\" of type \"float64\" in function \"brentq\" \"float\" is not assignable to \"float64\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_prepare.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"tuple[Unknown, RootResults] | Unknown\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\" Type \"tuple[Unknown, RootResults] | Unknown\" is not assignable to type \"ConvertibleToFloat\" Type \"tuple[Unknown, RootResults]\" is not assignable to type \"ConvertibleToFloat\" \"tuple[Unknown, RootResults]\" is not assignable to \"str\" \"tuple[Unknown, RootResults]\" is incompatible with protocol \"Buffer\" \"__buffer__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsFloat\" \"__float__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsIndex\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_prepare.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"tuple[Unknown, RootResults] | Unknown\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\" Type \"tuple[Unknown, RootResults] | Unknown\" is not assignable to type \"ConvertibleToFloat\" Type \"tuple[Unknown, RootResults]\" is not assignable to type \"ConvertibleToFloat\" \"tuple[Unknown, RootResults]\" is not assignable to \"str\" \"tuple[Unknown, RootResults]\" is incompatible with protocol \"Buffer\" \"__buffer__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsFloat\" \"__float__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsIndex\" ...",
+    "count": 1
+  },
+  {
+    "file": "_imr_prepare.py",
+    "rule": "reportAssignmentType",
+    "message": "Type \"(time: Unknown, state: Unknown) -> (list[Unknown] | Unknown)\" is not assignable to declared type \"(_time: Unknown, state: Unknown) -> tuple[Unknown, Unknown, Unknown]\" Type \"(time: Unknown, state: Unknown) -> (list[Unknown] | Unknown)\" is not assignable to type \"(_time: Unknown, state: Unknown) -> tuple[Unknown, Unknown, Unknown]\" Parameter name mismatch: \"_time\" versus \"time\" Function return type \"list[Unknown] | Unknown\" is incompatible with type \"tuple[Unknown, Unknown, Unknown]\" Type \"list[Unknown] | Unknown\" is not assignable to type \"tuple[Unknown, Unknown, Unknown]\" \"list[Unknown]\" is not assignable to \"tuple[Unknown, Unknown, Unknown]\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_prepare.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
+    "count": 1
+  },
+  {
+    "file": "_imr_prepare.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"terminal\" for class \"FunctionType\" Attribute \"terminal\" is unknown",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOperatorIssue",
+    "message": "Operator \"*\" not supported for types \"float\" and \"Unknown | Unbound | None\" Operator \"*\" not supported for types \"float\" and \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOperatorIssue",
+    "message": "Operator \"-\" not supported for types \"float\" and \"Unknown | None\" Operator \"-\" not supported for types \"float\" and \"None\"",
+    "count": 2
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"D1\" is not a known attribute of \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"D2\" is not a known attribute of \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"iyT3\" is not a known attribute of \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"iyT4\" is not a known attribute of \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"iyT6\" is not a known attribute of \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"size\" is not a known attribute of \"None\"",
+    "count": 7
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"tolist\" is not a known attribute of \"None\"",
+    "count": 3
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"xi\" is not a known attribute of \"None\"",
+    "count": 3
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"yT\" is not a known attribute of \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"yT2\" is not a known attribute of \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"yT3\" is not a known attribute of \"None\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalOperand",
+    "message": "Operator \"*\" not supported for \"None\"",
+    "count": 2
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalOperand",
+    "message": "Operator \"@\" not supported for \"None\"",
+    "count": 6
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportOptionalSubscript",
+    "message": "Object of type \"None\" is not subscriptable",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportPossiblyUnboundVariable",
+    "message": "\"T\" is possibly unbound",
+    "count": 7
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportPossiblyUnboundVariable",
+    "message": "\"Tm\" is possibly unbound",
+    "count": 2
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportPossiblyUnboundVariable",
+    "message": "\"alpha_m\" is possibly unbound",
+    "count": 1
+  },
+  {
+    "file": "_imr_rhs.py",
+    "rule": "reportPossiblyUnboundVariable",
+    "message": "\"theta\" is possibly unbound",
+    "count": 5
+  },
+  {
+    "file": "imr_fast.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"csr_matrix\" cannot be assigned to parameter \"dense_output\" of type \"bool\" in function \"solve_ivp\" \"csr_matrix\" is not assignable to \"bool\"",
+    "count": 1
+  },
+  {
+    "file": "imr_fast.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"csr_matrix\" cannot be assigned to parameter \"vectorized\" of type \"bool\" in function \"solve_ivp\" \"csr_matrix\" is not assignable to \"bool\"",
+    "count": 1
+  },
+  {
+    "file": "imr_fast.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"float\" cannot be assigned to parameter \"value\" of type \"csr_matrix\" in function \"__setitem__\" \"float\" is not assignable to \"csr_matrix\"",
+    "count": 1
+  },
+  {
+    "file": "imr_fast.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
+    "count": 1
+  },
+  {
+    "file": "imr_fast.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"terminal\" for class \"FunctionType\" Attribute \"terminal\" is unknown",
+    "count": 1
+  },
+  {
+    "file": "imr_fast.py",
+    "rule": "reportOperatorIssue",
+    "message": "Operator \"*\" not supported for types \"float\" and \"Any | None\" Operator \"*\" not supported for types \"float\" and \"None\" when expected type is \"_ConvertibleToFloat | _ArrayLikeFloat_co | _NestedSequence[_ConvertibleToFloat | None] | None\"",
+    "count": 1
+  },
+  {
+    "file": "imr_inference.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"Integral\" cannot be assigned to parameter \"n\" of type \"IntNumber\" in function \"random\" Type \"Integral\" is not assignable to type \"IntNumber\" \"Integral\" is not assignable to \"int\" \"Integral\" is not assignable to \"integer[Any]\"",
+    "count": 1
+  },
+  {
+    "file": "imr_inference.py",
+    "rule": "reportCallIssue",
+    "message": "No parameter named \"seed\"",
+    "count": 1
+  },
+  {
+    "file": "imr_inference.py",
+    "rule": "reportIndexIssue",
+    "message": "\"__getitem__\" method not defined on type \"float\"",
+    "count": 1
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"Dual\" cannot be assigned to parameter \"T8\" of type \"float\" in function \"params\" \"Dual\" is not assignable to \"float\"",
+    "count": 1
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"Real\" cannot be assigned to parameter \"x1\" of type \"_SupportsArrayUFunc\" in function \"__call__\" \"Real\" is incompatible with protocol \"_SupportsArrayUFunc\" \"__array_ufunc__\" is not present",
+    "count": 1
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"csr_array\" cannot be assigned to parameter \"dense_output\" of type \"bool\" in function \"solve_ivp\" \"csr_array\" is not assignable to \"bool\"",
+    "count": 1
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"csr_array\" cannot be assigned to parameter \"vectorized\" of type \"bool\" in function \"solve_ivp\" \"csr_array\" is not assignable to \"bool\"",
+    "count": 1
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportCallIssue",
+    "message": "No overloads for \"__call__\" match the provided arguments",
+    "count": 1
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
+    "count": 2
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"terminal\" for class \"FunctionType\" Attribute \"terminal\" is unknown",
+    "count": 2
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportOptionalSubscript",
+    "message": "Object of type \"None\" is not subscriptable",
+    "count": 1
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportPossiblyUnboundVariable",
+    "message": "\"material_data\" is possibly unbound",
+    "count": 1
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportPossiblyUnboundVariable",
+    "message": "\"parameter_tangents\" is possibly unbound",
+    "count": 1
+  },
+  {
+    "file": "imr_sensitivity.py",
+    "rule": "reportPossiblyUnboundVariable",
+    "message": "\"parameter_values\" is possibly unbound",
+    "count": 1
+  },
+  {
+    "file": "tests/test_api.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"object\" cannot be assigned to parameter \"config\" of type \"SimulationConfig\" in function \"simulate\" \"object\" is not assignable to \"SimulationConfig\"",
+    "count": 1
+  },
+  {
+    "file": "tests/test_api.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"shape\" is not a known attribute of \"None\"",
+    "count": 6
+  },
+  {
+    "file": "tests/test_api.py",
+    "rule": "reportOptionalSubscript",
+    "message": "Object of type \"None\" is not subscriptable",
+    "count": 2
+  },
+  {
+    "file": "tests/test_validation_constitutive.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"Giesekus\" cannot be assigned to parameter \"material\" of type \"NeoHookeanKelvinVoigt\" in function \"solve_radius\" \"Giesekus\" is not assignable to \"NeoHookeanKelvinVoigt\"",
+    "count": 2
+  },
+  {
+    "file": "tests/test_validation_constitutive.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"InstantaneousMaterial\" cannot be assigned to parameter \"material\" of type \"NeoHookeanKelvinVoigt\" in function \"solve_radius\" \"InstantaneousMaterial\" is not assignable to \"NeoHookeanKelvinVoigt\"",
+    "count": 3
+  },
+  {
+    "file": "tests/test_validation_constitutive.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"OldroydB\" cannot be assigned to parameter \"material\" of type \"NeoHookeanKelvinVoigt\" in function \"solve_radius\" \"OldroydB\" is not assignable to \"NeoHookeanKelvinVoigt\"",
+    "count": 3
+  },
+  {
+    "file": "tests/test_validation_sensitivities.py",
+    "rule": "reportOptionalMemberAccess",
+    "message": "\"maximum_radius_ratio\" is not a known attribute of \"None\"",
+    "count": 1
+  },
+  {
+    "file": "tests/test_validation_sensitivities.py",
+    "rule": "reportOptionalSubscript",
+    "message": "Object of type \"None\" is not subscriptable",
+    "count": 1
+  },
+  {
+    "file": "tests/test_validation_trajectories.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"int\" cannot be assigned to parameter \"collapse\" of type \"CollapseInitialization | None\" in function \"__init__\" Type \"int\" is not assignable to type \"CollapseInitialization | None\" \"int\" is not assignable to \"CollapseInitialization\" \"int\" is not assignable to \"None\"",
+    "count": 2
+  },
+  {
+    "file": "tests/test_validation_trajectories.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"int\" cannot be assigned to parameter \"initial\" of type \"InitialState\" in function \"__init__\" \"int\" is not assignable to \"InitialState\"",
+    "count": 3
+  },
+  {
+    "file": "tests/test_validation_trajectories.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"int\" cannot be assigned to parameter \"physics\" of type \"PhysicalParameters\" in function \"__init__\" \"int\" is not assignable to \"PhysicalParameters\"",
+    "count": 4
+  },
+  {
+    "file": "tests/test_validation_trajectories.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"int\" cannot be assigned to parameter \"sampled_forcing\" of type \"SampledForcing | None\" in function \"__init__\" Type \"int\" is not assignable to type \"SampledForcing | None\" \"int\" is not assignable to \"SampledForcing\" \"int\" is not assignable to \"None\"",
+    "count": 4
+  },
+  {
+    "file": "tests/test_validation_trajectories.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"int\" cannot be assigned to parameter \"thermal\" of type \"str\" in function \"__init__\" \"int\" is not assignable to \"str\"",
+    "count": 4
+  },
+  {
+    "file": "tests/test_validation_trajectories.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"tuple[str, NeoHookeanKelvinVoigt, int]\" cannot be assigned to parameter \"object\" of type \"tuple[str, Zener, int]\" in function \"append\" \"NeoHookeanKelvinVoigt\" is not assignable to \"Zener\"",
+    "count": 1
+  }
+]

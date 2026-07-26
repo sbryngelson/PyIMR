@@ -17,6 +17,10 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "build>=1.2",
+    # Pinned: pyright's inference changes between releases, and
+    # tools/pyright_baseline.json records exact diagnostics. A floating
+    # version would make the baseline drift for reasons unrelated to the code.
+    "pyright==1.1.411",
     "pytest>=8",
     "ruff>=0.15",
 ]

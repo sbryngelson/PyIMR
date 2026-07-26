@@ -28,6 +28,7 @@ independent and cheap. W3--W6 are independent of each other.
 | W7 tinygrad style | **done** -- config, indent, docstrings, six splits, formatter settled |
 | W8 measured collapse gaps | **done** -- stubs, plus the Zener offset quantified |
 | W9 fix upstream defects here | **done** -- Mie-Gruneisen root; `radial = 6` now works |
+| W10 thermal collocation | **done** -- Chebyshev backend, 41x at equal resolution |
 
 Revised priority after W1: **W8 -> W3 -> W5 -> W6 -> W2 -> W7.**
 
@@ -511,6 +512,90 @@ from 9.84e-04 to **9.10e-07**.
 **Still open:** a Chebyshev path for the *thermal* PDEs, where there genuinely
 are spatial derivatives, remains unexplored. That is the only part of the
 original W2 that still has a target.
+
+---
+
+## W10. Chebyshev collocation for the thermal PDEs
+
+The one part of the original W2 with a real target left. Unlike the
+distributed stress -- whose Lagrangian form has no spatial derivatives at all
+-- the thermal fields genuinely carry them, so collocation buys something.
+
+### Diagnosis
+
+`thermal_fd` is correct and cleanly second order. Tested directly on
+`cos(2y)`, the spherical Laplacian errs by 6.6e-02, 1.7e-02, 4.2e-03,
+1.0e-03 at N = 11, 21, 41, 81 -- ratio 4.00 per doubling, exactly as designed.
+
+The trajectory is the problem. Against a converged `Nt = 1600` reference:
+
+| Nt | max abs dR/R0 | ratio |
+|---:|---:|---:|
+| 25 | 2.59e-02 | -- |
+| 50 | 1.82e-02 | 1.42 |
+| 100 | 9.80e-03 | 1.86 |
+| 200 | 5.06e-03 | 1.94 |
+| 400 | 2.37e-03 | 2.13 |
+| 800 | 8.37e-04 | 2.83 |
+
+Second order asymptotically, but it only gets there slowly, and **the default
+`Nt = 25` carries 2.6% error** -- the same shape of problem the quadrature
+work found, in a different place.
+
+### Implementation
+
+`thermal_spectral.py` mirrors `thermal_fd`'s interface. Two points of care:
+
+- **Regularity at the bubble centre.** The gas operator is built on the *even
+  extension* of the grid to `[-1,1]`: a function smooth at the origin of a
+  sphere is even in `y`, so the removable `2/y` singularity never has to be
+  special-cased the way `thermal_fd` does at row 0.
+- **Boundary flux weights.** The wall closure used hardcoded three-point
+  stencils. These now come from the relevant row of the first-derivative
+  matrix, full length, so the closure works on a non-uniform grid. Verified
+  the derivation reproduces the finite-difference stencils exactly:
+  `grad_Trans = chi * D1_bubble[-1, ::-1]`, with a zero tail.
+
+### Measured
+
+| | Chebyshev | finite difference |
+|---|---:|---:|
+| spherical Laplacian, N = 17 | **1.9e-11** | 2.6e-02 |
+| trajectory, Nt = 25 | **6.3e-04** | 2.6e-02 |
+| Nt needed for ~1e-3 | ~25 | ~800 |
+
+Both backends converge to the same limit -- finite difference at Nt = 200,
+400, 800 approaches the spectral answer monotonically (5.5e-03, 2.8e-03,
+1.3e-03).
+
+### Two things to be honest about
+
+1. **The spectral trajectory plateaus near 2.7e-04** rather than continuing to
+   machine precision. The operators are spectral in isolation (1.9e-11), so
+   something else in the coupled closure becomes limiting once the spatial
+   discretization stops dominating -- most likely the implicit
+   wall-temperature secant solve. Not chased down.
+2. **The boundary-closure generalization is not bitwise.** `bubtherm` and
+   `masstrans` are exact; `medtherm` and the fully coupled case shift by
+   3.3e-07 and 1.7e-07. Cause is floating-point association -- `(A+B)+C`
+   became `A+(B+C)` -- amplified through the secant root-find. Five orders
+   below the discretization error it replaces, and the two cases without a
+   medium closure being exact confirms the mechanism.
+
+### Delivered
+
+- [x] `thermal_spectral.py` with `chebyshev_diff_mat` and `nodes`, validated
+      standalone against analytic derivatives.
+- [x] Boundary flux weights generalized to full-length dot products, derived
+      from `D1` rows.
+- [x] `SimulationConfig.thermal` selector; `"fd"` remains the default because
+      it is what every pinned IMRv2 trajectory was generated against.
+- [x] All four thermal configurations run under both backends.
+- [x] Harness section `2d`: operator accuracy, 41x trajectory improvement at
+      equal resolution, and cross-backend convergence.
+
+**Still open:** the 2.7e-04 plateau, and whether the default should move once
+that is understood.
 
 ---
 

@@ -36,6 +36,7 @@ py-modules = [
     "imr_inference",
     "imr_sensitivity",
     "thermal_fd",
+    "thermal_spectral",
 ]
 
 [tool.pytest.ini_options]

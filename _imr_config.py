@@ -241,6 +241,7 @@ class SimulationConfig:
   rtol: float = 1e-8
   atol: float = 1e-10
   max_step_s: float | None = None
+  thermal: str = "fd"
   physics: PhysicalParameters = field(default_factory=PhysicalParameters)
   sampled_forcing: SampledForcing | None = None
   initial: InitialState = field(default_factory=InitialState)
@@ -301,6 +302,8 @@ class SimulationConfig:
     )
     if self.max_step_s is not None:
       _finite_positive("max_step_s", self.max_step_s)
+    if self.thermal not in ("fd", "spectral"):
+      raise ValueError("thermal must be 'fd' or 'spectral'")
     if self.sampled_forcing is not None and (
       self.pA != 0.0 or self.omega != 0.0 or self.TW != 0.0 or self.DT != 0.0 or self.mn != 0.0 or self.wave_type != 0
     ):

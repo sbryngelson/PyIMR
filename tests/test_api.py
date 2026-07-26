@@ -179,7 +179,9 @@ OWNED = {
   "imr_inference",
   "imr_data",
   "_imr_autodiff",
+  "_imr_config",
   "_imr_materials",
+  "_imr_prepare",
   "_imr_mechanical",
   "_imr_rhs",
   "_imr_stress",
@@ -261,3 +263,14 @@ def test_max_step_forces_finer_integration():
 def test_max_step_rejects_invalid(bad):
   with pytest.raises(ValueError, match="max_step_s"):
     base_config(max_step_s=bad)
+
+
+@pytest.mark.parametrize("script", ["validate_thermal_fd.py", "validate_bubtherm_adiabatic.py"])
+def test_standalone_validation_scripts_still_run(script):
+  import pathlib
+  import subprocess
+  import sys
+
+  root = pathlib.Path(__file__).resolve().parent.parent
+  done = subprocess.run([sys.executable, str(root / script)], capture_output=True, text=True, cwd=root, timeout=300)
+  assert done.returncode == 0, done.stdout[-2000:] + done.stderr[-2000:]

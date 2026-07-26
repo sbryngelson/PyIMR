@@ -24,7 +24,9 @@ test = [
 [tool.setuptools]
 py-modules = [
     "_imr_autodiff",
+    "_imr_config",
     "_imr_materials",
+    "_imr_prepare",
     "_imr_mechanical",
     "_imr_rhs",
     "_imr_stress",

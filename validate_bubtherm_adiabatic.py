@@ -23,6 +23,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 import imr_fast as F
+from thermal_fd import finite_diff_mat
 
 R0, Req, G, mu = 225e-6, 225e-6 * 0.15, 2500.0, 0.1
 tv = np.linspace(0, 1.2e-4, 400)
@@ -54,8 +55,8 @@ def _thermal_chi0(p, rtol, atol, Nt=25):
   p = dict(p)
   p["chi"] = 0.0  # not a physically meaningful override in general --
   tn = tv / p["t0"]  # intentionally not exposed via simulate()'s public API
-  D1 = F.finite_diff_mat(Nt, 1, tm_check=0)
-  D2 = F.finite_diff_mat(Nt, 2, tm_check=0)
+  D1 = finite_diff_mat(Nt, 1, tm_check=0)
+  D2 = finite_diff_mat(Nt, 2, tm_check=0)
   ygrid = np.linspace(0.0, 1.0, Nt)
   y0 = [1.0, 0.0, p["Pb"]] + [0.0] * Nt
   s = solve_ivp(

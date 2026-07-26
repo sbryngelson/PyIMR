@@ -19,7 +19,8 @@ python tests/run_validation.py
 | file | purpose |
 |---|---|
 | `imr_fast.py` | forward solver, material models, and strict result API |
-| `imr_grad.py` | RP/polytropic forward sensitivities for a six-term linear stress library |
+| `imr_sensitivity.py` | production-RHS forward sensitivities |
+| `imr_inference.py` | prepared likelihood, batch, and multistart tools |
 | `tests/run_validation.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
 
 ## Solver scope
@@ -86,6 +87,31 @@ problem = prepare(config)
 first = problem.solve(t)
 second = problem.solve(t)  # immutable setup is reused; solve state is fresh
 ```
+
+The same prepared problem can integrate any set of continuous parameter
+directions with the state:
+
+```python
+sensitivity = problem.solve_with_sensitivities(
+    t,
+    (
+        "R0",
+        "material.shear_modulus_pa",
+        "material.viscosity_pa_s",
+        "physics.polytropic_exponent",
+    ),
+)
+
+sensitivity.simulation
+sensitivity.radius_m       # shape: (time, parameter)
+sensitivity.state          # complete internal-state derivatives
+```
+
+Parameter paths follow the frozen configuration objects. Returned derivatives
+are with respect to dimensional parameter values. The sensitivity result also
+contains wall-velocity, pressure, stress, gas-temperature,
+medium-temperature, and vapor-fraction derivatives when those fields are
+active.
 
 ### Composable instantaneous materials
 
@@ -227,6 +253,82 @@ config = SimulationConfig(
 )
 ```
 
+### Collapse-state shooting
+
+Memory materials can initialize from a resolved equilibrium-to-maximum-radius
+precursor rather than an assumed unstressed state:
+
+```python
+from imr_fast import CollapseInitialization
+
+config = SimulationConfig(
+    R0=225e-6,
+    Req=37.5e-6,
+    material=Zener(2500.0, 0.1, 40e-6, 8e-6),
+    collapse=CollapseInitialization(),
+)
+problem = prepare(config)
+problem.collapse_stats
+```
+
+Preparation brackets the precursor velocity, shoots to `R/R0 == 1`, and
+retains the complete memory state at the maximum. `CollapseStats` records the
+root, achieved maximum, integration work, and immutable stress state.
+Sensitivities differentiate the event time and shooting root implicitly.
+Oldroyd-B and distributed Giesekus/PTT states use the same mechanism; the
+Zener precursor retains the upstream IMRv2 formulation.
+
+## Sensitivities and inference
+
+The tangent-linear solver differentiates the production RHS rather than a
+reduced surrogate. It covers radial models 1--5, every typed material,
+thermal and mass-transfer states, distributed nonlinear memory, forcing,
+geometry, initial conditions, and continuous physical parameters.
+
+The mechanical path, including distributed memory, uses a cached compiled
+directional kernel. After its one-time compilation, six simultaneous NHKV
+gradients take about 1.9 times one prepared forward solve on the development
+machine. Thermal and sampled-forcing branches use the same forward-mode
+reference implementation and augmented sparse BDF structure where appropriate.
+
+Prepared inference uses normalized bounded coordinates, dimensional Gaussian
+radius likelihoods, analytic sensitivity Jacobians, deterministic
+Latin-hypercube starts, and optional process-parallel batch evaluation:
+
+```python
+from imr_inference import (
+    InferenceParameter,
+    RadiusObservation,
+    prepare_inference,
+)
+
+inference = prepare_inference(
+    config,
+    RadiusObservation(
+        measured_time_s,
+        measured_radius_m,
+        standard_deviation_m=2e-6,
+    ),
+    (
+        InferenceParameter(
+            "material.shear_modulus_pa", 500.0, 5000.0, "log"
+        ),
+        InferenceParameter(
+            "material.viscosity_pa_s", 0.01, 1.0, "log"
+        ),
+    ),
+)
+
+batch = inference.evaluate_batch(unit_parameter_matrix, workers=4)
+fit = inference.fit_multistart(64, seed=7, workers=4)
+fit.endpoints  # every successful and unsuccessful endpoint is retained
+fit.best
+```
+
+Unit parameter vectors always lie in `[0, 1]`; the configured linear or
+logarithmic transform maps them to physical bounds. Multistart results never
+discard alternative basins.
+
 ## Validation
 
 The regression suite covers pinned IMRv2 trajectories across radial equations,
@@ -240,7 +342,9 @@ models. It also checks:
   differences;
 - Giesekus and linear PTT convergence to Oldroyd-B;
 - sparse coupled thermal-memory integration;
-- forward sensitivities against finite differences.
+- mechanical, thermal, distributed, and collapse-shooting sensitivities against
+  independent centered differences;
+- likelihood Jacobians and retained multistart endpoints.
 
 Representative maximum absolute radius-ratio deviations from pinned IMRv2
 trajectories are:
@@ -263,13 +367,10 @@ estimates of physical-model error.
   The default polytropic exponent is 1.4; IMRv2 itself ships with 1.47.
 - `SimulationResult.stress_state` contains nondimensional internal variables.
   Public dimensional outputs carry units in their names or documentation.
-- `imr_grad.py` differentiates its own RP/polytropic six-term linear material
-  library. It does not yet cover the complete `imr_fast.simulate` solver.
 - Gilmore/Mie-Gruneisen is intentionally unavailable because the corresponding
   IMRv2 branch produces non-real states in the tested pressure range.
-- Shooting-computed collapse initial stress is not implemented. Explicit
-  constitutive initial states are accepted; they matter when relaxation is
-  comparable to the observation window.
+- Collapse shooting requires a material with memory and cannot be combined
+  with an explicit initial stress state or nonzero observed wall velocity.
 
 ## Reference implementation
 
@@ -278,17 +379,17 @@ estimates of physical-model error.
 that call the function, so this is a latent upstream defect rather than an
 active discrepancy.
 
-## Gradients
+## Tangent equations
 
-`imr_grad.simulate_grad` returns `(R, dR/dc)` using analytic forward
-sensitivities for a constitutive law linear in six coefficients:
+Forward sensitivities integrate:
 
 $$
 \frac{ds_k}{dt}=J_y s_k+\frac{\partial f}{\partial c_k}.
 $$
 
-This is a separate specialized solver intended for efficient gradient-based
-inference. General full-solver sensitivities remain future work.
+All requested parameter directions share one augmented integration. Prepared
+parameter scaling keeps error control dimensionless; public derivatives are
+converted back to dimensional parameter units.
 
 ## Citation
 

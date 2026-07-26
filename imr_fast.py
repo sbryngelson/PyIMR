@@ -48,9 +48,8 @@ continuity across the interface. A warm-start value is scoped to one
 integration, matching IMRv2's continuation behavior without leaking state
 between repeated prepared solves.
 thetadot[-1]=0 and Tmdot[0]=0 always because both slots are algebraic boundary
-values rather than evolved states. GRADIENTS ARE NOT VALIDATED for medtherm=1:
-naive autodiff through the root-find would need the implicit function theorem,
-not attempted here.
+values rather than evolved states. Forward sensitivities differentiate the
+converged scalar boundary solve.
 
 masstrans=1 (requires bubtherm=1, vapor=1) implements IMRv2's "if bubtherm &&
 masstrans" branch: a wall vapor mass fraction field kv(y,t), a mixture
@@ -66,7 +65,7 @@ root-find (_wall_theta_bw_full, f_bubble_wall_full_bc) that additionally
 enforces vapor-mass-flux continuity (via a preliminary Clausius-Clapeyron
 kv estimate at the candidate wall temperature) alongside heat-flux
 continuity; alpha_m in that solve also uses the stale kv[-1], same lag.
-GRADIENTS NOT VALIDATED for masstrans=1 (with or without medtherm=1).
+Forward sensitivities cover this coupled algebraic condition.
 
 The main API is not valid for radial=6 or arbitrary constitutive callbacks.
 Re-validate before extending any branch.
@@ -82,8 +81,10 @@ from typing import Mapping
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.interpolate import PchipInterpolator
+from scipy.optimize import brentq
 from scipy.sparse import csr_matrix, lil_matrix
 
+from _imr_autodiff import primal, primal_array
 from thermal_fd import finite_diff_mat
 
 P8 = 101325.0      # far-field pressure (Pa)
@@ -225,6 +226,34 @@ class InitialState:
             if not np.all(np.isfinite(state)):
                 raise ValueError("initial.stress_state must contain finite values")
             object.__setattr__(self, "stress_state", state)
+
+
+@dataclass(frozen=True, slots=True)
+class CollapseInitialization:
+    """History-consistent memory state at the observed maximum radius."""
+
+    maximum_time_nondimensional: float = 4.0
+    radius_tolerance: float = 1e-8
+    initial_velocity_guess: float = 1.0
+    maximum_bracket_expansions: int = 24
+
+    def __post_init__(self) -> None:
+        _finite_positive(
+            "collapse.maximum_time_nondimensional",
+            self.maximum_time_nondimensional,
+        )
+        _finite_positive("collapse.radius_tolerance", self.radius_tolerance)
+        _finite_positive(
+            "collapse.initial_velocity_guess",
+            self.initial_velocity_guess,
+        )
+        if (
+            not isinstance(self.maximum_bracket_expansions, Integral)
+            or self.maximum_bracket_expansions < 1
+        ):
+            raise ValueError(
+                "collapse.maximum_bracket_expansions must be a positive integer"
+            )
 
 
 def _finite_positive(name, value) -> None:
@@ -648,6 +677,7 @@ class SimulationConfig:
     physics: PhysicalParameters = field(default_factory=PhysicalParameters)
     sampled_forcing: SampledForcing | None = None
     initial: InitialState = field(default_factory=InitialState)
+    collapse: CollapseInitialization | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(
@@ -673,6 +703,27 @@ class SimulationConfig:
             self.sampled_forcing, SampledForcing
         ):
             raise TypeError("sampled_forcing must be SampledForcing")
+        if self.collapse is not None and not isinstance(
+            self.collapse, CollapseInitialization
+        ):
+            raise TypeError("collapse must be CollapseInitialization")
+        if self.collapse is not None:
+            if not isinstance(
+                self.material,
+                (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT),
+            ):
+                raise ValueError(
+                    "collapse initialization requires a material with memory"
+                )
+            if self.initial.stress_state is not None:
+                raise ValueError(
+                    "collapse initialization cannot be combined with "
+                    "initial.stress_state"
+                )
+            if self.initial.wall_velocity_m_s != 0.0:
+                raise ValueError(
+                    "collapse initialization requires zero observed wall velocity"
+                )
         _validate_inputs(
             [0.0, 1.0], self.R0, self.Req, self.material,
             self.radial, self.vapor,
@@ -702,6 +753,17 @@ class SolverStats:
     njev: int
     nlu: int
     elapsed_s: float
+
+
+@dataclass(frozen=True, slots=True)
+class CollapseStats:
+    """Diagnostics for a completed precursor shooting solve."""
+
+    initial_velocity_nondimensional: float
+    maximum_radius_ratio: float
+    shooting_evaluations: int
+    integration_evaluations: int
+    stress_state: np.ndarray
 
 
 @dataclass(frozen=True, slots=True)
@@ -814,10 +876,17 @@ class PreparedProblem:
     instantaneous_material: PreparedInstantaneousMaterial | None = None
     distributed_stress: PreparedDistributedStress | None = None
     jacobian_sparsity: csr_matrix | None = None
+    collapse_stats: CollapseStats | None = None
 
     def solve(self, tv) -> SimulationResult:
         """Run the prepared problem and return full physical outputs."""
         return _solve_prepared(self, tv)
+
+    def solve_with_sensitivities(self, tv, parameters):
+        """Run one forward solve with tangent-linear parameter derivatives."""
+        from imr_sensitivity import solve_with_sensitivities
+
+        return solve_with_sensitivities(self, tv, parameters)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1074,7 +1143,8 @@ def params(R0, Req, material, vapor=0, T8=298.15,
 
 def _elastic_integrand(model, stretch, pressure_scale):
     stretch = np.asarray(stretch)
-    if np.any(stretch <= 0.0):
+    stretch_values = primal_array(stretch)
+    if np.any(stretch_values <= 0.0):
         raise _MaterialDomainError("elastic stretch became non-positive")
     invariant_offset = stretch ** -4 + 2.0 * stretch ** 2 - 3.0
     geometric_factor = (stretch ** 3 + 1.0) / stretch ** 5
@@ -1108,11 +1178,11 @@ def _elastic_integrand(model, stretch, pressure_scale):
             )
         elif isinstance(model, Gent):
             remaining_extension = 1.0 - invariant_offset / model.extensibility
-            if np.any(remaining_extension <= 0.0):
-                maximum = float(np.max(invariant_offset))
+            if np.any(primal_array(remaining_extension) <= 0.0):
+                maximum = float(np.max(primal_array(invariant_offset)))
                 raise _MaterialDomainError(
                     "Gent lock-up: I1 - 3 reached "
-                    f"{maximum:.6g}, limit is {model.extensibility:.6g}"
+                    f"{maximum:.6g}, limit is {primal(model.extensibility):.6g}"
                 )
             coefficient = (
                 model.shear_modulus_pa
@@ -1131,7 +1201,7 @@ def _elastic_integrand(model, stretch, pressure_scale):
             )
             coefficient = 2.0 * model.shear_modulus_pa / pressure_scale * series
         result = -2.0 * coefficient * geometric_factor
-    if not np.all(np.isfinite(result)):
+    if not np.all(np.isfinite(primal_array(result))):
         raise _MaterialDomainError("elastic stress became non-finite")
     return result
 
@@ -1199,12 +1269,21 @@ def _viscosity_and_tangent(model, shear_rate):
             exponent = model.exponent
             regularization = model.regularization_rate_per_s
         scaled = shear_rate / regularization
-        with np.errstate(divide="ignore", invalid="ignore"):
-            yield_viscosity = np.where(
-                shear_rate > 0.0,
-                -yield_stress * np.expm1(-scaled) / shear_rate,
-                yield_stress / regularization,
-            )
+        if shear_rate.dtype == object:
+            yield_viscosity = np.empty_like(shear_rate)
+            for index, rate in np.ndenumerate(shear_rate):
+                yield_viscosity[index] = (
+                    -yield_stress * np.expm1(-scaled[index]) / rate
+                    if primal(rate) > 0.0
+                    else yield_stress / regularization
+                )
+        else:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                yield_viscosity = np.where(
+                    shear_rate > 0.0,
+                    -yield_stress * np.expm1(-scaled) / shear_rate,
+                    yield_stress / regularization,
+                )
         effective_rate = np.sqrt(shear_rate ** 2 + regularization ** 2)
         power_viscosity = consistency * effective_rate ** (exponent - 1.0)
         viscosity = yield_viscosity + power_viscosity
@@ -1216,10 +1295,12 @@ def _viscosity_and_tangent(model, shear_rate):
             * shear_rate ** 2
             * effective_rate ** (exponent - 3.0)
         )
+    viscosity_values = primal_array(viscosity)
+    tangent_values = primal_array(tangent)
     if (
-        not np.all(np.isfinite(viscosity))
-        or not np.all(np.isfinite(tangent))
-        or np.any(viscosity < 0.0)
+        not np.all(np.isfinite(viscosity_values))
+        or not np.all(np.isfinite(tangent_values))
+        or np.any(viscosity_values < 0.0)
     ):
         raise _MaterialDomainError("generalized viscosity became invalid")
     return viscosity, tangent
@@ -1238,9 +1319,11 @@ def _instantaneous_stress(material, prepared, p, R, Rd, need_rate):
             prepared.interval_weights, integrand
         )
         if need_rate:
-            wall_integrand = float(
-                _elastic_integrand(material.elastic, wall_stretch, p["P8"])
+            wall_integrand = _elastic_integrand(
+                material.elastic, wall_stretch, p["P8"]
             )
+            if isinstance(wall_integrand, np.ndarray):
+                wall_integrand = wall_integrand.item()
             explicit_rate += wall_integrand * Rd / p["req"]
     if material.viscous is not None:
         quadrature_radius = 0.5 * (prepared.interval_nodes + 1.0)
@@ -1414,10 +1497,12 @@ def _distributed_stress_integral(prepared, p, R, Rd, state):
 
 
 def _sampled_pressure(tn, forcing):
-    if tn < forcing.knots[0] or tn > forcing.knots[-1]:
+    time_value = primal(tn)
+    knot_values = primal_array(forcing.knots)
+    if time_value < knot_values[0] or time_value > knot_values[-1]:
         return 0.0, 0.0
-    interval = np.searchsorted(forcing.knots, tn, side="right") - 1
-    interval = min(interval, forcing.knots.size - 2)
+    interval = np.searchsorted(knot_values, time_value, side="right") - 1
+    interval = min(interval, knot_values.size - 2)
     offset = tn - forcing.knots[interval]
     c0, c1, c2, c3 = forcing.coefficients[:, interval]
     pressure = ((c0 * offset + c1) * offset + c2) * offset + c3
@@ -1530,6 +1615,194 @@ def _thermal_state(temperature_ratio, alpha):
     return (shifted ** 2 - 1.0) / (2.0 * alpha)
 
 
+def _collapse_zener_rhs(state, p):
+    """Upstream ``f_init_stress`` precursor for the linear Zener family."""
+    radius, velocity, stress = state
+    equilibrium = p["req"]
+    pressure_prefactor = 1.0 - p["Pv"] + p["iWe"] / equilibrium
+    pressure = (
+        p["Pv"]
+        + pressure_prefactor * (equilibrium / radius) ** 3
+    )
+    pressure_rate = (
+        -3.0
+        * pressure_prefactor
+        * (equilibrium / radius) ** 3
+        * velocity
+        / radius
+    )
+    stress_rate = (
+        -4.0 * velocity / (p["Re8"] * radius)
+        - 2.0
+        * p["De"]
+        / p["Ca"]
+        * velocity
+        / radius
+        * ((equilibrium / radius) ** 4 + equilibrium / radius)
+        - (
+            stress
+            + 0.5
+            / p["Ca"]
+            * (
+                5.0
+                - (equilibrium / radius) ** 4
+                - 4.0 * equilibrium / radius
+            )
+        )
+    ) / p["De"]
+    sound = p["Cstar"]
+    numerator = (
+        (1.0 + velocity / sound)
+        * (
+            pressure
+            - 1.0
+            + stress
+            - p["iWe"] / radius
+        )
+        + radius
+        / sound
+        * (
+            pressure_rate
+            + p["iWe"] * velocity / radius ** 2
+            + stress_rate
+        )
+        - 1.5
+        * (1.0 - velocity / (3.0 * sound))
+        * velocity ** 2
+    )
+    denominator = (
+        (1.0 - velocity / sound) * radius
+        + 4.0 / (p["Re8"] * sound)
+    )
+    return velocity, numerator / denominator, stress_rate
+
+
+def _collapse_memory_state(
+    config,
+    instantaneous_material,
+    distributed_stress,
+):
+    """Shoot an equilibrium-radius precursor to the observed maximum radius."""
+    settings = config.collapse
+    if settings is None:
+        return None, None
+    precursor = params(
+        config.R0,
+        config.Req,
+        config.material,
+        config.vapor,
+        config.T8,
+        physics=config.physics,
+        bubtherm=1,
+        masstrans=config.masstrans,
+    )
+    # The upstream precursor is a geometric-volume pressure law, P ~ R^-3.
+    precursor["kappa"] = 1.0
+    state_width = _stress_state_count(config.material)
+    equilibrium_radius = precursor["req"]
+    integration_evaluations = 0
+    shooting_evaluations = 0
+    upstream_zener = isinstance(config.material, Zener)
+
+    def maximum_event(_time, state):
+        return state[1]
+
+    maximum_event.terminal = True
+    maximum_event.direction = -1
+
+    def integrate(initial_velocity):
+        nonlocal integration_evaluations
+        initial = np.zeros(2 + state_width)
+        initial[0] = equilibrium_radius
+        initial[1] = initial_velocity
+
+        def production_rhs(time, state):
+            return _rhs(
+                time,
+                state,
+                precursor,
+                config.material,
+                config.radial,
+                instantaneous_material=instantaneous_material,
+                distributed_stress=distributed_stress,
+            )
+
+        if upstream_zener:
+            def collapse_rhs(_time, state):
+                return _collapse_zener_rhs(state, precursor)
+        else:
+            collapse_rhs = production_rhs
+        solution = solve_ivp(
+            collapse_rhs,
+            (0.0, settings.maximum_time_nondimensional),
+            initial,
+            events=maximum_event,
+            method="LSODA",
+            rtol=min(config.rtol, 1e-9),
+            atol=min(config.atol, 1e-11),
+        )
+        integration_evaluations += int(solution.nfev)
+        if not solution.success:
+            raise SimulationError(
+                "collapse precursor integration failed: "
+                f"{solution.message}"
+            )
+        if solution.t_events[0].size == 0:
+            raise SimulationError(
+                "collapse precursor did not reach a maximum radius within "
+                f"t={settings.maximum_time_nondimensional:g}"
+            )
+        return solution.y_events[0][-1]
+
+    def residual(initial_velocity):
+        nonlocal shooting_evaluations
+        shooting_evaluations += 1
+        return integrate(initial_velocity)[0] - 1.0
+
+    lower_velocity = max(
+        settings.initial_velocity_guess * 1e-8,
+        np.finfo(float).eps,
+    )
+    lower_residual = residual(lower_velocity)
+    if lower_residual >= 0.0:
+        raise SimulationError(
+            "collapse precursor equilibrium radius is not below the observed "
+            "maximum radius"
+        )
+    upper_velocity = settings.initial_velocity_guess
+    upper_residual = residual(upper_velocity)
+    expansions = 0
+    while (
+        upper_residual < 0.0
+        and expansions < settings.maximum_bracket_expansions
+    ):
+        upper_velocity *= 2.0
+        upper_residual = residual(upper_velocity)
+        expansions += 1
+    if upper_residual < 0.0:
+        raise SimulationError(
+            "collapse shooting could not bracket an initial velocity after "
+            f"{settings.maximum_bracket_expansions} expansions"
+        )
+    initial_velocity = brentq(
+        residual,
+        lower_velocity,
+        upper_velocity,
+        xtol=settings.radius_tolerance,
+        rtol=max(settings.radius_tolerance, 4.0 * np.finfo(float).eps),
+    )
+    maximum_state = integrate(initial_velocity)
+    memory_state = _freeze_array(maximum_state[2:])
+    stats = CollapseStats(
+        initial_velocity_nondimensional=float(initial_velocity),
+        maximum_radius_ratio=float(maximum_state[0]),
+        shooting_evaluations=shooting_evaluations,
+        integration_evaluations=integration_evaluations,
+        stress_state=memory_state,
+    )
+    return memory_state, stats
+
+
 def prepare(config: SimulationConfig) -> PreparedProblem:
     """Prepare reusable grids, operators, parameters, and state layout."""
     if not isinstance(config, SimulationConfig):
@@ -1539,6 +1812,13 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         config.pA, config.omega,
         config.TW, config.DT, config.mn, config.wave_type, config.bubtherm,
         config.masstrans, config.physics,
+    )
+    instantaneous_material = _prepare_instantaneous_material(config.material)
+    distributed_stress = _prepare_distributed_stress(config.material)
+    collapse_state, collapse_stats = _collapse_memory_state(
+        config,
+        instantaneous_material,
+        distributed_stress,
     )
     initial = config.initial
     if initial.internal_pressure_pa is not None:
@@ -1559,7 +1839,9 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         raise ValueError(
             f"initial stress_state requires exactly {stress_width} values"
         )
-    if initial.stress_state is not None:
+    if collapse_state is not None:
+        initial_state[layout.stress] = collapse_state
+    elif initial.stress_state is not None:
         initial_state[layout.stress] = initial.stress_state
 
     bubble_grid = None
@@ -1636,9 +1918,10 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         bubble_D2=bubble_D2,
         medium=medium,
         forcing=_prepare_forcing(config, p),
-        instantaneous_material=_prepare_instantaneous_material(config.material),
-        distributed_stress=_prepare_distributed_stress(config.material),
+        instantaneous_material=instantaneous_material,
+        distributed_stress=distributed_stress,
         jacobian_sparsity=_prepare_distributed_jacobian(config, layout),
+        collapse_stats=collapse_stats,
     )
 
 
@@ -1744,12 +2027,35 @@ def _distributed_dissipation(
         reference_radius = np.cbrt(
             np.maximum(spatial_radius ** 3 - R ** 3 + 1.0, 1.0)
         )
-        sampled_difference = np.interp(
-            reference_radius,
-            prepared.reference_radius,
-            stress_difference,
-            right=0.0,
-        )
+        if reference_radius.dtype == object or stress_difference.dtype == object:
+            sampled_difference = np.empty_like(reference_radius)
+            reference_values = primal_array(reference_radius)
+            source_radius = prepared.reference_radius
+            for index, (radius, radius_value) in enumerate(
+                zip(reference_radius, reference_values, strict=True)
+            ):
+                if radius_value <= source_radius[0]:
+                    sampled_difference[index] = stress_difference[0]
+                elif radius_value >= source_radius[-1]:
+                    sampled_difference[index] = 0.0
+                else:
+                    left = np.searchsorted(source_radius, radius_value) - 1
+                    fraction = (
+                        (radius - source_radius[left])
+                        / (source_radius[left + 1] - source_radius[left])
+                    )
+                    sampled_difference[index] = (
+                        stress_difference[left]
+                        + fraction
+                        * (stress_difference[left + 1] - stress_difference[left])
+                    )
+        else:
+            sampled_difference = np.interp(
+                reference_radius,
+                prepared.reference_radius,
+                stress_difference,
+                right=0.0,
+            )
         strain_rate = Rd / R * iyT3
         polymer_heating = -2.0 * strain_rate * sampled_difference
         solvent_heating = (
@@ -2366,3 +2672,12 @@ def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
 def simulate(tv, config: SimulationConfig) -> SimulationResult:
     """Run one simulation and return immutable physical histories."""
     return prepare(config).solve(tv)
+
+
+def simulate_with_sensitivities(tv, config: SimulationConfig, parameters):
+    """Run one simulation with forward sensitivities.
+
+    Parameter paths identify continuous configuration fields such as ``R0`` or
+    ``material.shear_modulus_pa``.
+    """
+    return prepare(config).solve_with_sensitivities(tv, parameters)

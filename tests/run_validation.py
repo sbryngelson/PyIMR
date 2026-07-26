@@ -1,13 +1,18 @@
 """Full validation suite. Run: python3 tests/run_validation.py"""
 import os
 import sys
+from dataclasses import replace
 
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import imr_fast
 from imr_fast import params
-from imr_grad import NP, simulate_grad
+from imr_inference import (
+    InferenceParameter,
+    RadiusObservation,
+    prepare_inference,
+)
 
 
 def solve_radius(times, R0, Req, material, **options):
@@ -268,19 +273,175 @@ for _name, _model in [
     _mx = np.nanmax(np.abs(_R-_ucm)); _ok = _mx > 0.05; fail += (not _ok)
     print(f"    {_name:>10} parameter=0.2  max|dR| vs UCM={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 
-print("\n"+"="*64); print("3. GRADIENTS (forward sensitivities) vs finite differences"); print("="*64)
-p = params(
-    225e-6, 225e-6/6, imr_fast.NeoHookeanKelvinVoigt(2500., .1)
+print("\n"+"="*64); print("3. UNIFIED FORWARD SENSITIVITIES"); print("="*64)
+_sensitivity_times = np.linspace(0.0, 20e-6, 80)
+
+
+def _material_offset(config, field, amount):
+    return replace(
+        config,
+        material=replace(
+            config.material,
+            **{field: getattr(config.material, field) + amount},
+        ),
+    )
+
+
+def _centered_output(times, config, field, step, output):
+    plus = output(imr_fast.simulate(
+        times, _material_offset(config, field, step)
+    ))
+    minus = output(imr_fast.simulate(
+        times, _material_offset(config, field, -step)
+    ))
+    return (plus - minus) / (2.0 * step)
+
+
+for _radial in range(1, 6):
+    _config = imr_fast.SimulationConfig(
+        _R0,
+        _R0/6,
+        imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
+        radial=_radial,
+        rtol=1e-10,
+        atol=1e-12,
+    )
+    _sensitivity = imr_fast.simulate_with_sensitivities(
+        _sensitivity_times,
+        _config,
+        ["material.shear_modulus_pa"],
+    ).radius_ratio[:, 0]
+    # A one-percent material step stays in the centered-difference regime
+    # while remaining above radial=5's adaptive-integration noise floor.
+    _step = 25.0
+    _difference = _centered_output(
+        _sensitivity_times,
+        _config,
+        "shear_modulus_pa",
+        _step,
+        lambda result: result.radius_ratio,
+    )
+    _relative = np.linalg.norm(_sensitivity - _difference) / np.linalg.norm(
+        _difference
+    )
+    _ok = _relative < 2e-4
+    fail += not _ok
+    print(
+        f"    radial={_radial} material tangent rel={_relative:.2e}  "
+        f"{'PASS' if _ok else 'FAIL'}"
+    )
+
+print("  coupled heat/mass-transfer output tangent")
+_coupled_config = imr_fast.SimulationConfig(
+    _R0,
+    _R0/6,
+    imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
+    bubtherm=1,
+    medtherm=1,
+    masstrans=1,
+    vapor=1,
+    Nt=7,
+    Mt=7,
+    rtol=1e-9,
+    atol=1e-11,
 )
-c = np.zeros(NP); c[0] = -5/(2*p['Ca']); c[1] = 4/(2*p['Ca']); c[3] = 1/(2*p['Ca']); c[5] = -4/p['Re8']
-tn = np.linspace(0, 1.2e-4, 300)/p['t0']
-R, dR = simulate_grad(tn, p, c)
-for k, nm in [(0,'1'), (1,'Rst'), (3,'Rst^4'), (5,'Rd/R')]:
-    h = abs(c[k])*1e-4
-    Rp,_ = simulate_grad(tn, p, c + h*np.eye(NP)[k]); Rm,_ = simulate_grad(tn, p, c - h*np.eye(NP)[k])
-    fd = (Rp-Rm)/(2*h); m = np.isfinite(fd)
-    rel = np.linalg.norm(dR[m,k]-fd[m])/np.linalg.norm(fd[m]); ok = rel < 1e-2; fail += (not ok)
-    print(f"    d/d[{nm:>6}] rel={rel:.2e}  {'PASS' if ok else 'FAIL'}")
+_coupled_times = np.linspace(0.0, 2e-6, 8)
+_coupled_sensitivity = imr_fast.simulate_with_sensitivities(
+    _coupled_times,
+    _coupled_config,
+    ["material.shear_modulus_pa"],
+)
+_step = 0.025
+_temperature_difference = _centered_output(
+    _coupled_times,
+    _coupled_config,
+    "shear_modulus_pa",
+    _step,
+    lambda result: result.medium_temperature_k,
+)
+_relative = np.linalg.norm(
+    _coupled_sensitivity.medium_temperature_k[..., 0]
+    - _temperature_difference
+) / np.linalg.norm(_temperature_difference)
+_ok = _relative < 2e-3
+fail += not _ok
+print(
+    f"    medium temperature rel={_relative:.2e}  "
+    f"{'PASS' if _ok else 'FAIL'}"
+)
+
+print("  collapse shooting tangent")
+_collapse_config = imr_fast.SimulationConfig(
+    _R0,
+    _R0/6,
+    imr_fast.Zener(2500.0, 0.1, 40e-6, 8e-6),
+    radial=2,
+    collapse=imr_fast.CollapseInitialization(),
+)
+_collapse_sensitivity = imr_fast.simulate_with_sensitivities(
+    np.array([0.0, 1e-8]),
+    _collapse_config,
+    ["material.shear_modulus_pa"],
+).state[0, -1, 0]
+_collapse_problem = imr_fast.prepare(_collapse_config)
+_collapse_difference = (
+    imr_fast.prepare(
+        _material_offset(_collapse_config, "shear_modulus_pa", _step)
+    ).initial_state[-1]
+    - imr_fast.prepare(
+        _material_offset(_collapse_config, "shear_modulus_pa", -_step)
+    ).initial_state[-1]
+) / (2.0 * _step)
+_relative = abs(
+    _collapse_sensitivity - _collapse_difference
+) / abs(_collapse_difference)
+_shooting_error = abs(
+    _collapse_problem.collapse_stats.maximum_radius_ratio - 1.0
+)
+_ok = _relative < 1e-5 and _shooting_error < 2e-8
+fail += not _ok
+print(
+    f"    initial memory tangent rel={_relative:.2e}; "
+    f"shooting residual={_shooting_error:.2e}  "
+    f"{'PASS' if _ok else 'FAIL'}"
+)
+
+print("\n"+"="*64); print("4. PREPARED INFERENCE"); print("="*64)
+_inference_config = imr_fast.SimulationConfig(
+    _R0,
+    _R0/6,
+    imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
+)
+_inference_times = np.linspace(0.0, 20e-6, 50)
+_truth = imr_fast.simulate(_inference_times, _inference_config)
+_inference = prepare_inference(
+    _inference_config,
+    RadiusObservation(_inference_times, _truth.radius_m, 1e-8),
+    (
+        InferenceParameter("material.shear_modulus_pa", 2000.0, 3000.0),
+        InferenceParameter("material.viscosity_pa_s", 0.05, 0.15),
+    ),
+)
+_evaluation = _inference.evaluate(np.array([0.5, 0.5]))
+_jacobian = _inference.jacobian(np.array([0.5, 0.5]))
+_ok = (
+    np.max(np.abs(_evaluation.residual)) == 0.0
+    and _jacobian.shape == (_inference_times.size, 2)
+    and np.all(np.isfinite(_jacobian))
+)
+fail += not _ok
+print(f"    likelihood and Jacobian  {'PASS' if _ok else 'FAIL'}")
+_multistart = _inference.fit_multistart(2, seed=7, max_evaluations=20)
+_ok = (
+    len(_multistart.endpoints) == 2
+    and _multistart.best is not None
+    and _multistart.best.cost < 1e-12
+)
+fail += not _ok
+print(
+    f"    retained deterministic multistart endpoints  "
+    f"{'PASS' if _ok else 'FAIL'}"
+)
 
 print("\n" + ("ALL VALIDATION PASSED" if fail == 0 else f"{fail} CHECK(S) FAILED"))
 sys.exit(1 if fail else 0)

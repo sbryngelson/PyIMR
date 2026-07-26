@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "imr-fast"
-version = "0.1.0"
+version = "0.2.0"
 description = "Fast, validated solvers for inertial microcavitation rheometry"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "numba>=0.63",
     "numpy>=2.0",
     "scipy>=1.11",
 ]
@@ -22,8 +23,11 @@ test = [
 
 [tool.setuptools]
 py-modules = [
+    "_imr_autodiff",
+    "_imr_mechanical",
     "imr_fast",
-    "imr_grad",
+    "imr_inference",
+    "imr_sensitivity",
     "thermal_fd",
 ]
 

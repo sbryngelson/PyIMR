@@ -24,6 +24,24 @@ python tests/run_validation.py
 | `imr_data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
 | `thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
 | `tests/run_validation.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
+| `CHANGELOG.md` | released versions and every breaking change |
+
+## Upgrading from 0.2.0
+
+`0.3.0` changes results for two configurations. Neither raises; both silently
+return different numbers from the same call. See `CHANGELOG.md` for the full
+list.
+
+- **`radial = 5`** (KM enthalpy / Mie-Gruneisen) now takes the correct root of
+  the Mie-Gruneisen density quadratic. Collapse depth moves from
+  `R/R0 = 0.0536` to `0.0818`, which is a `4.8e-01` pointwise change. The new
+  value agrees with the Tait branch to `3e-4`; the old one did not. **Numbers
+  published from `radial = 5` under 0.2.0 carry the upstream defect.**
+- **`Giesekus` and `LinearPTT`** default to `points = 240` with
+  `quadrature = "gauss"` instead of `points = 480` with trapezoid. Results move
+  by ~`1.6e-02` because the old default was that far from converged; the new
+  one is accurate to `2.2e-07` against a 1920-point reference. Pass
+  `points=480, quadrature="trapezoid"` to reproduce 0.2.0.
 
 ## Solver scope
 

@@ -6,7 +6,6 @@ from imr_fast import (
     SimulationResult,
     prepare,
     simulate,
-    simulate_result,
 )
 
 
@@ -21,21 +20,21 @@ def base_config(**overrides):
     return SimulationConfig(**values)
 
 
-def test_structured_api_matches_legacy_solver():
+def test_simulate_matches_prepared_solver():
     times = np.linspace(0.0, 1.2e-4, 100)
     config = base_config()
 
-    result = simulate_result(times, config)
-    legacy = simulate(times, config.R0, config.Req, config.G, config.mu)
+    result = simulate(times, config)
+    prepared = prepare(config).solve(times)
 
     assert isinstance(result, SimulationResult)
     np.testing.assert_array_equal(result.time_s, times)
-    np.testing.assert_allclose(result.radius_ratio, legacy, rtol=0.0, atol=0.0)
-    np.testing.assert_allclose(result.radius_m, config.R0 * legacy)
+    np.testing.assert_array_equal(result.radius_ratio, prepared.radius_ratio)
+    np.testing.assert_allclose(result.radius_m, config.R0 * result.radius_ratio)
 
 
 def test_structured_result_arrays_are_read_only():
-    result = simulate_result(np.linspace(0.0, 1e-5, 10), base_config())
+    result = simulate(np.linspace(0.0, 1e-5, 10), base_config())
 
     for array in (
         result.time_s,
@@ -101,9 +100,9 @@ def test_config_rejects_invalid_inputs(override, message):
 )
 def test_simulation_rejects_invalid_time_grids(times):
     with pytest.raises(ValueError):
-        simulate_result(times, base_config())
+        simulate(times, base_config())
 
 
 def test_structured_api_requires_config():
     with pytest.raises(TypeError, match="SimulationConfig"):
-        simulate_result([0.0, 1.0], object())
+        simulate([0.0, 1.0], object())

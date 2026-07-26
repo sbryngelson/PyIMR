@@ -101,10 +101,7 @@ def _powell_eyring_terms(u, modified):
   if modified:
     series = (1.0 - u / 2.0 + u**2 / 3.0, -u / 2.0 + 2.0 * u**2 / 3.0)
   else:
-    series = (
-      1.0 - u**2 / 6.0 + 3.0 * u**4 / 40.0,
-      -(u**2) / 3.0 + 3.0 * u**4 / 10.0,
-    )
+    series = (1.0 - u**2 / 6.0 + 3.0 * u**4 / 40.0, -(u**2) / 3.0 + 3.0 * u**4 / 10.0)
   if isinstance(u, np.ndarray) and u.dtype != object:
     safe = np.maximum(u, _PE_SERIES_LIMIT)
     if modified:
@@ -180,9 +177,7 @@ def _viscosity_and_tangent(model, shear_rate):
     else:
       with np.errstate(divide="ignore", invalid="ignore"):
         yield_viscosity = np.where(
-          shear_rate > 0.0,
-          -yield_stress * np.expm1(-scaled) / shear_rate,
-          yield_stress / regularization,
+          shear_rate > 0.0, -yield_stress * np.expm1(-scaled) / shear_rate, yield_stress / regularization
         )
     effective_rate = np.sqrt(shear_rate**2 + regularization**2)
     power_viscosity = consistency * effective_rate ** (exponent - 1.0)
@@ -291,10 +286,7 @@ def _distributed_stress(material, prepared, p, R, Rd, state, need_rate):
   points = prepared.reference_radius.size
   radial_stress = state[:points]
   hoop_stress = state[points:]
-  radius_cubed = np.maximum(
-    prepared.reference_radius_cubed + R**3 - 1.0,
-    1e-30,
-  )
+  radius_cubed = np.maximum(prepared.reference_radius_cubed + R**3 - 1.0, 1e-30)
   inverse_radius_cubed = 1.0 / radius_cubed
   strain_rate = Rd * R**2 * inverse_radius_cubed
   polymer_viscosity = (1.0 - p["LAM"]) / p["Re8"]
@@ -343,12 +335,7 @@ def _distributed_stress(material, prepared, p, R, Rd, state, need_rate):
   solvent_scale = 4.0 * p["LAM"] / p["Re8"]
   stress_integral = polymer_integral - solvent_scale * Rd / R
   explicit_rate = polymer_integral_rate + solvent_scale * (Rd / R) ** 2
-  return (
-    stress_integral,
-    explicit_rate,
-    np.concatenate((radial_rate, hoop_rate)),
-    solvent_scale,
-  )
+  return (stress_integral, explicit_rate, np.concatenate((radial_rate, hoop_rate)), solvent_scale)
 
 
 def _distributed_stress_integral(prepared, p, R, Rd, state):

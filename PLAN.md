@@ -25,7 +25,7 @@ independent and cheap. W3--W6 are independent of each other.
 | W4 radial 6 | **done** -- resolved with a measurement |
 | W5 IMR-vanilla estimators | **done** -- new `imr_data.py` |
 | W6 solver control surface | **done** -- 86-option audit, `max_step_s` added |
-| W7 tinygrad style | **partly done** -- config, indent, docstrings, one split |
+| W7 tinygrad style | **done** -- config, indent, docstrings, six splits, formatter settled |
 | W8 measured collapse gaps | **done** -- stubs, plus the Zener offset quantified |
 
 Revised priority after W1: **W8 -> W3 -> W5 -> W6 -> W2 -> W7.**
@@ -578,26 +578,41 @@ current 82.
 | indent | 2 space | 4 space | **2 space** |
 | largest file | -- | 2683 | **2214** |
 
-### The formatter trade-off, stated plainly
+### The formatter question, resolved by measurement
 
-tinygrad does **not** use a formatter. Its density -- one-line `def` bodies,
-semicolon multi-statements, hand-packed lines -- is hand-maintained, and
-`ruff format` actively undoes all of it. It also enforces blank lines around
-definitions, which is why the blank-line share went *up* (9.2% -> 10.7%) even
-as total lines fell.
+tinygrad uses no formatter; its density is hand-maintained. The earlier note
+framed this as keep-the-formatter *or* reach tinygrad density. That was a false
+choice -- `ruff format` has one knob that recovers most of the difference.
 
-So the last three unchecked items are not merely unfinished, they are
-**mutually exclusive with keeping `ruff format`**. The choice is:
+`skip-magic-trailing-comma = true` collapses any call, signature or literal
+whose trailing comma was forcing it to stay exploded, wherever it fits in 120
+columns. Measured across the repo:
 
-- **keep the formatter** (current state): 2-space indent and 120 columns are
-  enforced automatically and cannot drift, but blank-line share and one-line
-  bodies stay formatter-controlled; or
-- **drop `ruff format`**, keep only `ruff check`, and hand-tune density the way
-  tinygrad does -- reaching ~3% blank lines and one-line bodies, at the cost of
-  style becoming a review concern rather than a machine-checked one.
+| | lines | blank |
+|---|---:|---:|
+| default `ruff format` | 6632 | 729 (11.0%) |
+| `skip-magic-trailing-comma` | **6078** | 729 (12.0%) |
 
-I took the first because it is verifiable and reversible. Flipping to the
-second is a one-line config change plus a manual pass.
+**554 fewer lines of identical content, -8.4%.** The blank *count* is
+unchanged; its share only rises because the denominator shrank, so the earlier
+"blank lines are too high" reading was measuring the wrong thing -- the problem
+was exploded call sites, not vertical whitespace.
+
+**Decision: keep `ruff format`, with `skip-magic-trailing-comma`.** Reasoning:
+
+- This repo's whole claim is machine-verified correctness. Machine-enforced
+  style is the same argument; hand-maintained density is a review burden that
+  drifts, and tinygrad gets away with it only because a very small group with
+  strong shared taste maintains it.
+- Work here arrives as parallel agent branches. A formatter keeps style churn
+  out of those diffs entirely.
+- The structural wins -- 120 columns, 2-space indent, stripped docstrings, six
+  file splits -- are already banked and are worth far more than one-line `def`
+  bodies.
+
+What is given up: one-line `def` bodies and semicolon multi-statements, which
+`ruff format` will always expand. The lint ignores for them stay in place, so
+the decision is reversible by deleting three lines of config.
 
 **Verification:** every step was checked bitwise. A 10-case trajectory hash
 (NHKV, Zener, Oldroyd-B, qKV, Giesekus, PTT, radial 3, radial 5, fully coupled,

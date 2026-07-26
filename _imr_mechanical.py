@@ -48,10 +48,7 @@ def _forcing(time, p):
     return amplitude, 0.0j
   if wave_type == 1:
     pulse = np.exp(-((time - delay) ** 2) / width**2)
-    return (
-      -amplitude * pulse,
-      amplitude * 2.0 * (time - delay) / width**2 * pulse,
-    )
+    return (-amplitude * pulse, amplitude * 2.0 * (time - delay) / width**2 * pulse)
   if wave_type == 2:
     lower = (delay - np.pi / omega).real
     upper = (delay + np.pi / omega).real
@@ -62,10 +59,7 @@ def _forcing(time, p):
       amplitude * cosine**exponent,
       -amplitude * exponent * cosine ** (exponent - 1.0) * 0.5 * omega * np.sin(omega * (time - delay)),
     )
-  return (
-    -amplitude * (1.0 - (1.0 if time.real > width.real else 0.0)),
-    0.0j,
-  )
+  return (-amplitude * (1.0 - (1.0 if time.real > width.real else 0.0)), 0.0j)
 
 
 @njit(cache=True)
@@ -182,16 +176,7 @@ def _viscosity(code, parameters, shear_rate):
 
 @njit(cache=True)
 def _instantaneous_stress(
-  elastic_code,
-  elastic_parameters,
-  viscous_code,
-  viscous_parameters,
-  nodes,
-  weights,
-  p,
-  radius,
-  velocity,
-  need_rate,
+  elastic_code, elastic_parameters, viscous_code, viscous_parameters, nodes, weights, p, radius, velocity, need_rate
 ):
   stress = 0.0j
   explicit_rate = 0.0j
@@ -202,24 +187,10 @@ def _instantaneous_stress(
     integral = 0.0j
     for index in range(nodes.size):
       stretch = 1.0 + half * (nodes[index] + 1.0)
-      integral += weights[index] * _elastic_integrand(
-        elastic_code,
-        elastic_parameters,
-        stretch,
-        p[P_P8],
-      )
+      integral += weights[index] * _elastic_integrand(elastic_code, elastic_parameters, stretch, p[P_P8])
     stress += half * integral
     if need_rate:
-      explicit_rate += (
-        _elastic_integrand(
-          elastic_code,
-          elastic_parameters,
-          wall_stretch,
-          p[P_P8],
-        )
-        * velocity
-        / p[P_REQ]
-      )
+      explicit_rate += _elastic_integrand(elastic_code, elastic_parameters, wall_stretch, p[P_P8]) * velocity / p[P_REQ]
   if viscous_code:
     strain_rate = velocity / radius
     sign = -1.0 if strain_rate.real < 0.0 else 1.0
@@ -316,12 +287,7 @@ def _stress(
       - 3.0 * velocity / radius**4 * (z1 + z2)
       + 4.0 * retardation / reynolds * (velocity / radius) ** 2
     )
-    return (
-      stress,
-      stress_rate,
-      4.0 * retardation / reynolds,
-      rates,
-    )
+    return (stress, stress_rate, 4.0 * retardation / reynolds, rates)
   if material_code == 7 or material_code == 8:
     points = reference_radius.size
     radius_values = np.empty(points, dtype=np.complex128)
@@ -388,16 +354,7 @@ def _stress(
     stress_rate = polymer_rate + solvent * (velocity / radius) ** 2
     return stress, stress_rate, solvent, rates
   stress, stress_rate, acceleration = _instantaneous_stress(
-    elastic_code,
-    elastic_parameters,
-    viscous_code,
-    viscous_parameters,
-    nodes,
-    weights,
-    p,
-    radius,
-    velocity,
-    need_rate,
+    elastic_code, elastic_parameters, viscous_code, viscous_parameters, nodes, weights, p, radius, velocity, need_rate
   )
   return stress, stress_rate, acceleration, rates
 

@@ -148,10 +148,7 @@ def collapse_features(time_s, radius_m, *, refine=True):
     if abs(shift) > 1.0:
       return time[index], middle
     step = time[index + 1] - time[index - 1]
-    return (
-      time[index] + 0.5 * shift * step,
-      middle - 0.25 * (left - right) * shift,
-    )
+    return (time[index] + 0.5 * shift * step, middle - 0.25 * (left - right) * shift)
 
   collapse = np.array([sharpen(i)[0] for i in minima])
   peaks = np.array([sharpen(i) for i in maxima]).reshape(-1, 2)

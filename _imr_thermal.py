@@ -10,11 +10,7 @@ from __future__ import annotations
 import numpy as np
 
 from _imr_autodiff import primal_array
-from _imr_materials import (
-  InstantaneousMaterial,
-  NoStress,
-  QuadraticKelvinVoigt,
-)
+from _imr_materials import InstantaneousMaterial, NoStress, QuadraticKelvinVoigt
 from _imr_stress import _elastic_integrand, _viscosity_and_tangent
 
 __all__ = [
@@ -136,12 +132,7 @@ def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3):
             stress_difference[left + 1] - stress_difference[left]
           )
     else:
-      sampled_difference = np.interp(
-        reference_radius,
-        prepared.reference_radius,
-        stress_difference,
-        right=0.0,
-      )
+      sampled_difference = np.interp(reference_radius, prepared.reference_radius, stress_difference, right=0.0)
     strain_rate = Rd / R * iyT3
     polymer_heating = -2.0 * strain_rate * sampled_difference
     solvent_heating = 12.0 * p["LAM"] / p["Re8"] * strain_rate**2
@@ -259,12 +250,7 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
     wall_state.theta = theta[-1]
   elif medium is not None:
     theta[-1] = _wall_theta_bw(
-      wall_state.theta,
-      [theta[-2], theta[-3]],
-      [Tm[1], Tm[2]],
-      p["alpha_g"],
-      medium.grad_Tm,
-      medium.grad_Trans,
+      wall_state.theta, [theta[-2], theta[-3]], [Tm[1], Tm[2]], p["alpha_g"], medium.grad_Tm, medium.grad_Trans
     )
     wall_state.theta = theta[-1]
 
@@ -272,13 +258,7 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
   if masstrans:
     alpha_m = kv * p["alpha_v"] + (1.0 - kv) * p["alpha_g"]
     temperature = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_m)) / alpha_m
-    kv[-1] = _kv_of_T(
-      temperature[-1],
-      P,
-      p["T8"],
-      p["Rv_star"] / p["Rg_star"],
-      p["P8"],
-    )
+    kv[-1] = _kv_of_T(temperature[-1], P, p["T8"], p["Rv_star"] / p["Rg_star"], p["P8"])
   else:
     alpha_g = p["alpha_g"]
     temperature = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_g)) / alpha_g

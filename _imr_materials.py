@@ -106,10 +106,7 @@ class Zener:
   def __post_init__(self) -> None:
     _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
     _validate_memory_parameters(
-      self.viscosity_pa_s,
-      self.relaxation_time_s,
-      self.retardation_time_s,
-      polymer_required=False,
+      self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False
     )
 
 
@@ -126,10 +123,7 @@ class QuadraticZener:
   def __post_init__(self) -> None:
     _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
     _validate_memory_parameters(
-      self.viscosity_pa_s,
-      self.relaxation_time_s,
-      self.retardation_time_s,
-      polymer_required=False,
+      self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False
     )
     _finite_nonnegative("stiffening", self.stiffening)
 
@@ -144,10 +138,7 @@ class OldroydB:
 
   def __post_init__(self) -> None:
     _validate_memory_parameters(
-      self.viscosity_pa_s,
-      self.relaxation_time_s,
-      self.retardation_time_s,
-      polymer_required=False,
+      self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False
     )
 
 
@@ -248,10 +239,7 @@ class CarreauYasuda:
 
   def __post_init__(self) -> None:
     _finite_positive("zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s)
-    _finite_nonnegative(
-      "infinite_shear_viscosity_pa_s",
-      self.infinite_shear_viscosity_pa_s,
-    )
+    _finite_nonnegative("infinite_shear_viscosity_pa_s", self.infinite_shear_viscosity_pa_s)
     _finite_nonnegative("time_constant_s", self.time_constant_s)
     _finite_positive("transition_exponent", self.transition_exponent)
     _finite_positive("power_index", self.power_index)
@@ -271,10 +259,7 @@ class PowellEyring:
 
   def __post_init__(self) -> None:
     _finite_positive("zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s)
-    _finite_nonnegative(
-      "infinite_shear_viscosity_pa_s",
-      self.infinite_shear_viscosity_pa_s,
-    )
+    _finite_nonnegative("infinite_shear_viscosity_pa_s", self.infinite_shear_viscosity_pa_s)
     _finite_nonnegative("time_constant_s", self.time_constant_s)
 
 
@@ -292,10 +277,7 @@ class ModifiedPowellEyring:
 
   def __post_init__(self) -> None:
     _finite_positive("zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s)
-    _finite_nonnegative(
-      "infinite_shear_viscosity_pa_s",
-      self.infinite_shear_viscosity_pa_s,
-    )
+    _finite_nonnegative("infinite_shear_viscosity_pa_s", self.infinite_shear_viscosity_pa_s)
     _finite_nonnegative("time_constant_s", self.time_constant_s)
 
 
@@ -308,10 +290,7 @@ class Cross:
 
   def __post_init__(self) -> None:
     _finite_positive("zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s)
-    _finite_nonnegative(
-      "infinite_shear_viscosity_pa_s",
-      self.infinite_shear_viscosity_pa_s,
-    )
+    _finite_nonnegative("infinite_shear_viscosity_pa_s", self.infinite_shear_viscosity_pa_s)
     _finite_nonnegative("time_constant_s", self.time_constant_s)
     _finite_positive("transition_exponent", self.transition_exponent)
 
@@ -359,8 +338,7 @@ class InstantaneousMaterial:
     if self.elastic is None and self.viscous is None:
       raise ValueError("an instantaneous material requires an elastic or viscous law")
     if self.elastic is not None and not isinstance(
-      self.elastic,
-      (NeoHookean, MooneyRivlin, Yeoh, Fung, Gent, ArrudaBoyce),
+      self.elastic, (NeoHookean, MooneyRivlin, Yeoh, Fung, Gent, ArrudaBoyce)
     ):
       raise TypeError("elastic must be a supported elastic model")
     if self.viscous is not None and not isinstance(
@@ -394,10 +372,7 @@ class Giesekus:
 
   def __post_init__(self) -> None:
     _validate_memory_parameters(
-      self.viscosity_pa_s,
-      self.relaxation_time_s,
-      self.retardation_time_s,
-      polymer_required=True,
+      self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=True
     )
     _validate_distributed_model("mobility", self.mobility, self.points, self.extent)
     if self.mobility > 1.0:
@@ -417,10 +392,7 @@ class LinearPTT:
 
   def __post_init__(self) -> None:
     _validate_memory_parameters(
-      self.viscosity_pa_s,
-      self.relaxation_time_s,
-      self.retardation_time_s,
-      polymer_required=True,
+      self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=True
     )
     _validate_distributed_model("extensibility", self.extensibility, self.points, self.extent)
 

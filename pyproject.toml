@@ -46,6 +46,9 @@ addopts = ["--strict-config", "--strict-markers"]
 line-length = 120
 indent-width = 2
 
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
 [tool.ruff.lint]
 # Default E4/E7/E9 + F, minus the dense idioms this codebase uses
 # deliberately: multi-import lines, module imports after a path shim,

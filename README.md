@@ -10,61 +10,92 @@ takes ~0.4–1 s per solve plus ~5 s startup, which is prohibitive for campaigns
 needing 10⁴–10⁶ forward evaluations.
 
 ```bash
-python3 tests/run_validation.py     # full validation suite
+python -m pip install -e ".[test]"
+python -m pytest
+python tests/run_validation.py
 ```
 
 ## Contents
 
 | file | what it is |
 |---|---|
-| `imr_fast.py` | forward solver — **11 ms/solve, 40–90× faster than IMRv2** |
-| `imr_grad.py` | differentiable solver via forward sensitivity equations — exact analytic ∂R/∂c |
-| `constitutive.py` | constitutive suite: stress integrals computed numerically from strain-energy / viscosity functions |
-| `imr_nonlinear.py` | Giesekus & Phan-Thien-Tanner via a Lagrangian material-point ODE system |
+| `imr_fast.py` | main forward solver and strict `SimulationConfig`/`SimulationResult` API |
+| `imr_grad.py` | RP/polytropic forward sensitivity solver for a six-term linear stress library |
+| `constitutive.py` | standalone elastic and generalized-Newtonian stress-integral models |
+| `imr_nonlinear.py` | separate RP/polytropic Giesekus and PTT solver |
 | `tests/run_validation.py` | validation against IMRv2 reference trajectories + closed forms + model-reduction limits |
 
 ## Scope
 
-`imr_fast` covers a deliberately narrow slice of IMRv2, matching the
-configuration it was built for:
+The main `imr_fast.simulate` solver currently supports:
 
 | option | setting |
 |---|---|
-| `radial` | **1** Rayleigh–Plesset, **2** Keller–Miksis (pressure form) |
-| `bubtherm` | 0 — polytropic, κ=1.4 (no thermal PDE) |
-| `masstrans` | 0 |
+| `radial` | **1** RP, **2** KM pressure, **3** KM enthalpy/Tait, **4** Gilmore/Tait, **5** KM enthalpy/Mie–Grüneisen |
+| `bubtherm` | **0** polytropic or **1** gas thermal PDE |
+| `medtherm` | **0** or **1** liquid thermal layer; requires `bubtherm=1` |
+| `masstrans` | **0** or **1** vapor mass transfer; requires `bubtherm=vapor=1` |
 | `vapor` | **0 or 1** (saturation pressure at `T8`) |
 | `wave_type` | **0** constant offset, **1** Gaussian, **2** histotripsy, **3** Heaviside step (`pA`, `TW`, `DT`, `omega`, `mn`) |
-| `stress` | **1** neo-Hookean KV, **2** quadratic KV (`alphax`), **3** linear Maxwell/Jeffreys/Zener, **5** UCM/Oldroyd-B |
+| `stress` | **0** none, **1** NHKV, **2** qKV, **3** linear Maxwell/Jeffreys/Zener, **4** quadratic Zener family, **5** UCM/Oldroyd-B |
 
-**It will silently give wrong answers outside this scope** — Gilmore, thermal
-PDE, mass transfer, PTT, or Giesekus. Re-validate before extending.
+Every combination exercised by the regression suite is checked against a pinned
+IMRv2 trajectory. Unsupported option values and inconsistent thermal/mass
+combinations raise `ValueError`.
 
-## Deliberate scope: ODE integrators only
+### Public APIs
 
-Everything here is a **system of ODEs** — Rayleigh–Plesset or Keller–Miksis for the
-wall motion, plus internal stress variables for the memory models. That is what
-makes it fast, and what makes exact forward-sensitivity gradients practical.
+The original array-returning function remains available:
 
-**Out of scope by design:** models requiring spatial discretization inside the
-bubble or the surrounding medium — the thermal PDE (`bubtherm=1`, `medtherm=1`)
-and mass transfer (`masstrans=1`). These are a different class of solver, and
-adding them would sacrifice both the speed and the gradient machinery that are the
-point of this package. Use IMRv2 for those.
+```python
+import numpy as np
+from imr_fast import simulate
 
-Two consequences worth knowing:
+t = np.linspace(0.0, 120e-6, 300)
+radius_ratio = simulate(t, R0=225e-6, Req=37.5e-6, G=2500.0, mu=0.1)
+```
 
+New code should prefer the validated, structured API:
+
+```python
+from imr_fast import SimulationConfig, simulate_result
+
+config = SimulationConfig(R0=225e-6, Req=37.5e-6, G=2500.0, mu=0.1)
+result = simulate_result(t, config)
+
+result.time_s       # immutable input-time copy
+result.radius_ratio # R/R0
+result.radius_m     # dimensional radius
+```
+
+The structured API raises `SimulationError` if the integrator fails. The legacy
+API retains its historical all-NaN failure return unless
+`raise_on_failure=True` is requested.
+
+### Important boundaries
+
+- Physical constants such as `kappa`, far-field pressure/density, surface
+  tension, sound speed, and liquid equation-of-state parameters are currently
+  fixed to the reference-validation values. In particular, `kappa=1.4`, whereas
+  IMRv2 ships with an overridable default of 1.47.
+- The main solver returns radius only. Pressure, velocity, temperature, and
+  concentration are integrated internally but are not yet part of its public
+  result.
+- The models in `constitutive.py` are validated stress-integral functions, not
+  selectable main-solver models.
+- `imr_grad.py` differentiates a separate RP/polytropic six-term stress-library
+  solver. Its gradients do not yet cover the complete `imr_fast.simulate` model.
+- `imr_nonlinear.py` is a separate RP/polytropic solver. Its PTT and Giesekus
+  implementations do not yet support acoustic forcing or the thermal branches.
+- `radial=6` (Gilmore/Mie–Grüneisen) is intentionally unavailable because the
+  corresponding upstream IMRv2 branch produces non-real states in the tested
+  pressure range.
 - **`collapse=1`** (shooting-computed initial stress) is **not** implemented, and
   cannot be added in isolation: IMRv2 requires `bubtherm=1`, `medtherm=1`,
   `masstrans=1` *and* `vapor=1` before it will accept `collapse=1`, so there is no
   way to validate a standalone implementation. Runs here start from an unstressed
-  state (`Szero=0`). If your problem has a relaxation time comparable to or longer
+  state (`Szero=0`). If the relaxation time is comparable to or longer
   than the observation window, that initial condition matters — check it.
-- **PTT and Giesekus** *are* implemented, in `imr_nonlinear.py` — see below. They
-  are often described as requiring PDEs in the surrounding medium (Warnez &
-  Johnsen 2015), which is why IMRv2's ODE path stops at `stress=5`. That framing
-  is Eulerian. What they actually lack is **analytic closure** of the stress
-  integral, which is not the same thing as needing a PDE.
 
 ### Note on the upstream reference
 
@@ -88,8 +119,12 @@ Against IMRv2 reference trajectories:
 | Gaussian forcing, pA = 5e4 / 2e5 Pa | 1.2e-05 / 1.1e-05 |
 | constant-offset / Heaviside / histotripsy forcing | 3.6e-05 / 1.4e-05 / 1.1e-05 |
 | `vapor=1` (saturation pressure at 298.15 K) | 1.5e-05 |
+| gas / liquid thermal PDE branches | 9.4e-06 / 9.6e-06 |
+| vapor mass / coupled heat-mass branches | 1.6e-05 / 6.0e-06 |
+| KM-enthalpy/Tait, Gilmore/Tait, KM/Mie–Grüneisen | 8.6e-06 / 8.8e-06 / 1.6e-05 |
 
-Deviations are at integrator-tolerance level, not model error.
+These are numerical agreement measurements against the reference
+implementation, not an estimate of physical model error.
 
 Constitutive suite:
 

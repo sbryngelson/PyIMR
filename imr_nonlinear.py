@@ -33,7 +33,8 @@ the model admits closure.
 """
 import numpy as np
 from scipy.integrate import solve_ivp
-from imr_fast import params, KAPPA
+
+from imr_fast import KAPPA, params
 
 
 def _grid(NM, xmax=60.0):

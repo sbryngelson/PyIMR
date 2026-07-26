@@ -1,6 +1,10 @@
+import time
+
 import numpy as np
 from scipy.integrate import solve_ivp
-from imr_fast import params, KAPPA
+
+from imr_fast import KAPPA, params
+
 """
 DIFFERENTIABLE IMR solver via FORWARD SENSITIVITY EQUATIONS.
 Exact analytic gradients dR/dc_k -- no autodiff dependency, and cheaper than AD
@@ -61,6 +65,6 @@ if __name__=="__main__":
         a=dR[:,k]; msk=np.isfinite(fd)&np.isfinite(a)
         rel=np.linalg.norm(a[msk]-fd[msk])/max(np.linalg.norm(fd[msk]),1e-30)
         print(f"{k:>3} {names[k]:>8} {np.linalg.norm(a[msk]):>14.5e} {np.linalg.norm(fd[msk]):>14.5e} {rel:>10.2e}")
-    import time; st=time.time()
+    st=time.time()
     for _ in range(20): simulate_grad(tn,p,c)
     print(f"\nspeed: {(time.time()-st)/20*1000:.1f} ms/solve (value + all {NP} gradients)")

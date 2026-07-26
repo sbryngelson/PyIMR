@@ -1,4 +1,5 @@
 import numpy as np
+
 """
 CONSTITUTIVE SUITE for IMR constitutive-law discovery.
 Stress integral S = int_R^inf (2/r)(tau_rr - tau_thth) dr, nondimensionalised by p_inf.

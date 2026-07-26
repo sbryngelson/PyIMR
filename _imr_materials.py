@@ -12,6 +12,8 @@ from numbers import Integral
 import numpy as np
 
 __all__ = [
+  "_is_distributed_stress",
+  "_stress_state_count",
   "ArrudaBoyce",
   "Bingham",
   "CarreauYasuda",
@@ -434,3 +436,17 @@ MaterialModel = (
   | Giesekus
   | LinearPTT
 )
+
+
+def _is_distributed_stress(material) -> bool:
+  return isinstance(material, (Giesekus, LinearPTT))
+
+
+def _stress_state_count(material) -> int:
+  if _is_distributed_stress(material):
+    return 2 * material.points
+  if isinstance(material, (Zener, QuadraticZener)):
+    return 1
+  if isinstance(material, OldroydB):
+    return 2
+  return 0

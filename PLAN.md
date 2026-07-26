@@ -515,13 +515,21 @@ current 82.
       and `_imr_thermal.py` (287) takes the Tait/Mie-Gruneisen parameters,
       `pvsat`, the dissipation terms and the implicit wall-temperature solve.
       **`imr_fast.py` 2683 -> 1686 across the three splits (-37%).**
-- [ ] Get every file under ~800. `imr_fast.py` (1686) is now dominated by
-      `_rhs` (242), `params` (126), `_collapse_memory_state` (113), `prepare`
-      (107) and `_integrate_prepared` (94); the natural next cut is
-      preparation/collapse into `_imr_prepare.py`, leaving `_rhs` and the
-      public API. `imr_sensitivity.py` (1001) is dominated by
-      `solve_with_sensitivities` (146), `_material_parameters` (107) and
-      `_output_duals` (101).
+- [x] `_imr_rhs.py` (315): the right-hand side plus forcing evaluation --
+      `_rhs`, `_pinf`, `_sampled_pressure`, `_nZ`, `_radius_floor_event`. A
+      clean leaf: it reads a prepared problem but never builds one. The two
+      material predicates `_is_distributed_stress` and `_stress_state_count`
+      moved to `_imr_materials.py` where they belong, which is what made the
+      cut acyclic. **`imr_fast.py` 2683 -> 1396 over four splits (-48%).**
+- [ ] Get every file under ~800. `imr_fast.py` (1396) now holds the config and
+      prepared-problem dataclasses, `params`, `prepare`, the collapse
+      precursor, and the integrate/build-result path. The next cut is
+      `_imr_config.py` for the frozen dataclasses plus `_imr_prepare.py` for
+      `params`/`prepare`/collapse; `PreparedProblem.solve()` would need the
+      same deferred-import trick it already uses for
+      `solve_with_sensitivities`. `imr_sensitivity.py` (1001) is untouched and
+      is dominated by `solve_with_sensitivities` (146), `_material_parameters`
+      (107) and `_output_duals` (101).
 
       **Method note:** extract with AST spans and delete in descending line
       order; naive line slicing silently corrupted a first attempt. Do not run

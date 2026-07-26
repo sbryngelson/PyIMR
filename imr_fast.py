@@ -21,6 +21,7 @@ Covers:
            4 (linear Maxwell / Jeffreys / Zener, quadratic KV elastic term,
               1 internal variable -- stress=3's counterpart to stress=2)
            5 (UCM / Oldroyd-B, 2 internal variables)
+           GiesekusModel or LinearPTTModel (distributed nonlinear memory)
   forcing  wave_type 0 (constant offset), 1 (Gaussian), 2 (histotripsy),
            3 (Heaviside step), or a dimensional sampled pressure history
 
@@ -70,8 +71,7 @@ kv estimate at the candidate wall temperature) alongside heat-flux
 continuity; alpha_m in that solve also uses the stale kv[-1], same lag.
 GRADIENTS NOT VALIDATED for masstrans=1 (with or without medtherm=1).
 
-The main API is not valid for radial=6, arbitrary constitutive callbacks, PTT,
-or Giesekus. The latter two are implemented only in the separate reduced solver.
+The main API is not valid for radial=6 or arbitrary constitutive callbacks.
 Re-validate before extending any branch.
 """
 from __future__ import annotations
@@ -85,6 +85,7 @@ from typing import Mapping
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.interpolate import PchipInterpolator
+from scipy.sparse import csr_matrix, lil_matrix
 
 from thermal_fd import finite_diff_mat
 
@@ -230,6 +231,58 @@ class InitialState:
             object.__setattr__(self, "stress_state", state)
 
 
+def _validate_distributed_model(name, parameter, points, extent) -> None:
+    if not np.isfinite(parameter) or parameter < 0.0:
+        raise ValueError(f"{name} must be finite and non-negative")
+    if not isinstance(points, Integral) or points < 8:
+        raise ValueError("points must be an integer >= 8")
+    if not np.isfinite(extent) or extent <= 1.0:
+        raise ValueError("extent must be finite and greater than 1")
+
+
+@dataclass(frozen=True, slots=True)
+class GiesekusModel:
+    """Distributed Giesekus memory on a prepared Lagrangian radial grid."""
+
+    mobility: float = 0.0
+    points: int = 480
+    extent: float = 60.0
+
+    def __post_init__(self) -> None:
+        _validate_distributed_model(
+            "mobility", self.mobility, self.points, self.extent
+        )
+        if self.mobility > 1.0:
+            raise ValueError("mobility must not exceed 1")
+
+
+@dataclass(frozen=True, slots=True)
+class LinearPTTModel:
+    """Distributed linear Phan-Thien-Tanner memory."""
+
+    extensibility: float = 0.0
+    points: int = 480
+    extent: float = 60.0
+
+    def __post_init__(self) -> None:
+        _validate_distributed_model(
+            "extensibility", self.extensibility, self.points, self.extent
+        )
+
+
+DistributedStressModel = GiesekusModel | LinearPTTModel
+
+
+def _is_distributed_stress(stress) -> bool:
+    return isinstance(stress, (GiesekusModel, LinearPTTModel))
+
+
+def _stress_state_count(stress) -> int:
+    if _is_distributed_stress(stress):
+        return 2 * stress.points
+    return _STRESS_STATE_COUNTS[stress]
+
+
 @dataclass(frozen=True, slots=True)
 class SimulationConfig:
     """Validated dimensional inputs for one IMR simulation.
@@ -241,7 +294,7 @@ class SimulationConfig:
     Req: float
     G: float
     mu: float
-    stress: int = 1
+    stress: int | DistributedStressModel = 1
     lam1: float = 0.0
     lam2: float = 0.0
     alphax: float = 0.25
@@ -334,7 +387,7 @@ class StateLayout:
             if config.masstrans:
                 vapor_fraction = slice(cursor, cursor + config.Nt)
                 cursor += config.Nt
-        stress = slice(cursor, cursor + _STRESS_STATE_COUNTS[config.stress])
+        stress = slice(cursor, cursor + _stress_state_count(config.stress))
         cursor = stress.stop
         return cls(
             pressure=pressure,
@@ -372,6 +425,14 @@ class PreparedForcing:
     coefficients: np.ndarray
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedDistributedStress:
+    """Static quadrature data for a distributed constitutive model."""
+
+    reference_radius: np.ndarray
+    reference_radius_cubed: np.ndarray
+
+
 @dataclass(slots=True)
 class _WallState:
     """Mutable wall-solve continuation state, private to one integration."""
@@ -392,6 +453,8 @@ class PreparedProblem:
     bubble_D2: np.ndarray | None = None
     medium: MediumOperators | None = None
     forcing: PreparedForcing | None = None
+    distributed_stress: PreparedDistributedStress | None = None
+    jacobian_sparsity: csr_matrix | None = None
 
     def solve(self, tv) -> SimulationResult:
         """Run the prepared problem and return full physical outputs."""
@@ -411,6 +474,7 @@ class SimulationResult:
     medium_temperature_k: np.ndarray | None
     vapor_mass_fraction: np.ndarray | None
     stress_state: np.ndarray | None
+    stress_reference_radius_ratio: np.ndarray | None
     stats: SolverStats
     config: SimulationConfig
 
@@ -457,19 +521,28 @@ def _validate_inputs(tv, R0, Req, G, mu, stress, lam1, lam2, alphax, radial,
             raise ValueError(f"{name} must be finite")
     if lam1 < 0 or lam2 < 0:
         raise ValueError("lam1 and lam2 must be non-negative")
-    if stress in (3, 4, 5) and lam1 <= 0:
+    distributed_stress = _is_distributed_stress(stress)
+    if (distributed_stress or stress in (3, 4, 5)) and lam1 <= 0:
         raise ValueError(f"stress={stress} requires lam1 > 0")
+    if distributed_stress and lam2 >= lam1:
+        raise ValueError("distributed stress requires 0 <= lam2 < lam1")
     if lam1 == 0 and lam2 != 0:
         raise ValueError("lam2 must be zero when lam1 is zero")
 
     for name, value, allowed in (
-        ("stress", stress, range(0, 6)),
         ("radial", radial, range(1, 6)),
         ("wave_type", wave_type, range(0, 4)),
     ):
         if not isinstance(value, Integral) or value not in allowed:
             choices = ", ".join(str(choice) for choice in allowed)
             raise ValueError(f"{name} must be one of: {choices}")
+    if not distributed_stress and (
+        not isinstance(stress, Integral) or stress not in range(0, 6)
+    ):
+        raise ValueError(
+            "stress must be one of: 0, 1, 2, 3, 4, 5, "
+            "GiesekusModel, LinearPTTModel"
+        )
     for name, value in (("vapor", vapor), ("bubtherm", bubtherm),
                         ("medtherm", medtherm), ("masstrans", masstrans)):
         if not isinstance(value, Integral) or value not in (0, 1):
@@ -647,6 +720,90 @@ def _stress(stress, p, R, Rd, Z):
     raise ValueError(f"stress={stress} not supported")
 
 
+def _distributed_stress(stress, prepared, p, R, Rd, state, need_rate):
+    """Return stress integral, its explicit rate, and material stress rates."""
+    points = prepared.reference_radius.size
+    radial_stress = state[:points]
+    hoop_stress = state[points:]
+    radius_cubed = np.maximum(
+        prepared.reference_radius_cubed + R ** 3 - 1.0,
+        1e-30,
+    )
+    inverse_radius_cubed = 1.0 / radius_cubed
+    strain_rate = Rd * R ** 2 * inverse_radius_cubed
+    polymer_viscosity = (1.0 - p["LAM"]) / p["Re8"]
+
+    if isinstance(stress, GiesekusModel):
+        nonlinear_scale = stress.mobility / polymer_viscosity
+        radial_rate = (
+            -radial_stress / p["De"]
+            - 4.0 * strain_rate * radial_stress
+            - nonlinear_scale * radial_stress ** 2
+            - 4.0 * polymer_viscosity * strain_rate / p["De"]
+        )
+        hoop_rate = (
+            -hoop_stress / p["De"]
+            + 2.0 * strain_rate * hoop_stress
+            - nonlinear_scale * hoop_stress ** 2
+            + 2.0 * polymer_viscosity * strain_rate / p["De"]
+        )
+    else:
+        nonlinear_scale = stress.extensibility / polymer_viscosity
+        trace_factor = 1.0 + nonlinear_scale * (
+            radial_stress + 2.0 * hoop_stress
+        )
+        radial_rate = (
+            -trace_factor * radial_stress / p["De"]
+            - 4.0 * strain_rate * radial_stress
+            - 4.0 * polymer_viscosity * strain_rate / p["De"]
+        )
+        hoop_rate = (
+            -trace_factor * hoop_stress / p["De"]
+            + 2.0 * strain_rate * hoop_stress
+            + 2.0 * polymer_viscosity * strain_rate / p["De"]
+        )
+
+    radius = np.cbrt(radius_cubed)
+    stress_difference = radial_stress - hoop_stress
+    integrand = 2.0 * stress_difference / radius
+    polymer_integral = np.trapezoid(integrand, radius)
+    polymer_integral_rate = 0.0
+    if need_rate:
+        material_velocity = R ** 2 * Rd / radius ** 2
+        integrand_rate = 2.0 * (
+            (radial_rate - hoop_rate) / radius
+            - stress_difference * material_velocity / radius ** 2
+        )
+        intervals = np.diff(radius)
+        interval_rates = np.diff(material_velocity)
+        polymer_integral_rate = np.sum(
+            0.5
+            * (
+                (integrand_rate[:-1] + integrand_rate[1:]) * intervals
+                + (integrand[:-1] + integrand[1:]) * interval_rates
+            )
+        )
+    solvent_scale = 4.0 * p["LAM"] / p["Re8"]
+    stress_integral = polymer_integral - solvent_scale * Rd / R
+    explicit_rate = polymer_integral_rate + solvent_scale * (Rd / R) ** 2
+    return (
+        stress_integral,
+        explicit_rate,
+        np.concatenate((radial_rate, hoop_rate)),
+    )
+
+
+def _distributed_stress_integral(prepared, p, R, Rd, state):
+    """Evaluate only the distributed stress integral for result assembly."""
+    points = prepared.reference_radius.size
+    radius = np.cbrt(
+        np.maximum(prepared.reference_radius_cubed + R ** 3 - 1.0, 1e-30)
+    )
+    integrand = 2.0 * (state[:points] - state[points:]) / radius
+    polymer_integral = np.trapezoid(integrand, radius)
+    return polymer_integral - 4.0 * p["LAM"] / p["Re8"] * Rd / R
+
+
 def _sampled_pressure(tn, forcing):
     if tn < forcing.knots[0] or tn > forcing.knots[-1]:
         return 0.0, 0.0
@@ -684,7 +841,7 @@ def _pinf(tn, p, forcing=None):
 
 def _nZ(stress):
     """Number of internal stress variables."""
-    return _STRESS_STATE_COUNTS[stress]
+    return _stress_state_count(stress)
 
 
 def _freeze_array(values) -> np.ndarray:
@@ -704,6 +861,49 @@ def _prepare_forcing(config, parameters):
         knots=_freeze_array(knots),
         coefficients=_freeze_array(interpolant.c),
     )
+
+
+def _prepare_distributed_stress(stress):
+    if not _is_distributed_stress(stress):
+        return None
+    unit_grid = np.linspace(0.0, 1.0, stress.points)
+    reference_radius = 1.0 + (stress.extent - 1.0) * unit_grid ** 4
+    return PreparedDistributedStress(
+        reference_radius=_freeze_array(reference_radius),
+        reference_radius_cubed=_freeze_array(reference_radius ** 3),
+    )
+
+
+def _prepare_distributed_jacobian(config, layout):
+    """Approximate sparse Newton coupling for stiff distributed solves.
+
+    The global stress-integral and dissipation couplings are deliberately
+    omitted from the Newton matrix. They remain in the RHS residual, while this
+    block pattern avoids dense finite differencing of hundreds of material
+    states.
+    """
+    if not _is_distributed_stress(config.stress):
+        return None
+    if not (config.medtherm or config.masstrans):
+        return None
+    size = layout.size
+    stress_start = layout.stress.start
+    points = config.stress.points
+    pattern = lil_matrix((size, size), dtype=bool)
+    pattern[:stress_start, :stress_start] = True
+    pattern[stress_start:, :2] = True
+    for index in range(points):
+        radial = stress_start + index
+        hoop = radial + points
+        pattern[radial, radial] = True
+        pattern[radial, hoop] = True
+        pattern[hoop, radial] = True
+        pattern[hoop, hoop] = True
+    sparse_pattern = pattern.tocsr()
+    sparse_pattern.data.setflags(write=False)
+    sparse_pattern.indices.setflags(write=False)
+    sparse_pattern.indptr.setflags(write=False)
+    return sparse_pattern
 
 
 def _thermal_state(temperature_ratio, alpha):
@@ -817,12 +1017,16 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         bubble_D2=bubble_D2,
         medium=medium,
         forcing=_prepare_forcing(config, p),
+        distributed_stress=_prepare_distributed_stress(config.stress),
+        jacobian_sparsity=_prepare_distributed_jacobian(config, layout),
     )
 
 
 def _JdotA(stress, p):
     """f_call_params.m: 4/Re8 for stress 1-4, 4*LAM/Re8 for stress 5-6."""
-    return 4.0 / p['Re8'] if stress in (1, 2, 3, 4) else 4.0 * p['LAM'] / p['Re8']
+    if _is_distributed_stress(stress) or stress == 5:
+        return 4.0 * p['LAM'] / p['Re8']
+    return 4.0 / p['Re8'] if stress in (1, 2, 3, 4) else 0.0
 
 
 def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG):
@@ -875,6 +1079,31 @@ def _dissipation(stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6):
     if stress == 2:
         return base * (1.0 + ax * (x4 * iyT4 + 2.0 * yT2 * ix2 - 3.0))
     return base   # stress in {1, 3, 5}: identical to the base formula
+
+
+def _distributed_dissipation(
+    state, prepared, p, R, Rd, yT, iyT3
+):
+    """Viscoelastic work converted to heat on the exterior thermal grid."""
+    points = prepared.reference_radius.size
+    stress_difference = state[:points] - state[points:]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        spatial_radius = R * yT
+        reference_radius = np.cbrt(
+            np.maximum(spatial_radius ** 3 - R ** 3 + 1.0, 1.0)
+        )
+        sampled_difference = np.interp(
+            reference_radius,
+            prepared.reference_radius,
+            stress_difference,
+            right=0.0,
+        )
+        strain_rate = Rd / R * iyT3
+        polymer_heating = -2.0 * strain_rate * sampled_difference
+        solvent_heating = (
+            12.0 * p["LAM"] / p["Re8"] * strain_rate ** 2
+        )
+    return p["Br"] * (polymer_heating + solvent_heating)
 
 
 def _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale):
@@ -1018,7 +1247,8 @@ def _apply_thermal_boundaries(
 
 
 def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
-          medtherm=0, mt=None, masstrans=0, wall_state=None, forcing=None):
+          medtherm=0, mt=None, masstrans=0, wall_state=None, forcing=None,
+          distributed_stress=None):
     R = max(y[0], 1e-8)
     Rd = y[1]
     Pv = p['Pv']
@@ -1047,7 +1277,12 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
 
     nz = _nZ(stress)
     Z = y[Zstart:Zstart + nz] if nz else None
-    S, Sdot, dZ = _stress(stress, p, R, Rd, Z)
+    if distributed_stress is None:
+        S, Sdot, dZ = _stress(stress, p, R, Rd, Z)
+    else:
+        S, Sdot, dZ = _distributed_stress(
+            stress, distributed_stress, p, R, Rd, Z, radial != 1
+        )
     Pf8, Pf8dot = _pinf(tn, p, forcing)
     iWe = p['iWe']
 
@@ -1134,7 +1369,14 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
                               * (Rd / yT2 * (1 - yT3) / 2 + Foh / R * ((xi + 1) / (2 * Lt) - 1 / yT))
                               * dTm)
             med_diffusion = Foh / R ** 2 * (xi + 1) ** 4 / Lt ** 2 * ddTm / 4
-            taugradu = _dissipation(stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6)
+            if distributed_stress is None:
+                taugradu = _dissipation(
+                    stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6
+                )
+            else:
+                taugradu = _distributed_dissipation(
+                    Z, distributed_stress, p, R, Rd, yT, iyT3
+                )
         Tmdot = med_advection + med_diffusion + taugradu
         Tmdot[0] = 0.0
         Tmdot[-1] = 0.0
@@ -1202,16 +1444,36 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         # is dead/broken code upstream, not a real reference to port against.
         raise ValueError(f"radial={radial} not supported")
 
-    out = [Rd, Rdd]
+    if distributed_stress is None:
+        out = [Rd, Rdd]
+        if bubtherm:
+            out.append(Pdot)
+            out.extend(thetadot.tolist())
+        if medtherm:
+            out.extend(Tmdot.tolist())
+        if masstrans:
+            out.extend(kvdot.tolist())
+        if dZ is not None:
+            out.extend(dZ.tolist())
+        return out
+
+    out = np.empty_like(y)
+    out[0] = Rd
+    out[1] = Rdd
+    cursor = 2
     if bubtherm:
-        out.append(Pdot)
-        out.extend(thetadot.tolist())
+        out[cursor] = Pdot
+        cursor += 1
+        out[cursor:cursor + thetadot.size] = thetadot
+        cursor += thetadot.size
     if medtherm:
-        out.extend(Tmdot.tolist())
+        out[cursor:cursor + Tmdot.size] = Tmdot
+        cursor += Tmdot.size
     if masstrans:
-        out.extend(kvdot.tolist())
+        out[cursor:cursor + kvdot.size] = kvdot
+        cursor += kvdot.size
     if dZ is not None:
-        out.extend(dZ.tolist())
+        out[cursor:cursor + dZ.size] = dZ
     return out
 
 
@@ -1296,9 +1558,18 @@ def _build_result(
         stress_state = (
             state[layout.stress] if layout.stress.stop > layout.stress.start else None
         )
-        stress_integral[index] = _stress(
-            config.stress, p, state[0], state[1], stress_state
-        )[0]
+        if problem.distributed_stress is None:
+            stress_integral[index] = _stress(
+                config.stress, p, state[0], state[1], stress_state
+            )[0]
+        else:
+            stress_integral[index] = _distributed_stress_integral(
+                problem.distributed_stress,
+                p,
+                state[0],
+                state[1],
+                stress_state,
+            )
 
     bubble_temperature, medium_temperature, vapor_fraction = _thermal_outputs(
         problem, states
@@ -1320,6 +1591,11 @@ def _build_result(
         medium_temperature_k=_readonly_optional(medium_temperature),
         vapor_mass_fraction=_readonly_optional(vapor_fraction),
         stress_state=_readonly_optional(internal_stress_state),
+        stress_reference_radius_ratio=(
+            problem.distributed_stress.reference_radius
+            if problem.distributed_stress is not None
+            else None
+        ),
         stats=stats,
         config=config,
     )
@@ -1349,8 +1625,15 @@ def _integrate_prepared(problem: PreparedProblem, tv):
         config.masstrans,
         _WallState(),
         problem.forcing,
+        problem.distributed_stress,
     )
     started = perf_counter()
+    method = "BDF" if problem.jacobian_sparsity is not None else "LSODA"
+    solver_options = (
+        {"jac_sparsity": problem.jacobian_sparsity}
+        if problem.jacobian_sparsity is not None
+        else {}
+    )
     solution = solve_ivp(
         _rhs,
         (tn[0], tn[-1]),
@@ -1358,9 +1641,10 @@ def _integrate_prepared(problem: PreparedProblem, tv):
         t_eval=tn,
         args=args,
         events=_radius_floor_event,
-        method="LSODA",
+        method=method,
         rtol=config.rtol,
         atol=config.atol,
+        **solver_options,
     )
     elapsed = perf_counter() - started
     complete = solution.y.shape[1] == time_s.size
@@ -1372,7 +1656,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
     elif solution.success and not finite:
         message = f"{message}; solution contains non-finite states"
     stats = SolverStats(
-        backend="scipy-lsoda",
+        backend=f"scipy-{method.lower()}",
         success=success,
         message=message,
         nfev=int(solution.nfev),

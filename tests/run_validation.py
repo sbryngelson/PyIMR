@@ -9,7 +9,6 @@ import constitutive as C
 import imr_fast
 from imr_fast import params
 from imr_grad import NP, simulate_grad
-from imr_nonlinear import simulate_nonlinear
 
 
 def solve_radius(times, R0, Req, G, mu, **options):
@@ -103,19 +102,55 @@ _tv = np.linspace(0, 1.2e-4, 300)
 _p0 = params(225e-6, 225e-6/6, 2500., .1)
 _ucm = solve_radius(_tv, 225e-6, 225e-6/6, 2500., .1, stress=5,
                     lam1=_De*_p0['t0'], lam2=_LAM*_De*_p0['t0'])
-print("  alpha->0 (Giesekus) and eps->0 (PTT) must both reproduce UCM/Oldroyd-B")
-for _m, _kw in [('giesekus', dict(alpha=0.0)), ('ptt', dict(eps=0.0))]:
-    _R = simulate_nonlinear(_tv, 225e-6, 225e-6/6, 2500., .1, _De, _LAM,
-                            model=_m, NM=480, **_kw)
+print("  zero nonlinearity must reproduce UCM/Oldroyd-B")
+for _name, _model in [
+    ("giesekus", imr_fast.GiesekusModel()),
+    ("linear PTT", imr_fast.LinearPTTModel()),
+]:
+    _R = solve_radius(
+        _tv, 225e-6, 225e-6/6, 2500., .1,
+        stress=_model, lam1=_De*_p0["t0"], lam2=_LAM*_De*_p0["t0"],
+    )
     _mx = np.nanmax(np.abs(_R-_ucm))
-    _ok = _mx < 5e-3; fail += (not _ok)      # discretisation-limited, converging in NM
-    print(f"    {_m:>9} -> UCM   max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+    _ok = _mx < 5e-3; fail += (not _ok)      # discretisation-limited, converging in points
+    print(f"    {_name:>10} -> UCM   max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+_ucm_km = solve_radius(
+    _tv, 225e-6, 225e-6/6, 2500., .1, stress=5, radial=2,
+    lam1=_De*_p0["t0"], lam2=_LAM*_De*_p0["t0"],
+)
+_distributed_km = solve_radius(
+    _tv, 225e-6, 225e-6/6, 2500., .1,
+    stress=imr_fast.GiesekusModel(), radial=2,
+    lam1=_De*_p0["t0"], lam2=_LAM*_De*_p0["t0"],
+)
+_mx = np.nanmax(np.abs(_distributed_km-_ucm_km))
+_ok = _mx < 2e-3; fail += (not _ok)
+print(f"    {'KM Giesekus':>10} -> UCM   max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+_coupled_options = dict(
+    bubtherm=1, medtherm=1, vapor=1, masstrans=1, Nt=9, Mt=9,
+    lam1=_De*_p0["t0"], lam2=_LAM*_De*_p0["t0"],
+)
+_ucm_coupled = solve_radius(
+    _tv, 225e-6, 225e-6/6, 2500., .1, stress=5, **_coupled_options,
+)
+_distributed_coupled = solve_radius(
+    _tv, 225e-6, 225e-6/6, 2500., .1,
+    stress=imr_fast.GiesekusModel(), **_coupled_options,
+)
+_mx = np.nanmax(np.abs(_distributed_coupled-_ucm_coupled))
+_ok = _mx < 3e-3; fail += (not _ok)
+print(f"    {'coupled':>10} -> UCM   max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 print("  nonlinear parameter must produce distinct physics")
-for _m, _k, _v in [('giesekus','alpha',0.2), ('ptt','eps',0.2)]:
-    _R = simulate_nonlinear(_tv, 225e-6, 225e-6/6, 2500., .1, _De, _LAM,
-                            model=_m, NM=480, **{_k: _v})
+for _name, _model in [
+    ("giesekus", imr_fast.GiesekusModel(mobility=0.2)),
+    ("linear PTT", imr_fast.LinearPTTModel(extensibility=0.2)),
+]:
+    _R = solve_radius(
+        _tv, 225e-6, 225e-6/6, 2500., .1,
+        stress=_model, lam1=_De*_p0["t0"], lam2=_LAM*_De*_p0["t0"],
+    )
     _mx = np.nanmax(np.abs(_R-_ucm)); _ok = _mx > 0.05; fail += (not _ok)
-    print(f"    {_m:>9} {_k}=0.2  max|dR| vs UCM={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+    print(f"    {_name:>10} parameter=0.2  max|dR| vs UCM={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 
 print("\n"+"="*64); print("3. GRADIENTS (forward sensitivities) vs finite differences"); print("="*64)
 p = params(225e-6, 225e-6/6, 2500., .1)

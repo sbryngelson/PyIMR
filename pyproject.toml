@@ -25,7 +25,6 @@ py-modules = [
     "constitutive",
     "imr_fast",
     "imr_grad",
-    "imr_nonlinear",
     "thermal_fd",
 ]
 

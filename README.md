@@ -22,7 +22,6 @@ python tests/run_validation.py
 | `imr_fast.py` | main forward solver and strict `SimulationConfig`/`SimulationResult` API |
 | `imr_grad.py` | RP/polytropic forward sensitivity solver for a six-term linear stress library |
 | `constitutive.py` | standalone elastic and generalized-Newtonian stress-integral models |
-| `imr_nonlinear.py` | separate RP/polytropic Giesekus and PTT solver |
 | `tests/run_validation.py` | validation against IMRv2 reference trajectories + closed forms + model-reduction limits |
 
 ## Scope
@@ -37,7 +36,7 @@ The main `imr_fast.simulate` solver currently supports:
 | `masstrans` | **0** or **1** vapor mass transfer; requires `bubtherm=vapor=1` |
 | `vapor` | **0 or 1** (saturation pressure at `T8`) |
 | forcing | constant offset, Gaussian, histotripsy, Heaviside step, or a sampled pressure history |
-| `stress` | **0** none, **1** NHKV, **2** qKV, **3** linear Maxwell/Jeffreys/Zener, **4** quadratic Zener family, **5** UCM/Oldroyd-B |
+| `stress` | **0** none, **1** NHKV, **2** qKV, **3** linear Maxwell/Jeffreys/Zener, **4** quadratic Zener family, **5** UCM/Oldroyd-B, or a distributed `GiesekusModel` / `LinearPTTModel` |
 
 Every combination exercised by the regression suite is checked against a pinned
 IMRv2 trajectory. Unsupported option values and inconsistent thermal/mass
@@ -48,7 +47,9 @@ combinations raise `ValueError`.
 ```python
 import numpy as np
 from imr_fast import (
+    GiesekusModel,
     InitialState,
+    LinearPTTModel,
     PhysicalParameters,
     SampledForcing,
     SimulationConfig,
@@ -66,7 +67,7 @@ result.radius_m              # dimensional radius
 result.wall_velocity_m_s     # wall velocity
 result.internal_pressure_pa  # bubble pressure
 result.stress_integral_pa    # integrated constitutive stress
-result.stats                 # LSODA status, work counters, and elapsed time
+result.stats                 # integrator status, work counters, and elapsed time
 ```
 
 Thermal configurations additionally return bubble and liquid temperature fields
@@ -85,6 +86,27 @@ second = problem.solve(t)  # reuses immutable setup; solve state is fresh
 
 The solver raises `SimulationError` if integration does not reach every
 requested output time.
+
+Nonlinear-memory models use the same solver and can be combined with its radial,
+forcing, vapor, and thermal options:
+
+```python
+config = SimulationConfig(
+    R0=225e-6,
+    Req=37.5e-6,
+    G=2500.0,
+    mu=0.1,
+    lam1=40e-6,
+    lam2=8e-6,
+    stress=GiesekusModel(mobility=0.2),
+)
+```
+
+Their `stress_state` contains radial stress followed by hoop stress on
+`stress_reference_radius_ratio`, an immutable Lagrangian grid. The default 480
+points prioritize the validated Oldroyd-B reduction; lower resolutions are
+available for exploratory sweeps. Prepared coupled heat/mass-transfer problems
+use a sparse BDF solve; non-stiff configurations retain the faster LSODA path.
 
 Physical properties and initial conditions are dimensional:
 
@@ -131,17 +153,16 @@ config = SimulationConfig(
   selectable main-solver models.
 - `imr_grad.py` differentiates a separate RP/polytropic six-term stress-library
   solver. Its gradients do not yet cover the complete `imr_fast.simulate` model.
-- `imr_nonlinear.py` is a separate RP/polytropic solver. Its PTT and Giesekus
-  implementations do not yet support acoustic forcing or the thermal branches.
 - `radial=6` (Gilmore/Mie–Grüneisen) is intentionally unavailable because the
   corresponding upstream IMRv2 branch produces non-real states in the tested
   pressure range.
 - **`collapse=1`** (shooting-computed initial stress) is **not** implemented, and
   cannot be added in isolation: IMRv2 requires `bubtherm=1`, `medtherm=1`,
   `masstrans=1` *and* `vapor=1` before it will accept `collapse=1`, so there is no
-  way to validate a standalone implementation. Runs here start from an unstressed
-  state (`Szero=0`). If the relaxation time is comparable to or longer
-  than the observation window, that initial condition matters — check it.
+  way to validate a standalone implementation. Runs default to an unstressed
+  state (`Szero=0`), but explicit constitutive initial states are accepted. If
+  the relaxation time is comparable to or longer than the observation window,
+  that initial condition matters.
 
 ### Note on the upstream reference
 
@@ -223,17 +244,22 @@ between points:
 $$\mathbf L=\mathrm{diag}(-2a,a,a),\quad a=\frac{R^2\dot R}{r^3},\qquad
 \dot\tau_{ii}=-\frac{\tau_{ii}}{De}+2L_{ii}\tau_{ii}+2\eta_p D_{ii}/De-(\text{nonlinear})$$
 
-`imr_nonlinear.simulate_nonlinear` integrates this on a wall-clustered Lagrangian
-grid (the near-wall region needs the resolution: incompressibility maps
+`imr_fast.simulate` integrates this on a prepared, wall-clustered Lagrangian grid
+(the near-wall region needs the resolution: incompressibility maps
 $r_0\in[1,1.1]$ onto $r\in[0.1,0.69]$ at collapse) and evaluates
 $S=\int_R^\infty \frac{2}{r}(\tau_{rr}-\tau_{\theta\theta})\,dr$ by quadrature.
+The analytic derivative of that discrete quadrature supplies the stress-rate
+term required by Keller-Miksis and Gilmore equations. The same field supplies
+viscoelastic dissipation to the liquid thermal equation.
 
-Validated by reduction: `alpha=0` (Giesekus) and `eps=0` (PTT) both reproduce the
-IMRv2-validated UCM to **3.5e-03** at `NM=480`, converging in `NM`
+Validated by reduction: zero-mobility Giesekus and zero-extensibility linear PTT
+both reproduce the IMRv2-validated UCM to **3.5e-03** at 480 points, converging
+under grid refinement
 (1.4e-01 → 6.7e-02 → 1.2e-02 → 3.5e-03 for NM = 30, 60, 120, 480).
 
-**Cost:** 2·NM extra ODE states — ~0.12 s/solve at NM=480, about 11× the
-closed-form models. Use `imr_fast` when the model admits closure.
+**Cost:** distributed models add twice the configured point count to the ODE.
+Use the analytic UCM/Oldroyd-B model (`stress=5`) when the nonlinear parameter
+is zero and the finite-dimensional closure applies.
 
 ## Gradients
 

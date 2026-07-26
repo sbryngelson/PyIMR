@@ -96,16 +96,22 @@ print("  composable NH/Newtonian trajectory vs closed-form fast path")
 _generic_nh = imr_fast.InstantaneousMaterial(
     imr_fast.NeoHookean(2500.0), imr_fast.Newtonian(0.1)
 )
+_equivalence_options = dict(rtol=1e-10, atol=1e-12)
 for _radial in (1, 2):
     _closed = solve_radius(
         _t, _R0, _R0/6,
-        imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=_radial,
+        imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
+        radial=_radial, **_equivalence_options,
     )
-    _generic = solve_radius(_t, _R0, _R0/6, _generic_nh, radial=_radial)
+    _generic = solve_radius(
+        _t, _R0, _R0/6, _generic_nh, radial=_radial, **_equivalence_options
+    )
     _mx = np.max(np.abs(_generic-_closed))
     _ok = _mx < 1e-8; fail += (not _ok)
     print(f"    radial={_radial} max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
-_thermal_options = dict(bubtherm=1, medtherm=1, Nt=9, Mt=9)
+_thermal_options = dict(
+    bubtherm=1, medtherm=1, Nt=9, Mt=9, **_equivalence_options
+)
 _closed = solve_radius(
     _t, _R0, _R0/6,
     imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), **_thermal_options,

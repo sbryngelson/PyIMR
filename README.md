@@ -36,7 +36,7 @@ The main `imr_fast.simulate` solver currently supports:
 | `medtherm` | **0** or **1** liquid thermal layer; requires `bubtherm=1` |
 | `masstrans` | **0** or **1** vapor mass transfer; requires `bubtherm=vapor=1` |
 | `vapor` | **0 or 1** (saturation pressure at `T8`) |
-| `wave_type` | **0** constant offset, **1** Gaussian, **2** histotripsy, **3** Heaviside step (`pA`, `TW`, `DT`, `omega`, `mn`) |
+| forcing | constant offset, Gaussian, histotripsy, Heaviside step, or a sampled pressure history |
 | `stress` | **0** none, **1** NHKV, **2** qKV, **3** linear Maxwell/Jeffreys/Zener, **4** quadratic Zener family, **5** UCM/Oldroyd-B |
 
 Every combination exercised by the regression suite is checked against a pinned
@@ -47,7 +47,14 @@ combinations raise `ValueError`.
 
 ```python
 import numpy as np
-from imr_fast import SimulationConfig, prepare, simulate
+from imr_fast import (
+    InitialState,
+    PhysicalParameters,
+    SampledForcing,
+    SimulationConfig,
+    prepare,
+    simulate,
+)
 
 t = np.linspace(0.0, 120e-6, 300)
 config = SimulationConfig(R0=225e-6, Req=37.5e-6, G=2500.0, mu=0.1)
@@ -79,12 +86,44 @@ second = problem.solve(t)  # reuses immutable setup; solve state is fresh
 The solver raises `SimulationError` if integration does not reach every
 requested output time.
 
+Physical properties and initial conditions are dimensional:
+
+```python
+config = SimulationConfig(
+    R0=225e-6,
+    Req=37.5e-6,
+    G=2500.0,
+    mu=0.1,
+    physics=PhysicalParameters(polytropic_exponent=1.47),
+    initial=InitialState(
+        wall_velocity_m_s=2.0,
+        internal_pressure_pa=1.5e5,
+    ),
+)
+```
+
+Measured pressure histories can be supplied directly. Values are perturbations
+relative to the far-field baseline; a shape-preserving cubic is evaluated
+between samples and the perturbation is zero outside their time span.
+
+```python
+config = SimulationConfig(
+    R0=225e-6,
+    Req=37.5e-6,
+    G=2500.0,
+    mu=0.1,
+    sampled_forcing=SampledForcing(
+        time_s=tuple(measured_time_s),
+        pressure_pa=tuple(measured_pressure_perturbation_pa),
+    ),
+)
+```
+
 ### Important boundaries
 
-- Physical constants such as `kappa`, far-field pressure/density, surface
-  tension, sound speed, and liquid equation-of-state parameters are currently
-  fixed to the reference-validation values. In particular, `kappa=1.4`, whereas
-  IMRv2 ships with an overridable default of 1.47.
+- `PhysicalParameters` defaults reproduce the pinned reference trajectories.
+  In particular, the default polytropic exponent is 1.4, whereas IMRv2 ships
+  with 1.47.
 - `SimulationResult.stress_state` contains nondimensional internal solver
   variables; physical wall velocity, pressure, stress integral, temperature,
   radius, and time outputs carry units in their field names or documentation.

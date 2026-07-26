@@ -222,10 +222,36 @@ config = SimulationConfig(R0=225e-6, Req=37.5e-6, material=material)
 ```
 
 `result.stress_state` contains radial stress followed by hoop stress on
-`result.stress_reference_radius_ratio`. The default 480 points prioritize the
-validated Oldroyd-B reduction; lower resolutions are useful for exploratory
-sweeps. Prepared coupled heat/mass-transfer problems use sparse BDF, while
-non-stiff configurations retain LSODA.
+`result.stress_reference_radius_ratio`. Prepared coupled heat/mass-transfer
+problems use sparse BDF, while non-stiff configurations retain LSODA.
+
+The constitutive equations at each material point are ordinary differential
+equations -- there are no spatial derivatives -- so the only spatial
+approximation is the quadrature for the stress integral
+
+$$
+I=\int_R^\infty \frac{2(\tau_{rr}-\tau_{\theta\theta})}{r}\,dr .
+$$
+
+Mapping to the Lagrangian coordinate makes the geometric factor constant in
+time, so the integral is a fixed-weight sum and its time derivative is exact
+rather than a discrete difference. `quadrature="gauss"` (the default) places
+the material points at Gauss-Legendre nodes and converges spectrally;
+`quadrature="trapezoid"` reproduces the older uniform grid.
+
+| points | trapezoid | Gauss-Legendre |
+|---:|---:|---:|
+| 60 | 3.4e-01 | 3.9e-04 |
+| 120 | 2.2e-01 | 1.5e-07 |
+| 240 | 7.4e-02 | 6.0e-08 |
+| 480 | 2.6e-02 | 5.1e-08 |
+
+Maximum absolute `R/R0` deviation from a converged reference, nonlinear
+Giesekus at mobility 0.2. The default is 240 Gauss points, which is both 1.4x
+faster and about five orders of magnitude more accurate than the 480-point
+trapezoid grid used previously. That older default carried percent-level
+error which the Oldroyd-B reduction limit alone did not reveal, because the
+linear limit is far easier to integrate than the nonlinear problem.
 
 At zero mobility or zero extensibility, the distributed models converge to the
 analytic Oldroyd-B solution. Use `OldroydB` directly when that closure applies:

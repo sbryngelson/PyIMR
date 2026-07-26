@@ -228,6 +228,7 @@ def _stress(
   need_rate,
   reference_radius,
   reference_radius_cubed,
+  stress_weights,
 ):
   ratio = p[P_REQ] / radius
   cauchy = p[P_CA]
@@ -340,15 +341,31 @@ def _stress(
       )
     polymer_integral = 0.0j
     polymer_rate = 0.0j
-    for index in range(points - 1):
-      interval = radius_values[index + 1] - radius_values[index]
-      interval_rate = material_velocity[index + 1] - material_velocity[index]
-      polymer_integral += 0.5 * (integrand[index] + integrand[index + 1]) * interval
-      if need_rate:
-        polymer_rate += 0.5 * (
-          (integrand_rate[index] + integrand_rate[index + 1]) * interval
-          + (integrand[index] + integrand[index + 1]) * interval_rate
-        )
+    if stress_weights.size == points:
+      # mapped Gauss-Legendre: fixed weights, so the rate is exact
+      for index in range(points):
+        inverse_cubed = 1.0 / (reference_radius_cubed[index] + radius**3 - 1.0)
+        difference = state[index] - state[index + points]
+        polymer_integral += stress_weights[index] * 2.0 * difference * inverse_cubed
+        if need_rate:
+          polymer_rate += (
+            stress_weights[index]
+            * 2.0
+            * (
+              (rates[index] - rates[index + points]) * inverse_cubed
+              - 3.0 * difference * radius**2 * velocity * inverse_cubed**2
+            )
+          )
+    else:
+      for index in range(points - 1):
+        interval = radius_values[index + 1] - radius_values[index]
+        interval_rate = material_velocity[index + 1] - material_velocity[index]
+        polymer_integral += 0.5 * (integrand[index] + integrand[index + 1]) * interval
+        if need_rate:
+          polymer_rate += 0.5 * (
+            (integrand_rate[index] + integrand_rate[index + 1]) * interval
+            + (integrand[index] + integrand[index + 1]) * interval_rate
+          )
     solvent = 4.0 * retardation / reynolds
     stress = polymer_integral - solvent * velocity / radius
     stress_rate = polymer_rate + solvent * (velocity / radius) ** 2
@@ -391,6 +408,7 @@ def mechanical_rhs(
   weights,
   reference_radius,
   reference_radius_cubed,
+  stress_weights,
   radial,
 ):
   radius = state[0]
@@ -412,6 +430,7 @@ def mechanical_rhs(
     radial != 1,
     reference_radius,
     reference_radius_cubed,
+    stress_weights,
   )
   forcing, forcing_rate = _forcing(time, p)
   surface = p[P_IWE]
@@ -490,6 +509,7 @@ def mechanical_tangent_rhs(
   weights,
   reference_radius,
   reference_radius_cubed,
+  stress_weights,
   radial,
 ):
   width = matrix.shape[1] - 1
@@ -513,6 +533,7 @@ def mechanical_tangent_rhs(
       weights,
       reference_radius,
       reference_radius_cubed,
+      stress_weights,
       radial,
     )
     / base_parameters[P_T0]
@@ -539,6 +560,7 @@ def mechanical_tangent_rhs(
         weights,
         reference_radius,
         reference_radius_cubed,
+        stress_weights,
         radial,
       )
       / complex_parameters[P_T0]
@@ -563,6 +585,7 @@ def mechanical_stress_tangent(
   weights,
   reference_radius,
   reference_radius_cubed,
+  stress_weights,
 ):
   width = matrix.shape[1] - 1
   result = np.empty(width + 1)
@@ -585,6 +608,7 @@ def mechanical_stress_tangent(
     False,
     reference_radius,
     reference_radius_cubed,
+    stress_weights,
   )[0]
   result[0] = stress.real
   step = 1e-30
@@ -608,6 +632,7 @@ def mechanical_stress_tangent(
       False,
       reference_radius,
       reference_radius_cubed,
+      stress_weights,
     )[0]
     result[direction + 1] = stress.imag / step
   return result

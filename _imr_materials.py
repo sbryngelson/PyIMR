@@ -367,14 +367,17 @@ class Giesekus:
   relaxation_time_s: float
   retardation_time_s: float = 0.0
   mobility: float = 0.0
-  points: int = 480
+  points: int = 240
   extent: float = 60.0
+  quadrature: str = "gauss"
 
   def __post_init__(self) -> None:
     _validate_memory_parameters(
       self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=True
     )
     _validate_distributed_model("mobility", self.mobility, self.points, self.extent)
+    if self.quadrature not in ("trapezoid", "gauss"):
+      raise ValueError("quadrature must be 'trapezoid' or 'gauss'")
     if self.mobility > 1.0:
       raise ValueError("mobility must not exceed 1")
 
@@ -387,14 +390,17 @@ class LinearPTT:
   relaxation_time_s: float
   retardation_time_s: float = 0.0
   extensibility: float = 0.0
-  points: int = 480
+  points: int = 240
   extent: float = 60.0
+  quadrature: str = "gauss"
 
   def __post_init__(self) -> None:
     _validate_memory_parameters(
       self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=True
     )
     _validate_distributed_model("extensibility", self.extensibility, self.points, self.extent)
+    if self.quadrature not in ("trapezoid", "gauss"):
+      raise ValueError("quadrature must be 'trapezoid' or 'gauss'")
 
 
 MaterialModel = (

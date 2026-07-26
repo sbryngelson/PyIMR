@@ -404,6 +404,61 @@ for _name, _model in [
   print(f"    {_name:>10} parameter=0.2  max|dR| vs UCM={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 
 print("\n" + "=" * 64)
+print("2c. DISTRIBUTED STRESS QUADRATURE")
+print("=" * 64)
+# The distributed constitutive equations are pointwise ODEs -- no spatial
+# derivatives -- so the only spatial approximation is the quadrature for
+# I = int_R^inf 2 (t_rr - t_hh) / r dr. Mapping to the Lagrangian coordinate
+# turns it into a fixed-weight sum, which makes Gauss-Legendre available and
+# makes the integral's time derivative exact instead of a discrete difference.
+_qt = np.linspace(0.0, 120e-6, 300)
+
+
+def _giesekus(points, quadrature, mobility=0.2):
+  return imr_fast.simulate(
+    _qt,
+    imr_fast.SimulationConfig(
+      R0=_R0,
+      Req=_R0 / 6,
+      material=imr_fast.Giesekus(0.1, 2 * _t0, 0.4 * _t0, mobility, points=points, quadrature=quadrature),
+    ),
+  ).radius_ratio
+
+
+_reference = _giesekus(1920, "gauss")
+print("  Gauss-Legendre convergence (nonlinear, mobility=0.2)")
+# Only assert monotone improvement while quadrature error still dominates.
+# Past ~1e-7 the residual is the ODE solver's own tolerance floor and does not
+# decrease monotonically -- asserting that it does is a flaky test, not a
+# stronger one.
+_FLOOR = 1e-6
+_errors = {}
+for _pts in (60, 120, 240):
+  _errors[_pts] = np.nanmax(np.abs(_giesekus(_pts, "gauss") - _reference))
+  print(f"    points={_pts:4d}  max|dR| vs gauss(1920)={_errors[_pts]:.2e}")
+# spectral: one doubling must buy orders of magnitude, well above the floor
+_ok = _errors[60] > _FLOOR and _errors[120] < _errors[60] / 100.0
+fail += not _ok
+print(f"    60 -> 120 improves by >100x  ({_errors[60] / _errors[120]:.0f}x)  {'PASS' if _ok else 'FAIL'}")
+# at and beyond the default, only require having reached the floor
+_ok = _errors[120] < 1e-5 and _errors[240] < 1e-5
+fail += not _ok
+print(f"    120 and 240 both below 1e-5  {'PASS' if _ok else 'FAIL'}")
+
+# Independent-rule cross-check: the two quadratures must agree once both are
+# resolved. This is the only independent check the distributed models have --
+# IMRv2 cannot run Giesekus or PTT at all.
+_mx = np.nanmax(np.abs(_giesekus(240, "gauss") - _giesekus(3840, "trapezoid")))
+_ok = _mx < 5e-3
+fail += not _ok
+print(f"    gauss(240) vs trapezoid(3840)   max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+
+# The trapezoid rule at the former default carries percent-level error, which
+# the Oldroyd-B reduction limit alone did not reveal.
+_mx = np.nanmax(np.abs(_giesekus(480, "trapezoid") - _reference))
+print(f"    (for reference, former default trapezoid(480): {_mx:.2e})")
+
+print("\n" + "=" * 64)
 print("3. UNIFIED FORWARD SENSITIVITIES")
 print("=" * 64)
 _sensitivity_times = np.linspace(0.0, 20e-6, 80)

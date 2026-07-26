@@ -1,10 +1,15 @@
 """Full validation suite. Run: python3 tests/run_validation.py"""
-import sys, os, numpy as np
+import os
+import sys
+
+import numpy as np
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import imr_fast, constitutive as C
-from imr_nonlinear import simulate_nonlinear
-from imr_grad import simulate_grad, NP
+import constitutive as C
+import imr_fast
 from imr_fast import params
+from imr_grad import NP, simulate_grad
+from imr_nonlinear import simulate_nonlinear
 
 fail = 0
 print("="*64); print("1. FORWARD SOLVER vs IMRv2 reference trajectories"); print("="*64)

@@ -20,6 +20,7 @@ initial condition and only the RHS structure is being tested.
 """
 import numpy as np
 from scipy.integrate import solve_ivp
+
 import imr_fast as F
 
 R0, Req, G, mu = 225e-6, 225e-6 * 0.15, 2500.0, 0.1

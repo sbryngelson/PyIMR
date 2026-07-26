@@ -13,6 +13,7 @@ and a quartic is used only as a DOCUMENTED, hand-predicted O(h^2) check
 behaviour explicit rather than hiding it behind a loose tolerance.
 """
 import numpy as np
+
 from thermal_fd import finite_diff_mat
 
 PASS = "PASS"

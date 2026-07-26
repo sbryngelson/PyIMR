@@ -71,12 +71,19 @@ kv estimate at the candidate wall temperature) alongside heat-flux
 continuity; alpha_m in that solve also uses the stale kv[-1], same lag.
 GRADIENTS NOT VALIDATED for masstrans=1 (with or without medtherm=1).
 
-NOT valid outside the above (Gilmore, PTT, Giesekus). Re-validate before
-extending.
+The main API is not valid for radial=6, arbitrary constitutive callbacks, PTT,
+or Giesekus. The latter two are implemented only in the separate reduced solver.
+Re-validate before extending any branch.
 """
+from __future__ import annotations
+
+from dataclasses import dataclass
+from numbers import Integral
+
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import newton
+
 from thermal_fd import finite_diff_mat
 
 P8 = 101325.0      # far-field pressure (Pa)
@@ -120,6 +127,141 @@ _MWV = 18.01528e-3   # molar mass, water vapor (kg/mol)
 _MWG = 28.966e-3     # molar mass, non-condensible gas / air (kg/mol)
 _D0 = 24.2e-6        # binary (vapor-in-gas) diffusion coefficient (m^2/s)
 _LHEAT = 2264.76e3   # latent heat of vaporization (J/kg)
+
+
+class SimulationError(RuntimeError):
+    """Raised when the numerical integrator cannot complete a simulation."""
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationConfig:
+    """Validated dimensional inputs for one IMR simulation.
+
+    The defaults match :func:`simulate`. Use :func:`simulate_result` for the
+    strict, structured API; the original function remains available for
+    backwards compatibility.
+    """
+
+    R0: float
+    Req: float
+    G: float
+    mu: float
+    stress: int = 1
+    lam1: float = 0.0
+    lam2: float = 0.0
+    alphax: float = 0.25
+    radial: int = 1
+    vapor: int = 0
+    T8: float = 298.15
+    pA: float = 0.0
+    omega: float = 0.0
+    TW: float = 0.0
+    DT: float = 0.0
+    mn: float = 0.0
+    wave_type: int = 0
+    bubtherm: int = 0
+    Nt: int = 25
+    medtherm: int = 0
+    Mt: int = 25
+    masstrans: int = 0
+    rtol: float = 1e-8
+    atol: float = 1e-10
+
+    def __post_init__(self) -> None:
+        _validate_inputs(
+            [0.0, 1.0], self.R0, self.Req, self.G, self.mu, self.stress,
+            self.lam1, self.lam2, self.alphax, self.radial, self.vapor,
+            self.T8, self.pA, self.omega, self.TW, self.DT, self.mn,
+            self.wave_type, self.bubtherm, self.Nt, self.medtherm, self.Mt,
+            self.masstrans, self.rtol, self.atol,
+        )
+
+    def solver_kwargs(self) -> dict[str, float | int]:
+        """Return keyword arguments accepted by :func:`simulate`."""
+        return {
+            name: getattr(self, name)
+            for name in self.__dataclass_fields__
+            if name not in {"R0", "Req", "G", "mu"}
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SimulationResult:
+    """Immutable radius history returned by the strict public API."""
+
+    time_s: np.ndarray
+    radius_ratio: np.ndarray
+    config: SimulationConfig
+
+    @property
+    def radius_m(self) -> np.ndarray:
+        """Dimensional bubble radius in metres."""
+        radius = self.config.R0 * self.radius_ratio
+        radius.setflags(write=False)
+        return radius
+
+
+def _readonly_float_array(values) -> np.ndarray:
+    array = np.array(values, dtype=float, copy=True)
+    array.setflags(write=False)
+    return array
+
+
+def _validate_inputs(tv, R0, Req, G, mu, stress, lam1, lam2, alphax, radial,
+                     vapor, T8, pA, omega, TW, DT, mn, wave_type, bubtherm,
+                     Nt, medtherm, Mt, masstrans, rtol, atol) -> np.ndarray:
+    """Validate the public API before constructing nondimensional groups."""
+    times = np.asarray(tv, dtype=float)
+    if times.ndim != 1 or times.size < 2:
+        raise ValueError("tv must be a one-dimensional array with at least two times")
+    if not np.all(np.isfinite(times)):
+        raise ValueError("tv must contain only finite values")
+    if times[0] < 0 or np.any(np.diff(times) <= 0):
+        raise ValueError("tv must be non-negative and strictly increasing")
+
+    for name, value in (("R0", R0), ("Req", Req), ("mu", mu), ("T8", T8),
+                        ("rtol", rtol), ("atol", atol)):
+        if not np.isfinite(value) or value <= 0:
+            raise ValueError(f"{name} must be finite and positive")
+    if not np.isfinite(G) or G < 0:
+        raise ValueError("G must be finite and non-negative")
+    for name, value in (("lam1", lam1), ("lam2", lam2), ("alphax", alphax),
+                        ("pA", pA), ("omega", omega), ("TW", TW), ("DT", DT),
+                        ("mn", mn)):
+        if not np.isfinite(value):
+            raise ValueError(f"{name} must be finite")
+    if lam1 < 0 or lam2 < 0:
+        raise ValueError("lam1 and lam2 must be non-negative")
+    if stress in (3, 4, 5) and lam1 <= 0:
+        raise ValueError(f"stress={stress} requires lam1 > 0")
+    if lam1 == 0 and lam2 != 0:
+        raise ValueError("lam2 must be zero when lam1 is zero")
+
+    for name, value, allowed in (
+        ("stress", stress, range(0, 6)),
+        ("radial", radial, range(1, 6)),
+        ("wave_type", wave_type, range(0, 4)),
+    ):
+        if not isinstance(value, Integral) or value not in allowed:
+            choices = ", ".join(str(choice) for choice in allowed)
+            raise ValueError(f"{name} must be one of: {choices}")
+    for name, value in (("vapor", vapor), ("bubtherm", bubtherm),
+                        ("medtherm", medtherm), ("masstrans", masstrans)):
+        if not isinstance(value, Integral) or value not in (0, 1):
+            raise ValueError(f"{name} must be 0 or 1")
+    for name, value in (("Nt", Nt), ("Mt", Mt)):
+        if not isinstance(value, Integral) or value < 3:
+            raise ValueError(f"{name} must be an integer >= 3")
+
+    if medtherm and not bubtherm:
+        raise ValueError("medtherm=1 requires bubtherm=1")
+    if masstrans and not bubtherm:
+        raise ValueError("masstrans=1 requires bubtherm=1")
+    if masstrans and not vapor:
+        raise ValueError("masstrans=1 requires vapor=1")
+    if bubtherm and vapor and not masstrans:
+        raise ValueError("bubtherm=1 with vapor=1 currently requires masstrans=1")
+    return times
 
 
 def pvsat(T):
@@ -558,7 +700,7 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
 def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
              radial=1, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0,
              mn=0.0, wave_type=0, bubtherm=0, Nt=25, medtherm=0, Mt=25,
-             masstrans=0, rtol=1e-8, atol=1e-10):
+             masstrans=0, rtol=1e-8, atol=1e-10, raise_on_failure=False):
     """Bubble radius R(t)/R0 at times tv (seconds). Returns NaN array on failure.
 
     bubtherm=1: dry gas (vapor=0) or, with masstrans=1, vapor-mass-transfer
@@ -571,14 +713,11 @@ def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
     medtherm=1 also set, theta[-1] is solved via the coupled 3-term wall BC
     (f_bubble_wall_full_bc) instead of the thermal-only one.
     """
-    if masstrans and not vapor:
-        raise ValueError("masstrans=1 requires vapor=1")
-    if bubtherm and vapor and not masstrans:
-        raise ValueError("bubtherm=1 with vapor=1 currently requires masstrans=1")
-    if medtherm and not bubtherm:
-        raise ValueError("medtherm=1 requires bubtherm=1")
-    if masstrans and not bubtherm:
-        raise ValueError("masstrans=1 requires bubtherm=1")
+    tv = _validate_inputs(
+        tv, R0, Req, G, mu, stress, lam1, lam2, alphax, radial, vapor, T8,
+        pA, omega, TW, DT, mn, wave_type, bubtherm, Nt, medtherm, Mt,
+        masstrans, rtol, atol,
+    )
     p = params(R0, Req, G, mu, lam1, lam2, alphax, vapor, T8,
                pA, omega, TW, DT, mn, wave_type, bubtherm, masstrans)
     tn = np.asarray(tv) / p['t0']
@@ -620,5 +759,32 @@ def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
     s = solve_ivp(_rhs, (tn[0], tn[-1]), y0, t_eval=tn, args=args,
                   method='LSODA', rtol=rtol, atol=atol)
     if not s.success or s.y.shape[1] != len(tn):
+        if raise_on_failure:
+            raise SimulationError(f"IMR integration failed: {s.message}")
         return np.full(len(tn), np.nan)
     return s.y[0]
+
+
+def simulate_result(tv, config: SimulationConfig) -> SimulationResult:
+    """Run one simulation through the strict, structured API.
+
+    Unlike the legacy :func:`simulate` interface, numerical failure raises
+    :class:`SimulationError` instead of returning an all-NaN trajectory.
+    """
+    if not isinstance(config, SimulationConfig):
+        raise TypeError("config must be a SimulationConfig")
+    time_s = _readonly_float_array(tv)
+    radius_ratio = simulate(
+        time_s,
+        config.R0,
+        config.Req,
+        config.G,
+        config.mu,
+        **config.solver_kwargs(),
+        raise_on_failure=True,
+    )
+    return SimulationResult(
+        time_s=time_s,
+        radius_ratio=_readonly_float_array(radius_ratio),
+        config=config,
+    )

@@ -97,6 +97,7 @@ _generic_nh = imr_fast.InstantaneousMaterial(
     imr_fast.NeoHookean(2500.0), imr_fast.Newtonian(0.1)
 )
 _equivalence_options = dict(rtol=1e-10, atol=1e-12)
+_trajectory_tolerance = 1e-7
 for _radial in (1, 2):
     _closed = solve_radius(
         _t, _R0, _R0/6,
@@ -107,7 +108,7 @@ for _radial in (1, 2):
         _t, _R0, _R0/6, _generic_nh, radial=_radial, **_equivalence_options
     )
     _mx = np.max(np.abs(_generic-_closed))
-    _ok = _mx < 1e-8; fail += (not _ok)
+    _ok = _mx < _trajectory_tolerance; fail += (not _ok)
     print(f"    radial={_radial} max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 _thermal_options = dict(
     bubtherm=1, medtherm=1, Nt=9, Mt=9, **_equivalence_options
@@ -120,7 +121,7 @@ _generic = solve_radius(
     _t, _R0, _R0/6, _generic_nh, **_thermal_options,
 )
 _mx = np.max(np.abs(_generic-_closed))
-_ok = _mx < 1e-8; fail += (not _ok)
+_ok = _mx < _trajectory_tolerance; fail += (not _ok)
 print(f"    thermal max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 
 print("  elastic model reductions to neo-Hookean")

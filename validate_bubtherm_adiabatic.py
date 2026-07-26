@@ -35,9 +35,9 @@ print("=" * 72)
 def _shadow_polytropic(p, rtol, atol):
     """bubtherm=0 RHS form, but using p['Pb'] as given (bubtherm=1's Pb)."""
     tn = tv / p['t0']
-    y0 = [1.0, 0.0] + [0.0] * F._nZ(1)
+    y0 = [1.0, 0.0] + [0.0] * F._nZ(material)
     s = solve_ivp(F._rhs, (tn[0], tn[-1]), y0, t_eval=tn,
-                  args=(p, 1, 1, 0),   # bubtherm=0 RHS form
+                  args=(p, material, 1, 0),   # bubtherm=0 RHS form
                   method='LSODA', rtol=rtol, atol=atol)
     return s.y[0]
 
@@ -51,7 +51,7 @@ def _thermal_chi0(p, rtol, atol, Nt=25):
     ygrid = np.linspace(0.0, 1.0, Nt)
     y0 = [1.0, 0.0, p['Pb']] + [0.0] * Nt
     s = solve_ivp(F._rhs, (tn[0], tn[-1]), y0, t_eval=tn,
-                  args=(p, 1, 1, 1, D1, D2, ygrid),
+                  args=(p, material, 1, 1, D1, D2, ygrid),
                   method='LSODA', rtol=rtol, atol=atol)
     return s.y[0]
 
@@ -65,13 +65,14 @@ def _thermal_chi0(p, rtol, atol, Nt=25):
 # TOLERANCE, not by the equations. Confirm this directly: a fixed algebraic
 # error would not shrink as tolerance tightens; this should.
 print("  tolerance scaling (a real equation bug would NOT shrink here):")
+material = F.NeoHookeanKelvinVoigt(G, mu)
 for rtol, atol in [(1e-8, 1e-10), (1e-10, 1e-12), (1e-12, 1e-14)]:
-    p = F.params(R0, Req, G, mu, bubtherm=1)
+    p = F.params(R0, Req, material, bubtherm=1)
     R_shadow = _shadow_polytropic(p, rtol, atol)
     err_t = np.max(np.abs(_thermal_chi0(p, rtol, atol) - R_shadow))
     print(f"    rtol={rtol:.0e} atol={atol:.0e}  ->  err={err_t:.3e}")
 
-p = F.params(R0, Req, G, mu, bubtherm=1)
+p = F.params(R0, Req, material, bubtherm=1)
 R_shadow = _shadow_polytropic(p, 1e-10, 1e-12)
 R_thermal_chi0 = _thermal_chi0(p, 1e-10, 1e-12)
 err = np.max(np.abs(R_thermal_chi0 - R_shadow))
@@ -84,7 +85,7 @@ print("SANITY: bubtherm=1 with REAL chi>0 should DIFFER from shadow-polytropic")
 print("        (confirms the thermal terms aren't silently inert)")
 print("=" * 72)
 config = F.SimulationConfig(
-    R0=R0, Req=Req, G=G, mu=mu, stress=1, radial=1, bubtherm=1, Nt=25
+    R0=R0, Req=Req, material=material, radial=1, bubtherm=1, Nt=25
 )
 R_thermal_real = F.simulate(tv, config).radius_ratio
 diff = np.max(np.abs(R_thermal_real - R_shadow))

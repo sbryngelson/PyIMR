@@ -3,7 +3,7 @@ import time
 import numpy as np
 from scipy.integrate import solve_ivp
 
-from imr_fast import KAPPA, params
+from imr_fast import KAPPA, NeoHookeanKelvinVoigt, params
 
 """
 DIFFERENTIABLE IMR solver via FORWARD SENSITIVITY EQUATIONS.
@@ -50,7 +50,7 @@ def simulate_grad(tn,p,c,rtol=1e-9,atol=1e-11):
     return R,dR
 if __name__=="__main__":
     R0=225e-6; s=6
-    p=params(R0,R0/s,2500.,0.1)
+    p=params(R0,R0/s,NeoHookeanKelvinVoigt(2500.,0.1))
     c=np.zeros(NP); c[0]=-5/(2*p['Ca']); c[1]=4/(2*p['Ca']); c[3]=1/(2*p['Ca']); c[5]=-4/p['Re8']
     tn=np.linspace(0,1.2e-4,400)/p['t0']
     R,dR=simulate_grad(tn,p,c)

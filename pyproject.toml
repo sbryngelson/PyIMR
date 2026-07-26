@@ -22,7 +22,6 @@ test = [
 
 [tool.setuptools]
 py-modules = [
-    "constitutive",
     "imr_fast",
     "imr_grad",
     "thermal_fd",

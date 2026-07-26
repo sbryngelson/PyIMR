@@ -491,18 +491,53 @@ _yu = np.linspace(0.0, 1.0, 17)
 _mxf = np.max(np.abs((thermal_fd.finite_diff_mat(17, 2, 0) @ _f(_yu))[:-1] - _lap(_yu)[:-1]))
 print(f"    (same operator, finite difference:   err={_mxf:.2e})")
 
-# then the trajectory: spectral must beat FD badly at equal resolution
-_ref = _thermal(120, "spectral")
-_es = np.nanmax(np.abs(_thermal(25, "spectral") - _ref))
-_ef = np.nanmax(np.abs(_thermal(25, "fd") - _ref))
-_ok = _es < _ef / 10.0
-fail += not _ok
-print(f"    Nt=25  spectral={_es:.2e}  fd={_ef:.2e}  ({_ef / _es:.0f}x better)  {'PASS' if _ok else 'FAIL'}")
+# Then the trajectory. Measure collapse depth and timing on a grid fine
+# enough to resolve the minimum -- a coarse output grid samples the sharp
+# collapse at slightly different phases as the solution shifts, which shows up
+# as an apparent error floor around 1e-4 that has nothing to do with the
+# discretization. That artifact is what an earlier version of this check
+# mistook for a spectral convergence plateau.
+_tf = np.linspace(0.0, 60e-6, 8001)
 
-# and both backends must be converging to the same answer
-_ok = np.nanmax(np.abs(_thermal(400, "fd") - _ref)) < np.nanmax(np.abs(_thermal(100, "fd") - _ref))
+
+def _collapse_metrics(nt, backend):
+  r = imr_fast.simulate(
+    _tf,
+    imr_fast.SimulationConfig(
+      R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), bubtherm=1, Nt=nt, thermal=backend
+    ),
+  ).radius_ratio
+  i = int(r.argmin())
+  a, b, c = r[i - 1], r[i], r[i + 1]
+  shift = 0.5 * (a - c) / (a - 2.0 * b + c)
+  return b - 0.25 * (a - c) * shift, _tf[i] + 0.5 * shift * (_tf[i + 1] - _tf[i - 1])
+
+
+_rref, _tref = _collapse_metrics(200, "spectral")
+_rs, _ts = _collapse_metrics(25, "spectral")
+_rf, _tf_fd = _collapse_metrics(200, "fd")
+_ok = abs(_rs - _rref) < abs(_rf - _rref)
 fail += not _ok
-print(f"    finite difference converges toward the spectral limit  {'PASS' if _ok else 'FAIL'}")
+print(
+  f"    min radius   spectral(25)={abs(_rs - _rref):.2e}  fd(200)={abs(_rf - _rref):.2e}  {'PASS' if _ok else 'FAIL'}"
+)
+_ok = abs(_ts - _tref) < abs(_tf_fd - _tref)
+fail += not _ok
+print(
+  f"    collapse time spectral(25)={abs(_ts - _tref) * 1e9:.4f}ns  "
+  f"fd(200)={abs(_tf_fd - _tref) * 1e9:.4f}ns  {'PASS' if _ok else 'FAIL'}"
+)
+# Spectral must keep converging -- there is no floor. Assert the overall
+# improvement rather than a strict chain: near the reference's own accuracy
+# the individual steps are not monotone, and asserting that they are is a
+# flaky test rather than a stronger one.
+_r100, _t100 = _collapse_metrics(100, "spectral")
+_ok = abs(_r100 - _rref) < abs(_rs - _rref) / 4.0
+fail += not _ok
+print(
+  f"    spectral 25 -> 100 improves {abs(_rs - _rref) / abs(_r100 - _rref):.1f}x "
+  f"(no floor)  {'PASS' if _ok else 'FAIL'}"
+)
 
 print("\n" + "=" * 64)
 print("3. UNIFIED FORWARD SENSITIVITIES")

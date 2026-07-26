@@ -28,7 +28,7 @@ independent and cheap. W3--W6 are independent of each other.
 | W7 tinygrad style | **done** -- config, indent, docstrings, six splits, formatter settled |
 | W8 measured collapse gaps | **done** -- stubs, plus the Zener offset quantified |
 | W9 fix upstream defects here | **done** -- Mie-Gruneisen root; `radial = 6` now works |
-| W10 thermal collocation | **done** -- Chebyshev backend, 41x at equal resolution |
+| W10 thermal collocation | **done** -- spectral(25) matches fd(400); no plateau |
 
 Revised priority after W1: **W8 -> W3 -> W5 -> W6 -> W2 -> W7.**
 
@@ -568,19 +568,47 @@ Both backends converge to the same limit -- finite difference at Nt = 200,
 400, 800 approaches the spectral answer monotonically (5.5e-03, 2.8e-03,
 1.3e-03).
 
-### Two things to be honest about
+### The reported plateau was a measurement artifact
 
-1. **The spectral trajectory plateaus near 2.7e-04** rather than continuing to
-   machine precision. The operators are spectral in isolation (1.9e-11), so
-   something else in the coupled closure becomes limiting once the spatial
-   discretization stops dominating -- most likely the implicit
-   wall-temperature secant solve. Not chased down.
-2. **The boundary-closure generalization is not bitwise.** `bubtherm` and
-   `masstrans` are exact; `medtherm` and the fully coupled case shift by
-   3.3e-07 and 1.7e-07. Cause is floating-point association -- `(A+B)+C`
-   became `A+(B+C)` -- amplified through the secant root-find. Five orders
-   below the discretization error it replaces, and the two cases without a
-   medium closure being exact confirms the mechanism.
+The first pass reported that the spectral trajectory plateaus near 2.7e-04 and
+guessed the implicit wall-temperature solve was the limit. **Both were wrong.**
+
+The plateau was the output grid. The check sampled `R(t)` at 200 points over
+60 us -- 0.3 us spacing -- while the collapse minimum is far sharper than that.
+As the solution shifts slightly with resolution, those samples land at
+different phases of the collapse, producing pointwise differences around 1e-04
+that have nothing to do with the discretization. Two things gave it away: the
+maximum difference sat at exactly the same sample index for every resolution,
+and the median difference over the trace was 8.2e-06 -- two orders below it.
+
+The wall-solve guess was also wrong for a simpler reason: the test case was
+`bubtherm` only, so `medium is None` and the wall closure is never called.
+`thetadot[-1] = 0` there -- a frozen Dirichlet value, exact by construction.
+
+Ruled out separately: solver tolerance. Varying `rtol` from 1e-8 to 1e-12
+changes the result in no digit.
+
+Measured properly, on collapse depth and timing with a resolved output grid:
+
+| | minimum radius | collapse time |
+|---|---:|---:|
+| spectral, Nt = 25 | 4.4e-06 | 0.0005 ns |
+| spectral, Nt = 100 | 9.9e-08 | 0.0001 ns |
+| finite difference, Nt = 25 | 8.6e-04 | 0.5053 ns |
+| finite difference, Nt = 400 | 4.7e-06 | 0.0119 ns |
+
+**Spectral at 25 points matches or beats finite difference at 400**, and keeps
+converging. The real result is considerably stronger than the 41x first
+claimed.
+
+### The lesson
+
+Both mistakes in this workstream, and the flaky assertion in W2, are the same
+error: choosing a metric or tolerance that is sensitive to something other
+than the quantity of interest. Pointwise `max|dR|` on a coarse grid measures
+sampling phase at a sharp feature, not accuracy. A strict monotonicity
+assertion near a floor measures noise, not convergence. Prefer physically
+meaningful, sampling-independent quantities -- here, collapse depth and time.
 
 ### Delivered
 
@@ -594,8 +622,9 @@ Both backends converge to the same limit -- finite difference at Nt = 200,
 - [x] Harness section `2d`: operator accuracy, 41x trajectory improvement at
       equal resolution, and cross-backend convergence.
 
-**Still open:** the 2.7e-04 plateau, and whether the default should move once
-that is understood.
+**Still open:** whether the default should move. The accuracy case is now
+unambiguous; the argument against is that every pinned IMRv2 trajectory was
+generated with `thermal="fd"`, so switching invalidates the pinned suite.
 
 ---
 

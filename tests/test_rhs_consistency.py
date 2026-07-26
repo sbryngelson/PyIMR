@@ -52,11 +52,7 @@ _MATERIALS = {
     viscosity_pa_s=0.1, relaxation_time_s=40e-6, retardation_time_s=8e-6, mobility=0.2, points=_DISTRIBUTED_POINTS
   ),
   "linear_ptt": imr_fast.LinearPTT(
-    viscosity_pa_s=0.1,
-    relaxation_time_s=40e-6,
-    retardation_time_s=8e-6,
-    extensibility=0.05,
-    points=_DISTRIBUTED_POINTS,
+    viscosity_pa_s=0.1, relaxation_time_s=40e-6, retardation_time_s=8e-6, extensibility=0.05, points=_DISTRIBUTED_POINTS
   ),
   "elastic_neo_hookean": _instantaneous(elastic=imr_fast.NeoHookean(2500.0)),
   "elastic_mooney_rivlin": _instantaneous(elastic=imr_fast.MooneyRivlin(2000.0, 500.0)),

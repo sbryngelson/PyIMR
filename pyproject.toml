@@ -46,6 +46,10 @@ addopts = ["--strict-config", "--strict-markers"]
 [tool.ruff]
 line-length = 120
 indent-width = 2
+# ruff formats Python blocks inside markdown. README examples are written for a
+# reader -- expanded imports, one argument per line, 4-space indent -- which is
+# deliberately not the source style.
+extend-exclude = ["*.md"]
 
 [tool.ruff.format]
 skip-magic-trailing-comma = true

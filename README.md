@@ -10,9 +10,13 @@ plus distributed Giesekus and linear PTT memory.
 
 ```bash
 python -m pip install -e ".[test]"
-python -m pytest
-python tests/run_validation.py
+python -m pytest                  # everything, including numerical validation
+python -m pytest -m "not slow"    # skip the high-resolution convergence studies
 ```
+
+`pytest` prints a table of the measured deviations after the run, not only
+pass/fail — a check that still passes but has moved an order of magnitude is
+worth seeing.
 
 ## Contents
 
@@ -23,7 +27,7 @@ python tests/run_validation.py
 | `imr_inference.py` | prepared likelihood, batch, and multistart tools |
 | `imr_data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
 | `thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
-| `tests/run_validation.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
+| `tests/test_validation_*.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
 | `CHANGELOG.md` | released versions and every breaking change |
 
 ## Upgrading from 0.2.0

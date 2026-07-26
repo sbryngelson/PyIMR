@@ -364,7 +364,7 @@ def _mie_mu(compression, slope, nog):
   a = compression * slope**2 - nog
   b = -2.0 * compression * slope - 1.0
   discriminant = b**2 - 4.0 * a * compression
-  return (-b + np.sqrt(discriminant)) / (2.0 * a)
+  return (-b - np.sqrt(discriminant)) / (2.0 * a)
 
 
 @njit(cache=True)
@@ -443,12 +443,21 @@ def mechanical_rhs(
     denominator = (1.0 - velocity / sound) * radius + acceleration * density_factor / sound
     radial_acceleration = numerator / denominator
   else:
-    sound = p[P_CSTAR]
-    bubble_pressure = pressure - surface / radius
-    compression = bubble_pressure / sound**2
-    mu = _mie_mu(compression, p[P_HUGONIOT], p[P_NOG])
+    reference_sound = p[P_CSTAR]
+    bubble_pressure = pressure - surface / radius + stress
+    compression = bubble_pressure / reference_sound**2
+    slope, nog = p[P_HUGONIOT], p[P_NOG]
+    mu = _mie_mu(compression, slope, nog)
     density_factor = 1.0 / (1.0 + mu)
-    enthalpy = sound**2 * (_mie_antiderivative(mu, p[P_HUGONIOT], p[P_NOG]) - p[P_MIE_REFERENCE])
+    enthalpy = reference_sound**2 * (_mie_antiderivative(mu, slope, nog) - p[P_MIE_REFERENCE])
+    if radial == 6:
+      # Gilmore: local sound speed from the Mie-Gruneisen EoS
+      w = 1.0 - slope * mu
+      sound = reference_sound * np.sqrt(
+        ((1.0 + 2.0 * nog * mu) * w**2 + 2.0 * slope * mu * (1.0 + nog * mu) * w) / w**4
+      )
+    else:
+      sound = reference_sound
     numerator = (
       (1.0 + velocity / sound) * (enthalpy - forcing)
       - radius / sound * forcing_rate

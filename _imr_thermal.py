@@ -50,7 +50,7 @@ def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG):
   a = A * s**2 - nog
   b = -2.0 * A * s - 1.0
   d = b**2 - 4.0 * a * A
-  return (-b + np.sqrt(d)) / (2.0 * a)
+  return (-b - np.sqrt(d)) / (2.0 * a)
 
 
 def _mie_F(mu, s=_HUGONIOT_S, nog=_NOG):

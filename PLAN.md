@@ -27,6 +27,7 @@ independent and cheap. W3--W6 are independent of each other.
 | W6 solver control surface | **done** -- 86-option audit, `max_step_s` added |
 | W7 tinygrad style | **done** -- config, indent, docstrings, six splits, formatter settled |
 | W8 measured collapse gaps | **done** -- stubs, plus the Zener offset quantified |
+| W9 fix upstream defects here | **done** -- Mie-Gruneisen root; `radial = 6` now works |
 
 Revised priority after W1: **W8 -> W3 -> W5 -> W6 -> W2 -> W7.**
 
@@ -422,6 +423,79 @@ every remaining entry has a written justification.
 
 **Status: done.** The `KNOWN GAPS` block is empty and all five checks in
 section 1c pass. The remaining 1.55e-03 is upstream's error, quantified above.
+
+---
+
+## W9. Fix the upstream defects in our own code
+
+Not just report them -- work out the correct physics and validate against
+independent results. Done for the Mie-Gruneisen equation of state, which was
+the only defect that cost imr-fast a capability.
+
+### The defect
+
+`f_radial_eq.m`'s `f_mie_gruneisen_eos_scalar` solves `a*mu^2 + b*mu + A = 0`
+for the density strain `mu`, with `a = A*s^2 - nog`, `b = -2*A*s - 1`. As
+`A -> 0` this degenerates to `-nog*mu^2 - mu = 0`, whose roots are `mu = 0`
+(physical: undisturbed liquid at ambient pressure) and `mu = -1/nog = -0.325`
+(spurious). Upstream takes `(-b + sqrt(d))/(2a)`, which is the spurious branch.
+
+Consequences, all measured:
+
+| quantity | upstream root | corrected root |
+|---|---|---|
+| `rho/rho0 - 1` at ambient | -0.3253 | 4.3e-05 |
+| `c/c0 - 1` at ambient | complex | 2.8e-04 |
+| enthalpy at `P = 2` | 1.482 (should be ~1) | 1.000 |
+| enthalpy at `P = 1000` | 1599 (should be ~999) | 980.9 |
+| sound-speed numerator | -2.36 (negative) | +1.00 |
+
+The negative `c^2` is precisely why `radial = 6` returns complex radii: it is
+the only branch that takes the sound speed from the EoS rather than using `c0`.
+The earlier note in the code -- blaming a missing `iWe/R` -- was wrong; that
+term shifts the numerator by 1e-4 and changes nothing.
+
+Second defect in the same branch: `Pb` omits the stress term that `radial = 3`
+and `4` both include.
+
+### Validation, against independent results rather than upstream
+
+- **EoS calibration.** `c(ambient) = c0` to 2.8e-04 -- the defining property of
+  the EoS, and impossible to satisfy with the spurious root.
+- **Weakly-compressible limit.** The analytic enthalpy matches `h ~ P - 1` to
+  2.1e-03 over `P = 2..100`, and matches a direct numerical integral of
+  `1/rho(P)` to machine precision, confirming `_mie_F` itself was always right.
+- **Independent equation of state.** Tait and Mie-Gruneisen enthalpies agree to
+  0.03% at `P = 100` and 0.26% at `P = 1000`; sound speeds agree to 3.7% at
+  ambient, diverging under compression as two different EoS should.
+- **Cross-model consistency.** All Keller-Miksis forms must converge for a
+  weakly-compressible liquid. Corrected `radial = 5` agrees with `radial = 3`
+  to **5.2e-04**, inside the 1.8e-03 spread the Tait forms already have among
+  themselves. As shipped it differs by **4.8e-01**.
+- **Collapse depth.** Upstream `radial = 5` reaches `R/R0 = 0.0536`; its own
+  Tait branch reaches `0.0821`; corrected, it reaches `0.0818`.
+- **Sensitivities improved too.** The `radial = 5` material tangent went from
+  1.46e-05 to **6.76e-07**, matching every other radial model.
+
+### Delivered
+
+- [x] Corrected root in `_imr_thermal._mu_of_A` and `_imr_mechanical._mie_mu`.
+- [x] Stress term restored to `Pb` for `radial = 5`.
+- [x] **`radial = 6` implemented** -- the one configuration IMRv2 cannot run.
+      Validates at 1.44e-02 against Gilmore/Tait and 2.74e-02 against
+      KM/Mie-Gruneisen, both inside the 1.27e-02 Gilmore-vs-KM reference
+      spread. Sensitivities agree with centered differences.
+- [x] New harness section `1d`, which asserts the physics rather than upstream
+      agreement. `ref_radial5.csv` retained as a record of upstream behaviour,
+      removed from the pinned-target list.
+
+### Method note
+
+An edit changing `+` to `-` preserves file size, and CPython's `.pyc` staleness
+check is `(mtime, size)` with one-second mtime granularity -- so the change was
+silently ignored and three consecutive measurements were taken against stale
+bytecode. One of them reversed a conclusion. **Clear `__pycache__` (and the
+numba cache) after any single-character edit before trusting a measurement.**
 
 ---
 

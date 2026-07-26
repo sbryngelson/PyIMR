@@ -524,7 +524,7 @@ def _validate_inputs(
     if not np.isfinite(value):
       raise ValueError(f"{name} must be finite")
 
-  for name, value, allowed in (("radial", radial, range(1, 6)), ("wave_type", wave_type, range(0, 4))):
+  for name, value, allowed in (("radial", radial, range(1, 7)), ("wave_type", wave_type, range(0, 4))):
     if not isinstance(value, Integral) or value not in allowed:
       choices = ", ".join(str(choice) for choice in allowed)
       raise ValueError(f"{name} must be one of: {choices}")

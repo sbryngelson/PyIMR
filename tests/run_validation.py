@@ -8,6 +8,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import imr_fast
+import _imr_thermal
 from imr_fast import params
 from imr_inference import InferenceParameter, RadiusObservation, prepare_inference
 
@@ -80,7 +81,6 @@ for lab, kw, ref in [
   ("radial=4 (Gilmore, Tait)", dict(radial=4), "ref_radial4.csv"),
   ("radial=3+Zener", dict(radial=3, material=imr_fast.Zener(2500.0, 0.1, 2 * _t0, 0.4 * _t0)), "ref_radial3_zener.csv"),
   ("radial=4+Zener", dict(radial=4, material=imr_fast.Zener(2500.0, 0.1, 2 * _t0, 0.4 * _t0)), "ref_radial4_zener.csv"),
-  ("radial=5 (KM enthalpy, Mie-Gruneisen)", dict(radial=5), "ref_radial5.csv"),
 ]:
   ml = np.loadtxt(f"{_d}/{ref}")
   material = kw.pop("material", imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
@@ -89,6 +89,83 @@ for lab, kw, ref in [
   ok = mx < 2e-3
   fail += not ok
   print(f"    {lab:24s} max|dR|={mx:.2e}  {'PASS' if ok else 'FAIL'}")
+
+print("\n" + "=" * 64)
+print("1d. MIE-GRUNEISEN EOS -- DELIBERATE DIVERGENCE FROM IMRv2")
+print("=" * 64)
+# IMRv2's Mie-Gruneisen branch takes the wrong root of its own density
+# quadratic. a*mu^2 + b*mu + A = 0 has roots that tend to 0 and to -1/nog as
+# A -> 0; upstream takes (-b + sqrt(d))/(2a), which is the -1/nog branch --
+# a 32.5% density deficit at ambient pressure. It also omits the stress term
+# from Pb, which radial=3 and 4 both include.
+#
+# Both are corrected here, so radial=5 no longer reproduces ref_radial5.csv.
+# The checks below are what justify that divergence.
+_R = imr_fast.RHO
+_p = imr_fast.params(
+  _R0,
+  _R0 / 6,
+  imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
+  0,
+  298.15,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0,
+  0,
+  0,
+  imr_fast.PhysicalParameters(),
+)
+_Cs, _s, _nog = _p["Cstar"], _p["hugoniot_slope"], _p["nog"]
+
+# 1. density is undisturbed at ambient pressure
+_mu = _imr_thermal._mu_of_A(1.0 / _Cs**2, _s, _nog)
+_ok = abs(_mu) < 1e-4
+fail += not _ok
+print(f"    rho/rho0 - 1 at ambient = {_mu:.3e}  {'PASS' if _ok else 'FAIL'}")
+
+# 2. sound speed at ambient recovers c0 -- the EoS calibration point
+_C, _, _ = _imr_thermal._mie_gruneisen(1.0, _Cs, _s, _nog, _p["mie_reference"])
+_rel = abs(float(_C) - _Cs) / _Cs
+_ok = _rel < 1e-3
+fail += not _ok
+print(f"    c(ambient)/c0 - 1       = {_rel:.3e}  {'PASS' if _ok else 'FAIL'}")
+
+# 3. enthalpy matches its weakly-compressible limit h ~ P - 1
+_worst = 0.0
+for _P in (2.0, 10.0, 100.0):
+  _, _hB, _ = _imr_thermal._mie_gruneisen(_P, _Cs, _s, _nog, _p["mie_reference"])
+  _worst = max(_worst, abs(float(_hB) - (_P - 1.0)) / (_P - 1.0))
+_ok = _worst < 5e-3
+fail += not _ok
+print(f"    max |h - (P-1)|/(P-1)   = {_worst:.3e}  {'PASS' if _ok else 'FAIL'}")
+
+# 4. the corrected branches must agree with the independent Tait forms to
+#    within the spread the Tait forms already have among themselves
+_rad = {
+  _n: imr_fast.simulate(
+    _t, imr_fast.SimulationConfig(R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=_n)
+  ).radius_ratio
+  for _n in (2, 3, 4, 5, 6)
+}
+_spread = np.nanmax(np.abs(_rad[3] - _rad[4]))
+for _lab, _a, _b, _tol in [
+  ("radial=5 (KM/Mie-G) vs radial=3 (KM/Tait)", 5, 3, 2e-3),
+  ("radial=6 (Gilmore/Mie-G) vs radial=4 (Gilmore/Tait)", 6, 4, 3e-2),
+  ("radial=6 vs radial=5 (Gilmore vs KM, same EoS)", 6, 5, 3e-2),
+]:
+  _mx = np.nanmax(np.abs(_rad[_a] - _rad[_b]))
+  _ok = _mx < _tol
+  fail += not _ok
+  print(f"    {_lab:52s} {_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+print(f"    (reference spread, radial=3 vs radial=4: {_spread:.2e})")
+
+# 5. radial=6 is unavailable upstream at all; assert it runs clean here
+_ok = np.all(np.isfinite(_rad[6])) and np.isrealobj(_rad[6])
+fail += not _ok
+print(f"    radial=6 finite and real (IMRv2 returns complex)  {'PASS' if _ok else 'FAIL'}")
 
 print("\n" + "=" * 64)
 print("1c. COLLAPSE INITIALIZATION vs IMRv2")

@@ -367,17 +367,44 @@ estimates of physical-model error.
   The default polytropic exponent is 1.4; IMRv2 itself ships with 1.47.
 - `SimulationResult.stress_state` contains nondimensional internal variables.
   Public dimensional outputs carry units in their names or documentation.
-- Gilmore/Mie-Gruneisen is intentionally unavailable because the corresponding
-  IMRv2 branch produces non-real states in the tested pressure range.
+- Gilmore/Mie-Gruneisen (`radial = 6`) is unavailable because the corresponding
+  IMRv2 branch returns complex radii. Measured on the standard reference case:
+  `max|imag(R/R0)| = 4.069`, non-real at 299 of 300 points, returned without
+  any upstream error.
 - Collapse shooting requires a material with memory and cannot be combined
   with an explicit initial stress state or nonzero observed wall velocity.
+  IMRv2 does permit collapse for memoryless materials; see `PLAN.md` W8.
 
 ## Reference implementation
 
-`IMRv2/src/f_init_stress.m` uses an undefined `z1` in the
-`De == 0 || De == Inf` branch. That branch is unreachable for the memory models
-that call the function, so this is a latent upstream defect rather than an
-active discrepancy.
+Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
+`tools/gen_imrv2_cases.m` and `tools/probe_viscosity.m`. Full list in
+`PLAN.md`.
+
+- **Giesekus and linear PTT cannot be run.** `f_call_params.m` dispatches
+  `stress` 6 and 7 and forces spectral collocation for both, but its own input
+  gate rejects `stress > 5`. imr-fast implements both.
+- **The non-Newtonian viscosity suite is non-functional.** `nu_model` 3--7
+  leave `intf`/`dintf`/`ddintf` unassigned and raise; `nu_model = 2`
+  (Carreau-Yasuda) calls a four-argument helper with three arguments and
+  raises. Only `nu_model = 1` (Carreau) runs, and it fails its own Newtonian
+  reduction by `6.7e-01` -- its stress integral is quadratic in the strain rate
+  where the Newtonian term it must reduce to is linear.
+- **Collapse initialization is a stub for most materials.** `f_call_params.m`
+  applies a precursor only for the Zener family; it leaves the initial stress
+  empty for memoryless materials and returns zeros under an explicit
+  `% TODO initial max stress for UCM and Oldroyd-B`. The flag is accepted and
+  silently ignored. imr-fast implements the precursor for Oldroyd-B and the
+  distributed models, and refuses the flag outright for memoryless materials.
+- **`radial = 6` returns complex trajectories** without raising, and the
+  `radial` constraint is stated three mutually inconsistent ways.
+- **`f_init_stress.m` uses an undefined `z1`** in the `De == 0 || De == Inf`
+  branch. Unreachable for the memory models that call it, so latent rather
+  than active.
+
+These are the reason several imr-fast models are validated by reduction limit
+rather than against a pinned upstream trajectory: for those models, no working
+upstream implementation exists to pin against.
 
 ## Tangent equations
 

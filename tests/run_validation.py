@@ -108,6 +108,64 @@ for lab, kw, ref in [
   fail += not ok
   print(f"    {lab:24s} max|dR|={mx:.2e}  {'PASS' if ok else 'FAIL'}")
 
+
+print("\n" + "=" * 64)
+print("1c. COLLAPSE INITIALIZATION vs IMRv2")
+print("=" * 64)
+# References from tools/gen_imrv2_cases.m. IMRv2 requires the full coupled
+# model for collapse (f_call_params.m:234-236), so these run bubtherm +
+# medtherm + masstrans + vapor together.
+gaps = []
+_full = dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=25, Mt=25)
+
+# IMRv2 applies a collapse precursor only for stress 3 and 4 (Zener family).
+# f_call_params.m:447-460 leaves Szero empty for stress < 3 and returns zeros
+# under an explicit "TODO" for stress == 5, so collapse=1 is a no-op for NHKV
+# and Oldroyd-B. Those two references therefore pin the fully coupled model
+# without a precursor; only the Zener case tests collapse itself.
+_ml = np.loadtxt(f"{_d}/ref_collapse_zener.csv")
+_cfg = imr_fast.SimulationConfig(
+  R0=_R0,
+  Req=_R0 / 6,
+  material=imr_fast.Zener(2500.0, 0.1, 2 * _t0, 0.4 * _t0),
+  collapse=imr_fast.CollapseInitialization(),
+  **_full,
+)
+_mx = np.nanmax(np.abs(_ml - imr_fast.simulate(_t, _cfg).radius_ratio))
+_ok = _mx < 2e-3
+fail += not _ok
+print(f"    collapse Zener        max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+
+for lab, mat, ref in [
+  ("Oldroyd-B", imr_fast.OldroydB(0.1, 2 * _t0, 0.4 * _t0), "ref_coupled_oldb.csv"),
+  ("NHKV", imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), "ref_coupled_nhkv.csv"),
+]:
+  ml = np.loadtxt(f"{_d}/{ref}")
+  cfg = imr_fast.SimulationConfig(R0=_R0, Req=_R0 / 6, material=mat, **_full)
+  mx = np.nanmax(np.abs(ml - imr_fast.simulate(_t, cfg).radius_ratio))
+  ok = mx < 2e-3
+  fail += not ok
+  print(f"    coupled {lab:14s} max|dR|={mx:.2e}  {'PASS' if ok else 'FAIL'}")
+
+# imr-fast refuses collapse without memory; IMRv2 accepts the flag and ignores
+# it. Refusing is the stricter, correct behaviour -- assert it stays that way.
+try:
+  imr_fast.simulate(
+    _t,
+    imr_fast.SimulationConfig(
+      R0=_R0,
+      Req=_R0 / 6,
+      material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
+      collapse=imr_fast.CollapseInitialization(),
+      **_full,
+    ),
+  )
+  _ok = False
+except ValueError:
+  _ok = True
+fail += not _ok
+print(f"    memoryless collapse refused (IMRv2 silently ignores)  {'PASS' if _ok else 'FAIL'}")
+
 print("\n" + "=" * 64)
 print("2. CONSTITUTIVE SUITE")
 print("=" * 64)

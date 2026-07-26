@@ -1,7 +1,13 @@
 import numpy as np
 import pytest
 
-from imr_fast import SimulationConfig, SimulationResult, simulate, simulate_result
+from imr_fast import (
+    SimulationConfig,
+    SimulationResult,
+    prepare,
+    simulate,
+    simulate_result,
+)
 
 
 def base_config(**overrides):
@@ -31,10 +37,40 @@ def test_structured_api_matches_legacy_solver():
 def test_structured_result_arrays_are_read_only():
     result = simulate_result(np.linspace(0.0, 1e-5, 10), base_config())
 
-    with pytest.raises(ValueError):
-        result.radius_ratio[0] = 2.0
-    with pytest.raises(ValueError):
-        result.time_s[0] = 2.0
+    for array in (
+        result.time_s,
+        result.radius_ratio,
+        result.wall_velocity_m_s,
+        result.internal_pressure_pa,
+        result.stress_integral_pa,
+    ):
+        with pytest.raises(ValueError):
+            array.flat[0] = 2.0
+
+
+def test_prepared_problem_is_reusable_and_returns_active_fields():
+    times = np.linspace(0.0, 2e-5, 25)
+    config = base_config(
+        stress=3,
+        lam1=1e-6,
+        bubtherm=1,
+        medtherm=1,
+        masstrans=1,
+        vapor=1,
+        Nt=9,
+        Mt=7,
+    )
+    problem = prepare(config)
+
+    first = problem.solve(times)
+    second = problem.solve(times)
+
+    np.testing.assert_array_equal(first.radius_ratio, second.radius_ratio)
+    assert first.bubble_temperature_k.shape == (times.size, config.Nt)
+    assert first.medium_temperature_k.shape == (times.size, config.Mt)
+    assert first.vapor_mass_fraction.shape == (times.size, config.Nt)
+    assert first.stress_state.shape == (times.size, 1)
+    assert first.stats.success and first.stats.nfev > 0
 
 
 @pytest.mark.parametrize(

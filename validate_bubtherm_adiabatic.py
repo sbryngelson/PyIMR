@@ -83,7 +83,10 @@ print("=" * 72)
 print("SANITY: bubtherm=1 with REAL chi>0 should DIFFER from shadow-polytropic")
 print("        (confirms the thermal terms aren't silently inert)")
 print("=" * 72)
-R_thermal_real = F.simulate(tv, R0, Req, G, mu, stress=1, radial=1, bubtherm=1, Nt=25)
+config = F.SimulationConfig(
+    R0=R0, Req=Req, G=G, mu=mu, stress=1, radial=1, bubtherm=1, Nt=25
+)
+R_thermal_real = F.simulate(tv, config).radius_ratio
 diff = np.max(np.abs(R_thermal_real - R_shadow))
 nan_frac = np.mean(np.isnan(R_thermal_real))
 print(f"  max|R_thermal(real chi) - R_shadow_polytropic| = {diff:.3e}")

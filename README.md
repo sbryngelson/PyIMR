@@ -43,25 +43,15 @@ Every combination exercised by the regression suite is checked against a pinned
 IMRv2 trajectory. Unsupported option values and inconsistent thermal/mass
 combinations raise `ValueError`.
 
-### Public APIs
-
-The original array-returning function remains available:
+### Public API
 
 ```python
 import numpy as np
-from imr_fast import simulate
+from imr_fast import SimulationConfig, prepare, simulate
 
 t = np.linspace(0.0, 120e-6, 300)
-radius_ratio = simulate(t, R0=225e-6, Req=37.5e-6, G=2500.0, mu=0.1)
-```
-
-New code should prefer the validated, structured API:
-
-```python
-from imr_fast import SimulationConfig, prepare, simulate_result
-
 config = SimulationConfig(R0=225e-6, Req=37.5e-6, G=2500.0, mu=0.1)
-result = simulate_result(t, config)
+result = simulate(t, config)
 
 result.time_s                # immutable input-time copy
 result.radius_ratio          # R/R0
@@ -86,9 +76,8 @@ first = problem.solve(t)
 second = problem.solve(t)  # reuses immutable setup; solve state is fresh
 ```
 
-The structured API raises `SimulationError` if the integrator fails. The legacy
-API retains its historical all-NaN failure return unless
-`raise_on_failure=True` is requested.
+The solver raises `SimulationError` if integration does not reach every
+requested output time.
 
 ### Important boundaries
 

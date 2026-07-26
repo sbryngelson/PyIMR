@@ -144,9 +144,7 @@ class SimulationError(RuntimeError):
 class SimulationConfig:
     """Validated dimensional inputs for one IMR simulation.
 
-    The defaults match :func:`simulate`. Use :func:`simulate_result` for the
-    strict, structured API; the original function remains available for
-    backwards compatibility.
+    The defaults match :func:`simulate`.
     """
 
     R0: float
@@ -182,15 +180,6 @@ class SimulationConfig:
             self.wave_type, self.bubtherm, self.Nt, self.medtherm, self.Mt,
             self.masstrans, self.rtol, self.atol,
         )
-
-    def solver_kwargs(self) -> dict[str, float | int]:
-        """Return keyword arguments accepted by :func:`simulate`."""
-        return {
-            name: getattr(self, name)
-            for name in self.__dataclass_fields__
-            if name not in {"R0", "Req", "G", "mu"}
-        }
-
 
 @dataclass(frozen=True, slots=True)
 class SolverStats:
@@ -723,7 +712,21 @@ def _wall_theta_bw_full(guess, theta_tail, Tm_tail, kv_tail, kv_end_stale, P,
         scalar = P / ((kvw * Rva_diff + Rg_star) * (Tw * (1.0 - kvw)))
         extra = scalar * (grad_C[0] * kvw + grad_C[1] * kv_tail[0] + grad_C[2] * kv_tail[1])
         return lhs + rhs + extra
-    return _secant_root(resid, guess)
+    failure = None
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        try:
+            return _secant_root(resid, guess)
+        except RuntimeError as error:
+            failure = error
+            roots = []
+            for fallback in (0.0, 0.5 * guess, 1.5 * guess, theta_tail[0]):
+                try:
+                    roots.append(_secant_root(resid, fallback))
+                except RuntimeError:
+                    pass
+    if roots:
+        return min(roots, key=lambda root: abs(root - guess))
+    raise failure
 
 
 def _apply_thermal_boundaries(
@@ -1121,31 +1124,6 @@ def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
     return _build_result(problem, time_s, solution, stats)
 
 
-def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
-             radial=1, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0,
-             mn=0.0, wave_type=0, bubtherm=0, Nt=25, medtherm=0, Mt=25,
-             masstrans=0, rtol=1e-8, atol=1e-10, raise_on_failure=False):
-    """Bubble radius R(t)/R0 at times tv (seconds).
-
-    This backwards-compatible API returns an all-NaN trajectory on integration
-    failure unless ``raise_on_failure=True``. New code should use
-    :func:`prepare` or :func:`simulate_result` for full outputs and diagnostics.
-    """
-    config = SimulationConfig(
-        R0=R0, Req=Req, G=G, mu=mu, stress=stress, lam1=lam1, lam2=lam2,
-        alphax=alphax, radial=radial, vapor=vapor, T8=T8, pA=pA, omega=omega,
-        TW=TW, DT=DT, mn=mn, wave_type=wave_type, bubtherm=bubtherm, Nt=Nt,
-        medtherm=medtherm, Mt=Mt, masstrans=masstrans, rtol=rtol, atol=atol,
-    )
-    try:
-        _, solution, _ = _integrate_prepared(prepare(config), tv)
-        return np.array(solution.y[0], copy=True)
-    except SimulationError:
-        if raise_on_failure:
-            raise
-        return np.full(len(tv), np.nan)
-
-
-def simulate_result(tv, config: SimulationConfig) -> SimulationResult:
-    """Run one simulation through the strict, full-result public API."""
+def simulate(tv, config: SimulationConfig) -> SimulationResult:
+    """Run one simulation and return immutable physical histories."""
     return prepare(config).solve(tv)

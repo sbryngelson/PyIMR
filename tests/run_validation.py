@@ -11,6 +11,12 @@ from imr_fast import params
 from imr_grad import NP, simulate_grad
 from imr_nonlinear import simulate_nonlinear
 
+
+def solve_radius(times, R0, Req, G, mu, **options):
+    config = imr_fast.SimulationConfig(R0=R0, Req=Req, G=G, mu=mu, **options)
+    return imr_fast.simulate(times, config).radius_ratio
+
+
 fail = 0
 print("="*64); print("1. FORWARD SOLVER vs IMRv2 reference trajectories"); print("="*64)
 _d = os.path.dirname(os.path.abspath(__file__))
@@ -18,11 +24,11 @@ _R0 = 225e-6; _t0 = _R0/np.sqrt(101325/1064)
 _t2 = np.loadtxt(f"{_d}/imr2_t.csv"); _A = np.loadtxt(f"{_d}/imr2_s06.csv", delimiter=',')
 _Gg = np.loadtxt(f"{_d}/imr2_G.csv"); _Mg = np.loadtxt(f"{_d}/imr2_M.csv")
 _checks = [("Zener truth De=2 s=6",
-            imr_fast.simulate(_t2,_R0,_R0/6,2500.,.1,stress=3,lam1=2*_t0,lam2=.4*_t0), _A[:,0])]
+            solve_radius(_t2,_R0,_R0/6,2500.,.1,stress=3,lam1=2*_t0,lam2=.4*_t0), _A[:,0])]
 for _k in [0, 30, len(_Gg)*len(_Mg)-1]:
     _gi,_mi = _k//len(_Mg), _k % len(_Mg)
     _checks.append((f"NHKV G={_Gg[_gi]:.0f} mu={_Mg[_mi]:.4f}",
-                    imr_fast.simulate(_t2,_R0,_R0/6,_Gg[_gi],_Mg[_mi],stress=1), _A[:,1+_k]))
+                    solve_radius(_t2,_R0,_R0/6,_Gg[_gi],_Mg[_mi],stress=1), _A[:,1+_k]))
 for _lab,_py,_ml in _checks:
     _mx = np.nanmax(np.abs(_ml-_py)); _ok = _mx < 2e-3; fail += (not _ok)
     print(f"    {_lab:30s} max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
@@ -58,7 +64,7 @@ for lab, kw, ref in [
     ("radial=5 (KM enthalpy, Mie-Gruneisen)", dict(radial=5),                          "ref_radial5.csv"),
 ]:
     ml = np.loadtxt(f"{_d}/{ref}")
-    py = imr_fast.simulate(_t, _R0, _R0/6, 2500., 0.1, **kw)
+    py = solve_radius(_t, _R0, _R0/6, 2500., 0.1, **kw)
     mx = np.nanmax(np.abs(ml-py)); ok = mx < 2e-3; fail += (not ok)
     print(f"    {lab:24s} max|dR|={mx:.2e}  {'PASS' if ok else 'FAIL'}")
 
@@ -95,8 +101,8 @@ print("\n"+"="*64); print("2b. NONLINEAR MEMORY (Giesekus / PTT) reduction limit
 _De, _LAM = 2.0, 0.2
 _tv = np.linspace(0, 1.2e-4, 300)
 _p0 = params(225e-6, 225e-6/6, 2500., .1)
-_ucm = imr_fast.simulate(_tv, 225e-6, 225e-6/6, 2500., .1, stress=5,
-                         lam1=_De*_p0['t0'], lam2=_LAM*_De*_p0['t0'])
+_ucm = solve_radius(_tv, 225e-6, 225e-6/6, 2500., .1, stress=5,
+                    lam1=_De*_p0['t0'], lam2=_LAM*_De*_p0['t0'])
 print("  alpha->0 (Giesekus) and eps->0 (PTT) must both reproduce UCM/Oldroyd-B")
 for _m, _kw in [('giesekus', dict(alpha=0.0)), ('ptt', dict(eps=0.0))]:
     _R = simulate_nonlinear(_tv, 225e-6, 225e-6/6, 2500., .1, _De, _LAM,

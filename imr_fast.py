@@ -14,14 +14,11 @@ Covers:
            medtherm 0 or 1 (liquid boundary layer, requires bubtherm=1)
            masstrans 0 or 1 (vapor mass transfer, requires bubtherm=1 and
                              vapor=1; may be combined with medtherm=1)
-  stress   0 (no stress)
-           1 (neo-Hookean Kelvin-Voigt)
-           2 (quadratic Kelvin-Voigt, strain-stiffening, alphax)
-           3 (linear Maxwell / Jeffreys / Zener, 1 internal variable)
-           4 (linear Maxwell / Jeffreys / Zener, quadratic KV elastic term,
-              1 internal variable -- stress=3's counterpart to stress=2)
-           5 (UCM / Oldroyd-B, 2 internal variables)
-           GiesekusModel or LinearPTTModel (distributed nonlinear memory)
+  material closed-form NHKV, quadratic KV, Zener, quadratic Zener, Oldroyd-B;
+           composable neo-Hookean, Mooney-Rivlin, Yeoh, Fung, Gent, or
+           Arruda-Boyce elasticity with Newtonian, power-law, Carreau-Yasuda,
+           Cross, Herschel-Bulkley, or Bingham viscosity; and distributed
+           Giesekus or linear PTT memory
   forcing  wave_type 0 (constant offset), 1 (Gaussian), 2 (histotripsy),
            3 (Heaviside step), or a dimensional sampled pressure history
 
@@ -123,7 +120,6 @@ _MWV = 18.01528e-3   # molar mass, water vapor (kg/mol)
 _MWG = 28.966e-3     # molar mass, non-condensible gas / air (kg/mol)
 _D0 = 24.2e-6        # binary (vapor-in-gas) diffusion coefficient (m^2/s)
 _LHEAT = 2264.76e3   # latent heat of vaporization (J/kg)
-_STRESS_STATE_COUNTS = {0: 0, 1: 0, 2: 0, 3: 1, 4: 1, 5: 2}
 
 
 class SimulationError(RuntimeError):
@@ -231,6 +227,314 @@ class InitialState:
             object.__setattr__(self, "stress_state", state)
 
 
+def _finite_positive(name, value) -> None:
+    if not np.isfinite(value) or value <= 0.0:
+        raise ValueError(f"{name} must be finite and positive")
+
+
+def _finite_nonnegative(name, value) -> None:
+    if not np.isfinite(value) or value < 0.0:
+        raise ValueError(f"{name} must be finite and non-negative")
+
+
+@dataclass(frozen=True, slots=True)
+class NoStress:
+    """No constitutive stress."""
+
+
+@dataclass(frozen=True, slots=True)
+class NeoHookeanKelvinVoigt:
+    """Closed-form neo-Hookean Kelvin-Voigt solid."""
+
+    shear_modulus_pa: float
+    viscosity_pa_s: float
+
+    def __post_init__(self) -> None:
+        _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+        _finite_positive("viscosity_pa_s", self.viscosity_pa_s)
+
+
+@dataclass(frozen=True, slots=True)
+class QuadraticKelvinVoigt:
+    """Closed-form quadratic Kelvin-Voigt solid."""
+
+    shear_modulus_pa: float
+    viscosity_pa_s: float
+    stiffening: float = 0.25
+
+    def __post_init__(self) -> None:
+        _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+        _finite_positive("viscosity_pa_s", self.viscosity_pa_s)
+        _finite_nonnegative("stiffening", self.stiffening)
+
+
+def _validate_memory_parameters(
+    viscosity_pa_s, relaxation_time_s, retardation_time_s, *, polymer_required
+) -> None:
+    _finite_positive("viscosity_pa_s", viscosity_pa_s)
+    _finite_positive("relaxation_time_s", relaxation_time_s)
+    _finite_nonnegative("retardation_time_s", retardation_time_s)
+    limit_ok = (
+        retardation_time_s < relaxation_time_s
+        if polymer_required
+        else retardation_time_s <= relaxation_time_s
+    )
+    if not limit_ok:
+        relation = "less than" if polymer_required else "no greater than"
+        raise ValueError(
+            f"retardation_time_s must be {relation} relaxation_time_s"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Zener:
+    """Closed-form neo-Hookean Zener/Jeffreys/Maxwell family."""
+
+    shear_modulus_pa: float
+    viscosity_pa_s: float
+    relaxation_time_s: float
+    retardation_time_s: float = 0.0
+
+    def __post_init__(self) -> None:
+        _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+        _validate_memory_parameters(
+            self.viscosity_pa_s,
+            self.relaxation_time_s,
+            self.retardation_time_s,
+            polymer_required=False,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class QuadraticZener:
+    """Closed-form quadratic-elastic Zener family."""
+
+    shear_modulus_pa: float
+    viscosity_pa_s: float
+    relaxation_time_s: float
+    retardation_time_s: float = 0.0
+    stiffening: float = 0.25
+
+    def __post_init__(self) -> None:
+        _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+        _validate_memory_parameters(
+            self.viscosity_pa_s,
+            self.relaxation_time_s,
+            self.retardation_time_s,
+            polymer_required=False,
+        )
+        _finite_nonnegative("stiffening", self.stiffening)
+
+
+@dataclass(frozen=True, slots=True)
+class OldroydB:
+    """Closed-form UCM/Oldroyd-B fluid."""
+
+    viscosity_pa_s: float
+    relaxation_time_s: float
+    retardation_time_s: float = 0.0
+
+    def __post_init__(self) -> None:
+        _validate_memory_parameters(
+            self.viscosity_pa_s,
+            self.relaxation_time_s,
+            self.retardation_time_s,
+            polymer_required=False,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class NeoHookean:
+    shear_modulus_pa: float
+
+    def __post_init__(self) -> None:
+        _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+
+
+@dataclass(frozen=True, slots=True)
+class MooneyRivlin:
+    c10_pa: float
+    c01_pa: float
+
+    def __post_init__(self) -> None:
+        _finite_nonnegative("c10_pa", self.c10_pa)
+        _finite_nonnegative("c01_pa", self.c01_pa)
+        if self.c10_pa == 0.0 and self.c01_pa == 0.0:
+            raise ValueError("at least one Mooney-Rivlin coefficient must be positive")
+
+
+@dataclass(frozen=True, slots=True)
+class Yeoh:
+    c1_pa: float
+    c2_pa: float = 0.0
+    c3_pa: float = 0.0
+
+    def __post_init__(self) -> None:
+        _finite_positive("c1_pa", self.c1_pa)
+        for name in ("c2_pa", "c3_pa"):
+            if not np.isfinite(getattr(self, name)):
+                raise ValueError(f"{name} must be finite")
+
+
+@dataclass(frozen=True, slots=True)
+class Fung:
+    shear_modulus_pa: float
+    stiffening: float
+
+    def __post_init__(self) -> None:
+        _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+        _finite_nonnegative("stiffening", self.stiffening)
+
+
+@dataclass(frozen=True, slots=True)
+class Gent:
+    shear_modulus_pa: float
+    extensibility: float
+
+    def __post_init__(self) -> None:
+        _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+        _finite_positive("extensibility", self.extensibility)
+
+
+@dataclass(frozen=True, slots=True)
+class ArrudaBoyce:
+    shear_modulus_pa: float
+    chain_segments: float
+
+    def __post_init__(self) -> None:
+        _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+        if not np.isfinite(self.chain_segments) or self.chain_segments <= 1.0:
+            raise ValueError("chain_segments must be finite and greater than 1")
+
+
+ElasticModel = NeoHookean | MooneyRivlin | Yeoh | Fung | Gent | ArrudaBoyce
+
+
+@dataclass(frozen=True, slots=True)
+class Newtonian:
+    viscosity_pa_s: float
+
+    def __post_init__(self) -> None:
+        _finite_positive("viscosity_pa_s", self.viscosity_pa_s)
+
+
+@dataclass(frozen=True, slots=True)
+class PowerLaw:
+    consistency_pa_s_n: float
+    exponent: float
+    regularization_rate_per_s: float = 1e-3
+
+    def __post_init__(self) -> None:
+        _finite_positive("consistency_pa_s_n", self.consistency_pa_s_n)
+        _finite_positive("exponent", self.exponent)
+        _finite_positive(
+            "regularization_rate_per_s", self.regularization_rate_per_s
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CarreauYasuda:
+    zero_shear_viscosity_pa_s: float
+    infinite_shear_viscosity_pa_s: float
+    time_constant_s: float
+    transition_exponent: float
+    power_index: float
+
+    def __post_init__(self) -> None:
+        _finite_positive(
+            "zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s
+        )
+        _finite_nonnegative(
+            "infinite_shear_viscosity_pa_s",
+            self.infinite_shear_viscosity_pa_s,
+        )
+        _finite_nonnegative("time_constant_s", self.time_constant_s)
+        _finite_positive("transition_exponent", self.transition_exponent)
+        _finite_positive("power_index", self.power_index)
+
+
+@dataclass(frozen=True, slots=True)
+class Cross:
+    zero_shear_viscosity_pa_s: float
+    infinite_shear_viscosity_pa_s: float
+    time_constant_s: float
+    transition_exponent: float
+
+    def __post_init__(self) -> None:
+        _finite_positive(
+            "zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s
+        )
+        _finite_nonnegative(
+            "infinite_shear_viscosity_pa_s",
+            self.infinite_shear_viscosity_pa_s,
+        )
+        _finite_nonnegative("time_constant_s", self.time_constant_s)
+        _finite_positive("transition_exponent", self.transition_exponent)
+
+
+@dataclass(frozen=True, slots=True)
+class HerschelBulkley:
+    yield_stress_pa: float
+    consistency_pa_s_n: float
+    exponent: float
+    regularization_rate_per_s: float = 1e-3
+
+    def __post_init__(self) -> None:
+        _finite_nonnegative("yield_stress_pa", self.yield_stress_pa)
+        _finite_positive("consistency_pa_s_n", self.consistency_pa_s_n)
+        _finite_positive("exponent", self.exponent)
+        _finite_positive(
+            "regularization_rate_per_s", self.regularization_rate_per_s
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Bingham:
+    yield_stress_pa: float
+    plastic_viscosity_pa_s: float
+    regularization_rate_per_s: float = 1e-3
+
+    def __post_init__(self) -> None:
+        _finite_nonnegative("yield_stress_pa", self.yield_stress_pa)
+        _finite_positive("plastic_viscosity_pa_s", self.plastic_viscosity_pa_s)
+        _finite_positive(
+            "regularization_rate_per_s", self.regularization_rate_per_s
+        )
+
+
+ViscousModel = (
+    Newtonian | PowerLaw | CarreauYasuda | Cross | HerschelBulkley | Bingham
+)
+
+
+@dataclass(frozen=True, slots=True)
+class InstantaneousMaterial:
+    """Composable hyperelastic and generalized-Newtonian material."""
+
+    elastic: ElasticModel | None = None
+    viscous: ViscousModel | None = None
+    quadrature_points: int = 32
+
+    def __post_init__(self) -> None:
+        if self.elastic is None and self.viscous is None:
+            raise ValueError("an instantaneous material requires an elastic or viscous law")
+        if self.elastic is not None and not isinstance(
+            self.elastic,
+            (NeoHookean, MooneyRivlin, Yeoh, Fung, Gent, ArrudaBoyce),
+        ):
+            raise TypeError("elastic must be a supported elastic model")
+        if self.viscous is not None and not isinstance(
+            self.viscous,
+            (Newtonian, PowerLaw, CarreauYasuda, Cross, HerschelBulkley, Bingham),
+        ):
+            raise TypeError("viscous must be a supported viscous model")
+        if (
+            not isinstance(self.quadrature_points, Integral)
+            or self.quadrature_points < 8
+        ):
+            raise ValueError("quadrature_points must be an integer >= 8")
+
+
 def _validate_distributed_model(name, parameter, points, extent) -> None:
     if not np.isfinite(parameter) or parameter < 0.0:
         raise ValueError(f"{name} must be finite and non-negative")
@@ -241,14 +545,23 @@ def _validate_distributed_model(name, parameter, points, extent) -> None:
 
 
 @dataclass(frozen=True, slots=True)
-class GiesekusModel:
+class Giesekus:
     """Distributed Giesekus memory on a prepared Lagrangian radial grid."""
 
+    viscosity_pa_s: float
+    relaxation_time_s: float
+    retardation_time_s: float = 0.0
     mobility: float = 0.0
     points: int = 480
     extent: float = 60.0
 
     def __post_init__(self) -> None:
+        _validate_memory_parameters(
+            self.viscosity_pa_s,
+            self.relaxation_time_s,
+            self.retardation_time_s,
+            polymer_required=True,
+        )
         _validate_distributed_model(
             "mobility", self.mobility, self.points, self.extent
         )
@@ -257,30 +570,53 @@ class GiesekusModel:
 
 
 @dataclass(frozen=True, slots=True)
-class LinearPTTModel:
+class LinearPTT:
     """Distributed linear Phan-Thien-Tanner memory."""
 
+    viscosity_pa_s: float
+    relaxation_time_s: float
+    retardation_time_s: float = 0.0
     extensibility: float = 0.0
     points: int = 480
     extent: float = 60.0
 
     def __post_init__(self) -> None:
+        _validate_memory_parameters(
+            self.viscosity_pa_s,
+            self.relaxation_time_s,
+            self.retardation_time_s,
+            polymer_required=True,
+        )
         _validate_distributed_model(
             "extensibility", self.extensibility, self.points, self.extent
         )
 
 
-DistributedStressModel = GiesekusModel | LinearPTTModel
+MaterialModel = (
+    NoStress
+    | NeoHookeanKelvinVoigt
+    | QuadraticKelvinVoigt
+    | Zener
+    | QuadraticZener
+    | OldroydB
+    | InstantaneousMaterial
+    | Giesekus
+    | LinearPTT
+)
 
 
-def _is_distributed_stress(stress) -> bool:
-    return isinstance(stress, (GiesekusModel, LinearPTTModel))
+def _is_distributed_stress(material) -> bool:
+    return isinstance(material, (Giesekus, LinearPTT))
 
 
-def _stress_state_count(stress) -> int:
-    if _is_distributed_stress(stress):
-        return 2 * stress.points
-    return _STRESS_STATE_COUNTS[stress]
+def _stress_state_count(material) -> int:
+    if _is_distributed_stress(material):
+        return 2 * material.points
+    if isinstance(material, (Zener, QuadraticZener)):
+        return 1
+    if isinstance(material, OldroydB):
+        return 2
+    return 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -292,12 +628,7 @@ class SimulationConfig:
 
     R0: float
     Req: float
-    G: float
-    mu: float
-    stress: int | DistributedStressModel = 1
-    lam1: float = 0.0
-    lam2: float = 0.0
-    alphax: float = 0.25
+    material: MaterialModel
     radial: int = 1
     vapor: int = 0
     T8: float = 298.15
@@ -319,6 +650,21 @@ class SimulationConfig:
     initial: InitialState = field(default_factory=InitialState)
 
     def __post_init__(self) -> None:
+        if not isinstance(
+            self.material,
+            (
+                NoStress,
+                NeoHookeanKelvinVoigt,
+                QuadraticKelvinVoigt,
+                Zener,
+                QuadraticZener,
+                OldroydB,
+                InstantaneousMaterial,
+                Giesekus,
+                LinearPTT,
+            ),
+        ):
+            raise TypeError("material must be a supported material model")
         if not isinstance(self.physics, PhysicalParameters):
             raise TypeError("physics must be PhysicalParameters")
         if not isinstance(self.initial, InitialState):
@@ -328,8 +674,8 @@ class SimulationConfig:
         ):
             raise TypeError("sampled_forcing must be SampledForcing")
         _validate_inputs(
-            [0.0, 1.0], self.R0, self.Req, self.G, self.mu, self.stress,
-            self.lam1, self.lam2, self.alphax, self.radial, self.vapor,
+            [0.0, 1.0], self.R0, self.Req, self.material,
+            self.radial, self.vapor,
             self.T8, self.pA, self.omega, self.TW, self.DT, self.mn,
             self.wave_type, self.bubtherm, self.Nt, self.medtherm, self.Mt,
             self.masstrans, self.rtol, self.atol,
@@ -387,7 +733,7 @@ class StateLayout:
             if config.masstrans:
                 vapor_fraction = slice(cursor, cursor + config.Nt)
                 cursor += config.Nt
-        stress = slice(cursor, cursor + _stress_state_count(config.stress))
+        stress = slice(cursor, cursor + _stress_state_count(config.material))
         cursor = stress.stop
         return cls(
             pressure=pressure,
@@ -433,6 +779,18 @@ class PreparedDistributedStress:
     reference_radius_cubed: np.ndarray
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedInstantaneousMaterial:
+    """Read-only Gauss-Legendre quadrature for an instantaneous material."""
+
+    interval_nodes: np.ndarray
+    interval_weights: np.ndarray
+
+
+class _MaterialDomainError(RuntimeError):
+    """Internal signal for a constitutive model leaving its physical domain."""
+
+
 @dataclass(slots=True)
 class _WallState:
     """Mutable wall-solve continuation state, private to one integration."""
@@ -453,6 +811,7 @@ class PreparedProblem:
     bubble_D2: np.ndarray | None = None
     medium: MediumOperators | None = None
     forcing: PreparedForcing | None = None
+    instantaneous_material: PreparedInstantaneousMaterial | None = None
     distributed_stress: PreparedDistributedStress | None = None
     jacobian_sparsity: csr_matrix | None = None
 
@@ -496,8 +855,8 @@ def _readonly_optional(values) -> np.ndarray | None:
     return None if values is None else _readonly_float_array(values)
 
 
-def _validate_inputs(tv, R0, Req, G, mu, stress, lam1, lam2, alphax, radial,
-                     vapor, T8, pA, omega, TW, DT, mn, wave_type, bubtherm,
+def _validate_inputs(tv, R0, Req, material, radial, vapor, T8, pA, omega,
+                     TW, DT, mn, wave_type, bubtherm,
                      Nt, medtherm, Mt, masstrans, rtol, atol) -> np.ndarray:
     """Validate the public API before constructing nondimensional groups."""
     times = np.asarray(tv, dtype=float)
@@ -508,26 +867,29 @@ def _validate_inputs(tv, R0, Req, G, mu, stress, lam1, lam2, alphax, radial,
     if times[0] < 0 or np.any(np.diff(times) <= 0):
         raise ValueError("tv must be non-negative and strictly increasing")
 
-    for name, value in (("R0", R0), ("Req", Req), ("mu", mu), ("T8", T8),
+    for name, value in (("R0", R0), ("Req", Req), ("T8", T8),
                         ("rtol", rtol), ("atol", atol)):
         if not np.isfinite(value) or value <= 0:
             raise ValueError(f"{name} must be finite and positive")
-    if not np.isfinite(G) or G < 0:
-        raise ValueError("G must be finite and non-negative")
-    for name, value in (("lam1", lam1), ("lam2", lam2), ("alphax", alphax),
-                        ("pA", pA), ("omega", omega), ("TW", TW), ("DT", DT),
+    if not isinstance(
+        material,
+        (
+            NoStress,
+            NeoHookeanKelvinVoigt,
+            QuadraticKelvinVoigt,
+            Zener,
+            QuadraticZener,
+            OldroydB,
+            InstantaneousMaterial,
+            Giesekus,
+            LinearPTT,
+        ),
+    ):
+        raise TypeError("material must be a supported material model")
+    for name, value in (("pA", pA), ("omega", omega), ("TW", TW), ("DT", DT),
                         ("mn", mn)):
         if not np.isfinite(value):
             raise ValueError(f"{name} must be finite")
-    if lam1 < 0 or lam2 < 0:
-        raise ValueError("lam1 and lam2 must be non-negative")
-    distributed_stress = _is_distributed_stress(stress)
-    if (distributed_stress or stress in (3, 4, 5)) and lam1 <= 0:
-        raise ValueError(f"stress={stress} requires lam1 > 0")
-    if distributed_stress and lam2 >= lam1:
-        raise ValueError("distributed stress requires 0 <= lam2 < lam1")
-    if lam1 == 0 and lam2 != 0:
-        raise ValueError("lam2 must be zero when lam1 is zero")
 
     for name, value, allowed in (
         ("radial", radial, range(1, 6)),
@@ -536,13 +898,6 @@ def _validate_inputs(tv, R0, Req, G, mu, stress, lam1, lam2, alphax, radial,
         if not isinstance(value, Integral) or value not in allowed:
             choices = ", ".join(str(choice) for choice in allowed)
             raise ValueError(f"{name} must be one of: {choices}")
-    if not distributed_stress and (
-        not isinstance(stress, Integral) or stress not in range(0, 6)
-    ):
-        raise ValueError(
-            "stress must be one of: 0, 1, 2, 3, 4, 5, "
-            "GiesekusModel, LinearPTTModel"
-        )
     for name, value in (("vapor", vapor), ("bubtherm", bubtherm),
                         ("medtherm", medtherm), ("masstrans", masstrans)):
         if not isinstance(value, Integral) or value not in (0, 1):
@@ -567,7 +922,48 @@ def pvsat(T):
     return 1.17e11 * np.exp(-5200.0 / T)
 
 
-def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
+def _material_scales(material):
+    if isinstance(material, NoStress):
+        return 0.0, 0.0, 0.0, 0.0, 0.0
+    if isinstance(
+        material,
+        (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener),
+    ):
+        modulus = material.shear_modulus_pa
+    else:
+        modulus = 0.0
+    if isinstance(
+        material,
+        (
+            NeoHookeanKelvinVoigt,
+            QuadraticKelvinVoigt,
+            Zener,
+            QuadraticZener,
+            OldroydB,
+            Giesekus,
+            LinearPTT,
+        ),
+    ):
+        viscosity = material.viscosity_pa_s
+    else:
+        viscosity = 0.0
+    if isinstance(
+        material, (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)
+    ):
+        relaxation = material.relaxation_time_s
+        retardation = material.retardation_time_s
+    else:
+        relaxation = 0.0
+        retardation = 0.0
+    stiffening = (
+        material.stiffening
+        if isinstance(material, (QuadraticKelvinVoigt, QuadraticZener))
+        else 0.0
+    )
+    return modulus, viscosity, relaxation, retardation, stiffening
+
+
+def params(R0, Req, material, vapor=0, T8=298.15,
            pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0,
            masstrans=0, physics=None):
     """Nondimensional groups, matching f_call_params.m.
@@ -585,8 +981,9 @@ def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
     kappa = physics.polytropic_exponent
     Uc = np.sqrt(P8_value / density)
     t0 = R0 / Uc
+    G, mu, lam1, lam2, alphax = _material_scales(material)
     Ca = P8_value / G if G > 0 else np.inf
-    Re8 = P8_value * R0 / (mu * Uc)
+    Re8 = P8_value * R0 / (mu * Uc) if mu > 0 else np.inf
     We = P8_value * R0 / (2 * surface_tension)
     Pv = vapor * pvsat(T8)
     P0_exp = 3 if bubtherm else 3 * kappa
@@ -656,7 +1053,8 @@ def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
         physics.hugoniot_slope,
         nog,
     )
-    return dict(t0=t0, Uc=Uc, P8=P8_value, Ca=Ca, Re8=Re8,
+    return dict(t0=t0, Uc=Uc, P8=P8_value,
+                viscosity_scale=P8_value * R0 / Uc, Ca=Ca, Re8=Re8,
                 iWe=1.0 / We, req=Req / R0, Pb=Pb, Pv=Pv_star, T8=T8,
                 kappa=kappa, kapover=(kappa - 1.0) / kappa,
                 De=(lam1 * Uc / R0 if lam1 > 0 else 0.0),
@@ -674,32 +1072,237 @@ def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
                 L_heat_star=L_heat_star, kv0=kv0)
 
 
-def _stress(stress, p, R, Rd, Z):
-    """Return (S, Sdot, dZdt) matching f_stress.m."""
+def _elastic_integrand(model, stretch, pressure_scale):
+    stretch = np.asarray(stretch)
+    if np.any(stretch <= 0.0):
+        raise _MaterialDomainError("elastic stretch became non-positive")
+    invariant_offset = stretch ** -4 + 2.0 * stretch ** 2 - 3.0
+    geometric_factor = (stretch ** 3 + 1.0) / stretch ** 5
+    if isinstance(model, NeoHookean):
+        coefficient = model.shear_modulus_pa / pressure_scale
+        result = -2.0 * coefficient * geometric_factor
+    elif isinstance(model, MooneyRivlin):
+        result = (
+            -4.0 * model.c10_pa / pressure_scale * geometric_factor
+            - 4.0
+            * model.c01_pa
+            / pressure_scale
+            * (1.0 + stretch ** -3)
+        )
+    else:
+        if isinstance(model, Yeoh):
+            coefficient = (
+                2.0
+                * (
+                    model.c1_pa
+                    + 2.0 * model.c2_pa * invariant_offset
+                    + 3.0 * model.c3_pa * invariant_offset ** 2
+                )
+                / pressure_scale
+            )
+        elif isinstance(model, Fung):
+            coefficient = (
+                model.shear_modulus_pa
+                / pressure_scale
+                * np.exp(model.stiffening * invariant_offset)
+            )
+        elif isinstance(model, Gent):
+            remaining_extension = 1.0 - invariant_offset / model.extensibility
+            if np.any(remaining_extension <= 0.0):
+                maximum = float(np.max(invariant_offset))
+                raise _MaterialDomainError(
+                    "Gent lock-up: I1 - 3 reached "
+                    f"{maximum:.6g}, limit is {model.extensibility:.6g}"
+                )
+            coefficient = (
+                model.shear_modulus_pa
+                / pressure_scale
+                / remaining_extension
+            )
+        else:
+            invariant = invariant_offset + 3.0
+            coefficients = (0.5, 1 / 20, 11 / 1050, 19 / 7000, 519 / 673750)
+            series = sum(
+                (order + 1)
+                * coefficient
+                * invariant ** order
+                / model.chain_segments ** order
+                for order, coefficient in enumerate(coefficients)
+            )
+            coefficient = 2.0 * model.shear_modulus_pa / pressure_scale * series
+        result = -2.0 * coefficient * geometric_factor
+    if not np.all(np.isfinite(result)):
+        raise _MaterialDomainError("elastic stress became non-finite")
+    return result
+
+
+def _viscosity_and_tangent(model, shear_rate):
+    shear_rate = np.asarray(shear_rate)
+    if isinstance(model, Newtonian):
+        viscosity = np.full_like(shear_rate, model.viscosity_pa_s)
+        tangent = viscosity
+    elif isinstance(model, PowerLaw):
+        effective_rate = np.sqrt(
+            shear_rate ** 2 + model.regularization_rate_per_s ** 2
+        )
+        viscosity = (
+            model.consistency_pa_s_n * effective_rate ** (model.exponent - 1.0)
+        )
+        tangent = viscosity + (
+            model.consistency_pa_s_n
+            * (model.exponent - 1.0)
+            * shear_rate ** 2
+            * effective_rate ** (model.exponent - 3.0)
+        )
+    elif isinstance(model, CarreauYasuda):
+        scaled = (model.time_constant_s * shear_rate) ** model.transition_exponent
+        power = (model.power_index - 1.0) / model.transition_exponent
+        difference = (
+            model.zero_shear_viscosity_pa_s
+            - model.infinite_shear_viscosity_pa_s
+        )
+        viscosity = (
+            model.infinite_shear_viscosity_pa_s
+            + difference * (1.0 + scaled) ** power
+        )
+        tangent = viscosity + (
+            difference
+            * (model.power_index - 1.0)
+            * scaled
+            * (1.0 + scaled) ** (power - 1.0)
+        )
+    elif isinstance(model, Cross):
+        scaled = (model.time_constant_s * shear_rate) ** model.transition_exponent
+        difference = (
+            model.zero_shear_viscosity_pa_s
+            - model.infinite_shear_viscosity_pa_s
+        )
+        viscosity = (
+            model.infinite_shear_viscosity_pa_s
+            + difference / (1.0 + scaled)
+        )
+        tangent = viscosity - (
+            difference
+            * model.transition_exponent
+            * scaled
+            / (1.0 + scaled) ** 2
+        )
+    else:
+        if isinstance(model, Bingham):
+            yield_stress = model.yield_stress_pa
+            consistency = model.plastic_viscosity_pa_s
+            exponent = 1.0
+            regularization = model.regularization_rate_per_s
+        else:
+            yield_stress = model.yield_stress_pa
+            consistency = model.consistency_pa_s_n
+            exponent = model.exponent
+            regularization = model.regularization_rate_per_s
+        scaled = shear_rate / regularization
+        with np.errstate(divide="ignore", invalid="ignore"):
+            yield_viscosity = np.where(
+                shear_rate > 0.0,
+                -yield_stress * np.expm1(-scaled) / shear_rate,
+                yield_stress / regularization,
+            )
+        effective_rate = np.sqrt(shear_rate ** 2 + regularization ** 2)
+        power_viscosity = consistency * effective_rate ** (exponent - 1.0)
+        viscosity = yield_viscosity + power_viscosity
+        tangent = (
+            yield_stress / regularization * np.exp(-scaled)
+            + power_viscosity
+            + consistency
+            * (exponent - 1.0)
+            * shear_rate ** 2
+            * effective_rate ** (exponent - 3.0)
+        )
+    if (
+        not np.all(np.isfinite(viscosity))
+        or not np.all(np.isfinite(tangent))
+        or np.any(viscosity < 0.0)
+    ):
+        raise _MaterialDomainError("generalized viscosity became invalid")
+    return viscosity, tangent
+
+
+def _instantaneous_stress(material, prepared, p, R, Rd, need_rate):
+    stress_integral = 0.0
+    explicit_rate = 0.0
+    acceleration_coefficient = 0.0
+    if material.elastic is not None:
+        wall_stretch = R / p["req"]
+        half_interval = 0.5 * (wall_stretch - 1.0)
+        stretch = 1.0 + half_interval * (prepared.interval_nodes + 1.0)
+        integrand = _elastic_integrand(material.elastic, stretch, p["P8"])
+        stress_integral += half_interval * np.dot(
+            prepared.interval_weights, integrand
+        )
+        if need_rate:
+            wall_integrand = float(
+                _elastic_integrand(material.elastic, wall_stretch, p["P8"])
+            )
+            explicit_rate += wall_integrand * Rd / p["req"]
+    if material.viscous is not None:
+        quadrature_radius = 0.5 * (prepared.interval_nodes + 1.0)
+        quadrature_weights = 0.5 * prepared.interval_weights
+        strain_rate = Rd / R
+        shear_rate = (
+            2.0
+            * np.sqrt(3.0)
+            * abs(strain_rate)
+            / p["t0"]
+            * quadrature_radius ** 3
+        )
+        viscosity, tangent = _viscosity_and_tangent(
+            material.viscous, shear_rate
+        )
+        weighted_radius = quadrature_radius ** 2 * quadrature_weights
+        viscosity_integral = np.dot(weighted_radius, viscosity)
+        stress_integral += (
+            -12.0
+            * strain_rate
+            * viscosity_integral
+            / p["viscosity_scale"]
+        )
+        if need_rate:
+            stress_tangent = (
+                -12.0
+                / p["viscosity_scale"]
+                * np.dot(weighted_radius, tangent)
+            )
+            explicit_rate -= stress_tangent * strain_rate ** 2
+            acceleration_coefficient -= stress_tangent
+    return stress_integral, explicit_rate, None, acceleration_coefficient
+
+
+def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True):
+    """Return stress integral, explicit rate, state rate, and Rdd coefficient."""
     Rst = p['req'] / R
     Ca, Re8, De, LAM, ax = p['Ca'], p['Re8'], p['De'], p['LAM'], p['alphax']
-    if stress == 0:                                     # no stress
-        return 0.0, 0.0, None
-    if stress == 1:                                     # neo-Hookean KV
+    if isinstance(material, NoStress):
+        return 0.0, 0.0, None, 0.0
+    if isinstance(material, NeoHookeanKelvinVoigt):
         S = -(5 - 4 * Rst - Rst ** 4) / (2 * Ca) - 4.0 / Re8 * Rd / R
         Sdot = -2 * Rd / R * (Rst + Rst ** 4) / Ca + 4.0 / Re8 * (Rd / R) ** 2
-        return S, Sdot, None
-    if stress == 2:                                     # quadratic KV
+        return S, Sdot, None, 4.0 / Re8
+    if isinstance(material, QuadraticKelvinVoigt):
         S = ((3 * ax - 1) * (5 - Rst ** 4 - 4 * Rst) / (2 * Ca)
              - 4.0 / Re8 * Rd / R
              + (2 * ax / Ca) * (27 / 40 + Rst ** 8 / 8 + Rst ** 5 / 5 + Rst ** 2 - 2 / Rst))
         Sdot = ((Rd / R) * ((3 * ax - 1) / (2 * Ca)) * (4 * Rst ** 4 + 4 * Rst)
                 + 4 * (Rd / R) ** 2 / Re8
                 - 2 * ax / Ca * Rd / R * (Rst ** 8 + Rst ** 5 + 2 * Rst ** 2 + 2 / Rst))
-        return S, Sdot, None
-    if stress == 3:                                     # Zener / Jeffreys / Maxwell
+        return S, Sdot, None, 4.0 / Re8
+    if isinstance(material, Zener):
         Z1 = Z[0]
         S = Z1 / R ** 3 - 4 * LAM / Re8 * Rd / R
         Ze = -0.5 * (R ** 3 / Ca) * (5 - Rst ** 4 - 4 * Rst)
         Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R ** 2 * Rd
         Sdot = Z1d / R ** 3 - 3 * Rd / R ** 4 * Z1 + 4 * LAM / Re8 * (Rd / R) ** 2
-        return S, Sdot, np.array([Z1d])
-    if stress == 4:                                     # Zener / Jeffreys / Maxwell, quadratic KV
+        # IMRv2's compressible radial equations use the full 4/Re8 implicit
+        # coefficient for Zener, not the solvent-only coefficient visible in S.
+        return S, Sdot, np.array([Z1d]), 4.0 / Re8
+    if isinstance(material, QuadraticZener):
         Z1 = Z[0]
         S = Z1 / R ** 3 - 4 * LAM / Re8 * Rd / R
         strainhard = (3 * ax - 1) / (2 * Ca)
@@ -708,19 +1311,24 @@ def _stress(stress, p, R, Rd, Z):
                                           + 0.2 * Rst ** 5 + Rst ** 2 - 2 / Rst))
         Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R ** 2 * Rd
         Sdot = Z1d / R ** 3 - 3 * Rd / R ** 4 * Z1 + 4 * LAM / Re8 * Rd ** 2 / R ** 2
-        return S, Sdot, np.array([Z1d])
-    if stress == 5:                                     # UCM / Oldroyd-B
+        # Same upstream implicit coefficient convention as the linear Zener.
+        return S, Sdot, np.array([Z1d]), 4.0 / Re8
+    if isinstance(material, OldroydB):
         Z1, Z2 = Z[0], Z[1]
         Z1d = -(1 / De - 2 * Rd / R) * Z1 + 2 * (LAM - 1) / (Re8 * De) * R ** 2 * Rd
         Z2d = -(1 / De + Rd / R) * Z2 + 2 * (LAM - 1) / (Re8 * De) * R ** 2 * Rd
         S = (Z1 + Z2) / R ** 3 - 4 * LAM / Re8 * Rd / R
         Sdot = ((Z1d + Z2d) / R ** 3 - 3 * Rd / R ** 4 * (Z1 + Z2)
                 + 4 * LAM / Re8 * Rd ** 2 / R ** 2)
-        return S, Sdot, np.array([Z1d, Z2d])
-    raise ValueError(f"stress={stress} not supported")
+        return S, Sdot, np.array([Z1d, Z2d]), 4.0 * LAM / Re8
+    if isinstance(material, InstantaneousMaterial):
+        return _instantaneous_stress(
+            material, instantaneous, p, R, Rd, need_rate
+        )
+    raise TypeError(f"material={material!r} is not an analytic material")
 
 
-def _distributed_stress(stress, prepared, p, R, Rd, state, need_rate):
+def _distributed_stress(material, prepared, p, R, Rd, state, need_rate):
     """Return stress integral, its explicit rate, and material stress rates."""
     points = prepared.reference_radius.size
     radial_stress = state[:points]
@@ -733,8 +1341,8 @@ def _distributed_stress(stress, prepared, p, R, Rd, state, need_rate):
     strain_rate = Rd * R ** 2 * inverse_radius_cubed
     polymer_viscosity = (1.0 - p["LAM"]) / p["Re8"]
 
-    if isinstance(stress, GiesekusModel):
-        nonlinear_scale = stress.mobility / polymer_viscosity
+    if isinstance(material, Giesekus):
+        nonlinear_scale = material.mobility / polymer_viscosity
         radial_rate = (
             -radial_stress / p["De"]
             - 4.0 * strain_rate * radial_stress
@@ -748,7 +1356,7 @@ def _distributed_stress(stress, prepared, p, R, Rd, state, need_rate):
             + 2.0 * polymer_viscosity * strain_rate / p["De"]
         )
     else:
-        nonlinear_scale = stress.extensibility / polymer_viscosity
+        nonlinear_scale = material.extensibility / polymer_viscosity
         trace_factor = 1.0 + nonlinear_scale * (
             radial_stress + 2.0 * hoop_stress
         )
@@ -790,6 +1398,7 @@ def _distributed_stress(stress, prepared, p, R, Rd, state, need_rate):
         stress_integral,
         explicit_rate,
         np.concatenate((radial_rate, hoop_rate)),
+        solvent_scale,
     )
 
 
@@ -839,9 +1448,9 @@ def _pinf(tn, p, forcing=None):
     raise ValueError(f"wave_type={wt} not supported")
 
 
-def _nZ(stress):
+def _nZ(material):
     """Number of internal stress variables."""
-    return _stress_state_count(stress)
+    return _stress_state_count(material)
 
 
 def _freeze_array(values) -> np.ndarray:
@@ -863,11 +1472,21 @@ def _prepare_forcing(config, parameters):
     )
 
 
-def _prepare_distributed_stress(stress):
-    if not _is_distributed_stress(stress):
+def _prepare_instantaneous_material(material):
+    if not isinstance(material, InstantaneousMaterial):
         return None
-    unit_grid = np.linspace(0.0, 1.0, stress.points)
-    reference_radius = 1.0 + (stress.extent - 1.0) * unit_grid ** 4
+    nodes, weights = np.polynomial.legendre.leggauss(material.quadrature_points)
+    return PreparedInstantaneousMaterial(
+        interval_nodes=_freeze_array(nodes),
+        interval_weights=_freeze_array(weights),
+    )
+
+
+def _prepare_distributed_stress(material):
+    if not _is_distributed_stress(material):
+        return None
+    unit_grid = np.linspace(0.0, 1.0, material.points)
+    reference_radius = 1.0 + (material.extent - 1.0) * unit_grid ** 4
     return PreparedDistributedStress(
         reference_radius=_freeze_array(reference_radius),
         reference_radius_cubed=_freeze_array(reference_radius ** 3),
@@ -882,13 +1501,13 @@ def _prepare_distributed_jacobian(config, layout):
     block pattern avoids dense finite differencing of hundreds of material
     states.
     """
-    if not _is_distributed_stress(config.stress):
+    if not _is_distributed_stress(config.material):
         return None
     if not (config.medtherm or config.masstrans):
         return None
     size = layout.size
     stress_start = layout.stress.start
-    points = config.stress.points
+    points = config.material.points
     pattern = lil_matrix((size, size), dtype=bool)
     pattern[:stress_start, :stress_start] = True
     pattern[stress_start:, :2] = True
@@ -916,8 +1535,8 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
     if not isinstance(config, SimulationConfig):
         raise TypeError("config must be a SimulationConfig")
     p = params(
-        config.R0, config.Req, config.G, config.mu, config.lam1, config.lam2,
-        config.alphax, config.vapor, config.T8, config.pA, config.omega,
+        config.R0, config.Req, config.material, config.vapor, config.T8,
+        config.pA, config.omega,
         config.TW, config.DT, config.mn, config.wave_type, config.bubtherm,
         config.masstrans, config.physics,
     )
@@ -1017,16 +1636,10 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         bubble_D2=bubble_D2,
         medium=medium,
         forcing=_prepare_forcing(config, p),
-        distributed_stress=_prepare_distributed_stress(config.stress),
+        instantaneous_material=_prepare_instantaneous_material(config.material),
+        distributed_stress=_prepare_distributed_stress(config.material),
         jacobian_sparsity=_prepare_distributed_jacobian(config, layout),
     )
-
-
-def _JdotA(stress, p):
-    """f_call_params.m: 4/Re8 for stress 1-4, 4*LAM/Re8 for stress 5-6."""
-    if _is_distributed_stress(stress) or stress == 5:
-        return 4.0 * p['LAM'] / p['Re8']
-    return 4.0 / p['Re8'] if stress in (1, 2, 3, 4) else 0.0
 
 
 def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG):
@@ -1065,7 +1678,40 @@ def _mie_gruneisen(P, Cstar, s, nog, reference):
     return C, hB, hH
 
 
-def _dissipation(stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6):
+def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3):
+    with np.errstate(divide="ignore", invalid="ignore"):
+        strain_rate = Rd / R * iyT3
+        heating = np.zeros_like(yT)
+        if material.elastic is not None:
+            reference_radius = np.cbrt(
+                np.maximum(R ** 3 * (yT3 - 1.0) + p["req"] ** 3, 1e-30)
+            )
+            stretch = R * yT / reference_radius
+            stretch[-1] = 1.0
+            integrand = _elastic_integrand(
+                material.elastic, stretch, p["P8"]
+            )
+            stress_difference = (
+                0.5 * integrand * stretch * (stretch ** 3 - 1.0)
+            )
+            heating -= 2.0 * strain_rate * stress_difference
+        if material.viscous is not None:
+            shear_rate = (
+                2.0 * np.sqrt(3.0) * abs(strain_rate) / p["t0"]
+            )
+            viscosity, _ = _viscosity_and_tangent(
+                material.viscous, shear_rate
+            )
+            heating += (
+                12.0
+                * viscosity
+                / p["viscosity_scale"]
+                * strain_rate ** 2
+            )
+    return p["Br"] * heating
+
+
+def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6):
     """taugradu, f_stress_dissipation.m, finite-difference (non-spectral) mode.
     fnu=0 always (nu_model not supported), so Br/(Re8+DRe*fnu) simplifies to
     Br/Re8 exactly."""
@@ -1076,9 +1722,15 @@ def _dissipation(stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6):
     x4 = x2 ** 2
     base = (12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6
             + 2.0 * Br / Ca * iyT3 * (Rd / R) * (yT2 * ix2 - iyT4 * x4))
-    if stress == 2:
+    if isinstance(material, InstantaneousMaterial):
+        return _instantaneous_dissipation(
+            material, p, R, Rd, yT, yT3, iyT3
+        )
+    if isinstance(material, NoStress):
+        return np.zeros_like(yT)
+    if isinstance(material, QuadraticKelvinVoigt):
         return base * (1.0 + ax * (x4 * iyT4 + 2.0 * yT2 * ix2 - 3.0))
-    return base   # stress in {1, 3, 5}: identical to the base formula
+    return base
 
 
 def _distributed_dissipation(
@@ -1246,9 +1898,9 @@ def _apply_thermal_boundaries(
     return temperature, alpha_m
 
 
-def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
+def _rhs(tn, y, p, material, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
           medtherm=0, mt=None, masstrans=0, wall_state=None, forcing=None,
-          distributed_stress=None):
+          instantaneous_material=None, distributed_stress=None):
     R = max(y[0], 1e-8)
     Rd = y[1]
     Pv = p['Pv']
@@ -1275,13 +1927,21 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         P = (p['Pb'] - Pv) * R ** (-3 * kappa) + Pv          # f_imr_fd.m:412
         Zstart = 2
 
-    nz = _nZ(stress)
+    nz = _nZ(material)
     Z = y[Zstart:Zstart + nz] if nz else None
     if distributed_stress is None:
-        S, Sdot, dZ = _stress(stress, p, R, Rd, Z)
+        S, Sdot, dZ, acceleration_coefficient = _stress(
+            material,
+            p,
+            R,
+            Rd,
+            Z,
+            instantaneous_material,
+            radial != 1,
+        )
     else:
-        S, Sdot, dZ = _distributed_stress(
-            stress, distributed_stress, p, R, Rd, Z, radial != 1
+        S, Sdot, dZ, acceleration_coefficient = _distributed_stress(
+            material, distributed_stress, p, R, Rd, Z, radial != 1
         )
     Pf8, Pf8dot = _pinf(tn, p, forcing)
     iWe = p['iWe']
@@ -1371,7 +2031,7 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
             med_diffusion = Foh / R ** 2 * (xi + 1) ** 4 / Lt ** 2 * ddTm / 4
             if distributed_stress is None:
                 taugradu = _dissipation(
-                    stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6
+                    material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6
                 )
             else:
                 taugradu = _distributed_dissipation(
@@ -1388,7 +2048,7 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         num = ((1 + Rd / Cs) * (P - 1 - Pf8 - iWe / R + S)
                + R / Cs * (Pdot + iWe * Rd / R ** 2 + Sdot - Pf8dot)
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
-        den = (1 - Rd / Cs) * R + _JdotA(stress, p) / Cs
+        den = (1 - Rd / Cs) * R + acceleration_coefficient / Cs
         Rdd = num / den
     elif radial == 3:                                   # Keller-Miksis, enthalpy, Tait EoS
         Cs = p['Cstar']
@@ -1401,7 +2061,10 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         num = ((1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot
                + R / Cs * hH * (Pdot + iWe * Rd / R ** 2 + Sdot)
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
-        den = (1 - Rd / Cs) * R + _JdotA(stress, p) * hH / Cs
+        den = (
+            (1 - Rd / Cs) * R
+            + acceleration_coefficient * hH / Cs
+        )
         Rdd = num / den
     elif radial == 4:                                   # Gilmore, Tait EoS
         Pb = P - iWe / R + p["tait_gamma"] + S
@@ -1415,7 +2078,10 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         num = ((1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot
                + R / Cs * hH * (Pdot + iWe * Rd / R ** 2 + Sdot)
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
-        den = (1 - Rd / Cs) * R + _JdotA(stress, p) * hH / Cs
+        den = (
+            (1 - Rd / Cs) * R
+            + acceleration_coefficient * hH / Cs
+        )
         Rdd = num / den
     elif radial == 5:                                   # Keller-Miksis, enthalpy, Mie-Gruneisen EoS
         # f_radial_eq.m: Pb = P - iWe/R (no +S here -- genuinely different
@@ -1432,7 +2098,10 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         num = ((1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot
                + R / Cs * hH * (Pdot + iWe * Rd / R ** 2 + Sdot)
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
-        den = (1 - Rd / Cs) * R + _JdotA(stress, p) * hH / Cs
+        den = (
+            (1 - Rd / Cs) * R
+            + acceleration_coefficient * hH / Cs
+        )
         Rdd = num / den
     else:
         # radial=6 (Gilmore, Mie-Gruneisen EoS) is NOT supported: as shipped,
@@ -1560,7 +2229,13 @@ def _build_result(
         )
         if problem.distributed_stress is None:
             stress_integral[index] = _stress(
-                config.stress, p, state[0], state[1], stress_state
+                config.material,
+                p,
+                state[0],
+                state[1],
+                stress_state,
+                problem.instantaneous_material,
+                False,
             )[0]
         else:
             stress_integral[index] = _distributed_stress_integral(
@@ -1604,8 +2279,7 @@ def _build_result(
 def _integrate_prepared(problem: PreparedProblem, tv):
     config = problem.config
     time_s = _validate_inputs(
-        tv, config.R0, config.Req, config.G, config.mu, config.stress,
-        config.lam1, config.lam2, config.alphax, config.radial, config.vapor,
+        tv, config.R0, config.Req, config.material, config.radial, config.vapor,
         config.T8, config.pA, config.omega, config.TW, config.DT, config.mn,
         config.wave_type, config.bubtherm, config.Nt, config.medtherm,
         config.Mt, config.masstrans, config.rtol, config.atol,
@@ -1614,7 +2288,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
     tn = time_s / p["t0"]
     args = (
         p,
-        config.stress,
+        config.material,
         config.radial,
         config.bubtherm,
         problem.bubble_D1,
@@ -1625,6 +2299,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
         config.masstrans,
         _WallState(),
         problem.forcing,
+        problem.instantaneous_material,
         problem.distributed_stress,
     )
     started = perf_counter()
@@ -1634,18 +2309,32 @@ def _integrate_prepared(problem: PreparedProblem, tv):
         if problem.jacobian_sparsity is not None
         else {}
     )
-    solution = solve_ivp(
-        _rhs,
-        (tn[0], tn[-1]),
-        problem.initial_state,
-        t_eval=tn,
-        args=args,
-        events=_radius_floor_event,
-        method=method,
-        rtol=config.rtol,
-        atol=config.atol,
-        **solver_options,
-    )
+    try:
+        solution = solve_ivp(
+            _rhs,
+            (tn[0], tn[-1]),
+            problem.initial_state,
+            t_eval=tn,
+            args=args,
+            events=_radius_floor_event,
+            method=method,
+            rtol=config.rtol,
+            atol=config.atol,
+            **solver_options,
+        )
+    except _MaterialDomainError as error:
+        elapsed = perf_counter() - started
+        message = f"material domain failure: {error}"
+        stats = SolverStats(
+            backend=f"scipy-{method.lower()}",
+            success=False,
+            message=message,
+            nfev=0,
+            njev=0,
+            nlu=0,
+            elapsed_s=elapsed,
+        )
+        raise SimulationError(f"IMR integration failed: {message}", stats) from error
     elapsed = perf_counter() - started
     complete = solution.y.shape[1] == time_s.size
     finite = bool(np.all(np.isfinite(solution.y)))

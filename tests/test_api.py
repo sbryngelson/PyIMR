@@ -2,12 +2,14 @@ import numpy as np
 import pytest
 
 from imr_fast import (
-    GiesekusModel,
+    Giesekus,
     InitialState,
+    NeoHookeanKelvinVoigt,
     PhysicalParameters,
     SampledForcing,
     SimulationConfig,
     SimulationResult,
+    Zener,
     prepare,
     simulate,
 )
@@ -17,8 +19,7 @@ def base_config(**overrides):
     values = {
         "R0": 225e-6,
         "Req": 225e-6 / 6,
-        "G": 2500.0,
-        "mu": 0.1,
+        "material": NeoHookeanKelvinVoigt(2500.0, 0.1),
     }
     values.update(overrides)
     return SimulationConfig(**values)
@@ -54,8 +55,7 @@ def test_structured_result_arrays_are_read_only():
 def test_prepared_problem_is_reusable_and_returns_active_fields():
     times = np.linspace(0.0, 2e-5, 25)
     config = base_config(
-        stress=3,
-        lam1=1e-6,
+        material=Zener(2500.0, 0.1, relaxation_time_s=1e-6),
         bubtherm=1,
         medtherm=1,
         masstrans=1,
@@ -116,10 +116,16 @@ def test_configurable_physics_and_initial_conditions_are_dimensional():
 
 
 def test_distributed_constitutive_state_uses_prepared_grid():
-    model = GiesekusModel(mobility=0.1, points=24)
+    model = Giesekus(
+        viscosity_pa_s=0.1,
+        relaxation_time_s=2e-6,
+        retardation_time_s=4e-7,
+        mobility=0.1,
+        points=24,
+    )
     result = simulate(
         np.linspace(0.0, 2e-6, 5),
-        base_config(stress=model, lam1=2e-6, lam2=4e-7),
+        base_config(material=model),
     )
 
     assert result.stress_state.shape == (5, 2 * model.points)
@@ -132,8 +138,6 @@ def test_distributed_constitutive_state_uses_prepared_grid():
     ("override", "message"),
     [
         ({"R0": 0.0}, "R0 must be finite and positive"),
-        ({"stress": 6}, "stress must be one of"),
-        ({"stress": 3}, "stress=3 requires lam1 > 0"),
         ({"radial": 6}, "radial must be one of"),
         ({"medtherm": 1}, "medtherm=1 requires bubtherm=1"),
         ({"masstrans": 1}, "masstrans=1 requires bubtherm=1"),

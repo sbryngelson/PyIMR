@@ -9,11 +9,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import imr_fast
 from imr_fast import params
-from imr_inference import (
-  InferenceParameter,
-  RadiusObservation,
-  prepare_inference,
-)
+from imr_inference import InferenceParameter, RadiusObservation, prepare_inference
 
 
 def solve_radius(times, R0, Req, material, **options):
@@ -33,28 +29,14 @@ _A = np.loadtxt(f"{_d}/imr2_s06.csv", delimiter=",")
 _Gg = np.loadtxt(f"{_d}/imr2_G.csv")
 _Mg = np.loadtxt(f"{_d}/imr2_M.csv")
 _checks = [
-  (
-    "Zener truth De=2 s=6",
-    solve_radius(
-      _t2,
-      _R0,
-      _R0 / 6,
-      imr_fast.Zener(2500.0, 0.1, 2 * _t0, 0.4 * _t0),
-    ),
-    _A[:, 0],
-  )
+  ("Zener truth De=2 s=6", solve_radius(_t2, _R0, _R0 / 6, imr_fast.Zener(2500.0, 0.1, 2 * _t0, 0.4 * _t0)), _A[:, 0])
 ]
 for _k in [0, 30, len(_Gg) * len(_Mg) - 1]:
   _gi, _mi = _k // len(_Mg), _k % len(_Mg)
   _checks.append(
     (
       f"NHKV G={_Gg[_gi]:.0f} mu={_Mg[_mi]:.4f}",
-      solve_radius(
-        _t2,
-        _R0,
-        _R0 / 6,
-        imr_fast.NeoHookeanKelvinVoigt(_Gg[_gi], _Mg[_mi]),
-      ),
+      solve_radius(_t2, _R0, _R0 / 6, imr_fast.NeoHookeanKelvinVoigt(_Gg[_gi], _Mg[_mi])),
       _A[:, 1 + _k],
     )
   )
@@ -201,13 +183,7 @@ def _instantaneous_values(material, radius=0.5, velocity=-0.3, need_rate=True):
   config = imr_fast.SimulationConfig(R0=_R0, Req=_R0 / 6, material=material)
   problem = imr_fast.prepare(config)
   return imr_fast._stress(
-    material,
-    problem.parameters,
-    radius,
-    velocity,
-    None,
-    problem.instantaneous_material,
-    need_rate,
+    material, problem.parameters, radius, velocity, None, problem.instantaneous_material, need_rate
   )
 
 
@@ -217,12 +193,7 @@ _equivalence_options = dict(rtol=1e-10, atol=1e-12)
 _trajectory_tolerance = 1e-7
 for _radial in (1, 2):
   _closed = solve_radius(
-    _t,
-    _R0,
-    _R0 / 6,
-    imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
-    radial=_radial,
-    **_equivalence_options,
+    _t, _R0, _R0 / 6, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=_radial, **_equivalence_options
   )
   _generic = solve_radius(_t, _R0, _R0 / 6, _generic_nh, radial=_radial, **_equivalence_options)
   _mx = np.max(np.abs(_generic - _closed))
@@ -230,20 +201,8 @@ for _radial in (1, 2):
   fail += not _ok
   print(f"    radial={_radial} max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 _thermal_options = dict(bubtherm=1, medtherm=1, Nt=9, Mt=9, **_equivalence_options)
-_closed = solve_radius(
-  _t,
-  _R0,
-  _R0 / 6,
-  imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
-  **_thermal_options,
-)
-_generic = solve_radius(
-  _t,
-  _R0,
-  _R0 / 6,
-  _generic_nh,
-  **_thermal_options,
-)
+_closed = solve_radius(_t, _R0, _R0 / 6, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), **_thermal_options)
+_generic = solve_radius(_t, _R0, _R0 / 6, _generic_nh, **_thermal_options)
 _mx = np.max(np.abs(_generic - _closed))
 _ok = _mx < _trajectory_tolerance
 fail += not _ok
@@ -314,12 +273,7 @@ print(f"    maximum relative error={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 
 print("  Gent lock-up becomes a solver failure")
 try:
-  solve_radius(
-    _t[:3],
-    _R0,
-    _R0 / 6,
-    imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 5.0)),
-  )
+  solve_radius(_t[:3], _R0, _R0 / 6, imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 5.0)))
   _ok = False
 except imr_fast.SimulationError as _error:
   _ok = "Gent lock-up" in str(_error)
@@ -346,45 +300,16 @@ for _name, _model in [
   _ok = _mx < 5e-3
   fail += not _ok  # discretisation-limited, converging in points
   print(f"    {_name:>10} -> UCM   max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
-_ucm_km = solve_radius(
-  _tv,
-  225e-6,
-  225e-6 / 6,
-  _ucm_material,
-  radial=2,
-)
-_distributed_km = solve_radius(
-  _tv,
-  225e-6,
-  225e-6 / 6,
-  imr_fast.Giesekus(0.1, _relaxation, _retardation),
-  radial=2,
-)
+_ucm_km = solve_radius(_tv, 225e-6, 225e-6 / 6, _ucm_material, radial=2)
+_distributed_km = solve_radius(_tv, 225e-6, 225e-6 / 6, imr_fast.Giesekus(0.1, _relaxation, _retardation), radial=2)
 _mx = np.nanmax(np.abs(_distributed_km - _ucm_km))
 _ok = _mx < 2e-3
 fail += not _ok
 print(f"    {'KM Giesekus':>10} -> UCM   max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
-_coupled_options = dict(
-  bubtherm=1,
-  medtherm=1,
-  vapor=1,
-  masstrans=1,
-  Nt=9,
-  Mt=9,
-)
-_ucm_coupled = solve_radius(
-  _tv,
-  225e-6,
-  225e-6 / 6,
-  _ucm_material,
-  **_coupled_options,
-)
+_coupled_options = dict(bubtherm=1, medtherm=1, vapor=1, masstrans=1, Nt=9, Mt=9)
+_ucm_coupled = solve_radius(_tv, 225e-6, 225e-6 / 6, _ucm_material, **_coupled_options)
 _distributed_coupled = solve_radius(
-  _tv,
-  225e-6,
-  225e-6 / 6,
-  imr_fast.Giesekus(0.1, _relaxation, _retardation),
-  **_coupled_options,
+  _tv, 225e-6, 225e-6 / 6, imr_fast.Giesekus(0.1, _relaxation, _retardation), **_coupled_options
 )
 _mx = np.nanmax(np.abs(_distributed_coupled - _ucm_coupled))
 _ok = _mx < 3e-3
@@ -392,14 +317,8 @@ fail += not _ok
 print(f"    {'coupled':>10} -> UCM   max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 print("  nonlinear parameter must produce distinct physics")
 for _name, _model in [
-  (
-    "giesekus",
-    imr_fast.Giesekus(0.1, _relaxation, _retardation, mobility=0.2),
-  ),
-  (
-    "linear PTT",
-    imr_fast.LinearPTT(0.1, _relaxation, _retardation, extensibility=0.2),
-  ),
+  ("giesekus", imr_fast.Giesekus(0.1, _relaxation, _retardation, mobility=0.2)),
+  ("linear PTT", imr_fast.LinearPTT(0.1, _relaxation, _retardation, extensibility=0.2)),
 ]:
   _R = solve_radius(_tv, 225e-6, 225e-6 / 6, _model)
   _mx = np.nanmax(np.abs(_R - _ucm))
@@ -414,13 +333,7 @@ _sensitivity_times = np.linspace(0.0, 20e-6, 80)
 
 
 def _material_offset(config, field, amount):
-  return replace(
-    config,
-    material=replace(
-      config.material,
-      **{field: getattr(config.material, field) + amount},
-    ),
-  )
+  return replace(config, material=replace(config.material, **{field: getattr(config.material, field) + amount}))
 
 
 def _centered_output(times, config, field, step, output):
@@ -431,27 +344,16 @@ def _centered_output(times, config, field, step, output):
 
 for _radial in range(1, 6):
   _config = imr_fast.SimulationConfig(
-    _R0,
-    _R0 / 6,
-    imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
-    radial=_radial,
-    rtol=1e-10,
-    atol=1e-12,
+    _R0, _R0 / 6, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=_radial, rtol=1e-10, atol=1e-12
   )
   _sensitivity = imr_fast.simulate_with_sensitivities(
-    _sensitivity_times,
-    _config,
-    ["material.shear_modulus_pa"],
+    _sensitivity_times, _config, ["material.shear_modulus_pa"]
   ).radius_ratio[:, 0]
   # A one-percent material step stays in the centered-difference regime
   # while remaining above radial=5's adaptive-integration noise floor.
   _step = 25.0
   _difference = _centered_output(
-    _sensitivity_times,
-    _config,
-    "shear_modulus_pa",
-    _step,
-    lambda result: result.radius_ratio,
+    _sensitivity_times, _config, "shear_modulus_pa", _step, lambda result: result.radius_ratio
   )
   _relative = np.linalg.norm(_sensitivity - _difference) / np.linalg.norm(_difference)
   _ok = _relative < 2e-4
@@ -474,17 +376,11 @@ _coupled_config = imr_fast.SimulationConfig(
 )
 _coupled_times = np.linspace(0.0, 2e-6, 8)
 _coupled_sensitivity = imr_fast.simulate_with_sensitivities(
-  _coupled_times,
-  _coupled_config,
-  ["material.shear_modulus_pa"],
+  _coupled_times, _coupled_config, ["material.shear_modulus_pa"]
 )
 _step = 0.025
 _temperature_difference = _centered_output(
-  _coupled_times,
-  _coupled_config,
-  "shear_modulus_pa",
-  _step,
-  lambda result: result.medium_temperature_k,
+  _coupled_times, _coupled_config, "shear_modulus_pa", _step, lambda result: result.medium_temperature_k
 )
 _relative = np.linalg.norm(
   _coupled_sensitivity.medium_temperature_k[..., 0] - _temperature_difference
@@ -495,16 +391,10 @@ print(f"    medium temperature rel={_relative:.2e}  {'PASS' if _ok else 'FAIL'}"
 
 print("  collapse shooting tangent")
 _collapse_config = imr_fast.SimulationConfig(
-  _R0,
-  _R0 / 6,
-  imr_fast.Zener(2500.0, 0.1, 40e-6, 8e-6),
-  radial=2,
-  collapse=imr_fast.CollapseInitialization(),
+  _R0, _R0 / 6, imr_fast.Zener(2500.0, 0.1, 40e-6, 8e-6), radial=2, collapse=imr_fast.CollapseInitialization()
 )
 _collapse_sensitivity = imr_fast.simulate_with_sensitivities(
-  np.array([0.0, 1e-8]),
-  _collapse_config,
-  ["material.shear_modulus_pa"],
+  np.array([0.0, 1e-8]), _collapse_config, ["material.shear_modulus_pa"]
 ).state[0, -1, 0]
 _collapse_problem = imr_fast.prepare(_collapse_config)
 _collapse_difference = (
@@ -580,11 +470,7 @@ print(f"    thermal grid convergence {[f'{e:.1e}' for e in _errs]}  {'PASS' if _
 print("\n" + "=" * 64)
 print("4. PREPARED INFERENCE")
 print("=" * 64)
-_inference_config = imr_fast.SimulationConfig(
-  _R0,
-  _R0 / 6,
-  imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
-)
+_inference_config = imr_fast.SimulationConfig(_R0, _R0 / 6, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
 _inference_times = np.linspace(0.0, 20e-6, 50)
 _truth = imr_fast.simulate(_inference_times, _inference_config)
 _inference = prepare_inference(

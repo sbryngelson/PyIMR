@@ -61,24 +61,12 @@ __all__ = [
 def _material_scales(material):
   if isinstance(material, NoStress):
     return 0.0, 0.0, 0.0, 0.0, 0.0
-  if isinstance(
-    material,
-    (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener),
-  ):
+  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener)):
     modulus = material.shear_modulus_pa
   else:
     modulus = 0.0
   if isinstance(
-    material,
-    (
-      NeoHookeanKelvinVoigt,
-      QuadraticKelvinVoigt,
-      Zener,
-      QuadraticZener,
-      OldroydB,
-      Giesekus,
-      LinearPTT,
-    ),
+    material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)
   ):
     viscosity = material.viscosity_pa_s
   else:
@@ -168,11 +156,7 @@ def params(
   tait_no = (physics.tait_exponent - 1.0) / physics.tait_exponent
   Cstar = physics.sound_speed_m_s / Uc
   nog = (physics.tait_exponent - 1.0) / 2.0
-  mie_reference = _mie_F(
-    _mu_of_A(1.0 / Cstar**2, physics.hugoniot_slope, nog),
-    physics.hugoniot_slope,
-    nog,
-  )
+  mie_reference = _mie_F(_mu_of_A(1.0 / Cstar**2, physics.hugoniot_slope, nog), physics.hugoniot_slope, nog)
   return dict(
     t0=t0,
     Uc=Uc,
@@ -228,20 +212,14 @@ def _prepare_forcing(config, parameters):
   knots = np.asarray(forcing.time_s) / parameters["t0"]
   values = np.asarray(forcing.pressure_pa) / parameters["P8"]
   interpolant = PchipInterpolator(knots, values, extrapolate=False)
-  return PreparedForcing(
-    knots=_freeze_array(knots),
-    coefficients=_freeze_array(interpolant.c),
-  )
+  return PreparedForcing(knots=_freeze_array(knots), coefficients=_freeze_array(interpolant.c))
 
 
 def _prepare_instantaneous_material(material):
   if not isinstance(material, InstantaneousMaterial):
     return None
   nodes, weights = np.polynomial.legendre.leggauss(material.quadrature_points)
-  return PreparedInstantaneousMaterial(
-    interval_nodes=_freeze_array(nodes),
-    interval_weights=_freeze_array(weights),
-  )
+  return PreparedInstantaneousMaterial(interval_nodes=_freeze_array(nodes), interval_weights=_freeze_array(weights))
 
 
 def _prepare_distributed_stress(material):
@@ -250,8 +228,7 @@ def _prepare_distributed_stress(material):
   unit_grid = np.linspace(0.0, 1.0, material.points)
   reference_radius = 1.0 + (material.extent - 1.0) * unit_grid**4
   return PreparedDistributedStress(
-    reference_radius=_freeze_array(reference_radius),
-    reference_radius_cubed=_freeze_array(reference_radius**3),
+    reference_radius=_freeze_array(reference_radius), reference_radius_cubed=_freeze_array(reference_radius**3)
   )
 
 
@@ -306,11 +283,7 @@ def _collapse_zener_rhs(state, p):
   return velocity, numerator / denominator, stress_rate
 
 
-def _collapse_memory_state(
-  config,
-  instantaneous_material,
-  distributed_stress,
-):
+def _collapse_memory_state(config, instantaneous_material, distributed_stress):
   settings = config.collapse
   if settings is None:
     return None, None
@@ -384,10 +357,7 @@ def _collapse_memory_state(
     shooting_evaluations += 1
     return integrate(initial_velocity)[0] - 1.0
 
-  lower_velocity = max(
-    settings.initial_velocity_guess * 1e-8,
-    np.finfo(float).eps,
-  )
+  lower_velocity = max(settings.initial_velocity_guess * 1e-8, np.finfo(float).eps)
   lower_residual = residual(lower_velocity)
   if lower_residual >= 0.0:
     raise SimulationError("collapse precursor equilibrium radius is not below the observed maximum radius")
@@ -443,11 +413,7 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
   )
   instantaneous_material = _prepare_instantaneous_material(config.material)
   distributed_stress = _prepare_distributed_stress(config.material)
-  collapse_state, collapse_stats = _collapse_memory_state(
-    config,
-    instantaneous_material,
-    distributed_stress,
-  )
+  collapse_state, collapse_stats = _collapse_memory_state(config, instantaneous_material, distributed_stress)
   initial = config.initial
   if initial.internal_pressure_pa is not None:
     p["Pb"] = initial.internal_pressure_pa / p["P8"]

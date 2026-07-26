@@ -12,20 +12,9 @@ import numpy as np
 from _imr_autodiff import primal, primal_array
 from _imr_materials import _stress_state_count
 from _imr_stress import _distributed_stress, _stress
-from _imr_thermal import (
-  _apply_thermal_boundaries,
-  _dissipation,
-  _distributed_dissipation,
-  _mie_gruneisen,
-)
+from _imr_thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
 
-__all__ = [
-  "_nZ",
-  "_pinf",
-  "_radius_floor_event",
-  "_rhs",
-  "_sampled_pressure",
-]
+__all__ = ["_nZ", "_pinf", "_radius_floor_event", "_rhs", "_sampled_pressure"]
 
 
 def _sampled_pressure(tn, forcing):
@@ -112,15 +101,7 @@ def _rhs(
   nz = _nZ(material)
   Z = y[Zstart : Zstart + nz] if nz else None
   if distributed_stress is None:
-    S, Sdot, dZ, acceleration_coefficient = _stress(
-      material,
-      p,
-      R,
-      Rd,
-      Z,
-      instantaneous_material,
-      radial != 1,
-    )
+    S, Sdot, dZ, acceleration_coefficient = _stress(material, p, R, Rd, Z, instantaneous_material, radial != 1)
   else:
     S, Sdot, dZ, acceleration_coefficient = _distributed_stress(material, distributed_stress, p, R, Rd, Z, radial != 1)
   Pf8, Pf8dot = _pinf(tn, p, forcing)
@@ -253,13 +234,7 @@ def _rhs(
     # from radial=3/4's Pb, not reconciled/harmonized with them).
     Cs = p["Cstar"]
     Pb = P - iWe / R
-    _, hB, hH = _mie_gruneisen(
-      Pb,
-      Cs,
-      p["hugoniot_slope"],
-      p["nog"],
-      p["mie_reference"],
-    )
+    _, hB, hH = _mie_gruneisen(Pb, Cs, p["hugoniot_slope"], p["nog"], p["mie_reference"])
     num = (
       (1 + Rd / Cs) * (hB - Pf8)
       - R / Cs * Pf8dot

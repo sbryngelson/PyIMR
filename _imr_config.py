@@ -183,11 +183,7 @@ class InitialState:
   def __post_init__(self) -> None:
     if not np.isfinite(self.wall_velocity_m_s):
       raise ValueError("initial.wall_velocity_m_s must be finite")
-    for name in (
-      "internal_pressure_pa",
-      "bubble_temperature_k",
-      "medium_temperature_k",
-    ):
+    for name in ("internal_pressure_pa", "bubble_temperature_k", "medium_temperature_k"):
       value = getattr(self, name)
       if value is not None and (not np.isfinite(value) or value <= 0.0):
         raise ValueError(f"initial.{name} must be finite and positive")
@@ -211,15 +207,9 @@ class CollapseInitialization:
   maximum_bracket_expansions: int = 24
 
   def __post_init__(self) -> None:
-    _finite_positive(
-      "collapse.maximum_time_nondimensional",
-      self.maximum_time_nondimensional,
-    )
+    _finite_positive("collapse.maximum_time_nondimensional", self.maximum_time_nondimensional)
     _finite_positive("collapse.radius_tolerance", self.radius_tolerance)
-    _finite_positive(
-      "collapse.initial_velocity_guess",
-      self.initial_velocity_guess,
-    )
+    _finite_positive("collapse.initial_velocity_guess", self.initial_velocity_guess)
     if not isinstance(self.maximum_bracket_expansions, Integral) or self.maximum_bracket_expansions < 1:
       raise ValueError("collapse.maximum_bracket_expansions must be a positive integer")
 
@@ -281,10 +271,7 @@ class SimulationConfig:
     if self.collapse is not None and not isinstance(self.collapse, CollapseInitialization):
       raise TypeError("collapse must be CollapseInitialization")
     if self.collapse is not None:
-      if not isinstance(
-        self.material,
-        (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT),
-      ):
+      if not isinstance(self.material, (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)):
         raise ValueError("collapse initialization requires a material with memory")
       if self.initial.stress_state is not None:
         raise ValueError("collapse initialization cannot be combined with initial.stress_state")
@@ -537,10 +524,7 @@ def _validate_inputs(
     if not np.isfinite(value):
       raise ValueError(f"{name} must be finite")
 
-  for name, value, allowed in (
-    ("radial", radial, range(1, 6)),
-    ("wave_type", wave_type, range(0, 4)),
-  ):
+  for name, value, allowed in (("radial", radial, range(1, 6)), ("wave_type", wave_type, range(0, 4))):
     if not isinstance(value, Integral) or value not in allowed:
       choices = ", ".join(str(choice) for choice in allowed)
       raise ValueError(f"{name} must be one of: {choices}")

@@ -179,11 +179,7 @@ class PreparedInference:
     if len(set(paths)) != len(paths):
       raise ValueError("inference parameter paths must be unique")
     for parameter in parameters:
-      value = _path_value(
-        self.config,
-        _path_parts(parameter.path),
-        parameter.path,
-      )
+      value = _path_value(self.config, _path_parts(parameter.path), parameter.path)
       if not np.isscalar(value) or not np.isfinite(value):
         raise ValueError(f"{parameter.path!r} must identify a finite scalar field")
       _normalize_parameters(self.config, (SensitivityParameter(parameter.path),))
@@ -214,9 +210,7 @@ class PreparedInference:
     unit = self._validate_unit_parameters(unit_parameters)
     config = self.config_from_unit(unit)
     result = imr_fast.simulate_with_sensitivities(
-      self.observation.time_s,
-      config,
-      [parameter.path for parameter in self.parameters],
+      self.observation.time_s, config, [parameter.path for parameter in self.parameters]
     )
     chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
     return result.radius_m / self.observation.standard_deviation_m[:, None] * chain
@@ -245,14 +239,7 @@ class PreparedInference:
     with ProcessPoolExecutor(max_workers=workers) as executor:
       return tuple(executor.map(_evaluate_worker, repeat(self), points))
 
-  def fit_multistart(
-    self,
-    starts,
-    *,
-    seed=0,
-    max_evaluations=200,
-    workers=1,
-  ):
+  def fit_multistart(self, starts, *, seed=0, max_evaluations=200, workers=1):
     if not isinstance(starts, Integral) or starts < 1:
       raise ValueError("starts must be a positive integer")
     if not isinstance(max_evaluations, Integral) or max_evaluations < 1:
@@ -295,12 +282,7 @@ def _fit_worker(argument):
   inference, start, max_evaluations = argument
   try:
     result = least_squares(
-      inference.residual,
-      start,
-      jac=inference.jacobian,
-      bounds=(0.0, 1.0),
-      max_nfev=max_evaluations,
-      x_scale="jac",
+      inference.residual, start, jac=inference.jacobian, bounds=(0.0, 1.0), max_nfev=max_evaluations, x_scale="jac"
     )
     physical = inference.physical_parameters(result.x)
     return MultistartEndpoint(

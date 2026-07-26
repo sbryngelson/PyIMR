@@ -64,12 +64,7 @@ class Dual:
   def __truediv__(self, other):
     if isinstance(other, np.ndarray):
       return self._array_operation(other, lambda value: self / value)
-    return self._binary(
-      other,
-      lambda a, b: a / b,
-      lambda _a, b: 1.0 / b,
-      lambda a, b: -a / b**2,
-    )
+    return self._binary(other, lambda a, b: a / b, lambda _a, b: 1.0 / b, lambda a, b: -a / b**2)
 
   def __rtruediv__(self, other):
     if isinstance(other, np.ndarray):
@@ -129,10 +124,7 @@ class Dual:
     return Dual(np.log1p(self.value), self.tangent / (1.0 + self.value))
 
   def arcsinh(self):
-    return Dual(
-      np.arcsinh(self.value),
-      self.tangent / np.sqrt(1.0 + self.value**2),
-    )
+    return Dual(np.arcsinh(self.value), self.tangent / np.sqrt(1.0 + self.value**2))
 
   def sin(self):
     return Dual(np.sin(self.value), np.cos(self.value) * self.tangent)
@@ -218,11 +210,7 @@ def primal_array(values):
   array = np.asarray(values)
   if array.dtype != object:
     return np.asarray(array, dtype=float)
-  return np.fromiter(
-    (float(primal(value)) for value in array.flat),
-    dtype=float,
-    count=array.size,
-  ).reshape(array.shape)
+  return np.fromiter((float(primal(value)) for value in array.flat), dtype=float, count=array.size).reshape(array.shape)
 
 
 def unpack(values, width):

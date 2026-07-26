@@ -545,6 +545,7 @@ def _rhs_mechanical_compiled(time_s, packed, *, problem, parameter_values, param
   distributed = problem.distributed_stress
   reference_radius = distributed.reference_radius if distributed is not None else np.empty(0)
   reference_radius_cubed = distributed.reference_radius_cubed if distributed is not None else np.empty(0)
+  stress_weights = distributed.weights if distributed is not None and distributed.weights is not None else np.empty(0)
   return mechanical_tangent_rhs(
     time_s,
     matrix,
@@ -561,6 +562,7 @@ def _rhs_mechanical_compiled(time_s, packed, *, problem, parameter_values, param
     weights,
     reference_radius,
     reference_radius_cubed,
+    stress_weights,
     problem.config.radial,
   ).ravel()
 
@@ -601,6 +603,7 @@ def _compiled_mechanical_outputs(problem, config, parameters, states, width, com
   distributed = problem.distributed_stress
   reference_radius = distributed.reference_radius if distributed is not None else np.empty(0)
   reference_radius_cubed = distributed.reference_radius_cubed if distributed is not None else np.empty(0)
+  stress_weights = distributed.weights if distributed is not None and distributed.weights is not None else np.empty(0)
 
   for time_index, row in enumerate(states):
     radius = Dual(row[0, 0], row[0, 1:])
@@ -621,6 +624,7 @@ def _compiled_mechanical_outputs(problem, config, parameters, states, width, com
       weights,
       reference_radius,
       reference_radius_cubed,
+      stress_weights,
     )
     stress = Dual(stress_data[0], stress_data[1:])
     values = (

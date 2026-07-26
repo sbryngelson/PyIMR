@@ -396,6 +396,9 @@ class PreparedForcing:
 class PreparedDistributedStress:
   reference_radius: np.ndarray
   reference_radius_cubed: np.ndarray
+  # Fixed geometric weights for the mapped stress integral; None selects the
+  # trapezoid rule in physical r. See _prepare_distributed_stress.
+  weights: np.ndarray | None = None
 
 
 @dataclass(frozen=True, slots=True)

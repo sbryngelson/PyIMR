@@ -20,7 +20,7 @@ independent and cheap. W3--W6 are independent of each other.
 |---|---|
 | W0 API hygiene | **done** |
 | W1 validation coverage | **done** -- outcome reshaped W2, W3, W4 |
-| W2 spectral collocation | **demoted to optional** (see revision note) |
+| W2 spectral quadrature | **done** -- reframed; default now Gauss-Legendre |
 | W3 viscosity parity | **done** -- rescoped to original work |
 | W4 radial 6 | **done** -- resolved with a measurement |
 | W5 IMR-vanilla estimators | **done** -- new `imr_data.py` |
@@ -423,6 +423,94 @@ every remaining entry has a written justification.
 
 **Status: done.** The `KNOWN GAPS` block is empty and all five checks in
 section 1c pass. The remaining 1.55e-03 is upstream's error, quantified above.
+
+---
+
+## W2 (revised). Spectral-accuracy quadrature for the distributed stress
+
+The original plan was to port IMRv2's Chebyshev collocation solver. On
+inspection that would have solved the wrong problem.
+
+### Why the original framing was wrong twice
+
+First, W1 showed IMRv2 cannot run Giesekus or PTT at all, so there was no
+spectral reference to match.
+
+Second, and more usefully: **the distributed constitutive equations contain no
+spatial derivatives.** Each material point evolves an ODE in its own stress;
+the only spatial operation in the whole model is the quadrature for
+
+    I = int_R^inf 2 (t_rr - t_hh) / r dr .
+
+IMRv2 needs Chebyshev collocation because it writes the stress equation in
+Eulerian form, where advection introduces spatial derivatives. imr-fast is
+Lagrangian, so advection is exact and a PDE discretization has nothing to
+discretize. The right independent check is a different **quadrature rule**.
+
+### Diagnosis
+
+Error is quadrature-limited, not truncation-limited. At fixed point count the
+error *grows* with domain extent (2.4e-03 at extent 30 to 7.1e-03 at extent
+240) because points thin out near the wall where the integrand is largest, and
+falls about 4x per doubling of points -- classic O(h^2) trapezoid.
+
+### Implementation
+
+Mapping to the Lagrangian coordinate `u`, with `r_ref = 1 + (E-1) u^4` and
+`r^3 = r_ref^3 + R^3 - 1`:
+
+    I = int_0^1 [2 dt / r^3] * r_ref^2 * 4 (E-1) u^3 du
+
+Only the bracketed factor moves. The rest folds into fixed weights, so the
+integral is a dot product and **its time derivative is exact** rather than the
+discrete difference the trapezoid path had to use. Gauss-Legendre nodes in `u`
+then converge spectrally.
+
+### Measured
+
+Maximum absolute `R/R0` deviation from a converged reference, nonlinear
+Giesekus at mobility 0.2:
+
+| points | trapezoid | Gauss |
+|---:|---:|---:|
+| 60 | 3.4e-01 | 3.9e-04 |
+| 120 | 2.2e-01 | 1.5e-07 |
+| 240 | 7.4e-02 | 6.0e-08 |
+| 480 | 2.6e-02 | 5.1e-08 |
+| 960 | 6.8e-03 | -- |
+
+Converged at 120 points across mobility 0..0.5 and De 2..8. The default moved
+from `trapezoid`/480 to `gauss`/240: **1.4x faster and about five orders of
+magnitude more accurate.**
+
+### The finding that matters
+
+**The former default carried 1.9-4.4% error on nonlinear Giesekus.** The
+Oldroyd-B reduction limit -- the only check these models had -- reported
+3.4e-03 and hid it, because the linear limit is far easier to integrate than
+the nonlinear problem. A reduction limit is a necessary check, not a
+sufficient one.
+
+Reduction limits improved by two to three orders of magnitude as a
+side effect: Giesekus -> UCM from 3.43e-03 to **3.46e-05**, KM Giesekus -> UCM
+from 9.84e-04 to **9.10e-07**.
+
+### Delivered
+
+- [x] `quadrature` selector on `Giesekus` and `LinearPTT`; `"trapezoid"`
+      retained so the old behaviour stays reachable.
+- [x] Fixed-weight mapped quadrature in `_imr_stress`, with an exact integral
+      rate.
+- [x] Weights threaded through the compiled path so sensitivities are correct
+      under both rules (2.1e-05 against centred differences).
+- [x] New harness section `2c`: spectral convergence, a cross-check of
+      `gauss(240)` against `trapezoid(3840)` at 4.4e-04, and the former
+      default's error recorded for reference.
+- [x] Default changed to `gauss` with 240 points.
+
+**Still open:** a Chebyshev path for the *thermal* PDEs, where there genuinely
+are spatial derivatives, remains unexplored. That is the only part of the
+original W2 that still has a target.
 
 ---
 

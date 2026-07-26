@@ -321,17 +321,31 @@ def _distributed_stress(material, prepared, p, R, Rd, state, need_rate):
 
   radius = np.cbrt(radius_cubed)
   stress_difference = radial_stress - hoop_stress
-  integrand = 2.0 * stress_difference / radius
-  polymer_integral = np.trapezoid(integrand, radius)
   polymer_integral_rate = 0.0
-  if need_rate:
-    material_velocity = R**2 * Rd / radius**2
-    integrand_rate = 2.0 * ((radial_rate - hoop_rate) / radius - stress_difference * material_velocity / radius**2)
-    intervals = np.diff(radius)
-    interval_rates = np.diff(material_velocity)
-    polymer_integral_rate = np.sum(
-      0.5 * ((integrand_rate[:-1] + integrand_rate[1:]) * intervals + (integrand[:-1] + integrand[1:]) * interval_rates)
-    )
+  if prepared.weights is not None:
+    # Mapped form: I = sum_i w_i * 2 * dtau_i / r_i**3, with w_i fixed in time.
+    # Differentiating term by term is therefore exact -- no discrete difference.
+    polymer_integral = 2.0 * np.sum(prepared.weights * stress_difference * inverse_radius_cubed)
+    if need_rate:
+      polymer_integral_rate = 2.0 * np.sum(
+        prepared.weights
+        * (
+          (radial_rate - hoop_rate) * inverse_radius_cubed
+          - 3.0 * stress_difference * R**2 * Rd * inverse_radius_cubed**2
+        )
+      )
+  else:
+    integrand = 2.0 * stress_difference / radius
+    polymer_integral = np.trapezoid(integrand, radius)
+    if need_rate:
+      material_velocity = R**2 * Rd / radius**2
+      integrand_rate = 2.0 * ((radial_rate - hoop_rate) / radius - stress_difference * material_velocity / radius**2)
+      intervals = np.diff(radius)
+      interval_rates = np.diff(material_velocity)
+      polymer_integral_rate = np.sum(
+        0.5
+        * ((integrand_rate[:-1] + integrand_rate[1:]) * intervals + (integrand[:-1] + integrand[1:]) * interval_rates)
+      )
   solvent_scale = 4.0 * p["LAM"] / p["Re8"]
   stress_integral = polymer_integral - solvent_scale * Rd / R
   explicit_rate = polymer_integral_rate + solvent_scale * (Rd / R) ** 2

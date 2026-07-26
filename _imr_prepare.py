@@ -223,12 +223,40 @@ def _prepare_instantaneous_material(material):
 
 
 def _prepare_distributed_stress(material):
+  """Lagrangian grid for the distributed stress, plus its quadrature weights.
+
+  Material points sit at ``r(u)**3 = r_ref(u)**3 + R**3 - 1`` with
+  ``r_ref(u) = 1 + (extent - 1) * u**4``, so advection is exact and the only
+  spatial approximation is the quadrature for
+
+      I = int_R^inf 2 * (t_rr - t_hh) / r dr .
+
+  Mapping to ``u`` and using ``3 r**2 dr = 3 r_ref**2 dr_ref`` gives
+
+      I = int_0^1 [2 dt / r**3] * r_ref**2 * 4 (extent - 1) u**3 du ,
+
+  whose bracketed factor is the only time-dependent part. The remaining
+  geometric factor is constant, so it is folded into fixed weights here and
+  the integral becomes a plain dot product. Gauss-Legendre nodes in ``u``
+  converge far faster than the uniform-``u`` trapezoid rule, and because the
+  weights do not move, the integral's time derivative is exact rather than a
+  discrete difference.
+  """
   if not _is_distributed_stress(material):
     return None
-  unit_grid = np.linspace(0.0, 1.0, material.points)
-  reference_radius = 1.0 + (material.extent - 1.0) * unit_grid**4
+  span = material.extent - 1.0
+  if material.quadrature == "gauss":
+    nodes, weights = np.polynomial.legendre.leggauss(material.points)
+    unit_grid = 0.5 * (nodes + 1.0)
+    geometric = 0.5 * weights * 4.0 * span * unit_grid**3
+  else:
+    unit_grid = np.linspace(0.0, 1.0, material.points)
+    geometric = None
+  reference_radius = 1.0 + span * unit_grid**4
   return PreparedDistributedStress(
-    reference_radius=_freeze_array(reference_radius), reference_radius_cubed=_freeze_array(reference_radius**3)
+    reference_radius=_freeze_array(reference_radius),
+    reference_radius_cubed=_freeze_array(reference_radius**3),
+    weights=None if geometric is None else _freeze_array(geometric * reference_radius**2),
   )
 
 

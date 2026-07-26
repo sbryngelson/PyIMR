@@ -510,6 +510,11 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         padded[: values.size] = values
         return padded
 
+      # One definition of the wall stencils, used both here and by the
+      # sensitivity path's Dual rebuild in imr_sensitivity._dual_medium.
+      bubble_wall_stencil = bubble_first[-1, ::-1] if spectral else _pad(-coeff / deltaY, config.Nt)
+      medium_wall_stencil = medium_first[0] if spectral else _pad(coeff / deltaYm, config.Mt)
+
       medium = MediumOperators(
         xi=_freeze_array(xi),
         yT=_freeze_array(yT),
@@ -520,6 +525,10 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         iyT6=_freeze_array(iyT6),
         D1=_freeze_array(medium_first),
         D2=_freeze_array(_diff(config.Mt, 2, 1)),
+        # Left exactly as written before bubble_wall_stencil / medium_wall_stencil
+        # existed. Factoring the parameters out of these products reassociates
+        # the arithmetic and moves forward trajectories by a few ulp, and a fix
+        # to the sensitivity path should not touch the forward solve at all.
         grad_Tm=_freeze_array(
           2 * p["chi"] * p["iota"] * medium_first[0]
           if spectral
@@ -533,6 +542,8 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
           if spectral
           else _pad(-coeff * p["Fom"] * p["L_heat_star"] / deltaY, config.Nt)
         ),
+        bubble_wall_stencil=_freeze_array(bubble_wall_stencil),
+        medium_wall_stencil=_freeze_array(medium_wall_stencil),
       )
   return PreparedProblem(
     config=config,

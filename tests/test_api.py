@@ -145,6 +145,7 @@ OWNED = {
   "_imr_stress",
   "_imr_thermal",
   "thermal_fd",
+  "thermal_spectral",
 }
 
 

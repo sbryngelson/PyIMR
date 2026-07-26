@@ -43,6 +43,8 @@ from _imr_materials import (
 from _imr_rhs import _rhs
 from _imr_thermal import _mie_F, _mu_of_A, pvsat
 from thermal_fd import finite_diff_mat
+from thermal_spectral import chebyshev_diff_mat
+from thermal_spectral import nodes as chebyshev_nodes
 
 __all__ = [
   "_collapse_memory_state",
@@ -470,9 +472,13 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
   medium = None
   if config.bubtherm:
     initial_state[layout.pressure] = p["Pb"]
-    bubble_grid = _freeze_array(np.linspace(0.0, 1.0, config.Nt))
-    bubble_D1 = _freeze_array(finite_diff_mat(config.Nt, 1, tm_check=0))
-    bubble_D2 = _freeze_array(finite_diff_mat(config.Nt, 2, tm_check=0))
+    spectral = config.thermal == "spectral"
+    _diff = chebyshev_diff_mat if spectral else finite_diff_mat
+    bubble_y = chebyshev_nodes(config.Nt, 0) if spectral else np.linspace(0.0, 1.0, config.Nt)
+    bubble_first = _diff(config.Nt, 1, 0)
+    bubble_grid = _freeze_array(bubble_y)
+    bubble_D1 = _freeze_array(bubble_first)
+    bubble_D2 = _freeze_array(_diff(config.Nt, 2, 0))
     vapor_fraction = p["kv0"] if initial.vapor_mass_fraction is None else initial.vapor_mass_fraction
     if config.masstrans:
       initial_state[layout.vapor_fraction] = vapor_fraction
@@ -486,13 +492,24 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
       initial_state[layout.medium_thermal] = medium_temperature_ratio
       Nm = config.Mt - 1
       deltaYm = -2.0 / Nm
-      xi = 1.0 + np.arange(config.Mt) * deltaYm
+      xi = chebyshev_nodes(config.Mt, 1) if spectral else 1.0 + np.arange(config.Mt) * deltaYm
       with np.errstate(divide="ignore", invalid="ignore"):
         yT = (2.0 / (xi + 1.0) - 1.0) * p["Lt"] + 1.0
         yT2, yT3 = yT**2, yT**3
         iyT3, iyT4, iyT6 = yT**-3, yT**-4, yT**-6
+      # Boundary flux weights, stored full length so the wall closure is a
+      # plain dot product and does not assume a three-point uniform stencil.
+      # For the finite-difference grids the tail is zero, so this is exactly
+      # the old [-1.5, 2, -0.5] stencil written out.
       coeff = np.array([-1.5, 2.0, -0.5])
       deltaY = 1.0 / (config.Nt - 1)
+      medium_first = _diff(config.Mt, 1, 1)
+
+      def _pad(values, length):
+        padded = np.zeros(length)
+        padded[: values.size] = values
+        return padded
+
       medium = MediumOperators(
         xi=_freeze_array(xi),
         yT=_freeze_array(yT),
@@ -501,11 +518,21 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         iyT3=_freeze_array(iyT3),
         iyT4=_freeze_array(iyT4),
         iyT6=_freeze_array(iyT6),
-        D1=_freeze_array(finite_diff_mat(config.Mt, 1, tm_check=1)),
-        D2=_freeze_array(finite_diff_mat(config.Mt, 2, tm_check=1)),
-        grad_Tm=_freeze_array(2 * p["chi"] * p["iota"] / deltaYm * coeff),
-        grad_Trans=_freeze_array(-coeff * p["chi"] / deltaY),
-        grad_C=_freeze_array(-coeff * p["Fom"] * p["L_heat_star"] / deltaY),
+        D1=_freeze_array(medium_first),
+        D2=_freeze_array(_diff(config.Mt, 2, 1)),
+        grad_Tm=_freeze_array(
+          2 * p["chi"] * p["iota"] * medium_first[0]
+          if spectral
+          else _pad(2 * p["chi"] * p["iota"] / deltaYm * coeff, config.Mt)
+        ),
+        grad_Trans=_freeze_array(
+          p["chi"] * bubble_first[-1, ::-1] if spectral else _pad(-coeff * p["chi"] / deltaY, config.Nt)
+        ),
+        grad_C=_freeze_array(
+          p["Fom"] * p["L_heat_star"] * bubble_first[-1, ::-1]
+          if spectral
+          else _pad(-coeff * p["Fom"] * p["L_heat_star"] / deltaY, config.Nt)
+        ),
       )
   return PreparedProblem(
     config=config,

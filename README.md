@@ -22,6 +22,7 @@ python tests/run_validation.py
 | `imr_sensitivity.py` | production-RHS forward sensitivities |
 | `imr_inference.py` | prepared likelihood, batch, and multistart tools |
 | `imr_data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
+| `thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
 | `tests/run_validation.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
 
 ## Solver scope
@@ -32,6 +33,7 @@ python tests/run_validation.py
 |---|---|
 | radial dynamics | Rayleigh-Plesset; Keller-Miksis pressure; KM enthalpy/Tait; Gilmore/Tait; KM enthalpy/Mie-Gruneisen; Gilmore/Mie-Gruneisen |
 | bubble thermodynamics | polytropic closure or a gas thermal PDE |
+| thermal discretization | second-order finite difference (default) or Chebyshev collocation |
 | medium thermodynamics | optional liquid thermal layer |
 | mass transfer | optional vapor transport |
 | forcing | constant offset, Gaussian, histotripsy, Heaviside step, or sampled pressure history |
@@ -367,6 +369,41 @@ fit.best
 Unit parameter vectors always lie in `[0, 1]`; the configured linear or
 logarithmic transform maps them to physical bounds. Multistart results never
 discard alternative basins.
+
+### Thermal discretization
+
+Unlike the distributed stress -- whose Lagrangian form has no spatial
+derivatives at all -- the thermal fields genuinely need a spatial
+discretization, so collocation buys something real here.
+`thermal="spectral"` switches both the gas and liquid grids to Chebyshev
+collocation:
+
+```python
+config = SimulationConfig(
+    R0=225e-6, Req=37.5e-6,
+    material=NeoHookeanKelvinVoigt(2500.0, 0.1),
+    bubtherm=1, Nt=25, thermal="spectral",
+)
+```
+
+The spherical Laplacian is built on the even extension of the gas grid, so
+regularity at the bubble centre is exact and the removable `2/y` singularity
+never has to be special-cased. Boundary flux weights come from the relevant
+row of the first-derivative matrix rather than a hardcoded three-point
+stencil, which is what makes the wall closure work on a non-uniform grid.
+
+On the spherical Laplacian alone at `N = 17`, the Chebyshev operator errs by
+`1.9e-11` against `2.6e-02` for the finite-difference stencil. On the
+trajectory at `Nt = 25` the difference is smaller but still large -- `6.3e-04`
+against `2.6e-02`, about 41x -- and the finite-difference solve needs roughly
+`Nt = 800` to reach `1.3e-03`.
+
+Two honest caveats. The spectral trajectory plateaus near `2.7e-04` rather
+than continuing to machine precision, so something else in the coupled closure
+(most likely the implicit wall-temperature solve) becomes the limiting error
+once the spatial discretization stops dominating. And `thermal="fd"` remains
+the default, because it is what every pinned IMRv2 trajectory was generated
+against.
 
 ## Trace estimators
 

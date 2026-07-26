@@ -395,6 +395,15 @@ def _dual_medium(problem, parameters):
   coefficients = np.array([-1.5, 2.0, -0.5])
   delta_medium = -2.0 / (problem.config.Mt - 1)
   delta_bubble = 1.0 / (problem.config.Nt - 1)
+
+  def _pad(values, length):
+    # Boundary weights are stored full length (see _prepare_* in _imr_prepare);
+    # the finite-difference tail is zero.
+    padded = np.zeros(length, dtype=object)
+    padded[:] = 0.0
+    padded[: len(values)] = values
+    return padded
+
   replacements = {
     "yT": y_t,
     "yT2": y_t2,
@@ -402,9 +411,9 @@ def _dual_medium(problem, parameters):
     "iyT3": inverse_y_t3,
     "iyT4": inverse_y_t4,
     "iyT6": inverse_y_t6,
-    "grad_Tm": (2.0 * parameters["chi"] * parameters["iota"] / delta_medium * coefficients),
-    "grad_Trans": (-coefficients * parameters["chi"] / delta_bubble),
-    "grad_C": (-coefficients * parameters["Fom"] * parameters["L_heat_star"] / delta_bubble),
+    "grad_Tm": _pad(2.0 * parameters["chi"] * parameters["iota"] / delta_medium * coefficients, problem.config.Mt),
+    "grad_Trans": _pad(-coefficients * parameters["chi"] / delta_bubble, problem.config.Nt),
+    "grad_C": _pad(-coefficients * parameters["Fom"] * parameters["L_heat_star"] / delta_bubble, problem.config.Nt),
   }
   for name, value in replacements.items():
     object.__setattr__(medium, name, value)

@@ -8,6 +8,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import imr_fast
+import thermal_fd
+import thermal_spectral
 import _imr_thermal
 from imr_fast import params
 from imr_inference import InferenceParameter, RadiusObservation, prepare_inference
@@ -457,6 +459,50 @@ print(f"    gauss(240) vs trapezoid(3840)   max|dR|={_mx:.2e}  {'PASS' if _ok el
 # the Oldroyd-B reduction limit alone did not reveal.
 _mx = np.nanmax(np.abs(_giesekus(480, "trapezoid") - _reference))
 print(f"    (for reference, former default trapezoid(480): {_mx:.2e})")
+
+print("\n" + "=" * 64)
+print("2d. THERMAL PDE DISCRETIZATION")
+print("=" * 64)
+# Unlike the distributed stress, the thermal fields genuinely carry spatial
+# derivatives, so a spectral discretization buys something here. thermal_fd is
+# cleanly second order (verified standalone in validate_thermal_fd.py); the
+# Chebyshev operators are spectral.
+_tt = np.linspace(0.0, 60e-6, 200)
+
+
+def _thermal(nt, backend):
+  return imr_fast.simulate(
+    _tt,
+    imr_fast.SimulationConfig(
+      R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), bubtherm=1, Nt=nt, thermal=backend
+    ),
+  ).radius_ratio
+
+
+# operators first, isolated from the ODE
+_f = lambda y: np.cos(2.0 * y)
+_lap = lambda y: np.where(y == 0, -12.0, -4.0 * np.cos(2.0 * y) - 4.0 * np.sin(2.0 * y) / np.where(y == 0, 1, y))
+_yc = thermal_spectral.nodes(17, 0)
+_mx = np.max(np.abs(thermal_spectral.chebyshev_diff_mat(17, 2, 0) @ _f(_yc) - _lap(_yc)))
+_ok = _mx < 1e-9
+fail += not _ok
+print(f"    spherical Laplacian operator, N=17   err={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+_yu = np.linspace(0.0, 1.0, 17)
+_mxf = np.max(np.abs((thermal_fd.finite_diff_mat(17, 2, 0) @ _f(_yu))[:-1] - _lap(_yu)[:-1]))
+print(f"    (same operator, finite difference:   err={_mxf:.2e})")
+
+# then the trajectory: spectral must beat FD badly at equal resolution
+_ref = _thermal(120, "spectral")
+_es = np.nanmax(np.abs(_thermal(25, "spectral") - _ref))
+_ef = np.nanmax(np.abs(_thermal(25, "fd") - _ref))
+_ok = _es < _ef / 10.0
+fail += not _ok
+print(f"    Nt=25  spectral={_es:.2e}  fd={_ef:.2e}  ({_ef / _es:.0f}x better)  {'PASS' if _ok else 'FAIL'}")
+
+# and both backends must be converging to the same answer
+_ok = np.nanmax(np.abs(_thermal(400, "fd") - _ref)) < np.nanmax(np.abs(_thermal(100, "fd") - _ref))
+fail += not _ok
+print(f"    finite difference converges toward the spectral limit  {'PASS' if _ok else 'FAIL'}")
 
 print("\n" + "=" * 64)
 print("3. UNIFIED FORWARD SENSITIVITIES")

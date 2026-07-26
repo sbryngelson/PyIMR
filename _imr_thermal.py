@@ -174,8 +174,8 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
 
   def resid(theta_bw):
     Tw = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_g)) / alpha_g
-    lhs = grad_Tm[0] * Tw + grad_Tm[1] * Tm_tail[0] + grad_Tm[2] * Tm_tail[1]
-    rhs = grad_Trans[0] * theta_bw + grad_Trans[1] * theta_tail[0] + grad_Trans[2] * theta_tail[1]
+    lhs = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
+    rhs = grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
     return lhs + rhs
 
   return _secant_root(resid, guess)
@@ -204,10 +204,10 @@ def _wall_theta_bw_full(
   def resid(theta_bw):
     Tw = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_m)) / alpha_m
     kvw = _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale)
-    lhs = grad_Tm[0] * Tw + grad_Tm[1] * Tm_tail[0] + grad_Tm[2] * Tm_tail[1]
-    rhs = grad_Trans[0] * theta_bw + grad_Trans[1] * theta_tail[0] + grad_Trans[2] * theta_tail[1]
+    lhs = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
+    rhs = grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
     scalar = P / ((kvw * Rva_diff + Rg_star) * (Tw * (1.0 - kvw)))
-    extra = scalar * (grad_C[0] * kvw + grad_C[1] * kv_tail[0] + grad_C[2] * kv_tail[1])
+    extra = scalar * (grad_C[0] * kvw + np.sum(grad_C[1:] * kv_tail))
     return lhs + rhs + extra
 
   failure = None
@@ -231,9 +231,9 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
   if medium is not None and masstrans:
     theta[-1] = _wall_theta_bw_full(
       wall_state.theta,
-      [theta[-2], theta[-3]],
-      [Tm[1], Tm[2]],
-      [kv[-2], kv[-3]],
+      theta[-2::-1],
+      Tm[1:],
+      kv[-2::-1],
       kv[-1],
       P,
       p["alpha_v"],
@@ -249,9 +249,7 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
     )
     wall_state.theta = theta[-1]
   elif medium is not None:
-    theta[-1] = _wall_theta_bw(
-      wall_state.theta, [theta[-2], theta[-3]], [Tm[1], Tm[2]], p["alpha_g"], medium.grad_Tm, medium.grad_Trans
-    )
+    theta[-1] = _wall_theta_bw(wall_state.theta, theta[-2::-1], Tm[1:], p["alpha_g"], medium.grad_Tm, medium.grad_Trans)
     wall_state.theta = theta[-1]
 
   alpha_m = None

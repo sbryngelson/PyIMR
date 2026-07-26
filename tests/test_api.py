@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from imr_fast import (
+    GiesekusModel,
     InitialState,
     PhysicalParameters,
     SampledForcing,
@@ -112,6 +113,19 @@ def test_configurable_physics_and_initial_conditions_are_dimensional():
     assert result.wall_velocity_m_s[0] == pytest.approx(2.0)
     assert result.internal_pressure_pa[0] == pytest.approx(1.5e5)
     assert result.bubble_temperature_k[0, 0] == pytest.approx(310.0)
+
+
+def test_distributed_constitutive_state_uses_prepared_grid():
+    model = GiesekusModel(mobility=0.1, points=24)
+    result = simulate(
+        np.linspace(0.0, 2e-6, 5),
+        base_config(stress=model, lam1=2e-6, lam2=4e-7),
+    )
+
+    assert result.stress_state.shape == (5, 2 * model.points)
+    assert result.stress_reference_radius_ratio.shape == (model.points,)
+    with pytest.raises(ValueError):
+        result.stress_reference_radius_ratio[0] = 2.0
 
 
 @pytest.mark.parametrize(

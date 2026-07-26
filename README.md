@@ -368,12 +368,20 @@ centered differences on the production RHS:
 
 The thermal tangents are **correct, not defective**: their error is flat in the
 finite-difference step across a 16x range, which rules out truncation in the
-check, and it falls by more than two orders when `rtol`/`atol` are tightened,
-which rules out an error in the tangent equations. What bounds them is the
-accuracy to which the augmented state/tangent system is integrated, so
-tightening to `rtol = 1e-12, atol = 1e-14` buys roughly two orders — at a large
-cost in runtime, since the coupled tangent solve is already the slowest thing
-in the package.
+check, and it responds to the integrator tolerance, which an error in the
+tangent equations would not. What bounds them is the accuracy to which the
+augmented state/tangent system is integrated. On the coupled fd case at
+`h = 0.05`:
+
+| `rtol` / `atol` | relative error |
+|---|---|
+| `1e-9` / `1e-11` (default) | 8.43e-05 |
+| `1e-12` / `1e-14` | 1.53e-06 |
+
+So three orders of tolerance buys a factor of about 55, at a large cost in
+runtime — the coupled tangent solve is already the slowest operation in the
+package. Tightening further stops helping, because the centered-difference
+reference becomes round-off limited before the tangent does.
 
 The mechanical tangents show clean `h^2` convergence before reaching their
 noise floor; the thermal ones do not, because they are already at it.

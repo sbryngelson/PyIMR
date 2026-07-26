@@ -21,6 +21,7 @@ python tests/run_validation.py
 | `imr_fast.py` | forward solver, material models, and strict result API |
 | `imr_sensitivity.py` | production-RHS forward sensitivities |
 | `imr_inference.py` | prepared likelihood, batch, and multistart tools |
+| `imr_data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
 | `tests/run_validation.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
 
 ## Solver scope
@@ -151,8 +152,20 @@ Generalized-Newtonian laws:
 - `PowerLaw`
 - `CarreauYasuda`
 - `Cross`
+- `PowellEyring`
+- `ModifiedPowellEyring`
 - `HerschelBulkley`
 - `Bingham`
+
+`Carreau` is `CarreauYasuda(transition_exponent=2)`; simplified Cross is
+`Cross(transition_exponent=1)`.
+
+The Powell-Eyring pair uses the standard laws,
+`eta_inf + (eta_0 - eta_inf) * asinh(x)/x` and its `log1p(x)/x` variant with
+`x = lambda*|gdot|`. Both reduce exactly to `Newtonian(eta_0)` as
+`lambda -> 0`. IMRv2's `f_viscosity.m` instead uses `sinh(x)/x^nc`, which is
+shear-*thickening* and diverges exponentially, and a `log(1+x)/x^nc` variant
+with no finite zero-shear limit unless `nc == 1`; neither was copied.
 
 Prepared Gauss-Legendre rules evaluate the finite-interval stress integrals.
 The solver evaluates the stress-rate terms and acceleration coefficient
@@ -328,6 +341,35 @@ fit.best
 Unit parameter vectors always lie in `[0, 1]`; the configured linear or
 logarithmic transform maps them to physical bounds. Multistart results never
 discard alternative basins.
+
+## Trace estimators
+
+`imr_data` covers the step before inference: getting from a measured `R(t)`
+history to the quantities a fit needs.
+
+```python
+import imr_data
+
+Req = imr_data.equilibrium_radius(R0_m, initial_gas_pressure_pa)
+omega_n, beta = imr_data.natural_frequency(R0_m, Req, 2500.0, 0.1)
+collapse_times_s, peak_radii_m, peak_times_s = imr_data.collapse_features(
+    measured_time_s, measured_radius_m
+)
+imr_data.resolution_convergence(config, times_s, [(10, 10), (20, 20), (40, 40)])
+```
+
+`equilibrium_radius` inverts the solver's own pressure/radius relation exactly.
+`natural_frequency` linearises Rayleigh-Plesset about `Req` in a Kelvin-Voigt
+medium; it reproduces Minnaert exactly in the gas-only limit and matches the
+simulated rebound frequency to 2.7%. `collapse_features` locates interior
+extrema with sub-sample parabolic refinement, replacing the manual index
+windows of IMR-vanilla `calc_3tmins_3Rmaxs`.
+
+IMR-vanilla's `calc_omega_N` is deliberately not ported: it is a scratch script
+whose formula treats the gas pressure at `Rmax` as the equilibrium value,
+inflating the stiffness by `alpha**(-3*kappa)` and overpredicting by 42x on the
+reference case. Video processing (`calcRofT/`) is also out of scope -- that is
+image analysis, and scikit-image covers it.
 
 ## Validation
 

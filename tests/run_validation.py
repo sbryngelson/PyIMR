@@ -108,7 +108,6 @@ for lab, kw, ref in [
   fail += not ok
   print(f"    {lab:24s} max|dR|={mx:.2e}  {'PASS' if ok else 'FAIL'}")
 
-
 print("\n" + "=" * 64)
 print("1c. COLLAPSE INITIALIZATION vs IMRv2")
 print("=" * 64)
@@ -244,6 +243,10 @@ for _name, _viscous in [
   ("power law", imr_fast.PowerLaw(0.1, 1.0)),
   ("Carreau-Yasuda", imr_fast.CarreauYasuda(0.1, 0.1, 1.0, 2.0, 0.5)),
   ("Cross", imr_fast.Cross(0.1, 0.1, 1.0, 2.0)),
+  ("Powell-Eyring", imr_fast.PowellEyring(0.1, 0.1, 1.0)),
+  ("mod Powell-Eyring", imr_fast.ModifiedPowellEyring(0.1, 0.1, 1.0)),
+  ("Powell-Eyring lam=0", imr_fast.PowellEyring(0.1, 0.05, 0.0)),
+  ("mod Powell-Eyring lam=0", imr_fast.ModifiedPowellEyring(0.1, 0.05, 0.0)),
   ("Herschel-Bulkley", imr_fast.HerschelBulkley(0.0, 0.1, 1.0)),
   ("Bingham", imr_fast.Bingham(0.0, 0.1)),
 ]:
@@ -265,6 +268,8 @@ _materials = [
   imr_fast.InstantaneousMaterial(viscous=imr_fast.Cross(0.1, 0.01, 1e-5, 2.0)),
   imr_fast.InstantaneousMaterial(viscous=imr_fast.HerschelBulkley(100.0, 0.1, 0.8)),
   imr_fast.InstantaneousMaterial(viscous=imr_fast.Bingham(100.0, 0.1)),
+  imr_fast.InstantaneousMaterial(viscous=imr_fast.PowellEyring(0.5, 0.1, 2e-5)),
+  imr_fast.InstantaneousMaterial(viscous=imr_fast.ModifiedPowellEyring(0.5, 0.1, 2e-5)),
 ]
 _rate_errors = []
 for _material in _materials:
@@ -490,6 +495,62 @@ print(
 )
 
 print("\n" + "=" * 64)
+print("3b. TRACE ESTIMATORS (imr_data)")
+print("=" * 64)
+import imr_data
+
+# equilibrium radius must invert the solver's own pressure/radius relation
+_Pg0 = (imr_fast.P8 + 2 * imr_fast.SURF / (_R0 / 6)) * ((_R0 / 6) / _R0) ** (3 * imr_fast.KAPPA)
+_rel = abs(imr_data.equilibrium_radius(_R0, _Pg0) - _R0 / 6) / (_R0 / 6)
+_ok = _rel < 1e-12
+fail += not _ok
+print(f"    equilibrium radius round-trip  rel={_rel:.2e}  {'PASS' if _ok else 'FAIL'}")
+
+# gas-only limit must reproduce Minnaert exactly
+_w, _ = imr_data.natural_frequency(_R0, _R0 / 6, 1e-12, 1e-12, surface_tension_n_m=0.0)
+_minnaert = np.sqrt(3 * imr_fast.KAPPA * imr_fast.P8 / imr_fast.RHO) / (_R0 / 6)
+_rel = abs(_w - _minnaert) / _minnaert
+_ok = _rel < 1e-12
+fail += not _ok
+print(f"    natural frequency -> Minnaert  rel={_rel:.2e}  {'PASS' if _ok else 'FAIL'}")
+
+# and it must land near the measured late-time rebound frequency
+_tt = np.linspace(0, 300e-6, 8000)
+_rr = imr_fast.simulate(
+  _tt, imr_fast.SimulationConfig(R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
+).radius_m
+_tc, _rp, _ = imr_data.collapse_features(_tt, _rr)
+# The first rebound is strongly nonlinear and the late tail is numerical
+# wiggle, so take the median of the intermediate periods.
+_measured = float(np.median(2 * np.pi / np.diff(_tc)[1:5]))
+_predicted, _ = imr_data.natural_frequency(_R0, _R0 / 6, 2500.0, 0.1)
+_rel = abs(_predicted - _measured) / _measured
+_ok = _rel < 0.10
+fail += not _ok
+print(
+  f"    vs measured rebound  predicted={_predicted:.3e} measured={_measured:.3e} "
+  f"rel={_rel:.2e}  {'PASS' if _ok else 'FAIL'}"
+)
+
+# feature extraction must find a monotonically decaying rebound sequence
+_ok = len(_tc) >= 3 and len(_rp) >= 3 and np.all(np.diff(_rp[:3]) < 0.0)
+fail += not _ok
+print(f"    collapse features: {len(_tc)} collapses, {len(_rp)} peaks, decaying  {'PASS' if _ok else 'FAIL'}")
+
+# thermal grid refinement must converge monotonically
+_conv = imr_data.resolution_convergence(
+  imr_fast.SimulationConfig(
+    R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), bubtherm=1, Nt=10, Mt=10
+  ),
+  np.linspace(0, 60e-6, 200),
+  [(10, 10), (20, 20), (40, 40)],
+)
+_errs = [e for _, e in _conv]
+_ok = _errs[0] > _errs[1] > _errs[2] == 0.0
+fail += not _ok
+print(f"    thermal grid convergence {[f'{e:.1e}' for e in _errs]}  {'PASS' if _ok else 'FAIL'}")
+
+print("\n" + "=" * 64)
 print("4. PREPARED INFERENCE")
 print("=" * 64)
 _inference_config = imr_fast.SimulationConfig(
@@ -520,6 +581,14 @@ _multistart = _inference.fit_multistart(2, seed=7, max_evaluations=20)
 _ok = len(_multistart.endpoints) == 2 and _multistart.best is not None and _multistart.best.cost < 1e-12
 fail += not _ok
 print(f"    retained deterministic multistart endpoints  {'PASS' if _ok else 'FAIL'}")
+
+if gaps:
+  print("\n" + "=" * 64)
+  print("KNOWN GAPS vs IMRv2 (tracked in PLAN.md W1)")
+  print("=" * 64)
+  for lab, mx, tol in gaps:
+    detail = "unsupported here" if mx is None else f"max|dR|={mx:.2e} (target {tol:.0e})"
+    print(f"    {lab:52s} {detail}")
 
 print("\n" + ("ALL VALIDATION PASSED" if fail == 0 else f"{fail} CHECK(S) FAILED"))
 sys.exit(1 if fail else 0)

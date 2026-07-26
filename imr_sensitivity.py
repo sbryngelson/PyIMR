@@ -392,17 +392,27 @@ def _dual_medium(problem, parameters):
     inverse_y_t3 = y_t**-3
     inverse_y_t4 = y_t**-4
     inverse_y_t6 = y_t**-6
-  coefficients = np.array([-1.5, 2.0, -0.5])
-  delta_medium = -2.0 / (problem.config.Mt - 1)
-  delta_bubble = 1.0 / (problem.config.Nt - 1)
 
-  def _pad(values, length):
-    # Boundary weights are stored full length (see _prepare_* in _imr_prepare);
-    # the finite-difference tail is zero.
-    padded = np.zeros(length, dtype=object)
-    padded[:] = 0.0
-    padded[: len(values)] = values
-    return padded
+  # The wall-flux weights carry Dual parameter dependence and so must be
+  # rebuilt, but their stencils are pure grid geometry. Take those from the
+  # prepared problem rather than assuming a shape: they are dense for Chebyshev
+  # collocation and three-point for finite difference, and hardcoding the
+  # latter made every thermal="spectral" tangent differentiate a different
+  # operator than the forward solve integrated -- a step-independent 2.5e-01
+  # relative error. See issue #31, which lists exactly this pair.
+  def _dual_weights(scalar, stencil):
+    # Structural zeros stay plain floats, as they were before this rebuilt the
+    # weights from a stencil: the finite-difference tail is exactly zero and
+    # carries no parameter dependence, so making it Dual only adds arithmetic.
+    weights = np.zeros(stencil.size, dtype=object)
+    weights[:] = 0.0
+    for index, value in enumerate(stencil):
+      if value != 0.0:
+        weights[index] = scalar * float(value)
+    return weights
+
+  bubble_stencil = np.asarray(problem.medium.bubble_wall_stencil)
+  medium_stencil = np.asarray(problem.medium.medium_wall_stencil)
 
   replacements = {
     "yT": y_t,
@@ -411,9 +421,9 @@ def _dual_medium(problem, parameters):
     "iyT3": inverse_y_t3,
     "iyT4": inverse_y_t4,
     "iyT6": inverse_y_t6,
-    "grad_Tm": _pad(2.0 * parameters["chi"] * parameters["iota"] / delta_medium * coefficients, problem.config.Mt),
-    "grad_Trans": _pad(-coefficients * parameters["chi"] / delta_bubble, problem.config.Nt),
-    "grad_C": _pad(-coefficients * parameters["Fom"] * parameters["L_heat_star"] / delta_bubble, problem.config.Nt),
+    "grad_Tm": _dual_weights(2.0 * parameters["chi"] * parameters["iota"], medium_stencil),
+    "grad_Trans": _dual_weights(parameters["chi"], bubble_stencil),
+    "grad_C": _dual_weights(parameters["Fom"] * parameters["L_heat_star"], bubble_stencil),
   }
   for name, value in replacements.items():
     object.__setattr__(medium, name, value)

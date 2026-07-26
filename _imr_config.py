@@ -387,6 +387,14 @@ class MediumOperators:
   grad_Tm: np.ndarray
   grad_Trans: np.ndarray
   grad_C: np.ndarray
+  # Bare wall-flux stencils, carrying no parameter dependence: grad_Tm is
+  # 2*chi*iota*medium_wall_stencil, and grad_Trans / grad_C are chi and
+  # Fom*L_heat_star times bubble_wall_stencil. The sensitivity path rebuilds
+  # those weights with Dual parameters and must reuse these rather than
+  # assume a shape -- they are dense for Chebyshev and three-point for finite
+  # difference, and hardcoding the latter silently broke spectral tangents.
+  bubble_wall_stencil: np.ndarray
+  medium_wall_stencil: np.ndarray
 
 
 @dataclass(frozen=True, slots=True)

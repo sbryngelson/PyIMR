@@ -181,6 +181,7 @@ OWNED = {
   "_imr_autodiff",
   "_imr_materials",
   "_imr_mechanical",
+  "_imr_rhs",
   "_imr_stress",
   "_imr_thermal",
   "thermal_fd",

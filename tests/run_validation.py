@@ -427,16 +427,23 @@ def _giesekus(points, quadrature, mobility=0.2):
 
 _reference = _giesekus(1920, "gauss")
 print("  Gauss-Legendre convergence (nonlinear, mobility=0.2)")
-_previous = None
+# Only assert monotone improvement while quadrature error still dominates.
+# Past ~1e-7 the residual is the ODE solver's own tolerance floor and does not
+# decrease monotonically -- asserting that it does is a flaky test, not a
+# stronger one.
+_FLOOR = 1e-6
+_errors = {}
 for _pts in (60, 120, 240):
-  _mx = np.nanmax(np.abs(_giesekus(_pts, "gauss") - _reference))
-  _ok = _previous is None or _mx < _previous
-  fail += not _ok
-  print(f"    points={_pts:4d}  max|dR| vs gauss(1920)={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
-  _previous = _mx
-_ok = _previous < 1e-5
+  _errors[_pts] = np.nanmax(np.abs(_giesekus(_pts, "gauss") - _reference))
+  print(f"    points={_pts:4d}  max|dR| vs gauss(1920)={_errors[_pts]:.2e}")
+# spectral: one doubling must buy orders of magnitude, well above the floor
+_ok = _errors[60] > _FLOOR and _errors[120] < _errors[60] / 100.0
 fail += not _ok
-print(f"    default resolution converged below 1e-5  {'PASS' if _ok else 'FAIL'}")
+print(f"    60 -> 120 improves by >100x  ({_errors[60] / _errors[120]:.0f}x)  {'PASS' if _ok else 'FAIL'}")
+# at and beyond the default, only require having reached the floor
+_ok = _errors[120] < 1e-5 and _errors[240] < 1e-5
+fail += not _ok
+print(f"    120 and 240 both below 1e-5  {'PASS' if _ok else 'FAIL'}")
 
 # Independent-rule cross-check: the two quadratures must agree once both are
 # resolved. This is the only independent check the distributed models have --

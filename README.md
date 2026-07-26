@@ -456,11 +456,32 @@ error floor near `1e-04` that has nothing to do with the discretization:
 | finite difference, `Nt = 400` | 4.7e-06 | 0.0119 ns |
 
 **Spectral at 25 points matches or beats finite difference at 400** on both,
-and keeps converging -- there is no floor.
+and keeps converging -- there is no floor. It is also far cheaper at that
+accuracy. Collapse-depth error against a converged reference, with wall time:
 
-`thermal="fd"` remains the default because it is what every pinned IMRv2
-trajectory was generated against; switching would invalidate the pinned
-suite.
+| | error | seconds |
+|---|---:|---:|
+| finite difference, `Nt = 25` | 1.15e-03 | 0.61 |
+| finite difference, `Nt = 400` | 1.82e-05 | 26.67 |
+| spectral, `Nt = 25` | **1.80e-06** | **0.64** |
+
+Ten times more accurate than `fd(400)` at a fortieth of the cost.
+
+#### Which to use
+
+For **`bubtherm` alone**, prefer `thermal="spectral"`. The accuracy and cost
+case above is unambiguous, and the `Giesekus(mobility=0)` to `Oldroyd-B`
+reduction limit holds to `1.0e-06`, matching finite difference.
+
+For the **fully coupled** model -- `bubtherm` with `medtherm`, `masstrans` and
+`vapor` together -- keep `thermal="fd"` for now. Spectral does not converge
+there: the same reduction limit sits at `1.4e-02` regardless of quadrature
+resolution, and *worsens* to `5.0e-02` when the thermal grid is refined, with
+overflow warnings from the BDF Jacobian. Tracked as issue #47.
+
+`thermal="fd"` therefore remains the default. It is also what every pinned
+IMRv2 trajectory was generated against, so the pinned suite sets it
+explicitly regardless of what the default becomes.
 
 ## Trace estimators
 

@@ -499,12 +499,37 @@ print(f"    (same operator, finite difference:   err={_mxf:.2e})")
 # mistook for a spectral convergence plateau.
 _tf = np.linspace(0.0, 60e-6, 8001)
 
+# Resolving the output grid is necessary but not sufficient. At the default
+# rtol=1e-8/atol=1e-10 the collapse minimum is only reproducible to ~5e-07
+# regardless of Nt, so a spectral run at Nt=100 differs from one at Nt=200 by
+# the integrator's noise rather than by any discretization error. Measured:
+#
+#   Nt        100        150        200        300        400
+#   R/R0  ...582427  ...579289  ...577297  ...580435  ...580495   (default tol)
+#
+# -- non-monotone, spread 5.1e-07, which is exactly the size of the "error"
+# being attributed to Nt=100. The verdict then depends on which reference is
+# picked (3.5x against Nt=200, 7.7x against Nt=400) and on the SciPy version,
+# which is how this check came to fail locally while passing in CI.
+#
+# Tightening the time tolerance pushes the temporal error below the spatial
+# one, which is the only regime in which a spatial convergence rate means
+# anything. The Nt >= 200 values then agree to 1.4e-09. Costs about 8 s.
+_CONVERGENCE_RTOL, _CONVERGENCE_ATOL = 1e-11, 1e-13
+
 
 def _collapse_metrics(nt, backend):
   r = imr_fast.simulate(
     _tf,
     imr_fast.SimulationConfig(
-      R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), bubtherm=1, Nt=nt, thermal=backend
+      R0=_R0,
+      Req=_R0 / 6,
+      material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1),
+      bubtherm=1,
+      Nt=nt,
+      thermal=backend,
+      rtol=_CONVERGENCE_RTOL,
+      atol=_CONVERGENCE_ATOL,
     ),
   ).radius_ratio
   i = int(r.argmin())
@@ -531,13 +556,23 @@ print(
 # improvement rather than a strict chain: near the reference's own accuracy
 # the individual steps are not monotone, and asserting that they are is a
 # flaky test rather than a stronger one.
+#
+# Report the reference's own uncertainty alongside the ratio. It is the thing
+# that decides whether the ratio means anything, and leaving it out is what
+# let this check read as a solver result for as long as it did.
 _r100, _t100 = _collapse_metrics(100, "spectral")
+_r300, _t300 = _collapse_metrics(300, "spectral")
+_floor = abs(_r300 - _rref)
 _ok = abs(_r100 - _rref) < abs(_rs - _rref) / 4.0
 fail += not _ok
 print(
   f"    spectral 25 -> 100 improves {abs(_rs - _rref) / abs(_r100 - _rref):.1f}x "
   f"(no floor)  {'PASS' if _ok else 'FAIL'}"
 )
+print(f"    (reference uncertainty, |Nt=300 - Nt=200|: {_floor:.2e}; measured error at Nt=100 must exceed it)")
+_ok = abs(_r100 - _rref) > _floor
+fail += not _ok
+print(f"    convergence measured above the reference floor  {'PASS' if _ok else 'FAIL'}")
 
 print("\n" + "=" * 64)
 print("3. UNIFIED FORWARD SENSITIVITIES")

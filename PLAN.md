@@ -509,9 +509,25 @@ current 82.
 - [x] Re-measure and record.
 - [ ] Collapse blank lines from 10.7% toward 3-4%. **Blocked by the formatter**
       -- see trade-off below.
-- [ ] Further splits of `imr_fast.py` (2214) and `imr_sensitivity.py` (1001) to
-      get every file under ~800. Remaining seams in `imr_fast.py`: radial
-      equations, thermal/mass transfer, prepared-problem machinery, public API.
+- [x] Two further splits of `imr_fast.py`, both AST-driven and bitwise-verified:
+      `_imr_stress.py` (359) takes the constitutive evaluation -- material plus
+      kinematic state in, stress and rate out, with no dependency on the RHS --
+      and `_imr_thermal.py` (287) takes the Tait/Mie-Gruneisen parameters,
+      `pvsat`, the dissipation terms and the implicit wall-temperature solve.
+      **`imr_fast.py` 2683 -> 1686 across the three splits (-37%).**
+- [ ] Get every file under ~800. `imr_fast.py` (1686) is now dominated by
+      `_rhs` (242), `params` (126), `_collapse_memory_state` (113), `prepare`
+      (107) and `_integrate_prepared` (94); the natural next cut is
+      preparation/collapse into `_imr_prepare.py`, leaving `_rhs` and the
+      public API. `imr_sensitivity.py` (1001) is dominated by
+      `solve_with_sensitivities` (146), `_material_parameters` (107) and
+      `_output_duals` (101).
+
+      **Method note:** extract with AST spans and delete in descending line
+      order; naive line slicing silently corrupted a first attempt. Do not run
+      `ruff check --fix` on the new module before its imports are complete --
+      it strips the not-yet-used imports as F401 and the failure then looks
+      like a missing name.
 - [ ] Fold one-line function bodies onto the `def` line -- see trade-off below.
 - [ ] Add `.git-blame-ignore-revs` for the reformat commit when this is
       committed.

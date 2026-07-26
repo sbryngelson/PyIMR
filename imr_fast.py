@@ -143,13 +143,27 @@ C8 = 1484.0  # far-field sound speed (m/s)
 
 # Tait equation-of-state constants for the liquid, IMRv2 defaults
 # (default_case.m: GAM, nstate), used by radial=3,4.
-_GAM_TAIT = 3049.13e5
-_NSTATE_TAIT = 7.15
+from _imr_thermal import (  # noqa: F401
+  _GAM_TAIT,
+  _HUGONIOT_S,
+  _NOG,
+  _NSTATE_TAIT,
+  _apply_thermal_boundaries,
+  _dissipation,
+  _distributed_dissipation,
+  _instantaneous_dissipation,
+  _kv_of_T,
+  _mie_F,
+  _mie_gruneisen,
+  _mu_of_A,
+  _secant_root,
+  _wall_theta_bw,
+  _wall_theta_bw_full,
+  pvsat,
+)
 
 # Mie-Gruneisen EoS constants for radial=5,6, IMRv2 defaults (default_case.m:
 # hugoniot_s; f_imr_fd.m: nog=(nstate-1)/2, same nstate as the Tait branch).
-_HUGONIOT_S = 1.65
-_NOG = (_NSTATE_TAIT - 1.0) / 2.0
 
 # gas / vapor thermal-conductivity linear-in-T fit coefficients, IMRv2 defaults
 # (default_case.m). K8 is IMRv2's reference conductivity: it mixes gas AND
@@ -536,8 +550,17 @@ class PreparedInstantaneousMaterial:
   interval_weights: np.ndarray
 
 
-class _MaterialDomainError(RuntimeError):
-  """Internal signal for a constitutive model leaving its physical domain."""
+from _imr_stress import (  # noqa: F401
+  _MaterialDomainError,
+  _PE_SERIES_LIMIT,
+  _distributed_stress,
+  _distributed_stress_integral,
+  _elastic_integrand,
+  _instantaneous_stress,
+  _powell_eyring_terms,
+  _stress,
+  _viscosity_and_tangent,
+)
 
 
 @dataclass(slots=True)
@@ -681,10 +704,6 @@ def _validate_inputs(
   if bubtherm and vapor and not masstrans:
     raise ValueError("bubtherm=1 with vapor=1 currently requires masstrans=1")
   return times
-
-
-def pvsat(T):
-  return 1.17e11 * np.exp(-5200.0 / T)
 
 
 def _material_scales(material):
@@ -848,316 +867,6 @@ def params(
     L_heat_star=L_heat_star,
     kv0=kv0,
   )
-
-
-def _elastic_integrand(model, stretch, pressure_scale):
-  stretch = np.asarray(stretch)
-  stretch_values = primal_array(stretch)
-  if np.any(stretch_values <= 0.0):
-    raise _MaterialDomainError("elastic stretch became non-positive")
-  invariant_offset = stretch**-4 + 2.0 * stretch**2 - 3.0
-  geometric_factor = (stretch**3 + 1.0) / stretch**5
-  if isinstance(model, NeoHookean):
-    coefficient = model.shear_modulus_pa / pressure_scale
-    result = -2.0 * coefficient * geometric_factor
-  elif isinstance(model, MooneyRivlin):
-    result = -4.0 * model.c10_pa / pressure_scale * geometric_factor - 4.0 * model.c01_pa / pressure_scale * (
-      1.0 + stretch**-3
-    )
-  else:
-    if isinstance(model, Yeoh):
-      coefficient = (
-        2.0
-        * (model.c1_pa + 2.0 * model.c2_pa * invariant_offset + 3.0 * model.c3_pa * invariant_offset**2)
-        / pressure_scale
-      )
-    elif isinstance(model, Fung):
-      coefficient = model.shear_modulus_pa / pressure_scale * np.exp(model.stiffening * invariant_offset)
-    elif isinstance(model, Gent):
-      remaining_extension = 1.0 - invariant_offset / model.extensibility
-      if np.any(primal_array(remaining_extension) <= 0.0):
-        maximum = float(np.max(primal_array(invariant_offset)))
-        raise _MaterialDomainError(
-          f"Gent lock-up: I1 - 3 reached {maximum:.6g}, limit is {primal(model.extensibility):.6g}"
-        )
-      coefficient = model.shear_modulus_pa / pressure_scale / remaining_extension
-    else:
-      invariant = invariant_offset + 3.0
-      coefficients = (0.5, 1 / 20, 11 / 1050, 19 / 7000, 519 / 673750)
-      series = sum(
-        (order + 1) * coefficient * invariant**order / model.chain_segments**order
-        for order, coefficient in enumerate(coefficients)
-      )
-      coefficient = 2.0 * model.shear_modulus_pa / pressure_scale * series
-    result = -2.0 * coefficient * geometric_factor
-  if not np.all(np.isfinite(primal_array(result))):
-    raise _MaterialDomainError("elastic stress became non-finite")
-  return result
-
-
-_PE_SERIES_LIMIT = 1e-4
-
-
-def _powell_eyring_terms(u, modified):
-  if modified:
-    series = (1.0 - u / 2.0 + u**2 / 3.0, -u / 2.0 + 2.0 * u**2 / 3.0)
-  else:
-    series = (
-      1.0 - u**2 / 6.0 + 3.0 * u**4 / 40.0,
-      -(u**2) / 3.0 + 3.0 * u**4 / 10.0,
-    )
-  if isinstance(u, np.ndarray) and u.dtype != object:
-    safe = np.maximum(u, _PE_SERIES_LIMIT)
-    if modified:
-      exact_f = np.log1p(safe) / safe
-      exact_s = (safe / (1.0 + safe) - np.log1p(safe)) / safe
-    else:
-      exact_f = np.arcsinh(safe) / safe
-      exact_s = (safe / np.sqrt(1.0 + safe**2) - np.arcsinh(safe)) / safe
-    small = u < _PE_SERIES_LIMIT
-    return np.where(small, series[0], exact_f), np.where(small, series[1], exact_s)
-  if u < _PE_SERIES_LIMIT:
-    return series
-  if modified:
-    logged = np.log1p(u)
-    return logged / u, (u / (1.0 + u) - logged) / u
-  arc = np.arcsinh(u)
-  return arc / u, (u / np.sqrt(1.0 + u**2) - arc) / u
-
-
-def _viscosity_and_tangent(model, shear_rate):
-  shear_rate = np.asarray(shear_rate)
-  if isinstance(model, Newtonian):
-    viscosity = np.full_like(shear_rate, model.viscosity_pa_s)
-    tangent = viscosity
-  elif isinstance(model, PowerLaw):
-    effective_rate = np.sqrt(shear_rate**2 + model.regularization_rate_per_s**2)
-    viscosity = model.consistency_pa_s_n * effective_rate ** (model.exponent - 1.0)
-    tangent = viscosity + (
-      model.consistency_pa_s_n * (model.exponent - 1.0) * shear_rate**2 * effective_rate ** (model.exponent - 3.0)
-    )
-  elif isinstance(model, CarreauYasuda):
-    scaled = (model.time_constant_s * shear_rate) ** model.transition_exponent
-    power = (model.power_index - 1.0) / model.transition_exponent
-    difference = model.zero_shear_viscosity_pa_s - model.infinite_shear_viscosity_pa_s
-    viscosity = model.infinite_shear_viscosity_pa_s + difference * (1.0 + scaled) ** power
-    tangent = viscosity + (difference * (model.power_index - 1.0) * scaled * (1.0 + scaled) ** (power - 1.0))
-  elif isinstance(model, (PowellEyring, ModifiedPowellEyring)):
-    modified = isinstance(model, ModifiedPowellEyring)
-    difference = model.zero_shear_viscosity_pa_s - model.infinite_shear_viscosity_pa_s
-    scaled = np.absolute(model.time_constant_s * shear_rate)
-    if shear_rate.dtype == object:
-      factor = np.empty_like(shear_rate)
-      slope = np.empty_like(shear_rate)
-      for index, value in np.ndenumerate(scaled):
-        factor[index], slope[index] = _powell_eyring_terms(value, modified)
-    else:
-      factor, slope = _powell_eyring_terms(scaled, modified)
-    viscosity = model.infinite_shear_viscosity_pa_s + difference * factor
-    tangent = viscosity + difference * slope
-  elif isinstance(model, Cross):
-    scaled = (model.time_constant_s * shear_rate) ** model.transition_exponent
-    difference = model.zero_shear_viscosity_pa_s - model.infinite_shear_viscosity_pa_s
-    viscosity = model.infinite_shear_viscosity_pa_s + difference / (1.0 + scaled)
-    tangent = viscosity - (difference * model.transition_exponent * scaled / (1.0 + scaled) ** 2)
-  else:
-    if isinstance(model, Bingham):
-      yield_stress = model.yield_stress_pa
-      consistency = model.plastic_viscosity_pa_s
-      exponent = 1.0
-      regularization = model.regularization_rate_per_s
-    else:
-      yield_stress = model.yield_stress_pa
-      consistency = model.consistency_pa_s_n
-      exponent = model.exponent
-      regularization = model.regularization_rate_per_s
-    scaled = shear_rate / regularization
-    if shear_rate.dtype == object:
-      yield_viscosity = np.empty_like(shear_rate)
-      for index, rate in np.ndenumerate(shear_rate):
-        yield_viscosity[index] = (
-          -yield_stress * np.expm1(-scaled[index]) / rate if primal(rate) > 0.0 else yield_stress / regularization
-        )
-    else:
-      with np.errstate(divide="ignore", invalid="ignore"):
-        yield_viscosity = np.where(
-          shear_rate > 0.0,
-          -yield_stress * np.expm1(-scaled) / shear_rate,
-          yield_stress / regularization,
-        )
-    effective_rate = np.sqrt(shear_rate**2 + regularization**2)
-    power_viscosity = consistency * effective_rate ** (exponent - 1.0)
-    viscosity = yield_viscosity + power_viscosity
-    tangent = (
-      yield_stress / regularization * np.exp(-scaled)
-      + power_viscosity
-      + consistency * (exponent - 1.0) * shear_rate**2 * effective_rate ** (exponent - 3.0)
-    )
-  viscosity_values = primal_array(viscosity)
-  tangent_values = primal_array(tangent)
-  if (
-    not np.all(np.isfinite(viscosity_values))
-    or not np.all(np.isfinite(tangent_values))
-    or np.any(viscosity_values < 0.0)
-  ):
-    raise _MaterialDomainError("generalized viscosity became invalid")
-  return viscosity, tangent
-
-
-def _instantaneous_stress(material, prepared, p, R, Rd, need_rate):
-  stress_integral = 0.0
-  explicit_rate = 0.0
-  acceleration_coefficient = 0.0
-  if material.elastic is not None:
-    wall_stretch = R / p["req"]
-    half_interval = 0.5 * (wall_stretch - 1.0)
-    stretch = 1.0 + half_interval * (prepared.interval_nodes + 1.0)
-    integrand = _elastic_integrand(material.elastic, stretch, p["P8"])
-    stress_integral += half_interval * np.dot(prepared.interval_weights, integrand)
-    if need_rate:
-      wall_integrand = _elastic_integrand(material.elastic, wall_stretch, p["P8"])
-      if isinstance(wall_integrand, np.ndarray):
-        wall_integrand = wall_integrand.item()
-      explicit_rate += wall_integrand * Rd / p["req"]
-  if material.viscous is not None:
-    quadrature_radius = 0.5 * (prepared.interval_nodes + 1.0)
-    quadrature_weights = 0.5 * prepared.interval_weights
-    strain_rate = Rd / R
-    shear_rate = 2.0 * np.sqrt(3.0) * abs(strain_rate) / p["t0"] * quadrature_radius**3
-    viscosity, tangent = _viscosity_and_tangent(material.viscous, shear_rate)
-    weighted_radius = quadrature_radius**2 * quadrature_weights
-    viscosity_integral = np.dot(weighted_radius, viscosity)
-    stress_integral += -12.0 * strain_rate * viscosity_integral / p["viscosity_scale"]
-    if need_rate:
-      stress_tangent = -12.0 / p["viscosity_scale"] * np.dot(weighted_radius, tangent)
-      explicit_rate -= stress_tangent * strain_rate**2
-      acceleration_coefficient -= stress_tangent
-  return stress_integral, explicit_rate, None, acceleration_coefficient
-
-
-def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True):
-  Rst = p["req"] / R
-  Ca, Re8, De, LAM, ax = p["Ca"], p["Re8"], p["De"], p["LAM"], p["alphax"]
-  if isinstance(material, NoStress):
-    return 0.0, 0.0, None, 0.0
-  if isinstance(material, NeoHookeanKelvinVoigt):
-    S = -(5 - 4 * Rst - Rst**4) / (2 * Ca) - 4.0 / Re8 * Rd / R
-    Sdot = -2 * Rd / R * (Rst + Rst**4) / Ca + 4.0 / Re8 * (Rd / R) ** 2
-    return S, Sdot, None, 4.0 / Re8
-  if isinstance(material, QuadraticKelvinVoigt):
-    S = (
-      (3 * ax - 1) * (5 - Rst**4 - 4 * Rst) / (2 * Ca)
-      - 4.0 / Re8 * Rd / R
-      + (2 * ax / Ca) * (27 / 40 + Rst**8 / 8 + Rst**5 / 5 + Rst**2 - 2 / Rst)
-    )
-    Sdot = (
-      (Rd / R) * ((3 * ax - 1) / (2 * Ca)) * (4 * Rst**4 + 4 * Rst)
-      + 4 * (Rd / R) ** 2 / Re8
-      - 2 * ax / Ca * Rd / R * (Rst**8 + Rst**5 + 2 * Rst**2 + 2 / Rst)
-    )
-    return S, Sdot, None, 4.0 / Re8
-  if isinstance(material, Zener):
-    Z1 = Z[0]
-    S = Z1 / R**3 - 4 * LAM / Re8 * Rd / R
-    Ze = -0.5 * (R**3 / Ca) * (5 - Rst**4 - 4 * Rst)
-    Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
-    Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * (Rd / R) ** 2
-    # IMRv2's compressible radial equations use the full 4/Re8 implicit
-    # coefficient for Zener, not the solvent-only coefficient visible in S.
-    return S, Sdot, np.array([Z1d]), 4.0 / Re8
-  if isinstance(material, QuadraticZener):
-    Z1 = Z[0]
-    S = Z1 / R**3 - 4 * LAM / Re8 * Rd / R
-    strainhard = (3 * ax - 1) / (2 * Ca)
-    Ze = R**3 * (
-      strainhard * (5 - Rst**4 - 4 * Rst) + (2 * ax / Ca) * (0.675 + 0.125 * Rst**8 + 0.2 * Rst**5 + Rst**2 - 2 / Rst)
-    )
-    Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
-    Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
-    # Same upstream implicit coefficient convention as the linear Zener.
-    return S, Sdot, np.array([Z1d]), 4.0 / Re8
-  if isinstance(material, OldroydB):
-    Z1, Z2 = Z[0], Z[1]
-    Z1d = -(1 / De - 2 * Rd / R) * Z1 + 2 * (LAM - 1) / (Re8 * De) * R**2 * Rd
-    Z2d = -(1 / De + Rd / R) * Z2 + 2 * (LAM - 1) / (Re8 * De) * R**2 * Rd
-    S = (Z1 + Z2) / R**3 - 4 * LAM / Re8 * Rd / R
-    Sdot = (Z1d + Z2d) / R**3 - 3 * Rd / R**4 * (Z1 + Z2) + 4 * LAM / Re8 * Rd**2 / R**2
-    return S, Sdot, np.array([Z1d, Z2d]), 4.0 * LAM / Re8
-  if isinstance(material, InstantaneousMaterial):
-    return _instantaneous_stress(material, instantaneous, p, R, Rd, need_rate)
-  raise TypeError(f"material={material!r} is not an analytic material")
-
-
-def _distributed_stress(material, prepared, p, R, Rd, state, need_rate):
-  points = prepared.reference_radius.size
-  radial_stress = state[:points]
-  hoop_stress = state[points:]
-  radius_cubed = np.maximum(
-    prepared.reference_radius_cubed + R**3 - 1.0,
-    1e-30,
-  )
-  inverse_radius_cubed = 1.0 / radius_cubed
-  strain_rate = Rd * R**2 * inverse_radius_cubed
-  polymer_viscosity = (1.0 - p["LAM"]) / p["Re8"]
-
-  if isinstance(material, Giesekus):
-    nonlinear_scale = material.mobility / polymer_viscosity
-    radial_rate = (
-      -radial_stress / p["De"]
-      - 4.0 * strain_rate * radial_stress
-      - nonlinear_scale * radial_stress**2
-      - 4.0 * polymer_viscosity * strain_rate / p["De"]
-    )
-    hoop_rate = (
-      -hoop_stress / p["De"]
-      + 2.0 * strain_rate * hoop_stress
-      - nonlinear_scale * hoop_stress**2
-      + 2.0 * polymer_viscosity * strain_rate / p["De"]
-    )
-  else:
-    nonlinear_scale = material.extensibility / polymer_viscosity
-    trace_factor = 1.0 + nonlinear_scale * (radial_stress + 2.0 * hoop_stress)
-    radial_rate = (
-      -trace_factor * radial_stress / p["De"]
-      - 4.0 * strain_rate * radial_stress
-      - 4.0 * polymer_viscosity * strain_rate / p["De"]
-    )
-    hoop_rate = (
-      -trace_factor * hoop_stress / p["De"]
-      + 2.0 * strain_rate * hoop_stress
-      + 2.0 * polymer_viscosity * strain_rate / p["De"]
-    )
-
-  radius = np.cbrt(radius_cubed)
-  stress_difference = radial_stress - hoop_stress
-  integrand = 2.0 * stress_difference / radius
-  polymer_integral = np.trapezoid(integrand, radius)
-  polymer_integral_rate = 0.0
-  if need_rate:
-    material_velocity = R**2 * Rd / radius**2
-    integrand_rate = 2.0 * ((radial_rate - hoop_rate) / radius - stress_difference * material_velocity / radius**2)
-    intervals = np.diff(radius)
-    interval_rates = np.diff(material_velocity)
-    polymer_integral_rate = np.sum(
-      0.5 * ((integrand_rate[:-1] + integrand_rate[1:]) * intervals + (integrand[:-1] + integrand[1:]) * interval_rates)
-    )
-  solvent_scale = 4.0 * p["LAM"] / p["Re8"]
-  stress_integral = polymer_integral - solvent_scale * Rd / R
-  explicit_rate = polymer_integral_rate + solvent_scale * (Rd / R) ** 2
-  return (
-    stress_integral,
-    explicit_rate,
-    np.concatenate((radial_rate, hoop_rate)),
-    solvent_scale,
-  )
-
-
-def _distributed_stress_integral(prepared, p, R, Rd, state):
-  points = prepared.reference_radius.size
-  radius = np.cbrt(np.maximum(prepared.reference_radius_cubed + R**3 - 1.0, 1e-30))
-  integrand = 2.0 * (state[:points] - state[points:]) / radius
-  polymer_integral = np.trapezoid(integrand, radius)
-  return polymer_integral - 4.0 * p["LAM"] / p["Re8"] * Rd / R
 
 
 def _sampled_pressure(tn, forcing):
@@ -1512,243 +1221,6 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
     jacobian_sparsity=_prepare_distributed_jacobian(config, layout),
     collapse_stats=collapse_stats,
   )
-
-
-def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG):
-  a = A * s**2 - nog
-  b = -2.0 * A * s - 1.0
-  d = b**2 - 4.0 * a * A
-  return (-b + np.sqrt(d)) / (2.0 * a)
-
-
-def _mie_F(mu, s=_HUGONIOT_S, nog=_NOG):
-  w = 1.0 - s * mu
-  return (
-    (2 * nog + s - 1) / (s + 1) ** 3 * np.log(w / (mu + 1.0))
-    + (nog + s) / (s * (s + 1) * w**2)
-    - (2 * nog + s - 1) / ((s + 1) ** 2 * w)
-  )
-
-
-def _mie_gruneisen(P, Cstar, s, nog, reference):
-  A = P / Cstar**2
-  mu = _mu_of_A(A, s, nog)
-  w = 1.0 - s * mu
-  # transient negative discriminant on rejected LSODA trial steps only --
-  # the accepted trajectory stays real (confirmed against real IMRv2, see
-  # module docstring); harmless, same pattern as the xi[-1]=-1 case below.
-  with np.errstate(invalid="ignore"):
-    C = Cstar * np.sqrt(((1 + 2 * nog * mu) * w**2 + 2 * s * mu * (1 + nog * mu) * w) / w**4)
-  hH = 1.0 / (1.0 + mu)
-  hB = Cstar**2 * (_mie_F(mu, s, nog) - reference)
-  return C, hB, hH
-
-
-def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3):
-  with np.errstate(divide="ignore", invalid="ignore"):
-    strain_rate = Rd / R * iyT3
-    heating = np.zeros_like(yT)
-    if material.elastic is not None:
-      reference_radius = np.cbrt(np.maximum(R**3 * (yT3 - 1.0) + p["req"] ** 3, 1e-30))
-      stretch = R * yT / reference_radius
-      stretch[-1] = 1.0
-      integrand = _elastic_integrand(material.elastic, stretch, p["P8"])
-      stress_difference = 0.5 * integrand * stretch * (stretch**3 - 1.0)
-      heating -= 2.0 * strain_rate * stress_difference
-    if material.viscous is not None:
-      shear_rate = 2.0 * np.sqrt(3.0) * abs(strain_rate) / p["t0"]
-      viscosity, _ = _viscosity_and_tangent(material.viscous, shear_rate)
-      heating += 12.0 * viscosity / p["viscosity_scale"] * strain_rate**2
-  return p["Br"] * heating
-
-
-def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6):
-  Ca, Re8, Br, ax = p["Ca"], p["Re8"], p["Br"], p["alphax"]
-  Rst = p["req"] / R
-  x2 = (yT3 - 1.0 + Rst**3) ** (2.0 / 3.0)
-  ix2 = 1.0 / x2
-  x4 = x2**2
-  base = 12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6 + 2.0 * Br / Ca * iyT3 * (Rd / R) * (yT2 * ix2 - iyT4 * x4)
-  if isinstance(material, InstantaneousMaterial):
-    return _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3)
-  if isinstance(material, NoStress):
-    return np.zeros_like(yT)
-  if isinstance(material, QuadraticKelvinVoigt):
-    return base * (1.0 + ax * (x4 * iyT4 + 2.0 * yT2 * ix2 - 3.0))
-  return base
-
-
-def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3):
-  points = prepared.reference_radius.size
-  stress_difference = state[:points] - state[points:]
-  with np.errstate(divide="ignore", invalid="ignore"):
-    spatial_radius = R * yT
-    reference_radius = np.cbrt(np.maximum(spatial_radius**3 - R**3 + 1.0, 1.0))
-    if reference_radius.dtype == object or stress_difference.dtype == object:
-      sampled_difference = np.empty_like(reference_radius)
-      reference_values = primal_array(reference_radius)
-      source_radius = prepared.reference_radius
-      for index, (radius, radius_value) in enumerate(zip(reference_radius, reference_values, strict=True)):
-        if radius_value <= source_radius[0]:
-          sampled_difference[index] = stress_difference[0]
-        elif radius_value >= source_radius[-1]:
-          sampled_difference[index] = 0.0
-        else:
-          left = np.searchsorted(source_radius, radius_value) - 1
-          fraction = (radius - source_radius[left]) / (source_radius[left + 1] - source_radius[left])
-          sampled_difference[index] = stress_difference[left] + fraction * (
-            stress_difference[left + 1] - stress_difference[left]
-          )
-    else:
-      sampled_difference = np.interp(
-        reference_radius,
-        prepared.reference_radius,
-        stress_difference,
-        right=0.0,
-      )
-    strain_rate = Rd / R * iyT3
-    polymer_heating = -2.0 * strain_rate * sampled_difference
-    solvent_heating = 12.0 * p["LAM"] / p["Re8"] * strain_rate**2
-  return p["Br"] * (polymer_heating + solvent_heating)
-
-
-def _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale):
-  theta_var = Rvg_ratio * (P / (pvsat(Tw * T8) / pressure_scale) - 1.0)
-  return 1.0 / (1.0 + theta_var)
-
-
-def _secant_root(function, guess, *, tol=1e-13, maxiter=100):
-  p0 = float(guess)
-  p1 = p0 * 1.0001
-  p1 += 1e-4 if p1 >= 0.0 else -1e-4
-  q0 = function(p0)
-  q1 = function(p1)
-  if abs(q1) < abs(q0):
-    p0, p1, q0, q1 = p1, p0, q1, q0
-
-  for _ in range(maxiter):
-    if q1 == q0:
-      raise RuntimeError("wall boundary secant solve encountered zero slope")
-    if abs(q1) > abs(q0):
-      ratio = q0 / q1
-      root = (-ratio * p1 + p0) / (1.0 - ratio)
-    else:
-      ratio = q1 / q0
-      root = (-ratio * p0 + p1) / (1.0 - ratio)
-    if abs(root - p1) <= tol:
-      return root
-    p0, q0 = p1, q1
-    p1 = root
-    q1 = function(p1)
-  raise RuntimeError(f"wall boundary secant solve failed to converge after {maxiter} iterations")
-
-
-def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
-
-  def resid(theta_bw):
-    Tw = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_g)) / alpha_g
-    lhs = grad_Tm[0] * Tw + grad_Tm[1] * Tm_tail[0] + grad_Tm[2] * Tm_tail[1]
-    rhs = grad_Trans[0] * theta_bw + grad_Trans[1] * theta_tail[0] + grad_Trans[2] * theta_tail[1]
-    return lhs + rhs
-
-  return _secant_root(resid, guess)
-
-
-def _wall_theta_bw_full(
-  guess,
-  theta_tail,
-  Tm_tail,
-  kv_tail,
-  kv_end_stale,
-  P,
-  alpha_v,
-  alpha_g,
-  T8,
-  Rvg_ratio,
-  Rva_diff,
-  Rg_star,
-  pressure_scale,
-  grad_Tm,
-  grad_Trans,
-  grad_C,
-):
-  alpha_m = kv_end_stale * alpha_v + (1.0 - kv_end_stale) * alpha_g
-
-  def resid(theta_bw):
-    Tw = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_m)) / alpha_m
-    kvw = _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale)
-    lhs = grad_Tm[0] * Tw + grad_Tm[1] * Tm_tail[0] + grad_Tm[2] * Tm_tail[1]
-    rhs = grad_Trans[0] * theta_bw + grad_Trans[1] * theta_tail[0] + grad_Trans[2] * theta_tail[1]
-    scalar = P / ((kvw * Rva_diff + Rg_star) * (Tw * (1.0 - kvw)))
-    extra = scalar * (grad_C[0] * kvw + grad_C[1] * kv_tail[0] + grad_C[2] * kv_tail[1])
-    return lhs + rhs + extra
-
-  failure = None
-  with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-    try:
-      return _secant_root(resid, guess)
-    except RuntimeError as error:
-      failure = error
-      roots = []
-      for fallback in (0.0, 0.5 * guess, 1.5 * guess, theta_tail[0]):
-        try:
-          roots.append(_secant_root(resid, fallback))
-        except RuntimeError:
-          pass
-  if roots:
-    return min(roots, key=lambda root: abs(root - guess))
-  raise failure
-
-
-def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state):
-  if medium is not None and masstrans:
-    theta[-1] = _wall_theta_bw_full(
-      wall_state.theta,
-      [theta[-2], theta[-3]],
-      [Tm[1], Tm[2]],
-      [kv[-2], kv[-3]],
-      kv[-1],
-      P,
-      p["alpha_v"],
-      p["alpha_g"],
-      p["T8"],
-      p["Rv_star"] / p["Rg_star"],
-      p["Rv_star"] - p["Rg_star"],
-      p["Rg_star"],
-      p["P8"],
-      medium.grad_Tm,
-      medium.grad_Trans,
-      medium.grad_C,
-    )
-    wall_state.theta = theta[-1]
-  elif medium is not None:
-    theta[-1] = _wall_theta_bw(
-      wall_state.theta,
-      [theta[-2], theta[-3]],
-      [Tm[1], Tm[2]],
-      p["alpha_g"],
-      medium.grad_Tm,
-      medium.grad_Trans,
-    )
-    wall_state.theta = theta[-1]
-
-  alpha_m = None
-  if masstrans:
-    alpha_m = kv * p["alpha_v"] + (1.0 - kv) * p["alpha_g"]
-    temperature = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_m)) / alpha_m
-    kv[-1] = _kv_of_T(
-      temperature[-1],
-      P,
-      p["T8"],
-      p["Rv_star"] / p["Rg_star"],
-      p["P8"],
-    )
-  else:
-    alpha_g = p["alpha_g"]
-    temperature = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_g)) / alpha_g
-  if Tm is not None:
-    Tm[0] = temperature[-1]
-  return temperature, alpha_m
 
 
 def _rhs(

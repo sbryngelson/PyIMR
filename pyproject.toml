@@ -26,6 +26,8 @@ py-modules = [
     "_imr_autodiff",
     "_imr_materials",
     "_imr_mechanical",
+    "_imr_stress",
+    "_imr_thermal",
     "imr_data",
     "imr_fast",
     "imr_inference",

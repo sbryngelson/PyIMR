@@ -135,6 +135,33 @@ _ok = _mx < 2e-3
 fail += not _ok
 print(f"    collapse Zener        max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
 
+# The residual above is entirely one number: the precursor stress at maximum
+# radius. imr-fast root-finds the true maximum (velocity == 0) and gets
+# S0 = -0.15994511, converged and integrator-independent. IMRv2 takes a
+# discrete argmax over ode23tb output points and gets -0.16004691.
+#
+# That gap is inherent, not a tolerance choice. R is locally quadratic at the
+# peak, so it moves only 2.1e-06 over the 1.9e-03 of nondimensional time that
+# separates the two; S is locally linear there (dS/dt = +0.053), so it moves
+# 1.0e-04. Locating a quadratic maximum by argmax costs O(sqrt(tol)) in
+# position and therefore O(sqrt(tol)) in the stress carried out of it.
+#
+# Injecting IMRv2's own Szero reproduces the reference in the normal pinned
+# band, which proves the coupled solve is exact and isolates the whole
+# difference to the precursor.
+_IMRV2_SZERO = -0.1600469117114953
+_cfg_upstream = imr_fast.SimulationConfig(
+  R0=_R0,
+  Req=_R0 / 6,
+  material=imr_fast.Zener(2500.0, 0.1, 2 * _t0, 0.4 * _t0),
+  initial=imr_fast.InitialState(stress_state=(_IMRV2_SZERO,)),
+  **_full,
+)
+_mx = np.nanmax(np.abs(_ml - imr_fast.simulate(_t, _cfg_upstream).radius_ratio))
+_ok = _mx < 5e-5
+fail += not _ok
+print(f"    collapse Zener w/ IMRv2 Szero  max|dR|={_mx:.2e}  {'PASS' if _ok else 'FAIL'}")
+
 for lab, mat, ref in [
   ("Oldroyd-B", imr_fast.OldroydB(0.1, 2 * _t0, 0.4 * _t0), "ref_coupled_oldb.csv"),
   ("NHKV", imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), "ref_coupled_nhkv.csv"),

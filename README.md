@@ -438,6 +438,16 @@ Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
   `% TODO initial max stress for UCM and Oldroyd-B`. The flag is accepted and
   silently ignored. imr-fast implements the precursor for Oldroyd-B and the
   distributed models, and refuses the flag outright for memoryless materials.
+- **The collapse precursor locates the maximum by discrete argmax.**
+  `f_init_stress.m` takes `max(abs(X(:,1)))` over ode23tb output points rather
+  than root-solving the wall velocity. `R` is locally quadratic at the maximum
+  and the stress locally linear, so this costs O(sqrt(tol)) in peak position
+  and carries that straight into the initial stress. Upstream's `Szero` is
+  `-0.1600469117` against `-0.1599451098` here -- a 1.02e-04 offset equivalent
+  to sampling 1.9e-03 before the peak, where the radius is only 2.06e-06 lower.
+  That single number accounts for the whole 1.55e-03 deviation on the pinned
+  collapse-Zener trajectory; injecting upstream's own `Szero` reproduces it at
+  2.08e-05. imr-fast root-finds `v = 0` instead, which is O(tol).
 - **`radial = 6` returns complex trajectories** without raising, and the
   `radial` constraint is stated three mutually inconsistent ways.
 - **`f_init_stress.m` uses an undefined `z1`** in the `De == 0 || De == Inf`

@@ -26,7 +26,7 @@ independent and cheap. W3--W6 are independent of each other.
 | W5 IMR-vanilla estimators | **done** -- new `imr_data.py` |
 | W6 solver control surface | **done** -- 86-option audit, `max_step_s` added |
 | W7 tinygrad style | **partly done** -- config, indent, docstrings, one split |
-| W8 measured collapse gaps | **done** -- both "gaps" were upstream stubs |
+| W8 measured collapse gaps | **done** -- stubs, plus the Zener offset quantified |
 
 Revised priority after W1: **W8 -> W3 -> W5 -> W6 -> W2 -> W7.**
 
@@ -384,20 +384,44 @@ because it is measured rather than hypothetical.
       bubtherm+medtherm+masstrans+vapor model, which is **new coverage**: the
       Oldroyd-B case is the first pinned coupled-model trajectory with a
       memory material.
-- [ ] **Tighten collapse Zener from 1.55e-03.** The one genuine collapse
-      comparison. Every other pinned trajectory sits at 1e-5; this is 100x
-      looser. Establish whether it is the precursor bracket tolerance, the
-      event-time root, or a formulation difference. Upstream integrates the
-      precursor with `RelTol/AbsTol = 1e-6` and locates the maximum by
-      `max(abs(X(:,1)))` over ode23tb output points -- a discrete argmax, not a
-      root-solve, which alone could explain 1e-3.
+- [x] **Collapse Zener 1.55e-03 explained; imr-fast is the more accurate side.**
+      The hypothesis above was right. Resolved quantitatively:
+
+      | quantity | value |
+      |---|---|
+      | imr-fast S0 (event root-find, velocity = 0) | `-0.1599451098` |
+      | IMRv2 `Szero` (`tools/probe_collapse_stress.m`) | `-0.1600469117` |
+      | S0 that best fits the reference | `-0.1600464610` |
+      | resulting best-fit deviation | **1.48e-05** |
+
+      All precursor inputs agree to machine precision (`Pv`, `Pb` exactly;
+      `req` differs by 1.2e-10 because upstream recomputes `Req_zero` from
+      vapour equilibrium). The whole 1.55e-03 is the single 1.02e-04 offset in
+      S0, and the coupled solve is exact: injecting IMRv2's own `Szero`
+      reproduces the reference at **2.08e-05**, now asserted in the harness.
+
+      Why the offset is inherent rather than a tolerance choice: at the true
+      maximum `t = 0.84989883`, `R = 1.000000000000`, `v = -4.3e-19`,
+      `dS/dt = +0.053248`. IMRv2's `Szero` corresponds to sampling
+      `dt = -1.91e-03` before the peak -- where `R` is only **2.06e-06** lower.
+      `R` is locally quadratic at the maximum and `S` locally linear, so a
+      discrete argmax over solver output points cannot resolve the peak
+      position better than O(sqrt(tol)), and carries that error straight into
+      the stress. imr-fast's event root-find on `v = 0` is O(tol).
+
+      Confirmed converged and integrator-independent: the event method returns
+      `-0.15994511` under LSODA, Radau and BDF at both 1e-6 and 1e-9, while the
+      argmax method scatters from `-0.1585` to `-0.1605` depending purely on
+      where steps happen to land.
+
+      **No code change.** Matching upstream here would mean adopting its error.
+      Documented in the README and asserted in `tests/run_validation.py`.
 
 **Done when:** the `KNOWN GAPS` block in `tests/run_validation.py` is empty, or
 every remaining entry has a written justification.
 
-**Status: substantially done.** The `KNOWN GAPS` block is now empty; all four
-checks in section 1c pass. Only the Zener tolerance item remains, and it is a
-precision question, not a correctness one.
+**Status: done.** The `KNOWN GAPS` block is empty and all five checks in
+section 1c pass. The remaining 1.55e-03 is upstream's error, quantified above.
 
 ---
 

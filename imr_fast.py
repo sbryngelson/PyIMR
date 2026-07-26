@@ -22,17 +22,16 @@ Covers:
               1 internal variable -- stress=3's counterpart to stress=2)
            5 (UCM / Oldroyd-B, 2 internal variables)
   forcing  wave_type 0 (constant offset), 1 (Gaussian), 2 (histotripsy),
-           3 (Heaviside step); pA = amplitude
+           3 (Heaviside step), or a dimensional sampled pressure history
 
 Equations transcribed from IMRv2/src/{f_radial_eq,f_stress,f_call_params,
 f_imr_fd}.m. Validated against IMRv2 reference trajectories -- see
 tests/run_validation.py.
 
-KAPPA=1.4 is a fixed module constant (not exposed as a per-call override),
-matching what the reference trajectories were generated with; IMRv2's own
-shipped default is 1.47 (default_case.m), overridable via 'kappa' in
-varargin. Runs that need a different kappa are out of scope until this is
-exposed as a parameter.
+The default physical constants match the pinned reference trajectories.
+They are configurable through PhysicalParameters; IMRv2's own shipped
+polytropic exponent is 1.47, whereas this solver defaults to 1.4 because that
+is the value used to generate its reference data.
 
 bubtherm=1 implements IMRv2's "elseif bubtherm" branch (f_imr_fd.m): gas-phase
 thermal PDE, dry gas (kv0=0, vapor=0). With medtherm=0, the wall is an
@@ -77,7 +76,7 @@ Re-validate before extending any branch.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from numbers import Integral
 from time import perf_counter
 from types import MappingProxyType
@@ -85,6 +84,7 @@ from typing import Mapping
 
 import numpy as np
 from scipy.integrate import solve_ivp
+from scipy.interpolate import PchipInterpolator
 
 from thermal_fd import finite_diff_mat
 
@@ -93,23 +93,16 @@ RHO = 1064.0       # far-field density (kg/m^3)
 SURF = 0.07        # surface tension (N/m)
 KAPPA = 1.4        # polytropic exponent (see module docstring)
 C8 = 1484.0        # far-field sound speed (m/s)
-KAPOVER = (KAPPA - 1.0) / KAPPA
 
 # Tait equation-of-state constants for the liquid, IMRv2 defaults
-# (default_case.m: GAM, nstate), used by radial=3,4. sam/no are fixed
-# combinations of these plus P8 (f_imr_fd.m: sam=1+GAMa, no=(nstate-1)/nstate).
+# (default_case.m: GAM, nstate), used by radial=3,4.
 _GAM_TAIT = 3049.13e5
 _NSTATE_TAIT = 7.15
-_GAMA_TAIT = _GAM_TAIT / P8
-_SAM_TAIT = 1.0 + _GAMA_TAIT
-_NO_TAIT = (_NSTATE_TAIT - 1.0) / _NSTATE_TAIT
 
 # Mie-Gruneisen EoS constants for radial=5,6, IMRv2 defaults (default_case.m:
 # hugoniot_s; f_imr_fd.m: nog=(nstate-1)/2, same nstate as the Tait branch).
-# Cstar = C8/Uc is also fixed (P8, RHO, C8 are all fixed module constants).
 _HUGONIOT_S = 1.65
 _NOG = (_NSTATE_TAIT - 1.0) / 2.0
-_CSTAR_FIXED = C8 / np.sqrt(P8 / RHO)
 
 # gas / vapor thermal-conductivity linear-in-T fit coefficients, IMRv2 defaults
 # (default_case.m). K8 is IMRv2's reference conductivity: it mixes gas AND
@@ -138,6 +131,103 @@ class SimulationError(RuntimeError):
     def __init__(self, message: str, stats: SolverStats | None = None):
         super().__init__(message)
         self.stats = stats
+
+
+@dataclass(frozen=True, slots=True)
+class PhysicalParameters:
+    """Dimensional environment and transport properties."""
+
+    far_field_pressure_pa: float = P8
+    medium_density_kg_m3: float = RHO
+    surface_tension_n_m: float = SURF
+    sound_speed_m_s: float = C8
+    polytropic_exponent: float = KAPPA
+    tait_pressure_pa: float = _GAM_TAIT
+    tait_exponent: float = _NSTATE_TAIT
+    hugoniot_slope: float = _HUGONIOT_S
+    gas_conductivity_slope: float = _ATG
+    gas_conductivity_offset: float = _BTG
+    vapor_conductivity_slope: float = _ATV
+    vapor_conductivity_offset: float = _BTV
+    medium_conductivity_w_m_k: float = _KM
+    medium_specific_heat_j_kg_k: float = _CP
+    medium_grid_length: float = _LT
+    mass_diffusivity_m2_s: float = _D0
+    latent_heat_j_kg: float = _LHEAT
+    universal_gas_constant_j_mol_k: float = _RU
+    vapor_molar_mass_kg_mol: float = _MWV
+    gas_molar_mass_kg_mol: float = _MWG
+
+    def __post_init__(self) -> None:
+        for name in self.__dataclass_fields__:
+            value = getattr(self, name)
+            if not np.isfinite(value) or value <= 0.0:
+                raise ValueError(f"physics.{name} must be finite and positive")
+        if self.polytropic_exponent <= 1.0:
+            raise ValueError("physics.polytropic_exponent must be greater than 1")
+        if self.tait_exponent <= 1.0:
+            raise ValueError("physics.tait_exponent must be greater than 1")
+
+
+@dataclass(frozen=True, slots=True)
+class SampledForcing:
+    """Far-field pressure perturbation sampled in dimensional units.
+
+    Pressure is relative to the far-field baseline. A shape-preserving cubic
+    is used between samples and the perturbation is zero outside their span.
+    """
+
+    time_s: tuple[float, ...]
+    pressure_pa: tuple[float, ...]
+
+    def __post_init__(self) -> None:
+        times = tuple(float(value) for value in self.time_s)
+        pressure = tuple(float(value) for value in self.pressure_pa)
+        if len(times) < 2 or len(times) != len(pressure):
+            raise ValueError("sampled forcing requires equal arrays of at least 2 values")
+        if not np.all(np.isfinite(times)) or not np.all(np.isfinite(pressure)):
+            raise ValueError("sampled forcing values must be finite")
+        if times[0] < 0.0 or np.any(np.diff(times) <= 0.0):
+            raise ValueError("sampled forcing times must be non-negative and increasing")
+        object.__setattr__(self, "time_s", times)
+        object.__setattr__(self, "pressure_pa", pressure)
+
+
+@dataclass(frozen=True, slots=True)
+class InitialState:
+    """Optional dimensional initial conditions and internal solver state.
+
+    ``stress_state`` uses the solver's nondimensional auxiliary variables.
+    """
+
+    wall_velocity_m_s: float = 0.0
+    internal_pressure_pa: float | None = None
+    bubble_temperature_k: float | None = None
+    medium_temperature_k: float | None = None
+    vapor_mass_fraction: float | None = None
+    stress_state: tuple[float, ...] | None = None
+
+    def __post_init__(self) -> None:
+        if not np.isfinite(self.wall_velocity_m_s):
+            raise ValueError("initial.wall_velocity_m_s must be finite")
+        for name in (
+            "internal_pressure_pa",
+            "bubble_temperature_k",
+            "medium_temperature_k",
+        ):
+            value = getattr(self, name)
+            if value is not None and (not np.isfinite(value) or value <= 0.0):
+                raise ValueError(f"initial.{name} must be finite and positive")
+        fraction = self.vapor_mass_fraction
+        if fraction is not None and (
+            not np.isfinite(fraction) or not 0.0 <= fraction <= 1.0
+        ):
+            raise ValueError("initial.vapor_mass_fraction must be between 0 and 1")
+        if self.stress_state is not None:
+            state = tuple(float(value) for value in self.stress_state)
+            if not np.all(np.isfinite(state)):
+                raise ValueError("initial.stress_state must contain finite values")
+            object.__setattr__(self, "stress_state", state)
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,8 +261,19 @@ class SimulationConfig:
     masstrans: int = 0
     rtol: float = 1e-8
     atol: float = 1e-10
+    physics: PhysicalParameters = field(default_factory=PhysicalParameters)
+    sampled_forcing: SampledForcing | None = None
+    initial: InitialState = field(default_factory=InitialState)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.physics, PhysicalParameters):
+            raise TypeError("physics must be PhysicalParameters")
+        if not isinstance(self.initial, InitialState):
+            raise TypeError("initial must be InitialState")
+        if self.sampled_forcing is not None and not isinstance(
+            self.sampled_forcing, SampledForcing
+        ):
+            raise TypeError("sampled_forcing must be SampledForcing")
         _validate_inputs(
             [0.0, 1.0], self.R0, self.Req, self.G, self.mu, self.stress,
             self.lam1, self.lam2, self.alphax, self.radial, self.vapor,
@@ -180,6 +281,16 @@ class SimulationConfig:
             self.wave_type, self.bubtherm, self.Nt, self.medtherm, self.Mt,
             self.masstrans, self.rtol, self.atol,
         )
+        if self.sampled_forcing is not None and (
+            self.pA != 0.0
+            or self.omega != 0.0
+            or self.TW != 0.0
+            or self.DT != 0.0
+            or self.mn != 0.0
+            or self.wave_type != 0
+        ):
+            raise ValueError("sampled_forcing cannot be combined with analytic forcing")
+
 
 @dataclass(frozen=True, slots=True)
 class SolverStats:
@@ -253,6 +364,14 @@ class MediumOperators:
     grad_C: np.ndarray
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedForcing:
+    """Nondimensional piecewise-cubic forcing coefficients."""
+
+    knots: np.ndarray
+    coefficients: np.ndarray
+
+
 @dataclass(slots=True)
 class _WallState:
     """Mutable wall-solve continuation state, private to one integration."""
@@ -272,6 +391,7 @@ class PreparedProblem:
     bubble_D1: np.ndarray | None = None
     bubble_D2: np.ndarray | None = None
     medium: MediumOperators | None = None
+    forcing: PreparedForcing | None = None
 
     def solve(self, tv) -> SimulationResult:
         """Run the prepared problem and return full physical outputs."""
@@ -376,7 +496,7 @@ def pvsat(T):
 
 def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
            pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0,
-           masstrans=0):
+           masstrans=0, physics=None):
     """Nondimensional groups, matching f_call_params.m.
 
     P0's exponent depends on bubtherm (f_call_params.m:158-163): 3*kappa
@@ -385,43 +505,67 @@ def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
     NOT the same formula, and using the wrong one silently gives a P(0)
     off by ~8.6x for these test parameters, not a subtle error.
     """
-    Uc = np.sqrt(P8 / RHO)
+    physics = PhysicalParameters() if physics is None else physics
+    P8_value = physics.far_field_pressure_pa
+    density = physics.medium_density_kg_m3
+    surface_tension = physics.surface_tension_n_m
+    kappa = physics.polytropic_exponent
+    Uc = np.sqrt(P8_value / density)
     t0 = R0 / Uc
-    Ca = P8 / G if G > 0 else np.inf
-    Re8 = P8 * R0 / (mu * Uc)
-    We = P8 * R0 / (2 * SURF)
+    Ca = P8_value / G if G > 0 else np.inf
+    Re8 = P8_value * R0 / (mu * Uc)
+    We = P8_value * R0 / (2 * surface_tension)
     Pv = vapor * pvsat(T8)
-    P0_exp = 3 if bubtherm else 3 * KAPPA
-    P0 = (P8 + 2 * SURF / Req - Pv) * (Req / R0) ** P0_exp
-    Pv_star = Pv / P8
-    Pb = P0 / P8 + Pv_star
+    P0_exp = 3 if bubtherm else 3 * kappa
+    P0 = (
+        P8_value + 2 * surface_tension / Req - Pv
+    ) * (Req / R0) ** P0_exp
+    Pv_star = Pv / P8_value
+    Pb = P0 / P8_value + Pv_star
     # thermal groups (f_call_params.m); cheap, computed unconditionally so
     # bubtherm=1 needs no separate params() path
-    K8 = 0.5 * (_ATG * T8 + _BTG + _ATV * T8 + _BTV)
-    chi = T8 * K8 / (P8 * R0 * Uc)
-    alpha_g = _ATG * T8 / K8
-    beta_g = _BTG / K8
-    alpha_v = _ATV * T8 / K8
-    beta_v = _BTV / K8
+    K8 = 0.5 * (
+        physics.gas_conductivity_slope * T8
+        + physics.gas_conductivity_offset
+        + physics.vapor_conductivity_slope * T8
+        + physics.vapor_conductivity_offset
+    )
+    chi = T8 * K8 / (P8_value * R0 * Uc)
+    alpha_g = physics.gas_conductivity_slope * T8 / K8
+    beta_g = physics.gas_conductivity_offset / K8
+    alpha_v = physics.vapor_conductivity_slope * T8 / K8
+    beta_v = physics.vapor_conductivity_offset / K8
     # medium (liquid) thermal groups, f_call_params.m -- Dm=Km/(rho*Cp) is the
     # standard liquid thermal-diffusivity formula (confirmed from source, not
     # assumed); needed only when medtherm=1 but cheap to compute unconditionally
-    Dm = _KM / (RHO * _CP)
+    Dm = (
+        physics.medium_conductivity_w_m_k
+        / (density * physics.medium_specific_heat_j_kg_k)
+    )
     Foh = Dm / (Uc * R0)
-    iota = _KM / (K8 * _LT)
-    Br = Uc ** 2 / (_CP * T8)
+    iota = (
+        physics.medium_conductivity_w_m_k
+        / (K8 * physics.medium_grid_length)
+    )
+    Br = Uc ** 2 / (physics.medium_specific_heat_j_kg_k * T8)
     # mass-transfer / vapor-species groups (f_call_params.m). kv0 (the initial/
     # reference vapor mass fraction) is only physically meaningful for vapor=1
     # (Pv_star>0) -- confirmed from source: with Pv_star=0 the mass-ratio
     # formula below is a 0/0-type limit that IEEE arithmetic resolves to
     # kv0=0, matching the dry-gas (bubtherm-only) case exactly.
-    Rv = _RU / _MWV
-    Rg = _RU / _MWG
-    Rnondim = P8 / (RHO * T8)
+    Rv = (
+        physics.universal_gas_constant_j_mol_k
+        / physics.vapor_molar_mass_kg_mol
+    )
+    Rg = (
+        physics.universal_gas_constant_j_mol_k
+        / physics.gas_molar_mass_kg_mol
+    )
+    Rnondim = P8_value / (density * T8)
     Rv_star = Rv / Rnondim
     Rg_star = Rg / Rnondim
-    Fom = _D0 / (Uc * R0)
-    L_heat_star = _LHEAT / Uc ** 2
+    Fom = physics.mass_diffusivity_m2_s / (Uc * R0)
+    L_heat_star = physics.latent_heat_j_kg / Uc ** 2
     if masstrans and vapor == 0:
         raise ValueError("masstrans=1 requires vapor=1 (kv0's formula is only "
                           "physically meaningful with Pv_star>0)")
@@ -429,15 +573,30 @@ def params(R0, Req, G, mu, lam1=0.0, lam2=0.0, alphax=0.25, vapor=0, T8=298.15,
         kv0 = 1.0 / (1.0 + (Rv_star / Rg_star) * (Pb / Pv_star - 1.0))
     else:
         kv0 = 0.0
-    return dict(t0=t0, Ca=Ca, Re8=Re8, iWe=1.0 / We, req=Req / R0,
-                Pb=Pb, Pv=Pv_star, T8=T8,
+    tait_gamma = physics.tait_pressure_pa / P8_value
+    tait_sam = 1.0 + tait_gamma
+    tait_no = (physics.tait_exponent - 1.0) / physics.tait_exponent
+    Cstar = physics.sound_speed_m_s / Uc
+    nog = (physics.tait_exponent - 1.0) / 2.0
+    mie_reference = _mie_F(
+        _mu_of_A(1.0 / Cstar ** 2, physics.hugoniot_slope, nog),
+        physics.hugoniot_slope,
+        nog,
+    )
+    return dict(t0=t0, Uc=Uc, P8=P8_value, Ca=Ca, Re8=Re8,
+                iWe=1.0 / We, req=Req / R0, Pb=Pb, Pv=Pv_star, T8=T8,
+                kappa=kappa, kapover=(kappa - 1.0) / kappa,
                 De=(lam1 * Uc / R0 if lam1 > 0 else 0.0),
                 LAM=(lam2 / lam1 if lam1 > 0 else 0.0),
-                Cstar=C8 / Uc, alphax=alphax,
-                ee=pA / P8, om=omega * t0, tw=TW / t0, dt=DT / t0, mn=mn,
+                Cstar=Cstar, alphax=alphax,
+                tait_gamma=tait_gamma, tait_sam=tait_sam, tait_no=tait_no,
+                tait_exponent=physics.tait_exponent,
+                hugoniot_slope=physics.hugoniot_slope, nog=nog,
+                mie_reference=mie_reference,
+                ee=pA / P8_value, om=omega * t0, tw=TW / t0, dt=DT / t0, mn=mn,
                 wave_type=wave_type, chi=chi, alpha_g=alpha_g, beta_g=beta_g,
                 alpha_v=alpha_v, beta_v=beta_v,
-                Foh=Foh, iota=iota, Br=Br, Lt=_LT,
+                Foh=Foh, iota=iota, Br=Br, Lt=physics.medium_grid_length,
                 Rv_star=Rv_star, Rg_star=Rg_star, Fom=Fom,
                 L_heat_star=L_heat_star, kv0=kv0)
 
@@ -488,8 +647,22 @@ def _stress(stress, p, R, Rd, Z):
     raise ValueError(f"stress={stress} not supported")
 
 
-def _pinf(tn, p):
+def _sampled_pressure(tn, forcing):
+    if tn < forcing.knots[0] or tn > forcing.knots[-1]:
+        return 0.0, 0.0
+    interval = np.searchsorted(forcing.knots, tn, side="right") - 1
+    interval = min(interval, forcing.knots.size - 2)
+    offset = tn - forcing.knots[interval]
+    c0, c1, c2, c3 = forcing.coefficients[:, interval]
+    pressure = ((c0 * offset + c1) * offset + c2) * offset + c3
+    pressure_rate = (3.0 * c0 * offset + 2.0 * c1) * offset + c2
+    return pressure, pressure_rate
+
+
+def _pinf(tn, p, forcing=None):
     """Far-field pressure perturbation (Pf8, Pf8dot), f_pinfinity.m. Nondimensional."""
+    if forcing is not None:
+        return _sampled_pressure(tn, forcing)
     wt, ee, om, tw, dt, mn = (p['wave_type'], p['ee'], p['om'], p['tw'], p['dt'], p['mn'])
     if ee == 0.0:
         return 0.0, 0.0
@@ -520,6 +693,24 @@ def _freeze_array(values) -> np.ndarray:
     return array
 
 
+def _prepare_forcing(config, parameters):
+    if config.sampled_forcing is None:
+        return None
+    forcing = config.sampled_forcing
+    knots = np.asarray(forcing.time_s) / parameters["t0"]
+    values = np.asarray(forcing.pressure_pa) / parameters["P8"]
+    interpolant = PchipInterpolator(knots, values, extrapolate=False)
+    return PreparedForcing(
+        knots=_freeze_array(knots),
+        coefficients=_freeze_array(interpolant.c),
+    )
+
+
+def _thermal_state(temperature_ratio, alpha):
+    shifted = 1.0 + alpha * (temperature_ratio - 1.0)
+    return (shifted ** 2 - 1.0) / (2.0 * alpha)
+
+
 def prepare(config: SimulationConfig) -> PreparedProblem:
     """Prepare reusable grids, operators, parameters, and state layout."""
     if not isinstance(config, SimulationConfig):
@@ -528,11 +719,29 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         config.R0, config.Req, config.G, config.mu, config.lam1, config.lam2,
         config.alphax, config.vapor, config.T8, config.pA, config.omega,
         config.TW, config.DT, config.mn, config.wave_type, config.bubtherm,
-        config.masstrans,
+        config.masstrans, config.physics,
     )
+    initial = config.initial
+    if initial.internal_pressure_pa is not None:
+        p["Pb"] = initial.internal_pressure_pa / p["P8"]
     layout = StateLayout.from_config(config)
     initial_state = np.zeros(layout.size)
     initial_state[0] = 1.0
+    initial_state[1] = initial.wall_velocity_m_s / p["Uc"]
+
+    if initial.bubble_temperature_k is not None and not config.bubtherm:
+        raise ValueError("initial bubble temperature requires bubtherm=1")
+    if initial.medium_temperature_k is not None and not config.medtherm:
+        raise ValueError("initial medium temperature requires medtherm=1")
+    if initial.vapor_mass_fraction is not None and not config.masstrans:
+        raise ValueError("initial vapor mass fraction requires masstrans=1")
+    stress_width = layout.stress.stop - layout.stress.start
+    if initial.stress_state is not None and len(initial.stress_state) != stress_width:
+        raise ValueError(
+            f"initial stress_state requires exactly {stress_width} values"
+        )
+    if initial.stress_state is not None:
+        initial_state[layout.stress] = initial.stress_state
 
     bubble_grid = None
     bubble_D1 = None
@@ -543,8 +752,34 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         bubble_grid = _freeze_array(np.linspace(0.0, 1.0, config.Nt))
         bubble_D1 = _freeze_array(finite_diff_mat(config.Nt, 1, tm_check=0))
         bubble_D2 = _freeze_array(finite_diff_mat(config.Nt, 2, tm_check=0))
+        vapor_fraction = (
+            p["kv0"]
+            if initial.vapor_mass_fraction is None
+            else initial.vapor_mass_fraction
+        )
+        if config.masstrans:
+            initial_state[layout.vapor_fraction] = vapor_fraction
+        temperature_ratio = (
+            1.0
+            if initial.bubble_temperature_k is None
+            else initial.bubble_temperature_k / config.T8
+        )
+        alpha = (
+            vapor_fraction * p["alpha_v"]
+            + (1.0 - vapor_fraction) * p["alpha_g"]
+            if config.masstrans
+            else p["alpha_g"]
+        )
+        initial_state[layout.bubble_thermal] = _thermal_state(
+            temperature_ratio, alpha
+        )
         if config.medtherm:
-            initial_state[layout.medium_thermal] = 1.0
+            medium_temperature_ratio = (
+                1.0
+                if initial.medium_temperature_k is None
+                else initial.medium_temperature_k / config.T8
+            )
+            initial_state[layout.medium_thermal] = medium_temperature_ratio
             Nm = config.Mt - 1
             deltaYm = -2.0 / Nm
             xi = 1.0 + np.arange(config.Mt) * deltaYm
@@ -572,9 +807,6 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
                     -coeff * p["Fom"] * p["L_heat_star"] / deltaY
                 ),
             )
-        if config.masstrans:
-            initial_state[layout.vapor_fraction] = p["kv0"]
-
     return PreparedProblem(
         config=config,
         parameters=MappingProxyType(p),
@@ -584,6 +816,7 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         bubble_D1=bubble_D1,
         bubble_D2=bubble_D2,
         medium=medium,
+        forcing=_prepare_forcing(config, p),
     )
 
 
@@ -612,10 +845,7 @@ def _mie_F(mu, s=_HUGONIOT_S, nog=_NOG):
             - (2 * nog + s - 1) / ((s + 1) ** 2 * w))
 
 
-_F_MU1_FIXED = _mie_F(_mu_of_A(1.0 / _CSTAR_FIXED ** 2))
-
-
-def _mie_gruneisen(P, Cstar=_CSTAR_FIXED, s=_HUGONIOT_S, nog=_NOG):
+def _mie_gruneisen(P, Cstar, s, nog, reference):
     """(C, hB, hH) at nondimensional pressure P, f_mie_gruneisen_eos_scalar.m.
     hB = integral_1^P rho(p) dp via the closed form above, not live quadrature."""
     A = P / Cstar ** 2
@@ -627,7 +857,7 @@ def _mie_gruneisen(P, Cstar=_CSTAR_FIXED, s=_HUGONIOT_S, nog=_NOG):
     with np.errstate(invalid='ignore'):
         C = Cstar * np.sqrt(((1 + 2 * nog * mu) * w ** 2 + 2 * s * mu * (1 + nog * mu) * w) / w ** 4)
     hH = 1.0 / (1.0 + mu)
-    hB = Cstar ** 2 * (_mie_F(mu, s, nog) - _F_MU1_FIXED)
+    hB = Cstar ** 2 * (_mie_F(mu, s, nog) - reference)
     return C, hB, hH
 
 
@@ -647,10 +877,10 @@ def _dissipation(stress, p, R, Rd, yT2, yT3, iyT3, iyT4, iyT6):
     return base   # stress in {1, 3, 5}: identical to the base formula
 
 
-def _kv_of_T(Tw, P, T8, Rvg_ratio):
+def _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale):
     """Wall vapor mass fraction from vapor-liquid equilibrium, f_kv_of_T.m.
     Tw is nondimensional; pvsat() takes a dimensional temperature."""
-    theta_var = Rvg_ratio * (P / (pvsat(Tw * T8) / P8) - 1.0)
+    theta_var = Rvg_ratio * (P / (pvsat(Tw * T8) / pressure_scale) - 1.0)
     return 1.0 / (1.0 + theta_var)
 
 
@@ -696,7 +926,7 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
 
 def _wall_theta_bw_full(guess, theta_tail, Tm_tail, kv_tail, kv_end_stale, P,
                          alpha_v, alpha_g, T8, Rvg_ratio, Rva_diff, Rg_star,
-                         grad_Tm, grad_Trans, grad_C):
+                         pressure_scale, grad_Tm, grad_Trans, grad_C):
     """Solve coupled heat-flux + vapor-mass-flux continuity at the wall for
     theta[-1], f_bubble_wall_full_bc.m. alpha_m uses kv_end_stale (the raw,
     pre-update kv[-1] state) -- the same one-step lag as _kv_of_T's own
@@ -706,7 +936,7 @@ def _wall_theta_bw_full(guess, theta_tail, Tm_tail, kv_tail, kv_end_stale, P,
 
     def resid(theta_bw):
         Tw = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_m)) / alpha_m
-        kvw = _kv_of_T(Tw, P, T8, Rvg_ratio)
+        kvw = _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale)
         lhs = grad_Tm[0] * Tw + grad_Tm[1] * Tm_tail[0] + grad_Tm[2] * Tm_tail[1]
         rhs = grad_Trans[0] * theta_bw + grad_Trans[1] * theta_tail[0] + grad_Trans[2] * theta_tail[1]
         scalar = P / ((kvw * Rva_diff + Rg_star) * (Tw * (1.0 - kvw)))
@@ -747,6 +977,7 @@ def _apply_thermal_boundaries(
             p["Rv_star"] / p["Rg_star"],
             p["Rv_star"] - p["Rg_star"],
             p["Rg_star"],
+            p["P8"],
             medium.grad_Tm,
             medium.grad_Trans,
             medium.grad_C,
@@ -770,7 +1001,11 @@ def _apply_thermal_boundaries(
             alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_m)
         ) / alpha_m
         kv[-1] = _kv_of_T(
-            temperature[-1], P, p["T8"], p["Rv_star"] / p["Rg_star"]
+            temperature[-1],
+            P,
+            p["T8"],
+            p["Rv_star"] / p["Rg_star"],
+            p["P8"],
         )
     else:
         alpha_g = p["alpha_g"]
@@ -783,10 +1018,11 @@ def _apply_thermal_boundaries(
 
 
 def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
-          medtherm=0, mt=None, masstrans=0, wall_state=None):
+          medtherm=0, mt=None, masstrans=0, wall_state=None, forcing=None):
     R = max(y[0], 1e-8)
     Rd = y[1]
     Pv = p['Pv']
+    kappa = p["kappa"]
 
     kv = None
     if bubtherm:
@@ -806,13 +1042,13 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         )
         Zstart = idx
     else:
-        P = (p['Pb'] - Pv) * R ** (-3 * KAPPA) + Pv          # f_imr_fd.m:412
+        P = (p['Pb'] - Pv) * R ** (-3 * kappa) + Pv          # f_imr_fd.m:412
         Zstart = 2
 
     nz = _nZ(stress)
     Z = y[Zstart:Zstart + nz] if nz else None
     S, Sdot, dZ = _stress(stress, p, R, Rd, Z)
-    Pf8, Pf8dot = _pinf(tn, p)
+    Pf8, Pf8dot = _pinf(tn, p, forcing)
     iWe = p['iWe']
 
     thetadot = None
@@ -834,15 +1070,18 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
             ddkv = D2 @ kv
             Rmix = kv * Rv_star + (1.0 - kv) * Rg_star
             RDkv = (Rva_diff / Rmix) * dkv
-            Pdot = 3.0 / R * (chi * (KAPPA - 1.0) * dtheta[-1] / R - KAPPA * P * Rd
-                              + KAPPA * P * Fom * Rv_star * dkv[-1]
+            Pdot = 3.0 / R * (chi * (kappa - 1.0) * dtheta[-1] / R - kappa * P * Rd
+                              + kappa * P * Fom * Rv_star * dkv[-1]
                               / (T[-1] * R * Rmix[-1] * (1.0 - kv[-1])))
-            Uvel = ((chi / R * (KAPPA - 1.0) * dtheta - ygrid * R * Pdot / 3.0) / (KAPPA * P)
+            Uvel = ((chi / R * (kappa - 1.0) * dtheta - ygrid * R * Pdot / 3.0) / (kappa * P)
                     + Fom / R * RDkv)
             Kstar_g = alpha_g * T + beta_g
             Kstar_v = alpha_v * T + beta_v
             Kstar = kv * Kstar_v + (1.0 - kv) * Kstar_g
-            nonlinear_term = (chi * ddtheta / R ** 2 + Pdot) * (KAPOVER * Kstar * T / P)
+            nonlinear_term = (
+                (chi * ddtheta / R ** 2 + Pdot)
+                * (p["kapover"] * Kstar * T / P)
+            )
             advection_term = -dtheta * (Uvel - ygrid * Rd) / R
             mass_diffusion = (Fom / R ** 2) * (Rva_diff / Rmix) * dkv * dtheta
             thetadot = advection_term + nonlinear_term + mass_diffusion
@@ -857,15 +1096,22 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
             # differs (wall-BC solve above vs. frozen at its initial value).
             dtheta = D1 @ theta
             ddtheta = D2 @ theta
-            Pdot = 3.0 / R * (chi * (KAPPA - 1.0) * dtheta[-1] / R - KAPPA * P * Rd)
-            Uvel = (chi / R * (KAPPA - 1.0) * dtheta - ygrid * R * Pdot / 3.0) / (KAPPA * P)
+            Pdot = 3.0 / R * (
+                chi * (kappa - 1.0) * dtheta[-1] / R - kappa * P * Rd
+            )
+            Uvel = (
+                chi / R * (kappa - 1.0) * dtheta - ygrid * R * Pdot / 3.0
+            ) / (kappa * P)
             Kstar = alpha_g * T + beta_g
-            diffusion = (chi * ddtheta / R ** 2 + Pdot) * (KAPOVER * Kstar * T / P)
+            diffusion = (
+                (chi * ddtheta / R ** 2 + Pdot)
+                * (p["kapover"] * Kstar * T / P)
+            )
             advection = -dtheta * (Uvel - ygrid * Rd) / R
             thetadot = advection + diffusion
             thetadot[-1] = 0.0
     else:
-        Pdot = -3 * KAPPA * (p['Pb'] - Pv) * R ** (-3 * KAPPA - 1) * Rd
+        Pdot = -3 * kappa * (p['Pb'] - Pv) * R ** (-3 * kappa - 1) * Rd
 
     Tmdot = None
     if medtherm:
@@ -904,20 +1150,26 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         Rdd = num / den
     elif radial == 3:                                   # Keller-Miksis, enthalpy, Tait EoS
         Cs = p['Cstar']
-        Pb = P - iWe / R + _GAMA_TAIT + S
-        hB = (_SAM_TAIT / _NO_TAIT) * ((Pb / _SAM_TAIT) ** _NO_TAIT - 1.0)
-        hH = (_SAM_TAIT / Pb) ** (1.0 / _NSTATE_TAIT)
+        Pb = P - iWe / R + p["tait_gamma"] + S
+        hB = (
+            p["tait_sam"] / p["tait_no"]
+            * ((Pb / p["tait_sam"]) ** p["tait_no"] - 1.0)
+        )
+        hH = (p["tait_sam"] / Pb) ** (1.0 / p["tait_exponent"])
         num = ((1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot
                + R / Cs * hH * (Pdot + iWe * Rd / R ** 2 + Sdot)
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
         den = (1 - Rd / Cs) * R + _JdotA(stress, p) * hH / Cs
         Rdd = num / den
     elif radial == 4:                                   # Gilmore, Tait EoS
-        Pb = P - iWe / R + _GAMA_TAIT + S
-        rho = (Pb / _SAM_TAIT) ** (1.0 / _NSTATE_TAIT)
-        Cs = np.sqrt(_NSTATE_TAIT * Pb / rho)
-        hB = (_SAM_TAIT / _NO_TAIT) * ((Pb / _SAM_TAIT) ** _NO_TAIT - 1.0)
-        hH = (_SAM_TAIT / Pb) ** (1.0 / _NSTATE_TAIT)
+        Pb = P - iWe / R + p["tait_gamma"] + S
+        rho = (Pb / p["tait_sam"]) ** (1.0 / p["tait_exponent"])
+        Cs = np.sqrt(p["tait_exponent"] * Pb / rho)
+        hB = (
+            p["tait_sam"] / p["tait_no"]
+            * ((Pb / p["tait_sam"]) ** p["tait_no"] - 1.0)
+        )
+        hH = (p["tait_sam"] / Pb) ** (1.0 / p["tait_exponent"])
         num = ((1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot
                + R / Cs * hH * (Pdot + iWe * Rd / R ** 2 + Sdot)
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
@@ -928,7 +1180,13 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         # from radial=3/4's Pb, not reconciled/harmonized with them).
         Cs = p['Cstar']
         Pb = P - iWe / R
-        _, hB, hH = _mie_gruneisen(Pb, Cs)
+        _, hB, hH = _mie_gruneisen(
+            Pb,
+            Cs,
+            p["hugoniot_slope"],
+            p["nog"],
+            p["mie_reference"],
+        )
         num = ((1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot
                + R / Cs * hH * (Pdot + iWe * Rd / R ** 2 + Sdot)
                - 1.5 * (1 - Rd / (3 * Cs)) * Rd ** 2)
@@ -1022,11 +1280,13 @@ def _build_result(
     states = solution.y.T
     radius_ratio = states[:, 0]
     velocity = states[:, 1]
-    Uc = np.sqrt(P8 / RHO)
+    Uc = p["Uc"]
+    pressure_scale = p["P8"]
+    kappa = p["kappa"]
 
     if layout.pressure is None:
         pressure = (
-            (p["Pb"] - p["Pv"]) * radius_ratio ** (-3 * KAPPA) + p["Pv"]
+            (p["Pb"] - p["Pv"]) * radius_ratio ** (-3 * kappa) + p["Pv"]
         )
     else:
         pressure = states[:, layout.pressure]
@@ -1052,8 +1312,10 @@ def _build_result(
         time_s=_readonly_float_array(time_s),
         radius_ratio=_readonly_float_array(radius_ratio),
         wall_velocity_m_s=_readonly_float_array(Uc * velocity),
-        internal_pressure_pa=_readonly_float_array(P8 * pressure),
-        stress_integral_pa=_readonly_float_array(P8 * stress_integral),
+        internal_pressure_pa=_readonly_float_array(pressure_scale * pressure),
+        stress_integral_pa=_readonly_float_array(
+            pressure_scale * stress_integral
+        ),
         bubble_temperature_k=_readonly_optional(bubble_temperature),
         medium_temperature_k=_readonly_optional(medium_temperature),
         vapor_mass_fraction=_readonly_optional(vapor_fraction),
@@ -1086,6 +1348,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
         problem.medium,
         config.masstrans,
         _WallState(),
+        problem.forcing,
     )
     started = perf_counter()
     solution = solve_ivp(
@@ -1101,10 +1364,13 @@ def _integrate_prepared(problem: PreparedProblem, tv):
     )
     elapsed = perf_counter() - started
     complete = solution.y.shape[1] == time_s.size
-    success = bool(solution.success and complete)
+    finite = bool(np.all(np.isfinite(solution.y)))
+    success = bool(solution.success and complete and finite)
     message = str(solution.message)
     if solution.success and not complete:
         message = f"{message}; terminated before the final requested time"
+    elif solution.success and not finite:
+        message = f"{message}; solution contains non-finite states"
     stats = SolverStats(
         backend="scipy-lsoda",
         success=success,

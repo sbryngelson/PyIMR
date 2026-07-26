@@ -2,6 +2,9 @@ import numpy as np
 import pytest
 
 from imr_fast import (
+    InitialState,
+    PhysicalParameters,
+    SampledForcing,
     SimulationConfig,
     SimulationResult,
     prepare,
@@ -70,6 +73,45 @@ def test_prepared_problem_is_reusable_and_returns_active_fields():
     assert first.vapor_mass_fraction.shape == (times.size, config.Nt)
     assert first.stress_state.shape == (times.size, 1)
     assert first.stats.success and first.stats.nfev > 0
+
+
+def test_sampled_constant_forcing_matches_analytic_forcing():
+    times = np.linspace(0.0, 2e-5, 30)
+    analytic = simulate(times, base_config(pA=4e4))
+    sampled = simulate(
+        times,
+        base_config(
+            sampled_forcing=SampledForcing(
+                time_s=(times[0], times[-1]),
+                pressure_pa=(4e4, 4e4),
+            )
+        ),
+    )
+
+    np.testing.assert_array_equal(sampled.radius_ratio, analytic.radius_ratio)
+
+
+def test_configurable_physics_and_initial_conditions_are_dimensional():
+    times = np.linspace(0.0, 1e-6, 5)
+    config = base_config(
+        bubtherm=1,
+        physics=PhysicalParameters(
+            far_field_pressure_pa=9e4,
+            medium_density_kg_m3=1000.0,
+            polytropic_exponent=1.3,
+        ),
+        initial=InitialState(
+            wall_velocity_m_s=2.0,
+            internal_pressure_pa=1.5e5,
+            bubble_temperature_k=310.0,
+        ),
+    )
+
+    result = simulate(times, config)
+
+    assert result.wall_velocity_m_s[0] == pytest.approx(2.0)
+    assert result.internal_pressure_pa[0] == pytest.approx(1.5e5)
+    assert result.bubble_temperature_k[0, 0] == pytest.approx(310.0)
 
 
 @pytest.mark.parametrize(

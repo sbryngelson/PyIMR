@@ -521,21 +521,48 @@ current 82.
       material predicates `_is_distributed_stress` and `_stress_state_count`
       moved to `_imr_materials.py` where they belong, which is what made the
       cut acyclic. **`imr_fast.py` 2683 -> 1396 over four splits (-48%).**
-- [ ] Get every file under ~800. `imr_fast.py` (1396) now holds the config and
-      prepared-problem dataclasses, `params`, `prepare`, the collapse
-      precursor, and the integrate/build-result path. The next cut is
-      `_imr_config.py` for the frozen dataclasses plus `_imr_prepare.py` for
-      `params`/`prepare`/collapse; `PreparedProblem.solve()` would need the
-      same deferred-import trick it already uses for
-      `solve_with_sensitivities`. `imr_sensitivity.py` (1001) is untouched and
-      is dominated by `solve_with_sensitivities` (146), `_material_parameters`
-      (107) and `_output_duals` (101).
+- [x] `_imr_config.py` (568): the frozen config, prepared-problem and result
+      dataclasses, their validation, and the physical defaults.
+      `PreparedProblem.solve` defers its `_solve_prepared` import, the same
+      trick it already used for `solve_with_sensitivities`.
+- [x] `_imr_prepare.py` (530): `params`, the `_prepare_*` helpers, the collapse
+      precursor and `prepare` itself.
+- [x] **`imr_fast.py` 2683 -> 482 over six splits (-82%).** Every module is now
+      under the ~800 target except `imr_sensitivity.py` (1001), which is
+      untouched and dominated by `solve_with_sensitivities` (146),
+      `_material_parameters` (107) and `_output_duals` (101).
 
-      **Method note:** extract with AST spans and delete in descending line
-      order; naive line slicing silently corrupted a first attempt. Do not run
-      `ruff check --fix` on the new module before its imports are complete --
-      it strips the not-yet-used imports as F401 and the failure then looks
-      like a missing name.
+      | module | lines |
+      |---|---|
+      | `imr_sensitivity.py` | 1001 |
+      | `_imr_mechanical.py` | 647 |
+      | `_imr_config.py` | 568 |
+      | `_imr_prepare.py` | 530 |
+      | `imr_fast.py` | 482 |
+      | `_imr_materials.py` | 452 |
+      | `_imr_stress.py` | 359 |
+      | `imr_inference.py` | 331 |
+      | `_imr_rhs.py` | 315 |
+      | `_imr_thermal.py` | 287 |
+      | `imr_data.py` | 181 |
+
+      **Method notes, all learned the hard way:**
+
+      1. Extract with AST spans and delete in descending line order. Naive line
+         slicing silently corrupted a first attempt.
+      2. AST `lineno` for a decorated class points at `class`, **not** the
+         decorator. Use `min(node.lineno, *[d.lineno for d in
+         node.decorator_list])` or every `@dataclass` is orphaned in the source
+         file and missing from the destination -- which turns frozen
+         dataclasses into plain classes without any import error.
+      3. Tuple-target assignments (`_ATG, _BTG = ...`) are invisible to a scan
+         that only matches `ast.Name` targets.
+      4. Do not run `ruff check --fix` on a new module before its imports are
+         complete -- it strips not-yet-used imports as F401 and the failure
+         then presents as a missing name. It also silently dropped
+         `finite_diff_mat` from `imr_fast`, breaking
+         `validate_bubtherm_adiabatic.py`, which nothing in CI ran. Those two
+         standalone scripts are now covered by `tests/test_api.py`.
 - [ ] Fold one-line function bodies onto the `def` line -- see trade-off below.
 - [ ] Add `.git-blame-ignore-revs` for the reformat commit when this is
       committed.

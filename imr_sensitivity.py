@@ -562,6 +562,13 @@ def _material_parameters(material, width):
         viscous.time_constant_s,
         viscous.transition_exponent,
       )
+    elif isinstance(viscous, (_solver.PowellEyring, _solver.ModifiedPowellEyring)):
+      viscous_code = 8 if isinstance(viscous, _solver.ModifiedPowellEyring) else 7
+      viscous_fields = (
+        viscous.zero_shear_viscosity_pa_s,
+        viscous.infinite_shear_viscosity_pa_s,
+        viscous.time_constant_s,
+      )
     elif isinstance(viscous, _solver.HerschelBulkley):
       viscous_code = 5
       viscous_fields = (

@@ -125,6 +125,15 @@ class Dual:
   def log(self):
     return Dual(np.log(self.value), self.tangent / self.value)
 
+  def log1p(self):
+    return Dual(np.log1p(self.value), self.tangent / (1.0 + self.value))
+
+  def arcsinh(self):
+    return Dual(
+      np.arcsinh(self.value),
+      self.tangent / np.sqrt(1.0 + self.value**2),
+    )
+
   def sin(self):
     return Dual(np.sin(self.value), np.cos(self.value) * self.tangent)
 
@@ -140,6 +149,8 @@ class Dual:
       np.exp: "exp",
       np.expm1: "expm1",
       np.log: "log",
+      np.log1p: "log1p",
+      np.arcsinh: "arcsinh",
       np.sin: "sin",
       np.cos: "cos",
       np.absolute: "__abs__",

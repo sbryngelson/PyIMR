@@ -133,6 +133,32 @@ def _viscosity(code, parameters, shear_rate):
     viscosity = infinite + difference / (1.0 + scaled)
     tangent = viscosity - difference * transition * scaled / (1.0 + scaled) ** 2
     return viscosity, tangent
+  if code == 7 or code == 8:
+    # NOTE: mechanical_tangent_rhs differentiates this by complex step, so
+    # every operation on the value path must stay analytic. sqrt(x*x) is
+    # the analytic |x|; abs() would discard the imaginary perturbation.
+    # log1p/arcsinh are spelled via log so numba handles complex input.
+    zero, infinite, time_constant = parameters[:3]
+    difference = zero - infinite
+    scaled = time_constant * shear_rate
+    u = np.sqrt(scaled * scaled)
+    if abs(u) < 1e-4:
+      if code == 8:
+        factor = 1.0 - u / 2.0 + u * u / 3.0
+        slope = -u / 2.0 + 2.0 * u * u / 3.0
+      else:
+        factor = 1.0 - u * u / 6.0 + 3.0 * u**4 / 40.0
+        slope = -u * u / 3.0 + 3.0 * u**4 / 10.0
+    elif code == 8:
+      logged = np.log(1.0 + u)
+      factor = logged / u
+      slope = (u / (1.0 + u) - logged) / u
+    else:
+      arc = np.log(u + np.sqrt(u * u + 1.0))
+      factor = arc / u
+      slope = (u / np.sqrt(1.0 + u * u) - arc) / u
+    viscosity = infinite + difference * factor
+    return viscosity, viscosity + difference * slope
   if code == 5:
     yield_stress, consistency, exponent, regularization = parameters[:4]
   else:

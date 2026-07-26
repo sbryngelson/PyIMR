@@ -230,10 +230,10 @@ def _rhs(
     den = (1 - Rd / Cs) * R + acceleration_coefficient * hH / Cs
     Rdd = num / den
   elif radial == 5:  # Keller-Miksis, enthalpy, Mie-Gruneisen EoS
-    # f_radial_eq.m: Pb = P - iWe/R (no +S here -- genuinely different
-    # from radial=3/4's Pb, not reconciled/harmonized with them).
+    # Pb matches radial=3/4. Upstream omits +S here; restoring it is what
+    # brings this branch back into agreement with the Tait forms (PLAN W9).
     Cs = p["Cstar"]
-    Pb = P - iWe / R
+    Pb = P - iWe / R + S
     _, hB, hH = _mie_gruneisen(Pb, Cs, p["hugoniot_slope"], p["nog"], p["mie_reference"])
     num = (
       (1 + Rd / Cs) * (hB - Pf8)
@@ -243,14 +243,18 @@ def _rhs(
     )
     den = (1 - Rd / Cs) * R + acceleration_coefficient * hH / Cs
     Rdd = num / den
+  elif radial == 6:  # Gilmore, Mie-Gruneisen EoS
+    Pb = P - iWe / R + S
+    Cs, hB, hH = _mie_gruneisen(Pb, p["Cstar"], p["hugoniot_slope"], p["nog"], p["mie_reference"])
+    num = (
+      (1 + Rd / Cs) * (hB - Pf8)
+      - R / Cs * Pf8dot
+      + R / Cs * hH * (Pdot + iWe * Rd / R**2 + Sdot)
+      - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
+    )
+    den = (1 - Rd / Cs) * R + acceleration_coefficient * hH / Cs
+    Rdd = num / den
   else:
-    # radial=6 (Gilmore, Mie-Gruneisen EoS) is NOT supported: as shipped,
-    # f_radial_eq.m evaluates the EoS at raw P (no iWe/R correction, unlike
-    # radial=5's Pb=P-iWe/R), which pushes the Gilmore sound-speed formula's
-    # discriminant negative for essentially every polytropic-gas P tested
-    # (confirmed against real IMRv2 -- it returns a COMPLEX R(t), not an
-    # error, for everything from mild oscillations to deep collapse). This
-    # is dead/broken code upstream, not a real reference to port against.
     raise ValueError(f"radial={radial} not supported")
 
   if distributed_stress is None:

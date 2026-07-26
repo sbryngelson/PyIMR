@@ -30,7 +30,7 @@ python tests/run_validation.py
 
 | option | setting |
 |---|---|
-| radial dynamics | Rayleigh-Plesset; Keller-Miksis pressure; KM enthalpy/Tait; Gilmore/Tait; KM enthalpy/Mie-Gruneisen |
+| radial dynamics | Rayleigh-Plesset; Keller-Miksis pressure; KM enthalpy/Tait; Gilmore/Tait; KM enthalpy/Mie-Gruneisen; Gilmore/Mie-Gruneisen |
 | bubble thermodynamics | polytropic closure or a gas thermal PDE |
 | medium thermodynamics | optional liquid thermal layer |
 | mass transfer | optional vapor transport |
@@ -409,10 +409,15 @@ estimates of physical-model error.
   The default polytropic exponent is 1.4; IMRv2 itself ships with 1.47.
 - `SimulationResult.stress_state` contains nondimensional internal variables.
   Public dimensional outputs carry units in their names or documentation.
-- Gilmore/Mie-Gruneisen (`radial = 6`) is unavailable because the corresponding
-  IMRv2 branch returns complex radii. Measured on the standard reference case:
-  `max|imag(R/R0)| = 4.069`, non-real at 299 of 300 points, returned without
-  any upstream error.
+- `radial = 6` (Gilmore/Mie-Gruneisen) **is supported here**, and is the one
+  configuration IMRv2 cannot run at all -- upstream returns complex radii
+  (`max|imag(R/R0)| = 4.069`) without raising. The cause is a wrong root of the
+  Mie-Gruneisen density quadratic; see the reference-implementation notes.
+- `radial = 5` and `radial = 6` **deliberately diverge from IMRv2**. Upstream's
+  Mie-Gruneisen branch is physically wrong; the corrections are validated
+  against the independent Tait branches and the weakly-compressible limit
+  rather than against upstream. `tests/ref_radial5.csv` is retained as a record
+  of upstream behaviour, not as a target.
 - Collapse shooting requires a material with memory and cannot be combined
   with an explicit initial stress state or nonzero observed wall velocity.
   IMRv2 does permit collapse for memoryless materials; see `PLAN.md` W8.
@@ -448,8 +453,22 @@ Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
   That single number accounts for the whole 1.55e-03 deviation on the pinned
   collapse-Zener trajectory; injecting upstream's own `Szero` reproduces it at
   2.08e-05. imr-fast root-finds `v = 0` instead, which is O(tol).
-- **`radial = 6` returns complex trajectories** without raising, and the
-  `radial` constraint is stated three mutually inconsistent ways.
+- **The Mie-Gruneisen branch takes the wrong root of its own density
+  quadratic.** `a*mu^2 + b*mu + A = 0` has roots tending to `0` and `-1/nog`
+  as `A -> 0`; `f_radial_eq.m` takes `(-b + sqrt(d))/(2a)`, which is the
+  `-1/nog` branch -- a 32.5% density deficit at ambient pressure, a 48-60%
+  enthalpy error, and a negative `c^2`. That negative `c^2` is why `radial = 6`
+  returns complex radii: it is the only branch that evaluates the sound speed
+  from the EoS. The branch also omits the stress term from `Pb`, which
+  `radial = 3` and `4` both include.
+
+  With the correct root, density and sound speed recover their ambient values
+  (`rho/rho0 - 1 = 4.3e-05`, `c/c0 - 1 = 2.8e-04`), the analytic enthalpy
+  matches both `h ~ P - 1` and a direct numerical integral of `1/rho`, and
+  `radial = 5` agrees with the independent Tait form `radial = 3` to
+  **5.2e-04** -- against **4.8e-01** as shipped. Upstream's `radial = 5`
+  collapses to `R/R0 = 0.0536` where its own Tait branch gives `0.0821`.
+- **The `radial` constraint is stated three mutually inconsistent ways.**
 - **`f_init_stress.m` uses an undefined `z1`** in the `De == 0 || De == Inf`
   branch. Unreachable for the memory models that call it, so latent rather
   than active.

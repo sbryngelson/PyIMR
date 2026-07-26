@@ -109,7 +109,7 @@ def test_distributed_constitutive_state_uses_prepared_grid():
   ("override", "message"),
   [
     ({"R0": 0.0}, "R0 must be finite and positive"),
-    ({"radial": 6}, "radial must be one of"),
+    ({"radial": 7}, "radial must be one of"),
     ({"medtherm": 1}, "medtherm=1 requires bubtherm=1"),
     ({"masstrans": 1}, "masstrans=1 requires bubtherm=1"),
   ],

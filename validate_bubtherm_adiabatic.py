@@ -18,6 +18,7 @@ question from that: run a "shadow polytropic" ODE (bubtherm=0 equation
 FORM) using bubtherm=1's OWN Pb, so both sides start from the identical
 initial condition and only the RHS structure is being tested.
 """
+
 import numpy as np
 from scipy.integrate import solve_ivp
 
@@ -33,27 +34,41 @@ print("=" * 72)
 
 
 def _shadow_polytropic(p, rtol, atol):
-    """bubtherm=0 RHS form, but using p['Pb'] as given (bubtherm=1's Pb)."""
-    tn = tv / p['t0']
-    y0 = [1.0, 0.0] + [0.0] * F._nZ(material)
-    s = solve_ivp(F._rhs, (tn[0], tn[-1]), y0, t_eval=tn,
-                  args=(p, material, 1, 0),   # bubtherm=0 RHS form
-                  method='LSODA', rtol=rtol, atol=atol)
-    return s.y[0]
+  """bubtherm=0 RHS form, but using p['Pb'] as given (bubtherm=1's Pb)."""
+  tn = tv / p["t0"]
+  y0 = [1.0, 0.0] + [0.0] * F._nZ(material)
+  s = solve_ivp(
+    F._rhs,
+    (tn[0], tn[-1]),
+    y0,
+    t_eval=tn,
+    args=(p, material, 1, 0),  # bubtherm=0 RHS form
+    method="LSODA",
+    rtol=rtol,
+    atol=atol,
+  )
+  return s.y[0]
 
 
 def _thermal_chi0(p, rtol, atol, Nt=25):
-    p = dict(p)
-    p['chi'] = 0.0   # not a physically meaningful override in general --
-    tn = tv / p['t0']  # intentionally not exposed via simulate()'s public API
-    D1 = F.finite_diff_mat(Nt, 1, tm_check=0)
-    D2 = F.finite_diff_mat(Nt, 2, tm_check=0)
-    ygrid = np.linspace(0.0, 1.0, Nt)
-    y0 = [1.0, 0.0, p['Pb']] + [0.0] * Nt
-    s = solve_ivp(F._rhs, (tn[0], tn[-1]), y0, t_eval=tn,
-                  args=(p, material, 1, 1, D1, D2, ygrid),
-                  method='LSODA', rtol=rtol, atol=atol)
-    return s.y[0]
+  p = dict(p)
+  p["chi"] = 0.0  # not a physically meaningful override in general --
+  tn = tv / p["t0"]  # intentionally not exposed via simulate()'s public API
+  D1 = F.finite_diff_mat(Nt, 1, tm_check=0)
+  D2 = F.finite_diff_mat(Nt, 2, tm_check=0)
+  ygrid = np.linspace(0.0, 1.0, Nt)
+  y0 = [1.0, 0.0, p["Pb"]] + [0.0] * Nt
+  s = solve_ivp(
+    F._rhs,
+    (tn[0], tn[-1]),
+    y0,
+    t_eval=tn,
+    args=(p, material, 1, 1, D1, D2, ygrid),
+    method="LSODA",
+    rtol=rtol,
+    atol=atol,
+  )
+  return s.y[0]
 
 
 # The (R,Rdot,P) subsystem is decoupled from theta once chi=0 (Pdot no longer
@@ -67,10 +82,10 @@ def _thermal_chi0(p, rtol, atol, Nt=25):
 print("  tolerance scaling (a real equation bug would NOT shrink here):")
 material = F.NeoHookeanKelvinVoigt(G, mu)
 for rtol, atol in [(1e-8, 1e-10), (1e-10, 1e-12), (1e-12, 1e-14)]:
-    p = F.params(R0, Req, material, bubtherm=1)
-    R_shadow = _shadow_polytropic(p, rtol, atol)
-    err_t = np.max(np.abs(_thermal_chi0(p, rtol, atol) - R_shadow))
-    print(f"    rtol={rtol:.0e} atol={atol:.0e}  ->  err={err_t:.3e}")
+  p = F.params(R0, Req, material, bubtherm=1)
+  R_shadow = _shadow_polytropic(p, rtol, atol)
+  err_t = np.max(np.abs(_thermal_chi0(p, rtol, atol) - R_shadow))
+  print(f"    rtol={rtol:.0e} atol={atol:.0e}  ->  err={err_t:.3e}")
 
 p = F.params(R0, Req, material, bubtherm=1)
 R_shadow = _shadow_polytropic(p, 1e-10, 1e-12)
@@ -84,9 +99,7 @@ print("=" * 72)
 print("SANITY: bubtherm=1 with REAL chi>0 should DIFFER from shadow-polytropic")
 print("        (confirms the thermal terms aren't silently inert)")
 print("=" * 72)
-config = F.SimulationConfig(
-    R0=R0, Req=Req, material=material, radial=1, bubtherm=1, Nt=25
-)
+config = F.SimulationConfig(R0=R0, Req=Req, material=material, radial=1, bubtherm=1, Nt=25)
 R_thermal_real = F.simulate(tv, config).radius_ratio
 diff = np.max(np.abs(R_thermal_real - R_shadow))
 nan_frac = np.mean(np.isnan(R_thermal_real))

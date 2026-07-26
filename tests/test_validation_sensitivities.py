@@ -45,9 +45,14 @@ def test_coupled_heat_mass_transfer_output_tangent(measured):
 
   The two measurements that separate those. The error is flat in the
   finite-difference step across a 16x range (8.33e-05, 8.43e-05, 8.34e-05 at
-  h = 0.2, 0.05, 0.0125), which rules out truncation in the check; and it falls
-  by more than two orders at rtol=1e-12/atol=1e-14, which a defect in the
-  tangent equations would not do.
+  h = 0.2, 0.05, 0.0125), which rules out truncation in the check; and at
+  h = 0.05 it moves 8.43e-05 -> 1.53e-06 when rtol/atol go from 1e-9/1e-11 to
+  1e-12/1e-14, which a defect in the tangent equations would not do.
+
+  A factor of 55 for three orders of tolerance, not the "two orders" first
+  claimed here: that figure came from the most favourable point of a sweep
+  whose error grew to 6.9e-06 as h shrank, so it described round-off in the
+  reference rather than the tangent.
 
   Step-independence alone is *not* enough to conclude the tangent is fine --
   it is also the signature of a broken derivative, which is how #10's

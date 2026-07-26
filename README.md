@@ -58,14 +58,32 @@ radius_ratio = simulate(t, R0=225e-6, Req=37.5e-6, G=2500.0, mu=0.1)
 New code should prefer the validated, structured API:
 
 ```python
-from imr_fast import SimulationConfig, simulate_result
+from imr_fast import SimulationConfig, prepare, simulate_result
 
 config = SimulationConfig(R0=225e-6, Req=37.5e-6, G=2500.0, mu=0.1)
 result = simulate_result(t, config)
 
-result.time_s       # immutable input-time copy
-result.radius_ratio # R/R0
-result.radius_m     # dimensional radius
+result.time_s                # immutable input-time copy
+result.radius_ratio          # R/R0
+result.radius_m              # dimensional radius
+result.wall_velocity_m_s     # wall velocity
+result.internal_pressure_pa  # bubble pressure
+result.stress_integral_pa    # integrated constitutive stress
+result.stats                 # LSODA status, work counters, and elapsed time
+```
+
+Thermal configurations additionally return bubble and liquid temperature fields
+and, when enabled, vapor mass fraction. Viscoelastic configurations expose their
+internal stress states. Fields that are not active for a configuration are
+`None`.
+
+For parameter studies that reuse one configuration and time grid, prepare its
+constant parameters, state layout, grids, and finite-difference operators once:
+
+```python
+problem = prepare(config)
+first = problem.solve(t)
+second = problem.solve(t)  # reuses immutable setup; solve state is fresh
 ```
 
 The structured API raises `SimulationError` if the integrator fails. The legacy
@@ -78,9 +96,9 @@ API retains its historical all-NaN failure return unless
   tension, sound speed, and liquid equation-of-state parameters are currently
   fixed to the reference-validation values. In particular, `kappa=1.4`, whereas
   IMRv2 ships with an overridable default of 1.47.
-- The main solver returns radius only. Pressure, velocity, temperature, and
-  concentration are integrated internally but are not yet part of its public
-  result.
+- `SimulationResult.stress_state` contains nondimensional internal solver
+  variables; physical wall velocity, pressure, stress integral, temperature,
+  radius, and time outputs carry units in their field names or documentation.
 - The models in `constitutive.py` are validated stress-integral functions, not
   selectable main-solver models.
 - `imr_grad.py` differentiates a separate RP/polytropic six-term stress-library

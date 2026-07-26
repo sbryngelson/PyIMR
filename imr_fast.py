@@ -46,14 +46,14 @@ medtherm=1 (requires bubtherm=1) adds the liquid boundary layer: a stretched
 exterior grid (Mt points, Lt controls the stretching), advection+diffusion+
 viscous-dissipation RHS for Tm, and the wall temperature theta[-1] is NOT a
 free state -- it is solved every RHS call via a 1-D root-find (scipy.optimize
-.newton, matching IMRv2's fzero-from-single-guess; f_bubble_wall_thermal_bc)
-enforcing heat-flux continuity across the interface, warm-started from the
-previous call's solution. thetadot[-1]=0 and Tmdot[0]=0 always (both slots
-are formally-integrated-but-frozen; their real continuity is the warm-start
-guess, external to the ODE state -- exactly mirroring IMRv2's own
-theta_bw_guess closure variable). GRADIENTS ARE NOT VALIDATED for medtherm=1:
-naive autodiff through the root-find would need the implicit function
-theorem, not attempted here.
+style secant iteration; f_bubble_wall_thermal_bc) enforcing heat-flux
+continuity across the interface. A warm-start value is scoped to one
+integration, matching IMRv2's continuation behavior without leaking state
+between repeated prepared solves.
+thetadot[-1]=0 and Tmdot[0]=0 always because both slots are algebraic boundary
+values rather than evolved states. GRADIENTS ARE NOT VALIDATED for medtherm=1:
+naive autodiff through the root-find would need the implicit function theorem,
+not attempted here.
 
 masstrans=1 (requires bubtherm=1, vapor=1) implements IMRv2's "if bubtherm &&
 masstrans" branch: a wall vapor mass fraction field kv(y,t), a mixture
@@ -79,10 +79,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from numbers import Integral
+from time import perf_counter
+from types import MappingProxyType
+from typing import Mapping
 
 import numpy as np
 from scipy.integrate import solve_ivp
-from scipy.optimize import newton
 
 from thermal_fd import finite_diff_mat
 
@@ -127,10 +129,15 @@ _MWV = 18.01528e-3   # molar mass, water vapor (kg/mol)
 _MWG = 28.966e-3     # molar mass, non-condensible gas / air (kg/mol)
 _D0 = 24.2e-6        # binary (vapor-in-gas) diffusion coefficient (m^2/s)
 _LHEAT = 2264.76e3   # latent heat of vaporization (J/kg)
+_STRESS_STATE_COUNTS = {0: 0, 1: 0, 2: 0, 3: 1, 4: 1, 5: 2}
 
 
 class SimulationError(RuntimeError):
     """Raised when the numerical integrator cannot complete a simulation."""
+
+    def __init__(self, message: str, stats: SolverStats | None = None):
+        super().__init__(message)
+        self.stats = stats
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,11 +193,116 @@ class SimulationConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class SolverStats:
+    """Integrator diagnostics for one completed or failed solve."""
+
+    backend: str
+    success: bool
+    message: str
+    nfev: int
+    njev: int
+    nlu: int
+    elapsed_s: float
+
+
+@dataclass(frozen=True, slots=True)
+class StateLayout:
+    """Named locations of fields in the nondimensional ODE state."""
+
+    pressure: int | None
+    bubble_thermal: slice | None
+    medium_thermal: slice | None
+    vapor_fraction: slice | None
+    stress: slice
+    size: int
+
+    @classmethod
+    def from_config(cls, config: SimulationConfig) -> StateLayout:
+        cursor = 2
+        pressure = None
+        bubble_thermal = None
+        medium_thermal = None
+        vapor_fraction = None
+        if config.bubtherm:
+            pressure = cursor
+            cursor += 1
+            bubble_thermal = slice(cursor, cursor + config.Nt)
+            cursor += config.Nt
+            if config.medtherm:
+                medium_thermal = slice(cursor, cursor + config.Mt)
+                cursor += config.Mt
+            if config.masstrans:
+                vapor_fraction = slice(cursor, cursor + config.Nt)
+                cursor += config.Nt
+        stress = slice(cursor, cursor + _STRESS_STATE_COUNTS[config.stress])
+        cursor = stress.stop
+        return cls(
+            pressure=pressure,
+            bubble_thermal=bubble_thermal,
+            medium_thermal=medium_thermal,
+            vapor_fraction=vapor_fraction,
+            stress=stress,
+            size=cursor,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MediumOperators:
+    """Prepared geometry and finite-difference operators for the liquid layer."""
+
+    xi: np.ndarray
+    yT: np.ndarray
+    yT2: np.ndarray
+    yT3: np.ndarray
+    iyT3: np.ndarray
+    iyT4: np.ndarray
+    iyT6: np.ndarray
+    D1: np.ndarray
+    D2: np.ndarray
+    grad_Tm: np.ndarray
+    grad_Trans: np.ndarray
+    grad_C: np.ndarray
+
+
+@dataclass(slots=True)
+class _WallState:
+    """Mutable wall-solve continuation state, private to one integration."""
+
+    theta: float = -1e-4
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedProblem:
+    """Reusable static data for repeated simulations of one configuration."""
+
+    config: SimulationConfig
+    parameters: Mapping[str, float]
+    layout: StateLayout
+    initial_state: np.ndarray
+    bubble_grid: np.ndarray | None = None
+    bubble_D1: np.ndarray | None = None
+    bubble_D2: np.ndarray | None = None
+    medium: MediumOperators | None = None
+
+    def solve(self, tv) -> SimulationResult:
+        """Run the prepared problem and return full physical outputs."""
+        return _solve_prepared(self, tv)
+
+
+@dataclass(frozen=True, slots=True)
 class SimulationResult:
-    """Immutable radius history returned by the strict public API."""
+    """Immutable physical histories returned by the strict public API."""
 
     time_s: np.ndarray
     radius_ratio: np.ndarray
+    wall_velocity_m_s: np.ndarray
+    internal_pressure_pa: np.ndarray
+    stress_integral_pa: np.ndarray
+    bubble_temperature_k: np.ndarray | None
+    medium_temperature_k: np.ndarray | None
+    vapor_mass_fraction: np.ndarray | None
+    stress_state: np.ndarray | None
+    stats: SolverStats
     config: SimulationConfig
 
     @property
@@ -205,6 +317,10 @@ def _readonly_float_array(values) -> np.ndarray:
     array = np.array(values, dtype=float, copy=True)
     array.setflags(write=False)
     return array
+
+
+def _readonly_optional(values) -> np.ndarray | None:
+    return None if values is None else _readonly_float_array(values)
 
 
 def _validate_inputs(tv, R0, Req, G, mu, stress, lam1, lam2, alphax, radial,
@@ -406,7 +522,80 @@ def _pinf(tn, p):
 
 def _nZ(stress):
     """Number of internal stress variables."""
-    return {0: 0, 1: 0, 2: 0, 3: 1, 4: 1, 5: 2}[stress]
+    return _STRESS_STATE_COUNTS[stress]
+
+
+def _freeze_array(values) -> np.ndarray:
+    array = np.asarray(values, dtype=float)
+    array.setflags(write=False)
+    return array
+
+
+def prepare(config: SimulationConfig) -> PreparedProblem:
+    """Prepare reusable grids, operators, parameters, and state layout."""
+    if not isinstance(config, SimulationConfig):
+        raise TypeError("config must be a SimulationConfig")
+    p = params(
+        config.R0, config.Req, config.G, config.mu, config.lam1, config.lam2,
+        config.alphax, config.vapor, config.T8, config.pA, config.omega,
+        config.TW, config.DT, config.mn, config.wave_type, config.bubtherm,
+        config.masstrans,
+    )
+    layout = StateLayout.from_config(config)
+    initial_state = np.zeros(layout.size)
+    initial_state[0] = 1.0
+
+    bubble_grid = None
+    bubble_D1 = None
+    bubble_D2 = None
+    medium = None
+    if config.bubtherm:
+        initial_state[layout.pressure] = p["Pb"]
+        bubble_grid = _freeze_array(np.linspace(0.0, 1.0, config.Nt))
+        bubble_D1 = _freeze_array(finite_diff_mat(config.Nt, 1, tm_check=0))
+        bubble_D2 = _freeze_array(finite_diff_mat(config.Nt, 2, tm_check=0))
+        if config.medtherm:
+            initial_state[layout.medium_thermal] = 1.0
+            Nm = config.Mt - 1
+            deltaYm = -2.0 / Nm
+            xi = 1.0 + np.arange(config.Mt) * deltaYm
+            with np.errstate(divide="ignore", invalid="ignore"):
+                yT = (2.0 / (xi + 1.0) - 1.0) * p["Lt"] + 1.0
+                yT2, yT3 = yT ** 2, yT ** 3
+                iyT3, iyT4, iyT6 = yT ** -3, yT ** -4, yT ** -6
+            coeff = np.array([-1.5, 2.0, -0.5])
+            deltaY = 1.0 / (config.Nt - 1)
+            medium = MediumOperators(
+                xi=_freeze_array(xi),
+                yT=_freeze_array(yT),
+                yT2=_freeze_array(yT2),
+                yT3=_freeze_array(yT3),
+                iyT3=_freeze_array(iyT3),
+                iyT4=_freeze_array(iyT4),
+                iyT6=_freeze_array(iyT6),
+                D1=_freeze_array(finite_diff_mat(config.Mt, 1, tm_check=1)),
+                D2=_freeze_array(finite_diff_mat(config.Mt, 2, tm_check=1)),
+                grad_Tm=_freeze_array(
+                    2 * p["chi"] * p["iota"] / deltaYm * coeff
+                ),
+                grad_Trans=_freeze_array(-coeff * p["chi"] / deltaY),
+                grad_C=_freeze_array(
+                    -coeff * p["Fom"] * p["L_heat_star"] / deltaY
+                ),
+            )
+        if config.masstrans:
+            initial_state[layout.vapor_fraction] = p["kv0"]
+
+    return PreparedProblem(
+        config=config,
+        parameters=MappingProxyType(p),
+        layout=layout,
+        initial_state=_freeze_array(initial_state),
+        bubble_grid=bubble_grid,
+        bubble_D1=bubble_D1,
+        bubble_D2=bubble_D2,
+        medium=medium,
+    )
 
 
 def _JdotA(stress, p):
@@ -476,6 +665,35 @@ def _kv_of_T(Tw, P, T8, Rvg_ratio):
     return 1.0 / (1.0 + theta_var)
 
 
+def _secant_root(function, guess, *, tol=1e-13, maxiter=100):
+    """Scalar secant solve without SciPy's array-oriented dispatch overhead."""
+    p0 = float(guess)
+    p1 = p0 * 1.0001
+    p1 += 1e-4 if p1 >= 0.0 else -1e-4
+    q0 = function(p0)
+    q1 = function(p1)
+    if abs(q1) < abs(q0):
+        p0, p1, q0, q1 = p1, p0, q1, q0
+
+    for _ in range(maxiter):
+        if q1 == q0:
+            raise RuntimeError("wall boundary secant solve encountered zero slope")
+        if abs(q1) > abs(q0):
+            ratio = q0 / q1
+            root = (-ratio * p1 + p0) / (1.0 - ratio)
+        else:
+            ratio = q1 / q0
+            root = (-ratio * p0 + p1) / (1.0 - ratio)
+        if abs(root - p1) <= tol:
+            return root
+        p0, q0 = p1, q1
+        p1 = root
+        q1 = function(p1)
+    raise RuntimeError(
+        f"wall boundary secant solve failed to converge after {maxiter} iterations"
+    )
+
+
 def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
     """Solve heat-flux continuity at the wall for theta[-1], f_bubble_wall_thermal_bc.m.
     theta_tail = [theta[-2], theta[-3]], Tm_tail = [Tm[1], Tm[2]] (0-indexed)."""
@@ -484,7 +702,7 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
         lhs = grad_Tm[0] * Tw + grad_Tm[1] * Tm_tail[0] + grad_Tm[2] * Tm_tail[1]
         rhs = grad_Trans[0] * theta_bw + grad_Trans[1] * theta_tail[0] + grad_Trans[2] * theta_tail[1]
         return lhs + rhs
-    return newton(resid, guess, tol=1e-13, maxiter=100)
+    return _secant_root(resid, guess)
 
 
 def _wall_theta_bw_full(guess, theta_tail, Tm_tail, kv_tail, kv_end_stale, P,
@@ -505,11 +723,64 @@ def _wall_theta_bw_full(guess, theta_tail, Tm_tail, kv_tail, kv_end_stale, P,
         scalar = P / ((kvw * Rva_diff + Rg_star) * (Tw * (1.0 - kvw)))
         extra = scalar * (grad_C[0] * kvw + grad_C[1] * kv_tail[0] + grad_C[2] * kv_tail[1])
         return lhs + rhs + extra
-    return newton(resid, guess, tol=1e-13, maxiter=100)
+    return _secant_root(resid, guess)
+
+
+def _apply_thermal_boundaries(
+    theta, Tm, kv, P, p, medium, masstrans, wall_state
+):
+    """Apply algebraic wall conditions to local state copies."""
+    if medium is not None and masstrans:
+        theta[-1] = _wall_theta_bw_full(
+            wall_state.theta,
+            [theta[-2], theta[-3]],
+            [Tm[1], Tm[2]],
+            [kv[-2], kv[-3]],
+            kv[-1],
+            P,
+            p["alpha_v"],
+            p["alpha_g"],
+            p["T8"],
+            p["Rv_star"] / p["Rg_star"],
+            p["Rv_star"] - p["Rg_star"],
+            p["Rg_star"],
+            medium.grad_Tm,
+            medium.grad_Trans,
+            medium.grad_C,
+        )
+        wall_state.theta = theta[-1]
+    elif medium is not None:
+        theta[-1] = _wall_theta_bw(
+            wall_state.theta,
+            [theta[-2], theta[-3]],
+            [Tm[1], Tm[2]],
+            p["alpha_g"],
+            medium.grad_Tm,
+            medium.grad_Trans,
+        )
+        wall_state.theta = theta[-1]
+
+    alpha_m = None
+    if masstrans:
+        alpha_m = kv * p["alpha_v"] + (1.0 - kv) * p["alpha_g"]
+        temperature = (
+            alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_m)
+        ) / alpha_m
+        kv[-1] = _kv_of_T(
+            temperature[-1], P, p["T8"], p["Rv_star"] / p["Rg_star"]
+        )
+    else:
+        alpha_g = p["alpha_g"]
+        temperature = (
+            alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_g)
+        ) / alpha_g
+    if Tm is not None:
+        Tm[0] = temperature[-1]
+    return temperature, alpha_m
 
 
 def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
-          medtherm=0, mt=None, masstrans=0):
+          medtherm=0, mt=None, masstrans=0, wall_state=None):
     R = max(y[0], 1e-8)
     Rd = y[1]
     Pv = p['Pv']
@@ -522,24 +793,14 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         idx = 3 + Nt
         Tm = None
         if medtherm:
-            Tm = y[idx:idx + mt['Mt']].copy()
-            idx += mt['Mt']
+            Tm = y[idx:idx + mt.xi.size].copy()
+            idx += mt.xi.size
         if masstrans:
             kv = y[idx:idx + Nt].copy()
             idx += Nt
-        # boundary condition evaluation, f_imr_fd.m order: solve BEFORE T/kv[-1]
-        if medtherm and masstrans:
-            theta[-1] = _wall_theta_bw_full(
-                mt['wall_guess'][0], [theta[-2], theta[-3]], [Tm[1], Tm[2]],
-                [kv[-2], kv[-3]], kv[-1], P, p['alpha_v'], p['alpha_g'], p['T8'],
-                p['Rv_star'] / p['Rg_star'], p['Rv_star'] - p['Rg_star'], p['Rg_star'],
-                mt['grad_Tm'], mt['grad_Trans'], mt['grad_C'])
-            mt['wall_guess'][0] = theta[-1]
-        elif medtherm:
-            theta[-1] = _wall_theta_bw(mt['wall_guess'][0], [theta[-2], theta[-3]],
-                                        [Tm[1], Tm[2]], p['alpha_g'],
-                                        mt['grad_Tm'], mt['grad_Trans'])
-            mt['wall_guess'][0] = theta[-1]
+        T, alpha_m = _apply_thermal_boundaries(
+            theta, Tm, kv, P, p, mt, masstrans, wall_state
+        )
         Zstart = idx
     else:
         P = (p['Pb'] - Pv) * R ** (-3 * KAPPA) + Pv          # f_imr_fd.m:412
@@ -564,9 +825,6 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
             Rv_star, Rg_star = p['Rv_star'], p['Rg_star']
             Rva_diff = Rv_star - Rg_star
             Fom = p['Fom']
-            alpha_m = kv * alpha_v + (1.0 - kv) * alpha_g
-            T = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_m)) / alpha_m
-            kv[-1] = _kv_of_T(T[-1], P, p['T8'], Rv_star / Rg_star)
             dtheta = D1 @ theta
             ddtheta = D2 @ theta
             dkv = D1 @ kv
@@ -594,7 +852,6 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
             # f_imr_fd.m, "elseif bubtherm" branch, kv0=0 (dry gas) simplification.
             # Identical whether medtherm is on or off -- only theta[-1]'s VALUE
             # differs (wall-BC solve above vs. frozen at its initial value).
-            T = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_g)) / alpha_g
             dtheta = D1 @ theta
             ddtheta = D2 @ theta
             Pdot = 3.0 / R * (chi * (KAPPA - 1.0) * dtheta[-1] / R - KAPPA * P * Rd)
@@ -617,11 +874,11 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
         # med_advection/taugradu. Harmless: Tmdot[-1]=0.0 unconditionally
         # overwrites it and that state slot's value never depends on it
         # (same frozen-slot pattern as theta[-1] without medtherm).
-        Tm[0] = T[-1]                                    # wall Dirichlet clamp
-        dTm = mt['D1m'] @ Tm
-        ddTm = mt['D2m'] @ Tm
-        xi, yT, yT2, yT3, iyT3, iyT4, iyT6 = (mt['xi'], mt['yT'], mt['yT2'],
-                                               mt['yT3'], mt['iyT3'], mt['iyT4'], mt['iyT6'])
+        dTm = mt.D1 @ Tm
+        ddTm = mt.D2 @ Tm
+        xi, yT, yT2, yT3, iyT3, iyT4, iyT6 = (
+            mt.xi, mt.yT, mt.yT2, mt.yT3, mt.iyT3, mt.iyT4, mt.iyT6
+        )
         Lt, Foh, iota = p['Lt'], p['Foh'], p['iota']
         with np.errstate(divide='ignore', invalid='ignore'):
             med_advection = ((1 + xi) ** 2 / (Lt * R)
@@ -697,94 +954,198 @@ def _rhs(tn, y, p, stress, radial, bubtherm=0, D1=None, D2=None, ygrid=None,
     return out
 
 
+def _radius_floor_event(_tn, y, *_args):
+    return y[0] - 1e-8
+
+
+_radius_floor_event.terminal = True
+_radius_floor_event.direction = -1
+
+
+def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
+    config = problem.config
+    if not config.bubtherm:
+        return None, None, None
+    layout = problem.layout
+    p = problem.parameters
+    count = states.shape[0]
+    bubble_temperature = np.empty((count, config.Nt))
+    medium_temperature = (
+        np.empty((count, config.Mt)) if config.medtherm else None
+    )
+    vapor_fraction = (
+        np.empty((count, config.Nt)) if config.masstrans else None
+    )
+    wall_state = _WallState()
+    for index, state in enumerate(states):
+        theta = state[layout.bubble_thermal].copy()
+        Tm = (
+            state[layout.medium_thermal].copy()
+            if layout.medium_thermal is not None
+            else None
+        )
+        kv = (
+            state[layout.vapor_fraction].copy()
+            if layout.vapor_fraction is not None
+            else None
+        )
+        temperature, _ = _apply_thermal_boundaries(
+            theta,
+            Tm,
+            kv,
+            state[layout.pressure],
+            p,
+            problem.medium,
+            config.masstrans,
+            wall_state,
+        )
+        bubble_temperature[index] = config.T8 * temperature
+        if medium_temperature is not None:
+            medium_temperature[index] = config.T8 * Tm
+        if vapor_fraction is not None:
+            vapor_fraction[index] = kv
+    return bubble_temperature, medium_temperature, vapor_fraction
+
+
+def _build_result(
+    problem: PreparedProblem,
+    time_s: np.ndarray,
+    solution,
+    stats: SolverStats,
+) -> SimulationResult:
+    config = problem.config
+    p = problem.parameters
+    layout = problem.layout
+    states = solution.y.T
+    radius_ratio = states[:, 0]
+    velocity = states[:, 1]
+    Uc = np.sqrt(P8 / RHO)
+
+    if layout.pressure is None:
+        pressure = (
+            (p["Pb"] - p["Pv"]) * radius_ratio ** (-3 * KAPPA) + p["Pv"]
+        )
+    else:
+        pressure = states[:, layout.pressure]
+
+    stress_integral = np.empty(states.shape[0])
+    for index, state in enumerate(states):
+        stress_state = (
+            state[layout.stress] if layout.stress.stop > layout.stress.start else None
+        )
+        stress_integral[index] = _stress(
+            config.stress, p, state[0], state[1], stress_state
+        )[0]
+
+    bubble_temperature, medium_temperature, vapor_fraction = _thermal_outputs(
+        problem, states
+    )
+    internal_stress_state = (
+        states[:, layout.stress]
+        if layout.stress.stop > layout.stress.start
+        else None
+    )
+    return SimulationResult(
+        time_s=_readonly_float_array(time_s),
+        radius_ratio=_readonly_float_array(radius_ratio),
+        wall_velocity_m_s=_readonly_float_array(Uc * velocity),
+        internal_pressure_pa=_readonly_float_array(P8 * pressure),
+        stress_integral_pa=_readonly_float_array(P8 * stress_integral),
+        bubble_temperature_k=_readonly_optional(bubble_temperature),
+        medium_temperature_k=_readonly_optional(medium_temperature),
+        vapor_mass_fraction=_readonly_optional(vapor_fraction),
+        stress_state=_readonly_optional(internal_stress_state),
+        stats=stats,
+        config=config,
+    )
+
+
+def _integrate_prepared(problem: PreparedProblem, tv):
+    config = problem.config
+    time_s = _validate_inputs(
+        tv, config.R0, config.Req, config.G, config.mu, config.stress,
+        config.lam1, config.lam2, config.alphax, config.radial, config.vapor,
+        config.T8, config.pA, config.omega, config.TW, config.DT, config.mn,
+        config.wave_type, config.bubtherm, config.Nt, config.medtherm,
+        config.Mt, config.masstrans, config.rtol, config.atol,
+    )
+    p = problem.parameters
+    tn = time_s / p["t0"]
+    args = (
+        p,
+        config.stress,
+        config.radial,
+        config.bubtherm,
+        problem.bubble_D1,
+        problem.bubble_D2,
+        problem.bubble_grid,
+        config.medtherm,
+        problem.medium,
+        config.masstrans,
+        _WallState(),
+    )
+    started = perf_counter()
+    solution = solve_ivp(
+        _rhs,
+        (tn[0], tn[-1]),
+        problem.initial_state,
+        t_eval=tn,
+        args=args,
+        events=_radius_floor_event,
+        method="LSODA",
+        rtol=config.rtol,
+        atol=config.atol,
+    )
+    elapsed = perf_counter() - started
+    complete = solution.y.shape[1] == time_s.size
+    success = bool(solution.success and complete)
+    message = str(solution.message)
+    if solution.success and not complete:
+        message = f"{message}; terminated before the final requested time"
+    stats = SolverStats(
+        backend="scipy-lsoda",
+        success=success,
+        message=message,
+        nfev=int(solution.nfev),
+        njev=int(solution.njev),
+        nlu=int(solution.nlu),
+        elapsed_s=elapsed,
+    )
+    if not success:
+        raise SimulationError(f"IMR integration failed: {message}", stats)
+    return time_s, solution, stats
+
+
+def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
+    time_s, solution, stats = _integrate_prepared(problem, tv)
+    return _build_result(problem, time_s, solution, stats)
+
+
 def simulate(tv, R0, Req, G, mu, stress=1, lam1=0.0, lam2=0.0, alphax=0.25,
              radial=1, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0,
              mn=0.0, wave_type=0, bubtherm=0, Nt=25, medtherm=0, Mt=25,
              masstrans=0, rtol=1e-8, atol=1e-10, raise_on_failure=False):
-    """Bubble radius R(t)/R0 at times tv (seconds). Returns NaN array on failure.
+    """Bubble radius R(t)/R0 at times tv (seconds).
 
-    bubtherm=1: dry gas (vapor=0) or, with masstrans=1, vapor-mass-transfer
-    thermal PDE -- see module docstring for exact scope. Nt is the number of
-    interior grid points.
-    medtherm=1 (requires bubtherm=1): adds the liquid boundary layer, Mt
-    exterior grid points. Gradients not validated for medtherm=1.
-    masstrans=1 (requires bubtherm=1 and vapor=1): adds the wall vapor mass
-    fraction kv(y,t) field and its coupling into T/Pdot/Uvel/thetadot. With
-    medtherm=1 also set, theta[-1] is solved via the coupled 3-term wall BC
-    (f_bubble_wall_full_bc) instead of the thermal-only one.
+    This backwards-compatible API returns an all-NaN trajectory on integration
+    failure unless ``raise_on_failure=True``. New code should use
+    :func:`prepare` or :func:`simulate_result` for full outputs and diagnostics.
     """
-    tv = _validate_inputs(
-        tv, R0, Req, G, mu, stress, lam1, lam2, alphax, radial, vapor, T8,
-        pA, omega, TW, DT, mn, wave_type, bubtherm, Nt, medtherm, Mt,
-        masstrans, rtol, atol,
+    config = SimulationConfig(
+        R0=R0, Req=Req, G=G, mu=mu, stress=stress, lam1=lam1, lam2=lam2,
+        alphax=alphax, radial=radial, vapor=vapor, T8=T8, pA=pA, omega=omega,
+        TW=TW, DT=DT, mn=mn, wave_type=wave_type, bubtherm=bubtherm, Nt=Nt,
+        medtherm=medtherm, Mt=Mt, masstrans=masstrans, rtol=rtol, atol=atol,
     )
-    p = params(R0, Req, G, mu, lam1, lam2, alphax, vapor, T8,
-               pA, omega, TW, DT, mn, wave_type, bubtherm, masstrans)
-    tn = np.asarray(tv) / p['t0']
-    if bubtherm:
-        D1 = finite_diff_mat(Nt, 1, tm_check=0)
-        D2 = finite_diff_mat(Nt, 2, tm_check=0)
-        ygrid = np.linspace(0.0, 1.0, Nt)
-        theta0 = [0.0] * Nt
-        y0 = [1.0, 0.0, p['Pb']] + theta0
-        mt = None
-        if medtherm:
-            Nm = Mt - 1
-            deltaYm = -2.0 / Nm
-            xi = 1.0 + np.arange(Mt) * deltaYm
-            # xi[-1]=-1 exactly (see _rhs's medtherm block docstring) -> yT[-1]=inf;
-            # harmless, that grid point's Tmdot is unconditionally zeroed in _rhs.
-            with np.errstate(divide='ignore', invalid='ignore'):
-                yT = (2.0 / (xi + 1.0) - 1.0) * p['Lt'] + 1.0
-                yT2, yT3 = yT ** 2, yT ** 3
-                iyT3, iyT4, iyT6 = yT ** -3, yT ** -4, yT ** -6
-            coeff = np.array([-1.5, 2.0, -0.5])
-            deltaY = 1.0 / (Nt - 1)
-            grad_Tm = 2 * p['chi'] * p['iota'] / deltaYm * coeff
-            grad_Trans = -coeff * p['chi'] / deltaY
-            grad_C = -coeff * p['Fom'] * p['L_heat_star'] / deltaY
-            mt = dict(Mt=Mt, xi=xi, yT=yT, yT2=yT2, yT3=yT3, iyT3=iyT3, iyT4=iyT4,
-                      iyT6=iyT6, D1m=finite_diff_mat(Mt, 1, tm_check=1),
-                      D2m=finite_diff_mat(Mt, 2, tm_check=1),
-                      grad_Tm=grad_Tm, grad_Trans=grad_Trans, grad_C=grad_C,
-                      wall_guess=[-1e-4])
-            y0 = y0 + [1.0] * Mt
-        if masstrans:
-            y0 = y0 + [p['kv0']] * Nt
-        y0 = y0 + [0.0] * _nZ(stress)
-        args = (p, stress, radial, 1, D1, D2, ygrid, medtherm, mt, masstrans)
-    else:
-        y0 = [1.0, 0.0] + [0.0] * _nZ(stress)
-        args = (p, stress, radial)
-    s = solve_ivp(_rhs, (tn[0], tn[-1]), y0, t_eval=tn, args=args,
-                  method='LSODA', rtol=rtol, atol=atol)
-    if not s.success or s.y.shape[1] != len(tn):
+    try:
+        _, solution, _ = _integrate_prepared(prepare(config), tv)
+        return np.array(solution.y[0], copy=True)
+    except SimulationError:
         if raise_on_failure:
-            raise SimulationError(f"IMR integration failed: {s.message}")
-        return np.full(len(tn), np.nan)
-    return s.y[0]
+            raise
+        return np.full(len(tv), np.nan)
 
 
 def simulate_result(tv, config: SimulationConfig) -> SimulationResult:
-    """Run one simulation through the strict, structured API.
-
-    Unlike the legacy :func:`simulate` interface, numerical failure raises
-    :class:`SimulationError` instead of returning an all-NaN trajectory.
-    """
-    if not isinstance(config, SimulationConfig):
-        raise TypeError("config must be a SimulationConfig")
-    time_s = _readonly_float_array(tv)
-    radius_ratio = simulate(
-        time_s,
-        config.R0,
-        config.Req,
-        config.G,
-        config.mu,
-        **config.solver_kwargs(),
-        raise_on_failure=True,
-    )
-    return SimulationResult(
-        time_s=time_s,
-        radius_ratio=_readonly_float_array(radius_ratio),
-        config=config,
-    )
+    """Run one simulation through the strict, full-result public API."""
+    return prepare(config).solve(tv)

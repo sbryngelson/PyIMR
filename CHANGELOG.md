@@ -75,6 +75,16 @@ numbers**, with no error and no deprecation path.
   maximum measured sampling phase rather than error. The median deviation over
   the trace was `8.2e-06`, two orders lower. Spectral convergence has no floor.
 - Missing stress term in `radial = 5` (#18).
+- **Sensitivities with `thermal = "spectral"` were wrong** (#43). The tangent
+  path rebuilt the wall-flux weights with a hardcoded three-point uniform
+  finite-difference stencil, overwriting the prepared dense Chebyshev boundary
+  rows, so every spectral sensitivity differentiated a different boundary
+  closure than the forward solve integrated. The coupled medium-temperature
+  tangent was off by `2.5e-01` relative, step-independently; it is now
+  `5.2e-05`. Forward trajectories were never affected, on either backend.
+
+  This shipped in 0.3.0-development only — `thermal` itself is new in this
+  release (#20) — so no released version returned the bad gradients.
 
 ## 0.2.0
 

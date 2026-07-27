@@ -15,6 +15,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Optional on purpose: PyMC pulls pytensor, arviz, pandas and xarray, which is a
+# large addition to a core install of numpy/scipy/numba. `imr_pymc` is the only
+# module that needs it, and it imports lazily so the rest of the package works
+# without it. See #25.
+inference = [
+    "pymc>=6",
+]
 test = [
     "build>=1.2",
     # Pinned: pyright's inference changes between releases, and
@@ -40,6 +47,7 @@ py-modules = [
     "imr_data",
     "imr_fast",
     "imr_inference",
+    "imr_pymc",
     "imr_sensitivity",
     "thermal_fd",
     "thermal_spectral",

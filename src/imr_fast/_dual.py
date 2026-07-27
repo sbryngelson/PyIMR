@@ -314,8 +314,10 @@ def _initial_matrix(problem, config, parameters, width):
       for index in range(problem.layout.vapor_fraction.start, problem.layout.vapor_fraction.stop):
         initial_dual[index] = vapor_fraction
     temperature_ratio = 1.0 if initial.bubble_temperature_k is None else initial.bubble_temperature_k / config.T8
-    alpha = vapor_fraction * p["alpha_v"] + (1.0 - vapor_fraction) * p["alpha_g"] if config.masstrans else p["alpha_g"]
-    thermal_state = _solver._thermal_state(temperature_ratio, alpha)
+    mixes = config.masstrans
+    alpha = vapor_fraction * p["alpha_v"] + (1.0 - vapor_fraction) * p["alpha_g"] if mixes else p["alpha_g"]
+    beta = vapor_fraction * p["beta_v"] + (1.0 - vapor_fraction) * p["beta_g"] if mixes else p["beta_g"]
+    thermal_state = _solver._thermal_state(temperature_ratio, alpha, beta)
     for index in range(problem.layout.bubble_thermal.start, problem.layout.bubble_thermal.stop):
       initial_dual[index] = thermal_state
     if config.medtherm:

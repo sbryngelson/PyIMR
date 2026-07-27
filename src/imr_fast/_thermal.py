@@ -23,6 +23,8 @@ __all__ = [
   "_distributed_dissipation",
   "_instantaneous_dissipation",
   "_kv_of_T",
+  "kirchhoff_temperature",
+  "kirchhoff_theta",
   "_mie_F",
   "_mie_gruneisen",
   "_mu_of_A",
@@ -40,6 +42,43 @@ _NSTATE_TAIT = 7.15
 _HUGONIOT_S = 1.65
 
 _NOG = (_NSTATE_TAIT - 1.0) / 2.0
+
+
+def kirchhoff_theta(temperature, alpha, beta):
+  """The Kirchhoff transform of a conductivity linear in temperature.
+
+  The bubble thermal PDE integrates `theta` rather than `T` so that a
+  temperature-dependent conductivity enters linearly. The transform is defined
+  by exactly one requirement -- that its derivative BE the conductivity the
+  diffusion term uses:
+
+      d(theta)/dT = K*(T) = alpha*T + beta
+      theta(T)    = alpha*(T**2 - 1)/2 + beta*(T - 1)
+
+  Every other form in this package follows from that line, and none of them may
+  re-derive it. They used to: five sites each inlined their own algebra under
+  the tacit assumption `beta = 1 - alpha`, which holds only when the
+  normalisation `K8` is the gas conductivity at `T8`. `K8` is in fact the
+  gas/vapour average, so the assumption was wrong by 0.24% for air and
+  arbitrarily wrong for any other gas -- and since `K8` cancels from
+  `chi * K*(T)`, it made trajectories depend on the vapour conductivity even
+  with no vapour present. See #75.
+  """
+  return 0.5 * alpha * (temperature**2 - 1.0) + beta * (temperature - 1.0)
+
+
+def kirchhoff_temperature(theta, alpha, beta):
+  """Inverse of :func:`kirchhoff_theta`.
+
+  Completing the square on `alpha*T**2/2 + beta*T = alpha/2 + beta + theta`
+  gives `(alpha*T + beta)**2 = (alpha + beta)**2 + 2*alpha*theta`, so with
+  `s = alpha*T + beta` -- the conductivity itself, and non-negative -- both
+  directions are one line:
+
+      T     = (s - beta) / alpha
+      theta = (s**2 - (alpha + beta)**2) / (2*alpha)
+  """
+  return (-beta + np.sqrt((alpha + beta) ** 2 + 2.0 * alpha * theta)) / alpha
 
 
 def pvsat(T):
@@ -219,11 +258,12 @@ def _secant_root(function, guess, *, tol=1e-13, maxiter=100):
   raise RuntimeError(f"wall boundary secant solve failed to converge after {maxiter} iterations")
 
 
-def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
+def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans):
   """Solve the flux match at the wall exactly, rather than iterating on it (#57).
 
-  Substituting Tw = (alpha_g - 1 + s) / alpha_g and theta_bw = (s*s - 1) / (2*alpha_g),
-  where s = sqrt(1 + 2*alpha_g*theta_bw) >= 0, turns the residual into a quadratic
+  Substituting Tw = (s - beta_g) / alpha_g and theta_bw = (s*s - (alpha_g +
+  beta_g)**2) / (2*alpha_g), where s = alpha_g*Tw + beta_g >= 0 is the
+  conductivity itself, turns the residual into a quadratic
     c*s**2 + 2*b*s + 2*alpha_g*k = 0,   b = grad_Tm[0], c = grad_Trans[0],
   whose roots multiply to 2*alpha_g*k/c. That product is negative here (c > 0 and
   k < 0 for a one-sided wall stencil), so the roots straddle zero, the physical
@@ -237,10 +277,11 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
   fraction makes the residual transcendental in Tw, so no closed form exists.
   """
   b, c = grad_Tm[0], grad_Trans[0]
-  k = b * (alpha_g - 1.0) / alpha_g + np.sum(grad_Tm[1:] * Tm_tail)
-  k += np.sum(grad_Trans[1:] * theta_tail) - c / (2.0 * alpha_g)
+  span = (alpha_g + beta_g) ** 2
+  k = -b * beta_g / alpha_g + np.sum(grad_Tm[1:] * Tm_tail)
+  k += np.sum(grad_Trans[1:] * theta_tail) - c * span / (2.0 * alpha_g)
   s = (-b + np.sqrt(b * b - 2.0 * alpha_g * c * k)) / c
-  return (s * s - 1.0) / (2.0 * alpha_g)
+  return (s * s - span) / (2.0 * alpha_g)
 
 
 def _wall_theta_bw_full(
@@ -252,6 +293,8 @@ def _wall_theta_bw_full(
   P,
   alpha_v,
   alpha_g,
+  beta_v,
+  beta_g,
   T8,
   Rvg_ratio,
   Rva_diff,
@@ -262,9 +305,10 @@ def _wall_theta_bw_full(
   grad_C,
 ):
   alpha_m = kv_end_stale * alpha_v + (1.0 - kv_end_stale) * alpha_g
+  beta_m = kv_end_stale * beta_v + (1.0 - kv_end_stale) * beta_g
 
   def resid(theta_bw):
-    Tw = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_m)) / alpha_m
+    Tw = kirchhoff_temperature(theta_bw, alpha_m, beta_m)
     kvw = _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale)
     lhs = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
     rhs = grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
@@ -300,6 +344,8 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
       P,
       p["alpha_v"],
       p["alpha_g"],
+      p["beta_v"],
+      p["beta_g"],
       p["T8"],
       p["Rv_star"] / p["Rg_star"],
       p["Rv_star"] - p["Rg_star"],
@@ -311,17 +357,19 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
     )
     wall_state.theta = theta[-1]
   elif medium is not None:
-    theta[-1] = _wall_theta_bw(wall_state.theta, theta[-2::-1], Tm[1:], p["alpha_g"], medium.grad_Tm, medium.grad_Trans)
+    theta[-1] = _wall_theta_bw(
+      wall_state.theta, theta[-2::-1], Tm[1:], p["alpha_g"], p["beta_g"], medium.grad_Tm, medium.grad_Trans
+    )
     wall_state.theta = theta[-1]
 
   alpha_m = None
   if masstrans:
     alpha_m = kv * p["alpha_v"] + (1.0 - kv) * p["alpha_g"]
-    temperature = (alpha_m - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_m)) / alpha_m
+    beta_m = kv * p["beta_v"] + (1.0 - kv) * p["beta_g"]
+    temperature = kirchhoff_temperature(theta, alpha_m, beta_m)
     kv[-1] = _kv_of_T(temperature[-1], P, p["T8"], p["Rv_star"] / p["Rg_star"], p["P8"])
   else:
-    alpha_g = p["alpha_g"]
-    temperature = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta * alpha_g)) / alpha_g
+    temperature = kirchhoff_temperature(theta, p["alpha_g"], p["beta_g"])
   if Tm is not None:
     Tm[0] = temperature[-1]
   return temperature, alpha_m

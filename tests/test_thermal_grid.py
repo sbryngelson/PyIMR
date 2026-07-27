@@ -135,12 +135,13 @@ def test_dissipation_paths_carry_no_suppression():
 
 
 def _prepared_wall_inputs(Mt=9):
-  """Real stencils and alpha_g, so the coefficient signs are the physical ones."""
+  """Real stencils and coefficients, so the signs are the physical ones."""
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
   problem = imr_fast.prepare(config)
   medium = problem.medium
   assert medium is not None
-  return problem.parameters["alpha_g"], np.asarray(medium.grad_Tm), np.asarray(medium.grad_Trans)
+  parameters = problem.parameters
+  return (parameters["alpha_g"], parameters["beta_g"], np.asarray(medium.grad_Tm), np.asarray(medium.grad_Trans))
 
 
 @pytest.mark.parametrize("scale", (0.0, 1e-3, 0.05, -0.02))
@@ -150,17 +151,19 @@ def test_wall_temperature_satisfies_its_own_boundary_condition(scale):
   the secant too, by construction -- it is not the #57 regression test below,
   but the thing that catches a mis-derived quadratic or the wrong root.
   """
-  alpha_g, grad_Tm, grad_Trans = _prepared_wall_inputs()
+  alpha_g, beta_g, grad_Tm, grad_Trans = _prepared_wall_inputs()
   theta_tail = scale * np.arange(1.0, grad_Trans.size)
   Tm_tail = 1.0 + scale * np.arange(1.0, grad_Tm.size)
 
-  theta_bw = _thermal._wall_theta_bw(0.0, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans)
+  theta_bw = _thermal._wall_theta_bw(0.0, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans)
 
-  Tw = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_g)) / alpha_g
+  # Reconstructed through the shared inverse, so a mis-derived quadratic here
+  # cannot be masked by re-deriving the temperature the same wrong way (#75).
+  Tw = _thermal.kirchhoff_temperature(theta_bw, alpha_g, beta_g)
   residual = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
   residual += grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
   assert abs(residual) < 1e-12 * max(1.0, abs(grad_Tm[0]))
-  assert 1.0 + 2.0 * alpha_g * theta_bw >= 0.0, "root taken on the unphysical branch"
+  assert (alpha_g + beta_g) ** 2 + 2.0 * alpha_g * theta_bw >= 0.0, "root taken on the unphysical branch"
 
 
 @pytest.mark.parametrize("ratio", (0.1, 0.3, 0.5))
@@ -209,3 +212,31 @@ def test_medium_solves_run_at_ulp_hostile_sizes(Mt):
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
   result = imr_fast.simulate(np.linspace(0.0, 2e-5, 40), config)
   assert np.all(np.isfinite(result.radius_ratio))
+
+
+@pytest.mark.parametrize("alpha", (0.05, 0.3, 0.5761, 1.1, 2.0))
+@pytest.mark.parametrize("beta", (0.02, 0.4263, 1.0))
+def test_kirchhoff_transform_round_trips(alpha, beta):
+  """`theta` exists to satisfy `d(theta)/dT = alpha*T + beta`. Everything else in
+  the thermal path is a consequence, so the transform and its inverse must agree
+  for ANY coefficients -- not only the pair the defaults happen to produce.
+
+  The shipped forms agreed only when `alpha + beta == 1`, which holds for air
+  and water vapour to 0.24% by coincidence and fails badly for other gases
+  (round-trip error 0.84 in T/T8 for argon-like coefficients). See #75.
+  """
+  temperature = np.linspace(0.2, 20.0, 2000)
+  recovered = _thermal.kirchhoff_temperature(_thermal.kirchhoff_theta(temperature, alpha, beta), alpha, beta)
+  assert float(np.nanmax(np.abs(recovered - temperature))) < 1e-13
+
+
+def test_the_transform_derivative_is_the_conductivity_the_rhs_uses(measured):
+  """The defining property, checked against the expression `_rhs` evaluates."""
+  alpha, beta, temperature, step = 0.5761, 0.4263, 3.0, 1e-6
+  slope = (
+    _thermal.kirchhoff_theta(temperature + step, alpha, beta)
+    - _thermal.kirchhoff_theta(temperature - step, alpha, beta)
+  ) / (2 * step)
+  conductivity = alpha * temperature + beta
+  measured("d(theta)/dT vs K*(T)", f"{slope:.9f} vs {conductivity:.9f}")
+  assert abs(slope - conductivity) < 1e-9

@@ -58,7 +58,6 @@ _PINNED_MEDIAN_BOUNDS = {
   "vapor=1 (T=298.15K)": 4e-07,
   "bubtherm=1 (thermal PDE)": 8e-06,
   "medtherm=1 (liquid layer)": 8e-06,
-  "masstrans=1 (vapor transfer)": 5e-06,
   "masstrans=1+medtherm=1 (coupled)": 7e-06,
   "no constitutive stress": 7e-06,
   "quadratic Zener": 6e-06,
@@ -120,7 +119,6 @@ _EXTENDED: list[tuple[str, dict[str, Any], str]] = [
   ("vapor=1 (T=298.15K)", dict(vapor=1, T8=298.15), "ref_vapor.csv"),
   ("bubtherm=1 (thermal PDE)", dict(bubtherm=1, Nt=25, thermal="fd"), "ref_bubtherm.csv"),
   ("medtherm=1 (liquid layer)", dict(bubtherm=1, medtherm=1, Nt=25, Mt=25, thermal="fd"), "ref_medtherm.csv"),
-  ("masstrans=1 (vapor transfer)", dict(bubtherm=1, vapor=1, masstrans=1, Nt=25, thermal="fd"), "ref_masstrans.csv"),
   (
     "masstrans=1+medtherm=1 (coupled)",
     dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=25, Mt=25, thermal="fd"),
@@ -196,16 +194,21 @@ def test_collapse_zener_with_upstream_szero(measured):
   1.0e-04. Locating a quadratic maximum by argmax costs O(sqrt(tol)) in position
   and therefore O(sqrt(tol)) in the stress carried out of it.
 
-  Injecting IMRv2's own Szero reproduces the reference in the normal pinned
-  band, which proves the coupled solve is exact and isolates the whole
-  difference to the precursor.
+  Injecting IMRv2's own Szero isolates the precursor from the rest of the solve.
+
+  Since #75 the residual carries a second, independent term: `_FULL` includes
+  masstrans, so the corrected Kirchhoff inverse also separates us from the
+  reference here. The bound is 2e-4 rather than 5e-5 for that reason, and the
+  claim it supports is now the weaker "the coupled solve differs from upstream
+  only by the precursor and the Kirchhoff correction" -- both accounted for,
+  neither free to grow.
   """
   config = imr_fast.SimulationConfig(
     R0=R0, Req=REQ, material=zener(), initial=imr_fast.InitialState(stress_state=(_IMRV2_SZERO,)), **_FULL
   )
   worst = deviation(reference("ref_collapse_zener.csv"), imr_fast.simulate(reference_times(), config).radius_ratio)
   measured("collapse Zener w/ IMRv2 Szero", f"max|dR|={worst:.2e}")
-  assert worst < 5e-5
+  assert worst < 2e-4
 
 
 @pytest.mark.parametrize(
@@ -233,6 +236,33 @@ def test_memoryless_collapse_is_refused():
       reference_times(),
       imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, collapse=imr_fast.CollapseInitialization(), **_FULL),
     )
+
+
+# Section 1c-bis. IMRv2 inverts its own Kirchhoff transform as though the gas
+# conductivity satisfied beta = 1 - alpha, while using the true alpha*T + beta
+# in the diffusion term (#75). The two agree only under a normalisation IMRv2
+# does not use, so `K8` -- which cancels from the physics and is therefore pure
+# convention -- was changing trajectories. Corrected here.
+#
+# bubtherm, medtherm and the coupled cases all stay inside their pinned bands
+# after the correction; only masstrans leaves, because the mixture coefficients
+# vary with the vapour fraction and no fixed normalisation can absorb them. Its
+# reference is retained as a record of upstream behaviour and is no longer
+# asserted in the pinned band, exactly as ref_radial5.csv was in #18. What
+# justifies the divergence is not a reference but two properties no reference
+# can express: see test_validation_closed_form.py (invariance to a physically
+# irrelevant parameter) and test_thermal_grid.py (transform round-trip).
+
+
+def test_masstrans_diverges_from_upstream_by_the_kirchhoff_correction(measured):
+  """Bounded, so a future regression cannot hide inside an expected divergence."""
+  options: dict[str, Any] = dict(bubtherm=1, vapor=1, masstrans=1, Nt=25, thermal="fd")
+  computed = solve_radius(reference_times(), NHKV, **options)
+  upstream = reference("ref_masstrans.csv")
+  worst, typical = deviation(upstream, computed), median_deviation(upstream, computed)
+  measured("masstrans vs upstream (#75)", f"max|dR|={worst:.2e}  median={typical:.2e}")
+  assert worst < 1e-3, "divergence from upstream grew beyond the Kirchhoff correction"
+  assert typical > 1e-5, "no divergence at all -- is the correction still applied?"
 
 
 # Section 1d. IMRv2's Mie-Gruneisen branch takes the wrong root of its own

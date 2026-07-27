@@ -8,7 +8,9 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
+import _imr_complex
 import imr_fast
+import imr_sensitivity
 from _validation_support import NHKV, R0, REQ
 
 SECTION = "3. Unified forward sensitivities"
@@ -91,3 +93,62 @@ def test_collapse_shooting_tangent(measured):
   measured("initial memory tangent", f"rel={error:.2e}  shooting residual={residual:.2e}")
   assert error < 1e-5
   assert residual < 2e-8
+
+
+_COMPLEX_CASES = (
+  ("bubtherm fd", dict(bubtherm=1, Nt=7, thermal="fd"), False),
+  ("bubtherm spectral", dict(bubtherm=1, Nt=7, thermal="spectral"), False),
+  ("coupled fd", dict(bubtherm=1, medtherm=1, Nt=7, Mt=7, thermal="fd"), False),
+  ("coupled spectral", dict(bubtherm=1, medtherm=1, Nt=7, Mt=7, thermal="spectral"), False),
+  # Marked slow for the REFERENCE, not the thing being tested: the Dual route
+  # needs 184 s here against 6.1 s for complex step. That 30x is the single
+  # biggest win in #44, so the case is kept rather than dropped.
+  ("coupled+mass", dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=7, Mt=7, thermal="fd"), True),
+)
+
+
+@pytest.mark.parametrize(
+  "label,options",
+  [pytest.param(c[0], c[1], marks=[pytest.mark.slow] if c[2] else []) for c in _COMPLEX_CASES],
+  ids=[c[0] for c in _COMPLEX_CASES],
+)
+def test_complex_step_matches_dual_tangents(label, options, measured, monkeypatch):
+  """The thermal path now carries tangents in the imaginary part rather than in
+  `Dual` (#44). The two routes share `_rhs`, so they must agree to solver
+  tolerance -- this is the only thing standing between a 6-25x speedup and
+  silently wrong derivatives.
+
+  A finite difference would not do: it is orders of magnitude less accurate than
+  either route, so it cannot distinguish them. `Dual` is the exact reference.
+  """
+  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), **options)
+  problem = imr_fast.prepare(config)
+  times = np.linspace(0.0, 4e-6, 6)
+  names = ["material.shear_modulus_pa", "R0"]
+
+  monkeypatch.setattr(_imr_complex, "complex_step_supported", lambda _problem: False)
+  assert not _imr_complex.complex_step_supported(problem), "the Dual route was not actually selected"
+  reference = imr_sensitivity.solve_with_sensitivities(problem, times, names)
+  monkeypatch.undo()
+  assert _imr_complex.complex_step_supported(problem), "the complex route was not actually selected"
+  fast = imr_sensitivity.solve_with_sensitivities(problem, times, names)
+
+  exact = np.asarray(reference.radius_m, dtype=float)
+  error = float(np.max(np.abs(exact - np.asarray(fast.radius_m, dtype=float)))) / max(
+    float(np.max(np.abs(exact))), 1e-30
+  )
+  measured(f"complex vs dual, {label}", f"rel={error:.2e}")
+  assert error < 1e-6
+
+
+def test_distributed_materials_stay_on_the_dual_route():
+  """`_distributed_dissipation` reaches np.cbrt and np.interp, which reject
+  complex input, and its np.maximum clamp is not analytic. The gate is what
+  keeps that from being discovered at runtime."""
+  distributed = imr_fast.prepare(
+    imr_fast.SimulationConfig(R0, REQ, imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), bubtherm=1, Nt=7)
+  )
+  assert not _imr_complex.complex_step_supported(distributed)
+  assert _imr_complex.complex_step_supported(
+    imr_fast.prepare(imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), bubtherm=1, Nt=7))
+  )

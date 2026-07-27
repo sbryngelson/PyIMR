@@ -40,7 +40,7 @@ from ._materials import (
   _is_distributed_stress,
   _stress_state_count,
 )
-from ._equations import _rhs
+from ._rhs import _rhs
 from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, pvsat
 from .thermal_fd import finite_diff_mat
 from .thermal_spectral import chebyshev_diff_mat

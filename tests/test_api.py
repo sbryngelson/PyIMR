@@ -136,7 +136,7 @@ PUBLIC_MODULES = (
   "imr_fast.inference",
   "imr_fast.data",
   "imr_fast.design",
-  "imr_fast.pymc_bridge",
+  "imr_fast.pymc_op",
 )
 # Was a hand-maintained set of 18 top-level names, edited once per new module.
 # Inside a package every owned `__module__` starts with the package name, so

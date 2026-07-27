@@ -13,6 +13,7 @@ from scipy.sparse import lil_matrix
 
 from . import _complex
 import imr_fast as _solver
+from ._stress import _stress
 from ._autodiff import Dual
 from ._dual import (
   SensitivityParameter,
@@ -182,7 +183,7 @@ def _output_duals(problem, config, parameters, states, width, compiled=None):
       dual_state[problem.layout.stress] if problem.layout.stress.stop > problem.layout.stress.start else None
     )
     if problem.distributed_stress is None:
-      stress_value = _solver._stress(
+      stress_value = _stress(
         config.material, parameters, radius, wall_velocity, stress_state, problem.instantaneous_material, False
       )[0]
     else:

@@ -47,10 +47,9 @@ numbers**, with no error and no deprecation path.
   | `import imr_inference` | `from imr_fast import inference` |
   | `import imr_data` | `from imr_fast import data` |
   | `import imr_design` | `from imr_fast import design` |
-  | `import imr_pymc` | `from imr_fast import pymc_bridge` |
+  | `import imr_pymc` | `from imr_fast import pymc_op` |
   | `import thermal_fd`, `thermal_spectral` | `from imr_fast import thermal_fd`, `thermal_spectral` |
   | `_imr_config`, `_imr_materials`, ... | `imr_fast._config`, `imr_fast._materials`, ... |
-  | `_imr_rhs`, `_imr_stress` | `imr_fast._equations`, `imr_fast._constitutive` |
 
   `from imr_fast import ...` for the solver, materials, and result API is
   unchanged — that is the documented surface, and it was already the only
@@ -64,13 +63,13 @@ numbers**, with no error and no deprecation path.
   module list was maintained by hand in two places; `packages.find` now
   discovers it.
 
-  `imr_pymc` became `pymc_bridge` rather than `imr_fast.pymc`, which would have
-  shadowed the real `pymc` inside the package. `_imr_rhs` and `_imr_stress`
-  became `_equations` and `_constitutive` because `__init__` re-exports
-  functions named `_rhs` and `_stress`: a submodule of the same name is
-  reachable before package init and shadowed after it, so `imr_fast._rhs`
-  would have meant two different objects depending on when it was read. A
-  test now asserts no submodule name is shadowed.
+  `imr_pymc` became `pymc_op` rather than `imr_fast.pymc`, which would have
+  shadowed the real `pymc` inside the package.
+
+  `imr_fast._rhs` and `imr_fast._stress` name both a module and a re-exported
+  function, so attribute access gets the function -- the `datetime.datetime`
+  pattern. Import the module as `from imr_fast._rhs import ...`, not
+  `from imr_fast import _rhs`. A test pins that the modules stay reachable.
 
 - **`from imr_fast import *` no longer exports** `MediumOperators`,
   `PreparedDistributedStress`, `PreparedForcing`,

@@ -43,7 +43,7 @@ from .inference import PreparedInference
 
 __all__ = ["IMRLogLikelihood", "build_model", "sample_posterior"]
 
-_MISSING = "imr_fast.pymc_bridge requires PyMC: pip install 'imr-fast[inference]'"
+_MISSING = "imr_fast.pymc_op requires PyMC: pip install 'imr-fast[inference]'"
 
 
 def _pymc():

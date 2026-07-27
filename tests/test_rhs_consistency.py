@@ -1,5 +1,5 @@
 """Every physics law is implemented twice: once in Python for the forward solve
-(`_equations`, `_constitutive`, `_thermal`) and once in numba for the
+(`_rhs`, `_stress`, `_thermal`) and once in numba for the
 sensitivities (`_mechanical`). Nothing else asserts that the two agree.
 
 Three of four physics changes during the parity work introduced a bug in the
@@ -15,8 +15,8 @@ differentiation remains valid.
 import numpy as np
 import pytest
 
-from imr_fast import _equations
 import imr_fast
+from imr_fast._rhs import _rhs
 from imr_fast import sensitivity
 from imr_fast._mechanical import mechanical_rhs
 
@@ -103,7 +103,7 @@ def _compiled_arguments(problem, config):
 
 def _python_rhs(problem, config, time, state):
   return np.asarray(
-    _equations._rhs(
+    _rhs(
       time,
       np.asarray(state, dtype=float),
       problem.parameters,
@@ -171,7 +171,7 @@ def test_python_and_compiled_rhs_agree(material_name, radial):
     actual = np.real(_compiled_rhs(arguments, 0.0, state))
     deviation = _relative_deviation(expected, actual)
     assert deviation < 1e-12, (
-      f"{material_name} radial={radial}: _equations._rhs and mechanical_rhs disagree by {deviation:.3e} "
+      f"{material_name} radial={radial}: _rhs._rhs and mechanical_rhs disagree by {deviation:.3e} "
       f"at state {np.array2string(state[:4], precision=6)}..."
     )
 

@@ -23,6 +23,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 import imr_fast as F
+from imr_fast._rhs import _rhs
 from imr_fast.thermal_fd import finite_diff_mat
 
 R0, Req, G, mu = 225e-6, 225e-6 * 0.15, 2500.0, 0.1
@@ -39,7 +40,7 @@ def _shadow_polytropic(p, rtol, atol):
   tn = tv / p["t0"]
   y0 = [1.0, 0.0] + [0.0] * F._nZ(material)
   s = solve_ivp(
-    F._rhs,
+    _rhs,
     (tn[0], tn[-1]),
     y0,
     t_eval=tn,
@@ -60,14 +61,7 @@ def _thermal_chi0(p, rtol, atol, Nt=25):
   ygrid = np.linspace(0.0, 1.0, Nt)
   y0 = [1.0, 0.0, p["Pb"]] + [0.0] * Nt
   s = solve_ivp(
-    F._rhs,
-    (tn[0], tn[-1]),
-    y0,
-    t_eval=tn,
-    args=(p, material, 1, 1, D1, D2, ygrid),
-    method="LSODA",
-    rtol=rtol,
-    atol=atol,
+    _rhs, (tn[0], tn[-1]), y0, t_eval=tn, args=(p, material, 1, 1, D1, D2, ygrid), method="LSODA", rtol=rtol, atol=atol
   )
   return s.y[0]
 

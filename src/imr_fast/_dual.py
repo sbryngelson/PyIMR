@@ -21,6 +21,7 @@ from scipy.integrate import solve_ivp
 from scipy.interpolate import PchipInterpolator
 
 import imr_fast as _solver
+from ._rhs import _rhs
 from ._autodiff import Dual, seed, unpack
 from ._thermal import _far_field_singular_index
 
@@ -186,7 +187,7 @@ def _rhs_physical(time_s, packed, *, problem, config, parameters, medium, wall_s
   for index in range(state_width):
     state[index] = Dual(matrix[index, 0], matrix[index, 1:])
   nondimensional_time = time_s / parameters["t0"]
-  output = _solver._rhs(
+  output = _rhs(
     nondimensional_time,
     state,
     parameters,
@@ -245,7 +246,7 @@ def _collapse_initial_tangents(problem, config, width):
     if upstream_zener:
       output = _solver._collapse_zener_rhs(state, parameters)
     else:
-      output = _solver._rhs(
+      output = _rhs(
         time,
         state,
         parameters,

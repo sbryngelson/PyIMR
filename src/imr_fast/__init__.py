@@ -233,7 +233,7 @@ from ._materials import (  # noqa: F401
 )
 
 
-from ._constitutive import (  # noqa: F401
+from ._stress import (  # noqa: F401
   _MaterialDomainError,
   _PE_SERIES_LIMIT,
   _distributed_stress,
@@ -260,7 +260,7 @@ from ._prepare import (  # noqa: F401
 )
 
 
-from ._equations import (  # noqa: F401
+from ._rhs import (  # noqa: F401
   _nZ,
   _pinf,
   _radius_floor_event,

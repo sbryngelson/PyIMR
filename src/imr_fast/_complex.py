@@ -29,7 +29,7 @@ import dataclasses
 
 import numpy as np
 
-import imr_fast as _solver
+from ._rhs import _rhs
 from ._autodiff import Dual
 
 __all__ = ["STEP", "complex_step_supported", "rhs_complex"]
@@ -96,7 +96,7 @@ def rhs_complex(time_s, packed, *, problem, prepared, wall_states, width):
     state = matrix[:, 0] + 1j * STEP * matrix[:, index + 1]
     output = (
       np.asarray(
-        _solver._rhs(
+        _rhs(
           time_s / parameters["t0"],
           state,
           parameters,

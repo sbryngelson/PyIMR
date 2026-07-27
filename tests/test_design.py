@@ -24,6 +24,19 @@ _PARAMETERS = (
 )
 
 
+def _flaky(real, *, every):
+  """Fail every `every`-th call, succeed otherwise."""
+  calls = []
+
+  def wrapper(inference, unit, variance):
+    calls.append(unit)
+    if len(calls) % every:
+      raise RuntimeError("stiff solve failed")
+    return real(inference, unit, variance)
+
+  return wrapper
+
+
 def _design(times=_TIMES, noise=_NOISE):
   config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
   return imr_design.design_inference(config, times, noise, _PARAMETERS)
@@ -99,27 +112,53 @@ def test_a_tighter_prior_yields_less_to_learn(design, measured):
   assert tight.expected_information_gain < wide.expected_information_gain
 
 
-def test_failed_draws_are_dropped_and_counted(design, monkeypatch):
-  """A failure must not enter the average as a zero, which would read as a
-  design that runs fine and teaches nothing."""
-  real, calls = imr_design._gain, []
+def test_a_failed_draw_raises_by_default(design, monkeypatch):
+  """Censoring is opt-in. A dropped draw makes the average estimate
+  `E[gain | solve succeeded]`, which is not what the caller asked for and is not
+  what the error bar describes -- so silence is the wrong default."""
+  monkeypatch.setattr(imr_design, "_gain", _flaky(imr_design._gain, every=2))
+  with pytest.raises(RuntimeError, match="max_failure_fraction"):
+    imr_design.expected_information_gain(design, draws=4)
 
-  def flaky(inference, unit, variance):
-    calls.append(unit)
-    if len(calls) % 2:
-      raise RuntimeError("stiff solve failed")
-    return real(inference, unit, variance)
 
-  monkeypatch.setattr(imr_design, "_gain", flaky)
-  result = imr_design.expected_information_gain(design, draws=4)
-  assert (result.draws, result.failures) == (2, 2)
+def test_allowed_failures_are_counted_and_warned(design, monkeypatch):
+  """With censoring opted into, the result must still say so: `draws` is what
+  was requested, `successful` is what reached the average."""
+  monkeypatch.setattr(imr_design, "_gain", _flaky(imr_design._gain, every=2))
+  with pytest.warns(RuntimeWarning, match="conditional on"):
+    result = imr_design.expected_information_gain(design, draws=4, max_failure_fraction=0.75)
+  assert (result.draws, result.successful, result.failures) == (4, 2, 2)
   assert np.isfinite(result.expected_information_gain)
 
 
-def test_every_draw_failing_raises_rather_than_returning_a_number(design, monkeypatch):
-  monkeypatch.setattr(imr_design, "_gain", lambda *_: (_ for _ in ()).throw(RuntimeError("no")))
-  with pytest.raises(RuntimeError, match="every design draw failed"):
+def test_a_failure_chains_its_cause(design, monkeypatch):
+  """The bare handler this replaces turned a stale signature or a bad parameter
+  path -- programming errors -- into an unattributable failure count."""
+
+  def broken(*_args):
+    raise KeyError("material.not_a_field")
+
+  monkeypatch.setattr(imr_design, "_gain", broken)
+  with pytest.raises(RuntimeError) as caught:
     imr_design.expected_information_gain(design, draws=2)
+  assert isinstance(caught.value.__cause__, KeyError)
+  assert "not_a_field" in str(caught.value.__cause__)
+
+
+def test_a_design_inference_refuses_to_be_fitted(design):
+  """It holds placeholder radii, so a likelihood evaluated against them is
+  meaningless -- and `RadiusObservation` cannot object, because a constant
+  positive trace is valid."""
+  assert isinstance(design, imr_design.DesignInference)
+  unit = np.full(design.size, 0.5)
+  for call in (lambda: design.evaluate(unit), lambda: design.residual(unit), lambda: design.fit_multistart(2)):
+    with pytest.raises(TypeError, match="placeholders"):
+      call()
+
+
+def test_a_design_inference_still_scores(design):
+  """The refusal must not reach the Jacobian, which needs no measured radii."""
+  assert np.all(np.isfinite(design.jacobian(np.full(design.size, 0.5))))
 
 
 @pytest.mark.parametrize(

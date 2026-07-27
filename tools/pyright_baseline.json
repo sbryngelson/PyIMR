@@ -318,6 +318,12 @@
     "count": 2
   },
   {
+    "file": "tests/test_pymc_op.py",
+    "rule": "reportAttributeAccessIssue",
+    "message": "Cannot access attribute \"eval\" for class \"list[Variable[Unknown, Unknown]]\" Attribute \"eval\" is unknown",
+    "count": 2
+  },
+  {
     "file": "tests/test_validation_constitutive.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"Giesekus\" cannot be assigned to parameter \"material\" of type \"NeoHookeanKelvinVoigt\" in function \"solve_radius\" \"Giesekus\" is not assignable to \"NeoHookeanKelvinVoigt\"",

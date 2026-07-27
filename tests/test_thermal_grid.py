@@ -8,9 +8,12 @@ singularity is. A suppressed `np.errstate` produces `inf` wherever a node
 happens to land on `-1` and says nothing. See issue #35.
 """
 
+import inspect
+
 import numpy as np
 import pytest
 
+import _imr_thermal
 import imr_fast
 from _imr_thermal import _far_field_singular_index
 from _validation_support import NHKV, R0, REQ
@@ -81,3 +84,43 @@ def test_guard_rejects_a_moved_singularity():
     _far_field_singular_index(np.array([1.0, 0.5, 0.0, -0.5, -0.9]))  # none at all
   with pytest.raises(ValueError, match="far-field node alone"):
     _far_field_singular_index(np.array([1.0, -1.0, 0.0, -0.5, -1.0]))  # two
+
+
+_DISSIPATION_CASES = (
+  (
+    "instantaneous",
+    imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 250.0), viscous=imr_fast.Newtonian(0.1)),
+  ),
+  ("distributed", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=32)),
+  ("closed form", NHKV),
+)
+
+
+@pytest.mark.parametrize("backend", ("fd", "spectral"))
+@pytest.mark.parametrize("label,material", _DISSIPATION_CASES, ids=[c[0] for c in _DISSIPATION_CASES])
+def test_medium_dissipation_needs_no_suppression(label, material, backend):
+  """The dissipation paths read yT, which is +inf at the wall, and used to
+  suppress divide/invalid wholesale (#35).
+
+  `_instantaneous_dissipation` formed inf/inf and overwrote the nan on the next
+  line; that value is now set directly. `_distributed_dissipation`'s suppression
+  turned out to be vestigial. Neither can regress silently while this runs the
+  real solve with those errors raised.
+  """
+  config = imr_fast.SimulationConfig(
+    R0=R0, Req=REQ, material=material, bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=9, thermal=backend
+  )
+  # Underflow excluded deliberately: it fires inside SciPy's BDF `nextafter`,
+  # is unrelated to this code, and NumPy ignores it by default.
+  with np.errstate(divide="raise", invalid="raise", over="raise"):
+    imr_fast.simulate(np.linspace(0.0, 20e-6, 40), config)
+
+
+def test_dissipation_paths_carry_no_suppression():
+  """The behavioural test above cannot detect a re-added `np.errstate`: an inner
+  suppression overrides the outer context, so it would pass either way. That is
+  the same trap #35 is about, one level up. This checks the source directly."""
+  source = inspect.getsource(_imr_thermal)
+  for name in ("_instantaneous_dissipation", "_distributed_dissipation"):
+    body = source.split(f"def {name}(")[1].split("\ndef ")[0]
+    assert "errstate" not in body, f"{name} suppresses floating-point errors again; see #35"

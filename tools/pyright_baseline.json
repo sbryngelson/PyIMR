@@ -246,6 +246,12 @@
     "count": 1
   },
   {
+    "file": "imr_pymc.py",
+    "rule": "reportOperatorIssue",
+    "message": "Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown] | list[Variable[Unknown, Unknown]]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"list[Variable[Unknown, Unknown]]\"",
+    "count": 1
+  },
+  {
     "file": "imr_sensitivity.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"csr_array\" cannot be assigned to parameter \"dense_output\" of type \"bool\" in function \"solve_ivp\" \"csr_array\" is not assignable to \"bool\"",

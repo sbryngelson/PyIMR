@@ -1,5 +1,41 @@
 [
   {
+    "file": "src/imr_fast/__init__.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"csr_matrix\" cannot be assigned to parameter \"dense_output\" of type \"bool\" in function \"solve_ivp\" \"csr_matrix\" is not assignable to \"bool\"",
+    "count": 1
+  },
+  {
+    "file": "src/imr_fast/__init__.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"csr_matrix\" cannot be assigned to parameter \"vectorized\" of type \"bool\" in function \"solve_ivp\" \"csr_matrix\" is not assignable to \"bool\"",
+    "count": 1
+  },
+  {
+    "file": "src/imr_fast/__init__.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"float\" cannot be assigned to parameter \"value\" of type \"csr_matrix\" in function \"__setitem__\" \"float\" is not assignable to \"csr_matrix\"",
+    "count": 1
+  },
+  {
+    "file": "src/imr_fast/__init__.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
+    "count": 1
+  },
+  {
+    "file": "src/imr_fast/__init__.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"terminal\" for class \"FunctionType\" Attribute \"terminal\" is unknown",
+    "count": 1
+  },
+  {
+    "file": "src/imr_fast/__init__.py",
+    "rule": "reportOperatorIssue",
+    "message": "Operator \"*\" not supported for types \"float\" and \"Any | None\" Operator \"*\" not supported for types \"float\" and \"None\" when expected type is \"_ConvertibleToFloat | _ArrayLikeFloat_co | _NestedSequence[_ConvertibleToFloat | None] | None\"",
+    "count": 1
+  },
+  {
     "file": "src/imr_fast/_dual.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"Dual\" cannot be assigned to parameter \"T8\" of type \"float\" in function \"params\" \"Dual\" is not assignable to \"float\"",
@@ -192,42 +228,6 @@
     "count": 5
   },
   {
-    "file": "src/imr_fast/__init__.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"csr_matrix\" cannot be assigned to parameter \"dense_output\" of type \"bool\" in function \"solve_ivp\" \"csr_matrix\" is not assignable to \"bool\"",
-    "count": 1
-  },
-  {
-    "file": "src/imr_fast/__init__.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"csr_matrix\" cannot be assigned to parameter \"vectorized\" of type \"bool\" in function \"solve_ivp\" \"csr_matrix\" is not assignable to \"bool\"",
-    "count": 1
-  },
-  {
-    "file": "src/imr_fast/__init__.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"float\" cannot be assigned to parameter \"value\" of type \"csr_matrix\" in function \"__setitem__\" \"float\" is not assignable to \"csr_matrix\"",
-    "count": 1
-  },
-  {
-    "file": "src/imr_fast/__init__.py",
-    "rule": "reportFunctionMemberAccess",
-    "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
-    "count": 1
-  },
-  {
-    "file": "src/imr_fast/__init__.py",
-    "rule": "reportFunctionMemberAccess",
-    "message": "Cannot assign to attribute \"terminal\" for class \"FunctionType\" Attribute \"terminal\" is unknown",
-    "count": 1
-  },
-  {
-    "file": "src/imr_fast/__init__.py",
-    "rule": "reportOperatorIssue",
-    "message": "Operator \"*\" not supported for types \"float\" and \"Any | None\" Operator \"*\" not supported for types \"float\" and \"None\" when expected type is \"_ConvertibleToFloat | _ArrayLikeFloat_co | _NestedSequence[_ConvertibleToFloat | None] | None\"",
-    "count": 1
-  },
-  {
     "file": "src/imr_fast/inference.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"Integral\" cannot be assigned to parameter \"n\" of type \"IntNumber\" in function \"random\" Type \"Integral\" is not assignable to type \"IntNumber\" \"Integral\" is not assignable to \"int\" \"Integral\" is not assignable to \"integer[Any]\"",
@@ -346,36 +346,6 @@
     "rule": "reportOptionalSubscript",
     "message": "Object of type \"None\" is not subscriptable",
     "count": 1
-  },
-  {
-    "file": "tests/test_validation_trajectories.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"int\" cannot be assigned to parameter \"collapse\" of type \"CollapseInitialization | None\" in function \"__init__\" Type \"int\" is not assignable to type \"CollapseInitialization | None\" \"int\" is not assignable to \"CollapseInitialization\" \"int\" is not assignable to \"None\"",
-    "count": 2
-  },
-  {
-    "file": "tests/test_validation_trajectories.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"int\" cannot be assigned to parameter \"initial\" of type \"InitialState\" in function \"__init__\" \"int\" is not assignable to \"InitialState\"",
-    "count": 3
-  },
-  {
-    "file": "tests/test_validation_trajectories.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"int\" cannot be assigned to parameter \"physics\" of type \"PhysicalParameters\" in function \"__init__\" \"int\" is not assignable to \"PhysicalParameters\"",
-    "count": 4
-  },
-  {
-    "file": "tests/test_validation_trajectories.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"int\" cannot be assigned to parameter \"sampled_forcing\" of type \"SampledForcing | None\" in function \"__init__\" Type \"int\" is not assignable to type \"SampledForcing | None\" \"int\" is not assignable to \"SampledForcing\" \"int\" is not assignable to \"None\"",
-    "count": 4
-  },
-  {
-    "file": "tests/test_validation_trajectories.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"int\" cannot be assigned to parameter \"thermal\" of type \"str\" in function \"__init__\" \"int\" is not assignable to \"str\"",
-    "count": 4
   },
   {
     "file": "tests/test_validation_trajectories.py",

@@ -4,6 +4,8 @@ Mie-Gruneisen divergence.
 Numerical content unchanged from `run_validation.py`; see issue #32.
 """
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -103,7 +105,7 @@ def test_imr2_trajectory(label, material, column, measured):
 # Section 1b. Every extended feature with a pinned reference: constitutive
 # variants, all four forcing shapes, the thermal and mass-transfer branches,
 # and the Tait radial models.
-_EXTENDED = [
+_EXTENDED: list[tuple[str, dict[str, Any], str]] = [
   ("qKV alphax=0.10", dict(material=imr_fast.QuadraticKelvinVoigt(2500.0, 0.1, 0.10)), "ref_qkv_a010.csv"),
   ("qKV alphax=0.25", dict(material=imr_fast.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)), "ref_qkv_a025.csv"),
   ("UCM/OldB De=0.5", dict(material=imr_fast.OldroydB(0.1, 0.5 * T0, 0.1 * T0)), "ref_ucm_De005.csv"),
@@ -155,7 +157,7 @@ def test_extended_feature_trajectory(label, options, reference_file, measured):
 # Section 1c. IMRv2 requires the full coupled model for collapse
 # (f_call_params.m:234-236), so these run bubtherm + medtherm + masstrans +
 # vapor together.
-_FULL = dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=25, Mt=25, thermal="fd")
+_FULL: dict[str, Any] = dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=25, Mt=25, thermal="fd")
 
 # IMRv2 applies a collapse precursor only for stress 3 and 4 (Zener family).
 # f_call_params.m:447-460 leaves Szero empty for stress < 3 and returns zeros

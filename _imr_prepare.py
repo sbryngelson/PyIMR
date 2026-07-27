@@ -273,6 +273,20 @@ def _prepare_distributed_jacobian(config, layout):
   pattern = lil_matrix((size, size), dtype=bool)
   pattern[:stress_start, :stress_start] = True
   pattern[stress_start:, :2] = True
+  # The radial acceleration depends on the stress integral, a weighted sum over
+  # every stress state, and the thermal dissipation reads them too. Omitting
+  # this block declares those derivatives zero, so BDF's Newton iteration works
+  # from a Jacobian missing the entire stress-to-state coupling. Finite
+  # difference tolerated it; Chebyshev collocation is stiffer and the solve
+  # failed outright with "required step size is less than spacing between
+  # numbers". See #47.
+  #
+  # This is not cheap: a dense row over the stress columns means no two of them
+  # can share a finite-difference group, so the column count goes 21 -> 501 for
+  # points=240 and a coupled solve costs about 1.45x. Correctness first; a
+  # cheaper structure would have to exploit that S is a single scalar
+  # contraction, which jac_sparsity cannot express.
+  pattern[:stress_start, stress_start:] = True
   for index in range(points):
     radial = stress_start + index
     hoop = radial + points

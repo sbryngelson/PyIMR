@@ -32,6 +32,7 @@ __all__ = [
   "NeoHookeanKelvinVoigt",
   "Newtonian",
   "NoStress",
+  "Ogden",
   "OldroydB",
   "PowellEyring",
   "PowerLaw",
@@ -206,7 +207,39 @@ class ArrudaBoyce:
       raise ValueError("chain_segments must be finite and greater than 1")
 
 
-ElasticModel = NeoHookean | MooneyRivlin | Yeoh | Fung | Gent | ArrudaBoyce
+@dataclass(frozen=True, slots=True)
+class Ogden:
+  """Multi-term Ogden, W = sum_p (mu_p / alpha_p) (l1^a_p + l2^a_p + l3^a_p - 3).
+
+  Unlike the other laws here, Ogden is a function of the principal stretches
+  rather than of I1 alone, so it is not expressible as a coefficient times the
+  shared geometric factor. Exponents may be negative or fractional; only
+  alpha_p = 0 is excluded, where the term is undefined.
+
+  A single term with alpha = 2 reduces exactly to NeoHookean(mu).
+  """
+
+  shear_moduli_pa: tuple[float, ...]
+  exponents: tuple[float, ...]
+
+  def __post_init__(self) -> None:
+    moduli = tuple(float(value) for value in self.shear_moduli_pa)
+    exponents = tuple(float(value) for value in self.exponents)
+    if not moduli or len(moduli) != len(exponents):
+      raise ValueError("Ogden requires equal, non-empty shear_moduli_pa and exponents")
+    if not np.all(np.isfinite(moduli)):
+      raise ValueError("Ogden shear_moduli_pa must be finite")
+    if not np.all(np.isfinite(exponents)) or any(value == 0.0 for value in exponents):
+      raise ValueError("Ogden exponents must be finite and non-zero")
+    # The consistency requirement is on the small-strain shear modulus,
+    # sum(mu_p alpha_p) / 2 = mu, which must be positive for a stable solid.
+    if sum(m * a for m, a in zip(moduli, exponents, strict=True)) <= 0.0:
+      raise ValueError("Ogden requires sum(shear_moduli_pa * exponents) > 0 for a positive shear modulus")
+    object.__setattr__(self, "shear_moduli_pa", moduli)
+    object.__setattr__(self, "exponents", exponents)
+
+
+ElasticModel = NeoHookean | MooneyRivlin | Yeoh | Fung | Gent | ArrudaBoyce | Ogden
 
 
 @dataclass(frozen=True, slots=True)
@@ -338,7 +371,7 @@ class InstantaneousMaterial:
     if self.elastic is None and self.viscous is None:
       raise ValueError("an instantaneous material requires an elastic or viscous law")
     if self.elastic is not None and not isinstance(
-      self.elastic, (NeoHookean, MooneyRivlin, Yeoh, Fung, Gent, ArrudaBoyce)
+      self.elastic, (NeoHookean, MooneyRivlin, Yeoh, Fung, Gent, ArrudaBoyce, Ogden)
     ):
       raise TypeError("elastic must be a supported elastic model")
     if self.viscous is not None and not isinstance(

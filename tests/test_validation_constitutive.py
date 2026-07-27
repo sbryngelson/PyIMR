@@ -52,6 +52,11 @@ _ELASTIC_REDUCTIONS = [
   ("Fung", imr_fast.Fung(2500.0, 0.0), 1e-12),
   ("Gent", imr_fast.Gent(2500.0, 1e9), 1e-8),
   ("Arruda-Boyce", imr_fast.ArrudaBoyce(2500.0, 1e9), 1e-8),
+  # Ogden is exact rather than asymptotic in its limit: one term at alpha = 2
+  # IS neo-Hookean, so it is held to the same 1e-12 as Mooney-Rivlin and Yeoh.
+  ("Ogden one term", imr_fast.Ogden((2500.0,), (2.0,)), 1e-12),
+  # Two terms summing to the same small-strain modulus is not the same law, so
+  # it must NOT reduce -- covered by test_ogden_multi_term_is_distinct below.
 ]
 
 
@@ -116,6 +121,33 @@ def test_analytic_stress_rate_matches_centered_difference(label, material, measu
   error = abs(difference - predicted) / max(1.0, abs(difference))
   measured(f"stress rate {label}", f"rel={error:.2e}")
   assert error < 2e-7
+
+
+@pytest.mark.parametrize("stretch", (0.4, 0.9, 1.0, 1.0005, 1.3, 2.5))
+def test_ogden_matches_neo_hookean_through_the_series_switch(stretch, measured):
+  """Ogden's (1 - u**a)/(1 - u) factor is 0/0 at u = 1 and is covered by a
+  binomial series nearby. Check the seam, not just the smooth regions -- a wrong
+  series or a mis-set switch threshold shows up only within it."""
+  reference = imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0))
+  ogden = imr_fast.InstantaneousMaterial(elastic=imr_fast.Ogden((2500.0,), (2.0,)))
+  expected = _instantaneous_values(reference, radius=stretch)[0]
+  actual = _instantaneous_values(ogden, radius=stretch)[0]
+  error = abs(actual - expected) / abs(expected)
+  measured(f"Ogden vs neo-Hookean, stretch={stretch}", f"rel={error:.2e}")
+  assert error < 1e-12
+
+
+def test_ogden_multi_term_is_distinct(measured):
+  """A reduction limit alone would pass for an implementation that ignored all
+  but the first term. Terms with a fractional and a negative exponent must move
+  the stress away from neo-Hookean."""
+  reference = imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0))
+  multi = imr_fast.InstantaneousMaterial(elastic=imr_fast.Ogden((1800.0, 600.0, -300.0), (1.3, 4.0, -2.0)))
+  expected = _instantaneous_values(reference, radius=0.6)[0]
+  actual = _instantaneous_values(multi, radius=0.6)[0]
+  separation = abs(actual - expected) / abs(expected)
+  measured("Ogden 3-term vs neo-Hookean", f"rel={separation:.2e}")
+  assert separation > 0.05
 
 
 def test_gent_lockup_becomes_a_solver_failure():

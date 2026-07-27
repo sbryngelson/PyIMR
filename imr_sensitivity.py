@@ -500,6 +500,11 @@ def _material_parameters(material, width):
     elif isinstance(elastic, _solver.Gent):
       elastic_code = 5
       elastic_fields = (elastic.shear_modulus_pa, elastic.extensibility)
+    elif isinstance(elastic, _solver.Ogden):
+      elastic_code = 7
+      # [n_terms, mu_1..mu_n, alpha_1..alpha_n]; the compiled kernel takes a
+      # flat array, so the term count travels with the data.
+      elastic_fields = (float(len(elastic.exponents)), *elastic.shear_moduli_pa, *elastic.exponents)
     elif isinstance(elastic, _solver.ArrudaBoyce):
       elastic_code = 6
       elastic_fields = (elastic.shear_modulus_pa, elastic.chain_segments)
@@ -547,8 +552,12 @@ def _material_parameters(material, width):
       viscous_fields = (viscous.yield_stress_pa, viscous.plastic_viscosity_pa_s, viscous.regularization_rate_per_s)
   else:
     raise TypeError("unsupported mechanical material")
-  elastic_values, elastic_tangents = _packed_values(elastic_fields, width, 5)
-  viscous_values, viscous_tangents = _packed_values(viscous_fields, width, 5)
+  # Sized to the data, not to a constant. Every law before Ogden had at most
+  # three parameters, so a hardcoded 5 was invisible slack; Ogden needs
+  # 1 + 2 * terms and overflowed it. max() keeps the padding the compiled
+  # kernels have always been able to index past the end of.
+  elastic_values, elastic_tangents = _packed_values(elastic_fields, width, max(5, len(elastic_fields)))
+  viscous_values, viscous_tangents = _packed_values(viscous_fields, width, max(5, len(viscous_fields)))
   return (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents)
 
 

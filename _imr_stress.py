@@ -23,6 +23,7 @@ from _imr_materials import (
   NeoHookeanKelvinVoigt,
   Newtonian,
   NoStress,
+  Ogden,
   OldroydB,
   PowellEyring,
   PowerLaw,
@@ -49,6 +50,35 @@ class _MaterialDomainError(RuntimeError):
   """Internal signal for a constitutive model leaving its physical domain."""
 
 
+_OGDEN_SERIES_LIMIT = 1e-3
+
+
+def _ogden_ratio(u, exponent):
+  """(1 - u**exponent) / (1 - u), continued analytically through u = 1.
+
+  The singularity is removable -- the limit is `exponent` -- but the quotient
+  loses all precision near it, so switch to the binomial series in (u - 1).
+  The predicate reads the primal value only: comparing a Dual or a complex
+  perturbation directly would either fail or discard the derivative, which is
+  the trap recorded at _imr_mechanical.py's complex-step note.
+  """
+  offset = u - 1.0
+  near = np.abs(primal_array(offset)) < _OGDEN_SERIES_LIMIT
+  series = exponent * (
+    1.0
+    + (exponent - 1.0) / 2.0 * offset
+    + (exponent - 1.0) * (exponent - 2.0) / 6.0 * offset**2
+    + (exponent - 1.0) * (exponent - 2.0) * (exponent - 3.0) / 24.0 * offset**3
+  )
+  if np.ndim(near) == 0:
+    return series if near else (1.0 - u**exponent) / (1.0 - u)
+  # Evaluate the quotient only where it is well conditioned; a plain np.where
+  # would still divide by (1 - u) at u == 1 and raise or produce a NaN that
+  # then propagates through the Dual tangent.
+  safe = np.where(near, 1.0 + 2.0 * _OGDEN_SERIES_LIMIT, u)
+  return np.where(near, series, (1.0 - safe**exponent) / (1.0 - safe))
+
+
 def _elastic_integrand(model, stretch, pressure_scale):
   stretch = np.asarray(stretch)
   stretch_values = primal_array(stretch)
@@ -56,7 +86,25 @@ def _elastic_integrand(model, stretch, pressure_scale):
     raise _MaterialDomainError("elastic stretch became non-positive")
   invariant_offset = stretch**-4 + 2.0 * stretch**2 - 3.0
   geometric_factor = (stretch**3 + 1.0) / stretch**5
-  if isinstance(model, NeoHookean):
+  if isinstance(model, Ogden):
+    # Ogden depends on the principal stretches, not on I1 alone, so it does not
+    # factor as coefficient * geometric_factor like the laws below.
+    #
+    # For the spherical incompressible deformation the stretches are
+    # (l^-2, l, l), so tau_rr - tau_hh = sum_p mu_p (l^(-2 a_p) - l^(a_p)), and
+    # the shared measure factor is -2 / (l (1 - l^3)). Writing u = l^3,
+    #
+    #   (l^(-2a) - l^a) / (1 - u) = l^(-2a) (1 - u^a) / (1 - u)
+    #
+    # which is analytic at u = 1 but 0/0 there, so _ogden_ratio supplies the
+    # series. At a = 2 this collapses to (1 + l^3) / l^4 and the whole
+    # expression to the NeoHookean line below, exactly.
+    u = stretch**3
+    total = 0.0
+    for modulus, exponent in zip(model.shear_moduli_pa, model.exponents, strict=True):
+      total = total + modulus * stretch ** (-2.0 * exponent) * _ogden_ratio(u, exponent)
+    result = -2.0 / (stretch * pressure_scale) * total
+  elif isinstance(model, NeoHookean):
     coefficient = model.shear_modulus_pa / pressure_scale
     result = -2.0 * coefficient * geometric_factor
   elif isinstance(model, MooneyRivlin):

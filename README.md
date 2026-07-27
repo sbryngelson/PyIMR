@@ -169,6 +169,7 @@ Elastic laws:
 - `Fung`
 - `Gent`
 - `ArrudaBoyce`
+- `Ogden`
 
 Generalized-Newtonian laws:
 
@@ -183,6 +184,29 @@ Generalized-Newtonian laws:
 
 `Carreau` is `CarreauYasuda(transition_exponent=2)`; simplified Cross is
 `Cross(transition_exponent=1)`.
+
+`Ogden` takes matched tuples and is the only elastic law here that depends on
+the principal stretches rather than on `I1` alone, so exponents may be negative
+or fractional:
+
+```python
+from imr_fast import Ogden
+
+material = Ogden(shear_moduli_pa=(1800.0, 600.0, -300.0), exponents=(1.3, 4.0, -2.0))
+```
+
+A single term with `exponents=(2.0,)` *is* neo-Hookean, and reduces to it
+exactly rather than asymptotically. The small-strain shear modulus is
+`sum(shear_moduli_pa * exponents) / 2`, which must be positive; individual
+moduli may be negative, as in the example above.
+
+**`BlatzKo` is deliberately absent.** The standard Blatz-Ko strain energy is
+distinguished by its dependence on `I3`, and this solver assumes an
+incompressible spherical deformation with stretches `(l^-2, l, l)`, so `I3 = 1`
+identically. In that limit Blatz-Ko is `MooneyRivlin(c10=0.0, c01=mu/2)` --
+verified equal to machine precision -- so a separate class would be an alias,
+not a new capability. A genuinely compressible Blatz-Ko needs the
+incompressibility assumption relaxed throughout the radial dynamics.
 
 The Powell-Eyring pair uses the standard laws,
 `eta_inf + (eta_0 - eta_inf) * asinh(x)/x` and its `log1p(x)/x` variant with

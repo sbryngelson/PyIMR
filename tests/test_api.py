@@ -137,6 +137,7 @@ OWNED = {
   "imr_inference",
   "imr_data",
   "_imr_autodiff",
+  "_imr_complex",
   "_imr_config",
   "_imr_dual",
   "_imr_materials",

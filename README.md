@@ -504,19 +504,49 @@ Ten times more accurate than `fd(400)` at a fortieth of the cost.
 
 #### Which to use
 
-For **`bubtherm` alone**, prefer `thermal="spectral"`. The accuracy and cost
-case above is unambiguous, and the `Giesekus(mobility=0)` to `Oldroyd-B`
-reduction limit holds to `1.0e-06`, matching finite difference.
+`thermal="spectral"` is the **default** since 0.3.0 (#26). The case for it is
+stronger on the fully coupled model than on `bubtherm` alone. Against a
+converged reference, on `bubtherm + medtherm + masstrans + vapor`, max
+deviation in `R/R0`:
 
-For the **fully coupled** model -- `bubtherm` with `medtherm`, `masstrans` and
-`vapor` together -- keep `thermal="fd"` for now. Spectral does not converge
-there: the same reduction limit sits at `1.4e-02` regardless of quadrature
-resolution, and *worsens* to `5.0e-02` when the thermal grid is refined, with
-overflow warnings from the BDF Jacobian. Tracked as issue #47.
+| scheme | N | cost | error |
+|---|---:|---:|---:|
+| finite difference | 25 | 1.9 s | **2.8e-01** |
+| finite difference | 50 | 6.6 s | 1.9e-01 |
+| **spectral** | **25** | 9.0 s | **5.0e-02** |
+| finite difference | 100 | 24.9 s | 1.1e-01 |
+| spectral | 50 | 30.6 s | 1.0e-02 |
+| finite difference | 200 | 100.5 s | 5.3e-02 |
 
-`thermal="fd"` therefore remains the default. It is also what every pinned
-IMRv2 trajectory was generated against, so the pinned suite sets it
-explicitly regardless of what the default becomes.
+Spectral at `N = 25` matches finite difference at `N = 200` for a ninth of the
+cost, and at matched cost is about three times more accurate. The reference is
+spectral at `N = 100`, which is only trustworthy because **finite difference
+converges toward it monotonically** — two independent discretisations agreeing
+is the evidence, not either one alone.
+
+Spectral is *stiffer*, so it costs more at equal `N` — 1.6x to 4.9x. The cause
+is step count, not per-step work: RHS evaluations go from 9,986 to 51,428 on
+the coupled case, because the Chebyshev second-derivative operator has
+eigenvalues scaling like `N**4` against `N**2` for finite difference.
+
+Pass `thermal="fd"` when you want the cheaper scheme, or to reproduce numbers
+published under 0.2.0. It is also what every pinned IMRv2 trajectory was
+generated against — IMRv2 is a finite-difference code and has no spectral
+branch — so the pinned suite sets it explicitly regardless of the default.
+
+**Neither scheme is converged at `Nt = 25` on the fully coupled model.**
+Choosing the scheme and choosing the resolution are separate decisions, and the
+default makes only the first.
+
+> Earlier revisions of this section recommended `thermal="fd"` for the coupled
+> model, on the grounds that spectral "does not converge" there — the
+> `Giesekus(mobility=0)` to `Oldroyd-B` reduction limit sat at `1.4e-02` and
+> worsened under refinement. That was a misattribution, resolved in #47: the
+> gap is physics, not discretisation. `_dissipation` carries the polymer at its
+> quasi-steady value while `_distributed_dissipation` carries its actual
+> stress, so the two differ by `O(De)` and the gap grows with `Mt` under
+> **finite difference too** (`2.0e-03`, `2.7e-03`, `7.2e-03` at `Mt = 9, 17,
+> 33`). It was never evidence about the spectral operator.
 
 ## Trace estimators
 

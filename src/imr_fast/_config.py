@@ -241,7 +241,12 @@ class SimulationConfig:
   rtol: float = 1e-8
   atol: float = 1e-10
   max_step_s: float | None = None
-  thermal: str = "fd"
+  # Chebyshev collocation by default (#26). On the fully coupled model against
+  # a converged reference, second-order finite difference at this Nt carries
+  # 2.8e-01 error in R/R0 -- spectral at the same Nt carries 5.0e-02, and
+  # matches fd at Nt=200 for a ninth of the cost. Pass thermal="fd" for the
+  # cheaper scheme or to reproduce pre-0.3.0 numbers.
+  thermal: str = "spectral"
   physics: PhysicalParameters = field(default_factory=PhysicalParameters)
   sampled_forcing: SampledForcing | None = None
   initial: InitialState = field(default_factory=InitialState)

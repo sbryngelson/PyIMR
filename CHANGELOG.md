@@ -11,6 +11,41 @@ numbers**, with no error and no deprecation path.
 
 ### Breaking: results change
 
+- **`thermal` now defaults to `"spectral"` (Chebyshev collocation) rather than
+  `"fd"`** (#26). Any run with `bubtherm=1` returns different numbers unless it
+  passes `thermal="fd"` explicitly.
+
+  This is a fix. Measured on the fully coupled model
+  (`bubtherm + medtherm + masstrans + vapor`, `R0 = 225 um, Req = 37.5 um`,
+  NHKV) against a converged spectral `N = 100` reference, max deviation in
+  `R/R0` over the trajectory:
+
+  | scheme | N | cost | error |
+  |---|---|---|---|
+  | fd | 25 | 1.9 s | **2.8e-01** (the old default) |
+  | fd | 50 | 6.6 s | 1.9e-01 |
+  | **spectral** | **25** | 9.0 s | **5.0e-02** |
+  | fd | 100 | 24.9 s | 1.1e-01 |
+  | spectral | 50 | 30.6 s | 1.0e-02 |
+  | fd | 200 | 100.5 s | 5.3e-02 |
+
+  Spectral is Pareto-dominant: at `N = 25` it matches finite difference at
+  `N = 200` for a ninth of the cost, and at matched cost it is roughly three
+  times more accurate. The old default was not merely less accurate — at
+  `Nt = 25` it was badly under-resolved on the coupled model.
+
+  Spectral is *stiffer*, so it costs more at equal `N`: 1.6x to 4.9x, and the
+  cause is step count rather than per-step work (RHS evaluations go 9,986 to
+  51,428 on the coupled case). The Chebyshev second-derivative operator has
+  eigenvalues scaling like `N**4` against `N**2` for finite difference.
+
+  Note that **neither scheme is converged at `Nt = 25`** on the fully coupled
+  model. Raising `Nt` is a separate decision from choosing the scheme, and this
+  change does not make it for you.
+
+  **If you have published numbers from a thermal model under 0.2.0, pass
+  `thermal="fd"` to reproduce them.**
+
 - **`radial = 5` (KM enthalpy / Mie-Gruneisen) produces a different
   trajectory** (#18). IMRv2 takes the wrong root of its own Mie-Gruneisen
   density quadratic; the root is corrected here. On the standard

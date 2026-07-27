@@ -151,3 +151,53 @@ def test_keller_miksis_approaches_rayleigh_plesset_as_first_order_in_one_over_c(
   measured("KM -> RP as 1/c", f"c=1e7: {gaps[0]:.2e}, c=1e9: {gaps[1]:.2e}, ratio={ratio:.1f} (first order = 100)")
   assert gaps[1] < gaps[0]
   assert 50.0 < ratio < 200.0, "gap must fall like 1/c, not faster or slower"
+
+
+_BASE_PHYSICS = imr_fast.PhysicalParameters()
+
+
+def _polytropic_drift(conductivity_scale, exponent, samples=600):
+  """Relative drift of `P * R^exponent`, which is constant for a polytropic gas."""
+  physics = imr_fast.PhysicalParameters(
+    gas_conductivity_slope=_BASE_PHYSICS.gas_conductivity_slope * conductivity_scale,
+    gas_conductivity_offset=_BASE_PHYSICS.gas_conductivity_offset * conductivity_scale,
+  )
+  config = imr_fast.SimulationConfig(
+    R0=_R0,
+    Req=_R0 / 6,
+    material=imr_fast.NoStress(),
+    radial=1,
+    bubtherm=1,
+    Nt=25,
+    physics=physics,
+    rtol=1e-10,
+    atol=1e-12,
+  )
+  result = imr_fast.simulate(np.linspace(0.0, 40e-6, samples), config)
+  invariant = np.asarray(result.internal_pressure_pa) * np.asarray(result.radius_ratio) ** exponent
+  return float(np.max(np.abs(invariant - invariant[0])) / abs(invariant[0]))
+
+
+def test_thermal_pde_reduces_to_the_adiabatic_polytropic_law(measured):
+  """Switch conduction off and the thermal PDE must reproduce `P R^(3*gamma) =
+  const` -- a closed form, not another code's output.
+
+  This is the only external anchor the thermal model has. `validate_bubtherm_
+  adiabatic.py` checks the same reduction by forcing `chi = 0` through the
+  internal RHS; this reaches the limit through the public API instead, so it
+  tests the model a user can actually configure.
+  """
+  drift = _polytropic_drift(1e-8, 3.0 * imr_fast.KAPPA)
+  measured("thermal -> adiabatic", f"P*R^(3g) drift={drift:.2e}")
+  assert drift < 1e-3
+
+
+def test_conduction_actually_breaks_the_adiabatic_invariant(measured):
+  """The converse. At physical conductivity the gas exchanges heat with the
+  wall, so `P R^(3*gamma)` must NOT hold. Without this, a thermal branch whose
+  conduction term was inert would pass the test above perfectly."""
+  scales = (1e-8, 1e-4, 1e-2, 1.0)
+  drifts = [_polytropic_drift(scale, 3.0 * imr_fast.KAPPA) for scale in scales]
+  measured("conduction breaks it", " -> ".join(f"{d:.1e}" for d in drifts))
+  assert all(a < b for a, b in zip(drifts[:-1], drifts[1:], strict=True)), "drift must grow with conductivity"
+  assert drifts[-1] > 0.1, "conduction at physical strength barely moved the invariant -- is it inert?"

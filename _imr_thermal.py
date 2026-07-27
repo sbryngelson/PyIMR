@@ -117,7 +117,16 @@ def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6):
   x2 = (yT3 - 1.0 + Rst**3) ** (2.0 / 3.0)
   ix2 = 1.0 / x2
   x4 = x2**2
-  base = 12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6 + 2.0 * Br / Ca * iyT3 * (Rd / R) * (yT2 * ix2 - iyT4 * x4)
+  # Interior only: yT2 is +inf at the far-field node and iyT3 is exactly 0
+  # there, so the second term is 0 * inf, a nan. It was invisible because the
+  # caller in _imr_rhs suppressed invalid around the whole block -- a blanket
+  # suppression hiding a nan in a function it does not own. Tmdot[-1] is
+  # overwritten with 0.0, which is the value set here. #35.
+  inner = slice(0, -1)
+  base = np.zeros_like(yT)
+  base[inner] = 12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6[inner] + 2.0 * Br / Ca * iyT3[inner] * (Rd / R) * (
+    yT2[inner] * ix2[inner] - iyT4[inner] * x4[inner]
+  )
   if isinstance(material, InstantaneousMaterial):
     return _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3)
   if isinstance(material, NoStress):

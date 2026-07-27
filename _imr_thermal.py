@@ -76,6 +76,23 @@ def _mie_gruneisen(P, Cstar, s, nog, reference):
   return C, hB, hH
 
 
+def _far_field_singular_index(xi) -> int:
+  """Index of the node where the medium grid map 2 / (xi + 1) is singular.
+
+  Raises unless there is exactly one and it is the last. The wall closure and
+  every yT power assume that; suppressing the divide instead lets a moved or
+  duplicated singularity produce inf at an interior node in silence. See #35.
+  """
+  values = np.asarray(xi, dtype=float)
+  singular = np.flatnonzero(values + 1.0 == 0.0)
+  if singular.size != 1 or singular[0] != values.size - 1:
+    raise ValueError(
+      f"medium grid singularity must be the far-field node alone: xi + 1 == 0 at {singular.tolist()} "
+      f"of {values.size} nodes"
+    )
+  return int(singular[0])
+
+
 def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3):
   with np.errstate(divide="ignore", invalid="ignore"):
     strain_rate = Rd / R * iyT3

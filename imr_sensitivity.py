@@ -17,6 +17,7 @@ from scipy.sparse import lil_matrix
 import imr_fast as _solver
 from _imr_autodiff import Dual, seed, unpack
 from _imr_mechanical import mechanical_stress_tangent, mechanical_tangent_rhs
+from _imr_thermal import _far_field_singular_index
 
 __all__ = ["SensitivityParameter", "SensitivityResult", "simulate_with_sensitivities", "solve_with_sensitivities"]
 
@@ -385,13 +386,28 @@ def _dual_medium(problem, parameters):
   medium = copy.copy(problem.medium)
   xi = problem.medium.xi
   length = parameters["Lt"]
-  with np.errstate(divide="ignore", invalid="ignore"):
-    y_t = (2.0 / (xi + 1.0) - 1.0) * length + 1.0
-    y_t2 = y_t**2
-    y_t3 = y_t**3
-    inverse_y_t3 = y_t**-3
-    inverse_y_t4 = y_t**-4
-    inverse_y_t6 = y_t**-6
+  # Same far-field singularity as _imr_prepare, and the same limits. Worth
+  # stating what that means for the tangent: yT -> inf and its inverse powers
+  # -> 0 whatever Lt is, so the far-field entries carry NO dependence on the
+  # parameters and their derivatives are exactly zero. The suppressed form
+  # instead produced inf * Dual, giving an inf or nan tangent there, which was
+  # harmless only because Tmdot[-1] is overwritten downstream.
+  _far_field_singular_index(xi)
+  interior = np.asarray(xi)[:-1]
+  y_t = np.empty(np.asarray(xi).size, dtype=object)
+  y_t[:-1] = (2.0 / (interior + 1.0) - 1.0) * length + 1.0
+  y_t[-1] = float("inf")
+  y_t2 = np.empty_like(y_t)
+  y_t3 = np.empty_like(y_t)
+  inverse_y_t3 = np.empty_like(y_t)
+  inverse_y_t4 = np.empty_like(y_t)
+  inverse_y_t6 = np.empty_like(y_t)
+  y_t2[:-1], y_t3[:-1] = y_t[:-1] ** 2, y_t[:-1] ** 3
+  inverse_y_t3[:-1] = y_t[:-1] ** -3
+  inverse_y_t4[:-1] = y_t[:-1] ** -4
+  inverse_y_t6[:-1] = y_t[:-1] ** -6
+  y_t2[-1] = y_t3[-1] = float("inf")
+  inverse_y_t3[-1] = inverse_y_t4[-1] = inverse_y_t6[-1] = 0.0
 
   # The wall-flux weights carry Dual parameter dependence and so must be
   # rebuilt, but their stencils are pure grid geometry. Take those from the

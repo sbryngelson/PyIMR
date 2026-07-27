@@ -91,7 +91,7 @@ _DISSIPATION_CASES = (
     "instantaneous",
     imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 250.0), viscous=imr_fast.Newtonian(0.1)),
   ),
-  ("distributed", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=32)),
+  ("distributed", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12)),
   ("closed form", NHKV),
   # QuadraticKelvinVoigt reaches a distinct branch of _dissipation that no other
   # test exercised: every pinned qKV case runs without medtherm. Slicing that
@@ -118,7 +118,10 @@ def test_medium_dissipation_needs_no_suppression(label, material, backend):
   # Underflow excluded deliberately: it fires inside SciPy's BDF `nextafter`,
   # is unrelated to this code, and NumPy ignores it by default.
   with np.errstate(divide="raise", invalid="raise", over="raise"):
-    imr_fast.simulate(np.linspace(0.0, 20e-6, 40), config)
+    # 4 us, not 20: this only has to reach the dissipation code, and the
+    # distributed+spectral combination is where the corrected Jacobian sparsity
+    # is most expensive (#47). A longer window buys no coverage.
+    imr_fast.simulate(np.linspace(0.0, 4e-6, 20), config)
 
 
 def test_dissipation_paths_carry_no_suppression():

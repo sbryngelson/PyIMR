@@ -28,6 +28,12 @@ converge faster, but then `standard_error` -- the whole point of reporting one -
 would no longer be valid, and without an error bar there is no way to say whether
 two designs actually differ. Variance reduction is available by raising `draws`.
 
+That reasoning is also why a failed draw raises rather than being dropped. An
+average over the survivors estimates `E[gain | the solve succeeded]`, and the
+error bar computed from them describes that conditional quantity while looking
+exactly like a prior average. `max_failure_fraction` opts in to censoring, and
+the result then reports `draws`, `successful` and `failures` separately.
+
 On the linearisation: the criterion uses the tangent at each draw, so it inherits
 whatever the tangent misses about curvature. It is averaged over the prior rather
 than evaluated at a nominal theta precisely because the per-draw gains vary
@@ -39,34 +45,73 @@ from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
+import warnings
 from numbers import Integral
 
 import numpy as np
 
-from .inference import PreparedInference, RadiusObservation, prepare_inference
+from .inference import PreparedInference, RadiusObservation
 
-__all__ = ["DesignEvaluation", "design_inference", "expected_information_gain"]
+__all__ = ["DesignEvaluation", "DesignInference", "design_inference", "expected_information_gain"]
 
 UNIFORM_VARIANCE = 1.0 / 12.0
 
 
 @dataclass(frozen=True, slots=True)
 class DesignEvaluation:
-  """One scored design. `expected_information_gain` is in nats."""
+  """One scored design. `expected_information_gain` is in nats.
+
+  `draws` is what was requested and `successful` is what reached the average, so
+  censoring is visible in the result rather than inferable by comparing `draws`
+  against the argument that produced it.
+  """
 
   expected_information_gain: float
   standard_error: float
   draws: int
+  successful: int
   failures: int
 
 
-def design_inference(config, time_s, standard_deviation_m, parameters):
-  """A `PreparedInference` for a design that has not been run.
+class DesignInference(PreparedInference):
+  """A `PreparedInference` whose observations are placeholders.
 
-  The placeholder radii are never read by `jacobian`; see the module docstring.
+  A design is scored before it is run, so there are no measured radii. The
+  Fisher information does not need any -- `jacobian` never reads
+  `observation.radius_m` -- but the resulting object is otherwise a fully
+  functional likelihood, and calling `evaluate` or `fit_multistart` on it would
+  fit against a constant fabricated trace and return a confident, meaningless
+  answer. `RadiusObservation` cannot catch that: it validates positivity and
+  finiteness, which a placeholder satisfies.
+
+  So the data-consuming methods refuse instead. Scoring works; fitting does not.
   """
+
+  __slots__ = ()
+
+  def _refuse(self, name):
+    raise TypeError(
+      f"{name}() needs measured radii, and this inference holds placeholders. "
+      "Build one with imr_fast.inference.prepare_inference once the experiment has been run."
+    )
+
+  def residual(self, unit_parameters):
+    self._refuse("residual")
+
+  def evaluate(self, unit_parameters):
+    self._refuse("evaluate")
+
+  def evaluate_batch(self, unit_parameters, workers=1):
+    self._refuse("evaluate_batch")
+
+  def fit_multistart(self, starts, **kwargs):
+    self._refuse("fit_multistart")
+
+
+def design_inference(config, time_s, standard_deviation_m, parameters):
+  """A `DesignInference` for a design that has not been run."""
   placeholder = np.full(np.shape(np.asarray(time_s, dtype=float)), float(config.R0))
-  return prepare_inference(config, RadiusObservation(time_s, placeholder, standard_deviation_m), parameters)
+  return DesignInference(config, RadiusObservation(time_s, placeholder, standard_deviation_m), tuple(parameters))
 
 
 def _gain(inference, unit, variance):
@@ -83,23 +128,43 @@ def _gain(inference, unit, variance):
 
 
 def _gain_worker(argument):
-  """A failed solve is a NaN, dropped and counted -- not a zero, which would
-  read as an informative design that happens to teach nothing."""
+  """Returns the gain, or the exception that prevented it.
+
+  The exception is carried rather than collapsed to NaN so the caller can chain
+  it. A bare handler here would turn a stale signature or a bad parameter path
+  -- programming errors, not stiff solves -- into a silent failure count.
+  """
   inference, unit, variance = argument
   try:
     return _gain(inference, unit, variance)
-  except Exception:  # noqa: BLE001 - any solver or factorisation failure
-    return float("nan")
+  except Exception as error:  # noqa: BLE001 - any solver or factorisation failure
+    return error
 
 
-def expected_information_gain(inference, *, draws=128, seed=0, prior_variance=None, workers=1):
-  """Prior-averaged Laplace EIG for one design, with its Monte Carlo error bar."""
+def expected_information_gain(
+  inference, *, draws=128, seed=0, prior_variance=None, workers=1, max_failure_fraction=0.0
+):
+  """Prior-averaged Laplace EIG for one design, with its Monte Carlo error bar.
+
+  Failed draws are **not** silently dropped. A censored average estimates
+  `E[gain | the solve succeeded]`, not `E_theta[gain]`, and the two differ most
+  exactly where it matters: a design whose solves fail in the violent, highly
+  informative region of the prior scores as though that region did not exist,
+  under an error bar that looks just as tight as a clean design's. Ranking two
+  designs then compares two different quantities.
+
+  So any failure raises by default. `max_failure_fraction` opts in to censoring
+  explicitly, and the result records `draws`, `successful` and `failures` so the
+  censoring stays visible downstream.
+  """
   if not isinstance(inference, PreparedInference):
     raise TypeError("inference must be a PreparedInference")
   if not isinstance(draws, Integral) or draws < 1:
     raise ValueError("draws must be a positive integer")
   if not isinstance(workers, Integral) or workers < 1:
     raise ValueError("workers must be a positive integer")
+  if not 0.0 <= max_failure_fraction < 1.0:
+    raise ValueError("max_failure_fraction must be in [0, 1)")
   if prior_variance is None:
     variance = np.full(inference.size, UNIFORM_VARIANCE)
   else:
@@ -110,13 +175,29 @@ def expected_information_gain(inference, *, draws=128, seed=0, prior_variance=No
   points = np.random.default_rng(seed).random((int(draws), inference.size))
   arguments = [(inference, point, variance) for point in points]
   if workers == 1:
-    gains = np.array([_gain_worker(argument) for argument in arguments])
+    outcomes = [_gain_worker(argument) for argument in arguments]
   else:
     with ProcessPoolExecutor(max_workers=workers) as executor:
-      gains = np.array(list(executor.map(_gain_worker, arguments)))
+      outcomes = list(executor.map(_gain_worker, arguments))
 
-  finite = gains[np.isfinite(gains)]
-  if finite.size == 0:
-    raise RuntimeError("every design draw failed to produce a Jacobian")
-  error = float(np.std(finite, ddof=1) / np.sqrt(finite.size)) if finite.size > 1 else float("inf")
-  return DesignEvaluation(float(np.mean(finite)), error, int(finite.size), int(gains.size - finite.size))
+  gains = np.array([value for value in outcomes if not isinstance(value, Exception)], dtype=float)
+  errors = [value for value in outcomes if isinstance(value, Exception)]
+  requested = len(outcomes)
+
+  if errors:
+    fraction = len(errors) / requested
+    if not gains.size or fraction > max_failure_fraction:
+      raise RuntimeError(
+        f"{len(errors)} of {requested} design draws failed "
+        f"({fraction:.1%} > max_failure_fraction={max_failure_fraction:.1%}); first failure shown as the cause"
+      ) from errors[0]
+    warnings.warn(
+      f"{len(errors)} of {requested} design draws failed ({fraction:.1%}); "
+      f"the reported gain is conditional on the {gains.size} that succeeded. "
+      f"First failure: {type(errors[0]).__name__}: {errors[0]}",
+      RuntimeWarning,
+      stacklevel=2,
+    )
+
+  error = float(np.std(gains, ddof=1) / np.sqrt(gains.size)) if gains.size > 1 else float("inf")
+  return DesignEvaluation(float(np.mean(gains)), error, requested, int(gains.size), len(errors))

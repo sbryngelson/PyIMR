@@ -1,5 +1,35 @@
 [
   {
+    "file": "_imr_dual.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"Dual\" cannot be assigned to parameter \"T8\" of type \"float\" in function \"params\" \"Dual\" is not assignable to \"float\"",
+    "count": 1
+  },
+  {
+    "file": "_imr_dual.py",
+    "rule": "reportArgumentType",
+    "message": "Argument of type \"Real\" cannot be assigned to parameter \"x1\" of type \"_SupportsArrayUFunc\" in function \"__call__\" \"Real\" is incompatible with protocol \"_SupportsArrayUFunc\" \"__array_ufunc__\" is not present",
+    "count": 1
+  },
+  {
+    "file": "_imr_dual.py",
+    "rule": "reportCallIssue",
+    "message": "No overloads for \"__call__\" match the provided arguments",
+    "count": 1
+  },
+  {
+    "file": "_imr_dual.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
+    "count": 1
+  },
+  {
+    "file": "_imr_dual.py",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"terminal\" for class \"FunctionType\" Attribute \"terminal\" is unknown",
+    "count": 1
+  },
+  {
     "file": "_imr_prepare.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"csr_array | None\" cannot be assigned to parameter \"jacobian_sparsity\" of type \"csr_matrix | None\" in function \"__init__\" Type \"csr_array | None\" is not assignable to type \"csr_matrix | None\" Type \"csr_array\" is not assignable to type \"csr_matrix | None\" \"csr_array\" is not assignable to \"csr_matrix\" \"csr_array\" is not assignable to \"None\"",
@@ -218,18 +248,6 @@
   {
     "file": "imr_sensitivity.py",
     "rule": "reportArgumentType",
-    "message": "Argument of type \"Dual\" cannot be assigned to parameter \"T8\" of type \"float\" in function \"params\" \"Dual\" is not assignable to \"float\"",
-    "count": 1
-  },
-  {
-    "file": "imr_sensitivity.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"Real\" cannot be assigned to parameter \"x1\" of type \"_SupportsArrayUFunc\" in function \"__call__\" \"Real\" is incompatible with protocol \"_SupportsArrayUFunc\" \"__array_ufunc__\" is not present",
-    "count": 1
-  },
-  {
-    "file": "imr_sensitivity.py",
-    "rule": "reportArgumentType",
     "message": "Argument of type \"csr_array\" cannot be assigned to parameter \"dense_output\" of type \"bool\" in function \"solve_ivp\" \"csr_array\" is not assignable to \"bool\"",
     "count": 1
   },
@@ -241,21 +259,15 @@
   },
   {
     "file": "imr_sensitivity.py",
-    "rule": "reportCallIssue",
-    "message": "No overloads for \"__call__\" match the provided arguments",
+    "rule": "reportFunctionMemberAccess",
+    "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
     "count": 1
   },
   {
     "file": "imr_sensitivity.py",
     "rule": "reportFunctionMemberAccess",
-    "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
-    "count": 2
-  },
-  {
-    "file": "imr_sensitivity.py",
-    "rule": "reportFunctionMemberAccess",
     "message": "Cannot assign to attribute \"terminal\" for class \"FunctionType\" Attribute \"terminal\" is unknown",
-    "count": 2
+    "count": 1
   },
   {
     "file": "imr_sensitivity.py",

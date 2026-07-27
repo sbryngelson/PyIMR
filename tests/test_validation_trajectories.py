@@ -9,11 +9,74 @@ import pytest
 
 import _imr_thermal
 import imr_fast
-from _validation_support import NHKV, R0, REQ, T0, deviation, oldroyd_b, reference, reference_times, solve_radius, zener
+from _validation_support import (
+  NHKV,
+  R0,
+  REQ,
+  T0,
+  deviation,
+  median_deviation,
+  oldroyd_b,
+  reference,
+  reference_times,
+  solve_radius,
+  zener,
+)
 
 SECTION = "1. Forward solver vs IMRv2 reference trajectories"
 
 _PINNED_TOLERANCE = 2e-3
+
+# The pointwise maximum is a timing measurement at the collapse (#23) and cannot
+# be tightened. The median can -- but NOT with one uniform bound. Baseline
+# medians span 3e-08 to 1.6e-06 across the suite, a 50x spread, so a single
+# threshold is set by the worst case and throws away the sensitivity of every
+# other one. Measured: a 3e-5 relative error injected into the polytropic
+# pressure moves Keller-Miksis NHKV's median from 3.1e-08 to 1.2e-06, a factor
+# of 38, while its maximum moves only 1.35x -- and 1.2e-06 still sits below the
+# cleanest uniform bound those spreads permit.
+#
+# So the bounds are per case, at 5x the measured baseline. Retained margin is
+# generous enough for platform and SciPy variation while remaining one to two
+# orders below the max-based tolerance in absolute terms.
+_PINNED_MEDIAN_BOUNDS = {
+  "Zener truth De=2 s=6": 7e-06,
+  "NHKV grid": 7e-06,
+  "qKV alphax=0.10": 4e-07,
+  "qKV alphax=0.25": 4e-07,
+  "UCM/OldB De=0.5": 6e-06,
+  "UCM/OldB De=2.0": 6e-06,
+  "Keller-Miksis NHKV": 2e-07,
+  "Keller-Miksis Zener": 7e-06,
+  "Gaussian forcing pA=5e4": 7e-07,
+  "Gaussian forcing pA=2e5": 3e-07,
+  "constant offset pA=3e4": 4e-07,
+  "Heaviside step pA=5e4": 4e-07,
+  "histotripsy pulse": 5e-07,
+  "vapor=1 (T=298.15K)": 4e-07,
+  "bubtherm=1 (thermal PDE)": 8e-06,
+  "medtherm=1 (liquid layer)": 8e-06,
+  "masstrans=1 (vapor transfer)": 5e-06,
+  "masstrans=1+medtherm=1 (coupled)": 7e-06,
+  "no constitutive stress": 7e-06,
+  "quadratic Zener": 6e-06,
+  "radial=3 (KM enthalpy, Tait)": 2e-07,
+  "radial=4 (Gilmore, Tait)": 2e-07,
+  "radial=3+Zener": 7e-06,
+  "radial=4+Zener": 8e-06,
+  "coupled Oldroyd-B": 5e-06,
+  "coupled NHKV": 7e-06,
+}
+
+
+def _median_bound(label):
+  """Per-case median bound; NHKV grid points share one, since they differ only
+  in (G, mu) and sit within a few percent of each other."""
+  if label.startswith("NHKV G="):
+    return _PINNED_MEDIAN_BOUNDS["NHKV grid"]
+  bound = _PINNED_MEDIAN_BOUNDS.get(label)
+  assert bound is not None, f"no median bound recorded for pinned case {label!r}"
+  return bound
 
 
 def _imr2_cases():
@@ -30,9 +93,11 @@ def _imr2_cases():
 def test_imr2_trajectory(label, material, column, measured):
   times = reference("imr2_t.csv")
   computed = solve_radius(times, material)
-  worst = deviation(reference("imr2_s06.csv")[:, column], computed)
-  measured(label, f"max|dR|={worst:.2e}")
+  upstream = reference("imr2_s06.csv")[:, column]
+  worst, typical = deviation(upstream, computed), median_deviation(upstream, computed)
+  measured(label, f"max|dR|={worst:.2e}  median={typical:.2e}")
   assert worst < _PINNED_TOLERANCE
+  assert typical < _median_bound(label)
 
 
 # Section 1b. Every extended feature with a pinned reference: constitutive
@@ -73,9 +138,11 @@ def test_extended_feature_trajectory(label, options, reference_file, measured):
   options = dict(options)
   material = options.pop("material", NHKV)
   computed = solve_radius(reference_times(), material, **options)
-  worst = deviation(reference(reference_file), computed)
-  measured(label, f"max|dR|={worst:.2e}")
+  upstream = reference(reference_file)
+  worst, typical = deviation(upstream, computed), median_deviation(upstream, computed)
+  measured(label, f"max|dR|={worst:.2e}  median={typical:.2e}")
   assert worst < _PINNED_TOLERANCE
+  assert typical < _median_bound(label)
 
 
 # Section 1c. IMRv2 requires the full coupled model for collapse
@@ -95,9 +162,17 @@ def test_collapse_zener(measured):
   config = imr_fast.SimulationConfig(
     R0=R0, Req=REQ, material=zener(), collapse=imr_fast.CollapseInitialization(), **_FULL
   )
-  worst = deviation(reference("ref_collapse_zener.csv"), imr_fast.simulate(reference_times(), config).radius_ratio)
-  measured("collapse Zener", f"max|dR|={worst:.2e}")
+  computed = imr_fast.simulate(reference_times(), config).radius_ratio
+  upstream = reference("ref_collapse_zener.csv")
+  worst, typical = deviation(upstream, computed), median_deviation(upstream, computed)
+  measured("collapse Zener", f"max|dR|={worst:.2e}  median={typical:.2e}")
   assert worst < _PINNED_TOLERANCE
+  # No median bound here, deliberately. This is the one pinned case whose
+  # median (4.5e-05, against 1.6e-06 elsewhere) is a real physical difference
+  # rather than timing: the precursor stress at maximum radius, S0 = -0.15994511
+  # here against IMRv2's argmax-located -0.16004691. The variant below injects
+  # upstream's own S0 and does carry the tight bound, which is what isolates the
+  # difference to the precursor.
 
 
 def test_collapse_zener_with_upstream_szero(measured):
@@ -131,9 +206,12 @@ def test_collapse_zener_with_upstream_szero(measured):
 )
 def test_coupled_without_precursor(label, material_factory, reference_file, measured):
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material_factory(), **_FULL)
-  worst = deviation(reference(reference_file), imr_fast.simulate(reference_times(), config).radius_ratio)
-  measured(f"coupled {label}", f"max|dR|={worst:.2e}")
+  computed = imr_fast.simulate(reference_times(), config).radius_ratio
+  upstream = reference(reference_file)
+  worst, typical = deviation(upstream, computed), median_deviation(upstream, computed)
+  measured(f"coupled {label}", f"max|dR|={worst:.2e}  median={typical:.2e}")
   assert worst < _PINNED_TOLERANCE
+  assert typical < _median_bound(f"coupled {label}")
 
 
 def test_memoryless_collapse_is_refused():

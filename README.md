@@ -561,6 +561,24 @@ models. It also checks:
   independent centered differences;
 - likelihood Jacobians and retained multistart endpoints.
 
+Two statistics are reported per pinned trajectory, because they measure
+different things (issue #23).
+
+The **pointwise maximum** sits at a collapse in every pinned case. There
+`|dR/dt| ~ 3.3e5 /s`, so it is dominated by a sub-nanosecond timing difference
+rather than by radius accuracy: shifting our own solution by **25 ps** removes
+about 77% of it, taking Keller-Miksis neo-Hookean from `8.6e-06` to `2.0e-06`.
+The residual matches the deviation away from collapses, `2-10e-06`, so the true
+pointwise agreement is several times better than the maxima below suggest. The
+maximum cannot be tightened without measuring integrator phase.
+
+The **median** carries no such sensitivity, and is what the suite bounds
+tightly. It is far more responsive to real error: a `3e-5` relative
+perturbation of the polytropic pressure moves Keller-Miksis NHKV's median by a
+factor of 38 and its maximum by only 1.35x. Bounds are per case rather than
+uniform, because baseline medians span `3e-08` to `1.6e-06` and one threshold
+would be set by the worst case.
+
 Representative maximum absolute radius-ratio deviations from pinned IMRv2
 trajectories are:
 

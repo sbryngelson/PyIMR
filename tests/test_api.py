@@ -136,6 +136,7 @@ OWNED = {
   "imr_sensitivity",
   "imr_inference",
   "imr_pymc",
+  "imr_design",
   "imr_data",
   "_imr_autodiff",
   "_imr_complex",

@@ -49,6 +49,7 @@ py-modules = [
     "_imr_stress",
     "_imr_thermal",
     "imr_data",
+    "imr_design",
     "imr_fast",
     "imr_inference",
     "imr_pymc",

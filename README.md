@@ -26,6 +26,7 @@ worth seeing.
 | `imr_sensitivity.py` | production-RHS forward sensitivities |
 | `imr_inference.py` | prepared likelihood, batch, and multistart tools |
 | `imr_pymc.py` | PyMC bridge: NUTS driven by the exact tangents. Needs `pip install 'imr-fast[inference]'` |
+| `imr_design.py` | Laplace/Fisher expected information gain for ranking experiment designs |
 | `imr_data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
 | `thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
 | `tests/test_validation_*.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |

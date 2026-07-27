@@ -506,7 +506,12 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
       initial_state[layout.medium_thermal] = medium_temperature_ratio
       Nm = config.Mt - 1
       deltaYm = -2.0 / Nm
-      xi = chebyshev_nodes(config.Mt, 1) if spectral else 1.0 + np.arange(config.Mt) * deltaYm
+      # linspace, not `1 + arange(Mt) * deltaYm`: the accumulated form misses
+      # -1 by one ulp for 20 of the 398 sizes in [3, 400] -- Mt = 50 among them
+      # -- and the far-field check below then rejects a perfectly ordinary
+      # grid. linspace pins both endpoints exactly. The interiors agree to
+      # 2.2e-16, so no trajectory moves.
+      xi = chebyshev_nodes(config.Mt, 1) if spectral else np.linspace(1.0, -1.0, config.Mt)
       # xi = -1 exactly at the far-field node, so 2 / (xi + 1) is a genuine
       # singularity of the grid map rather than an accident, and its limits are
       # exact: yT -> inf, and the inverse powers -> 0. Fill them deliberately

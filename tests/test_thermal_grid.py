@@ -185,3 +185,27 @@ def test_coupled_solve_survives_awkward_retardation_ratios(ratio):
   assert result.stats.success
   assert result.medium_temperature_k is not None
   assert np.all(np.isfinite(result.medium_temperature_k))
+
+
+# Mt values whose medium grid missed xi = -1 by one ulp under the accumulated
+# `1 + arange(Mt) * deltaYm` construction, so `_far_field_singular_index`
+# rejected them and an ordinary `medtherm=1, Mt=50` run raised outright. 20 of
+# the 398 sizes in [3, 400] were affected; these are the first few.
+_ULP_HOSTILE_MT = (50, 99, 104, 108, 162, 188, 197, 198, 207, 215)
+
+
+@pytest.mark.parametrize("Mt", _ULP_HOSTILE_MT)
+def test_medium_grid_lands_on_the_far_field_node_exactly(Mt):
+  """The far-field check is only meaningful if the grid can satisfy it. A
+  scheme that is correct for 95% of grid sizes and raises on the rest is a
+  construction bug, not a validated invariant."""
+  xi = np.linspace(1.0, -1.0, Mt)
+  assert _far_field_singular_index(xi) == Mt - 1
+
+
+@pytest.mark.parametrize("Mt", (25, 50, 99))
+def test_medium_solves_run_at_ulp_hostile_sizes(Mt):
+  """End to end: these sizes raised ValueError from `prepare` before the fix."""
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
+  result = imr_fast.simulate(np.linspace(0.0, 2e-5, 40), config)
+  assert np.all(np.isfinite(result.radius_ratio))

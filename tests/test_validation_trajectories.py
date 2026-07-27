@@ -116,12 +116,12 @@ _EXTENDED = [
   ("Heaviside step pA=5e4", dict(wave_type=3, pA=5e4, TW=3e-5), "ref_heav_pA50.csv"),
   ("histotripsy pulse", dict(wave_type=2, pA=1e5, omega=2 * np.pi / 2e-5, DT=3e-5, mn=2), "ref_histo.csv"),
   ("vapor=1 (T=298.15K)", dict(vapor=1, T8=298.15), "ref_vapor.csv"),
-  ("bubtherm=1 (thermal PDE)", dict(bubtherm=1, Nt=25), "ref_bubtherm.csv"),
-  ("medtherm=1 (liquid layer)", dict(bubtherm=1, medtherm=1, Nt=25, Mt=25), "ref_medtherm.csv"),
-  ("masstrans=1 (vapor transfer)", dict(bubtherm=1, vapor=1, masstrans=1, Nt=25), "ref_masstrans.csv"),
+  ("bubtherm=1 (thermal PDE)", dict(bubtherm=1, Nt=25, thermal="fd"), "ref_bubtherm.csv"),
+  ("medtherm=1 (liquid layer)", dict(bubtherm=1, medtherm=1, Nt=25, Mt=25, thermal="fd"), "ref_medtherm.csv"),
+  ("masstrans=1 (vapor transfer)", dict(bubtherm=1, vapor=1, masstrans=1, Nt=25, thermal="fd"), "ref_masstrans.csv"),
   (
     "masstrans=1+medtherm=1 (coupled)",
-    dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=25, Mt=25),
+    dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=25, Mt=25, thermal="fd"),
     "ref_masstrans_medtherm.csv",
   ),
   ("no constitutive stress", dict(material=imr_fast.NoStress()), "ref_stress0.csv"),
@@ -145,10 +145,17 @@ def test_extended_feature_trajectory(label, options, reference_file, measured):
   assert typical < _median_bound(label)
 
 
+# `thermal="fd"` is explicit on every case in this module rather than inherited
+# from the default. These trajectories are pinned IMRv2 output, and IMRv2 is a
+# finite-difference code -- there is no spectral branch of it to compare
+# against. So the scheme is part of what the reference means, not a global
+# preference these tests should follow. See #26.
+
+
 # Section 1c. IMRv2 requires the full coupled model for collapse
 # (f_call_params.m:234-236), so these run bubtherm + medtherm + masstrans +
 # vapor together.
-_FULL = dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=25, Mt=25)
+_FULL = dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=25, Mt=25, thermal="fd")
 
 # IMRv2 applies a collapse precursor only for stress 3 and 4 (Zener family).
 # f_call_params.m:447-460 leaves Szero empty for stress < 3 and returns zeros

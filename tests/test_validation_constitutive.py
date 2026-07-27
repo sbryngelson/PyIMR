@@ -200,7 +200,12 @@ def test_zero_nonlinearity_reproduces_ucm_coupled(measured):
   variable. What is true is that the gap vanishes as De -> 0, so that is what
   gets asserted.
   """
-  options = dict(bubtherm=1, medtherm=1, vapor=1, masstrans=1, Nt=9, Mt=9)
+  # `thermal="fd"` pinned deliberately: the claim is about the two constitutive
+  # paths, which share whatever thermal scheme is in use, so the discretisation
+  # is not a variable here. Pinning keeps the test independent of the default
+  # (#26) -- and this case is by far the most expensive in the suite, so
+  # inheriting a stiffer operator costs minutes for no added coverage.
+  options = dict(bubtherm=1, medtherm=1, vapor=1, masstrans=1, Nt=9, Mt=9, thermal="fd")
 
   def gap(relaxation):
     retardation = _LAM * relaxation

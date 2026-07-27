@@ -1,6 +1,6 @@
 """Every physics law is implemented twice: once in Python for the forward solve
-(`_imr_rhs`, `_imr_stress`, `_imr_thermal`) and once in numba for the
-sensitivities (`_imr_mechanical`). Nothing else asserts that the two agree.
+(`_rhs`, `_stress`, `_thermal`) and once in numba for the
+sensitivities (`_mechanical`). Nothing else asserts that the two agree.
 
 Three of four physics changes during the parity work introduced a bug in the
 second copy -- Powell-Eyring's non-analytic `abs()`, the Mie-Gruneisen root, and
@@ -12,18 +12,13 @@ agree, and separately assert the compiled path stays analytic so complex-step
 differentiation remains valid.
 """
 
-import sys
-from pathlib import Path
-
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import _imr_rhs
 import imr_fast
-import imr_sensitivity
-from _imr_mechanical import mechanical_rhs
+from imr_fast._rhs import _rhs
+from imr_fast import sensitivity
+from imr_fast._mechanical import mechanical_rhs
 
 _EMPTY = np.empty(0)
 
@@ -39,7 +34,7 @@ def _instantaneous(elastic=None, viscous=None):
 
 
 # Every material_code (0-8), every elastic_code (1-6), and every viscous_code
-# (1-8) in `imr_sensitivity._material_parameters`. A law absent here is a law
+# (1-8) in `sensitivity._material_parameters`. A law absent here is a law
 # whose two implementations nothing compares.
 _MATERIALS = {
   "no_stress": imr_fast.NoStress(),
@@ -85,9 +80,9 @@ def _config(material, radial):
 
 def _compiled_arguments(problem, config):
   """The argument pack `imr_sensitivity` builds for the numba path."""
-  values, _ = imr_sensitivity._mechanical_parameters(problem.parameters, 0)
-  material_code, elastic_code, elastic_values, _, viscous_code, viscous_values, _ = (
-    imr_sensitivity._material_parameters(config.material, 0)
+  values, _ = sensitivity._mechanical_parameters(problem.parameters, 0)
+  material_code, elastic_code, elastic_values, _, viscous_code, viscous_values, _ = sensitivity._material_parameters(
+    config.material, 0
   )
   instantaneous, distributed = problem.instantaneous_material, problem.distributed_stress
   return (
@@ -108,7 +103,7 @@ def _compiled_arguments(problem, config):
 
 def _python_rhs(problem, config, time, state):
   return np.asarray(
-    _imr_rhs._rhs(
+    _rhs(
       time,
       np.asarray(state, dtype=float),
       problem.parameters,
@@ -176,7 +171,7 @@ def test_python_and_compiled_rhs_agree(material_name, radial):
     actual = np.real(_compiled_rhs(arguments, 0.0, state))
     deviation = _relative_deviation(expected, actual)
     assert deviation < 1e-12, (
-      f"{material_name} radial={radial}: _imr_rhs._rhs and mechanical_rhs disagree by {deviation:.3e} "
+      f"{material_name} radial={radial}: _rhs._rhs and mechanical_rhs disagree by {deviation:.3e} "
       f"at state {np.array2string(state[:4], precision=6)}..."
     )
 
@@ -246,9 +241,9 @@ def test_prepared_and_dual_wall_stencils_agree(label, options, backend):
     R0=225e-6, Req=37.5e-6, material=_MATERIALS["neo_hookean_kelvin_voigt"], thermal=backend, **options
   )
   problem = imr_fast.prepare(config)
-  normalized, values, scales = imr_sensitivity._normalize_parameters(config, ["material.shear_modulus_pa"])
-  dual_config = imr_sensitivity._dual_config(config, normalized, values, scales)
-  dual = imr_sensitivity._dual_medium(problem, imr_sensitivity._dual_parameters(dual_config))
+  normalized, values, scales = sensitivity._normalize_parameters(config, ["material.shear_modulus_pa"])
+  dual_config = sensitivity._dual_config(config, normalized, values, scales)
+  dual = sensitivity._dual_medium(problem, sensitivity._dual_parameters(dual_config))
 
   for name in ("grad_Tm", "grad_Trans", "grad_C"):
     prepared = np.asarray(getattr(problem.medium, name), dtype=float)

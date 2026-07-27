@@ -130,32 +130,23 @@ def test_structured_api_requires_config():
     simulate([0.0, 1.0], object())
 
 
-PUBLIC_MODULES = ("imr_fast", "imr_sensitivity", "imr_inference", "imr_data")
-OWNED = {
+PUBLIC_MODULES = (
   "imr_fast",
-  "imr_sensitivity",
-  "imr_inference",
-  "imr_pymc",
-  "imr_design",
-  "imr_data",
-  "_imr_autodiff",
-  "_imr_complex",
-  "_imr_config",
-  "_imr_dual",
-  "_imr_materials",
-  "_imr_prepare",
-  "_imr_mechanical",
-  "_imr_rhs",
-  "_imr_stress",
-  "_imr_thermal",
-  "thermal_fd",
-  "thermal_spectral",
-}
+  "imr_fast.sensitivity",
+  "imr_fast.inference",
+  "imr_fast.data",
+  "imr_fast.design",
+  "imr_fast.pymc_op",
+)
+# Was a hand-maintained set of 18 top-level names, edited once per new module.
+# Inside a package every owned `__module__` starts with the package name, so
+# the list is structural now (#61).
+PACKAGE = "imr_fast"
 
 
 def _foreign(value):
   owner = getattr(value, "__module__", None)
-  return owner is not None and owner.split(".")[0] not in OWNED
+  return owner is not None and owner.split(".")[0] != PACKAGE
 
 
 @pytest.mark.parametrize("name", PUBLIC_MODULES)
@@ -187,27 +178,27 @@ def test_star_import_leaks_no_foreign_names(name):
 
 
 def test_equilibrium_radius_rejects_unbracketed_input():
-  import imr_data
+  from imr_fast import data
 
   with pytest.raises(ValueError, match="no equilibrium below R0"):
-    imr_data.equilibrium_radius(225e-6, 5e5)
+    data.equilibrium_radius(225e-6, 5e5)
 
 
 def test_natural_frequency_rejects_equilibrium_above_maximum():
-  import imr_data
+  from imr_fast import data
 
   with pytest.raises(ValueError, match="strictly inside"):
-    imr_data.natural_frequency(225e-6, 300e-6, 2500.0, 0.1)
+    data.natural_frequency(225e-6, 300e-6, 2500.0, 0.1)
 
 
 @pytest.mark.parametrize(
   "time,radius", [([0.0, 1.0], [1.0, 1.0]), ([0.0, 1.0, 0.5, 2.0, 3.0], [1.0, 1.0, 1.0, 1.0, 1.0])]
 )
 def test_collapse_features_rejects_bad_traces(time, radius):
-  import imr_data
+  from imr_fast import data
 
   with pytest.raises(ValueError):
-    imr_data.collapse_features(time, radius)
+    data.collapse_features(time, radius)
 
 
 def test_max_step_forces_finer_integration():

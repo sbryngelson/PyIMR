@@ -6,10 +6,10 @@ Numerical content unchanged from `run_validation.py`; see issue #32.
 import numpy as np
 import pytest
 
-import imr_data
+from imr_fast import data
 import imr_fast
 from _validation_support import NHKV, R0, REQ
-from imr_inference import InferenceParameter, RadiusObservation, prepare_inference
+from imr_fast.inference import InferenceParameter, RadiusObservation, prepare_inference
 
 SECTION = "3b. Trace estimators and prepared inference"
 
@@ -17,14 +17,14 @@ SECTION = "3b. Trace estimators and prepared inference"
 def test_equilibrium_radius_round_trip(measured):
   """The estimator must invert the solver's own pressure/radius relation."""
   gas_pressure = (imr_fast.P8 + 2 * imr_fast.SURF / REQ) * (REQ / R0) ** (3 * imr_fast.KAPPA)
-  error = abs(imr_data.equilibrium_radius(R0, gas_pressure) - REQ) / REQ
+  error = abs(data.equilibrium_radius(R0, gas_pressure) - REQ) / REQ
   measured("equilibrium radius round-trip", f"rel={error:.2e}")
   assert error < 1e-12
 
 
 def test_natural_frequency_reduces_to_minnaert(measured):
   """The gas-only limit must reproduce Minnaert exactly."""
-  computed, _ = imr_data.natural_frequency(R0, REQ, 1e-12, 1e-12, surface_tension_n_m=0.0)
+  computed, _ = data.natural_frequency(R0, REQ, 1e-12, 1e-12, surface_tension_n_m=0.0)
   minnaert = np.sqrt(3 * imr_fast.KAPPA * imr_fast.P8 / imr_fast.RHO) / REQ
   error = abs(computed - minnaert) / minnaert
   measured("natural frequency -> Minnaert", f"rel={error:.2e}")
@@ -35,7 +35,7 @@ def test_natural_frequency_reduces_to_minnaert(measured):
 def rebound_trace():
   times = np.linspace(0, 300e-6, 8000)
   radius = imr_fast.simulate(times, imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV)).radius_m
-  return imr_data.collapse_features(times, radius)
+  return data.collapse_features(times, radius)
 
 
 def test_natural_frequency_matches_measured_rebound(rebound_trace, measured):
@@ -43,7 +43,7 @@ def test_natural_frequency_matches_measured_rebound(rebound_trace, measured):
   # The first rebound is strongly nonlinear and the late tail is numerical
   # wiggle, so take the median of the intermediate periods.
   observed = float(np.median(2 * np.pi / np.diff(collapse_times)[1:5]))
-  predicted, _ = imr_data.natural_frequency(R0, REQ, 2500.0, 0.1)
+  predicted, _ = data.natural_frequency(R0, REQ, 2500.0, 0.1)
   error = abs(predicted - observed) / observed
   measured("vs measured rebound", f"predicted={predicted:.3e} measured={observed:.3e} rel={error:.2e}")
   assert error < 0.10
@@ -59,7 +59,7 @@ def test_collapse_features_decay(rebound_trace, measured):
 
 def test_thermal_grid_convergence(measured):
   """Thermal grid refinement must converge monotonically."""
-  convergence = imr_data.resolution_convergence(
+  convergence = data.resolution_convergence(
     imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=10, Mt=10),
     np.linspace(0, 60e-6, 200),
     [(10, 10), (20, 20), (40, 40)],

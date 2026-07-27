@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 
 import imr_fast as F
-import imr_sensitivity
+from imr_fast import sensitivity
 
 R0, REQ = 225e-6, 225e-6 / 6
 T0 = R0 / np.sqrt(101325 / 1064)
@@ -121,7 +121,7 @@ def measure(name, group, times, kwargs, directions, repeats):
     prepare_x=forward / prepared,
   )
   if directions:
-    sens = median(lambda: imr_sensitivity.solve_with_sensitivities(problem, times, list(PARAMS[:directions])), repeats)
+    sens = median(lambda: sensitivity.solve_with_sensitivities(problem, times, list(PARAMS[:directions])), repeats)
     row.update(directions=directions, sensitivity_s=sens, sens_over_forward=sens / prepared)
   return row
 

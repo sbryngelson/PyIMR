@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 import imr_fast
+from imr_fast._stress import _stress
 from _validation_support import NHKV, R0, REQ, T0, deviation, oldroyd_b, reference_times, solve_radius
 
 SECTION = "2. Constitutive suite"
@@ -23,9 +24,7 @@ _GENERIC_NH = imr_fast.InstantaneousMaterial(imr_fast.NeoHookean(2500.0), imr_fa
 def _instantaneous_values(material, radius=0.5, velocity=-0.3, need_rate=True):
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material)
   problem = imr_fast.prepare(config)
-  return imr_fast._stress(
-    material, problem.parameters, radius, velocity, None, problem.instantaneous_material, need_rate
-  )
+  return _stress(material, problem.parameters, radius, velocity, None, problem.instantaneous_material, need_rate)
 
 
 @pytest.mark.parametrize("radial", (1, 2))

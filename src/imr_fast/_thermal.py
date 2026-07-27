@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from _imr_autodiff import primal_array
-from _imr_materials import InstantaneousMaterial, NoStress, QuadraticKelvinVoigt
-from _imr_stress import _elastic_integrand, _viscosity_and_tangent
+from ._autodiff import primal_array
+from ._materials import InstantaneousMaterial, NoStress, QuadraticKelvinVoigt
+from ._stress import _elastic_integrand, _viscosity_and_tangent
 
 __all__ = [
   "_GAM_TAIT",

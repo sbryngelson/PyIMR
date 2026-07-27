@@ -38,6 +38,39 @@ numbers**, with no error and no deprecation path.
 
 ### Breaking: API
 
+- **Every module now lives inside the `imr_fast` package** (#61). The repo held
+  16 installed top-level modules; it now installs one name. Import paths change:
+
+  | 0.2.0 | 0.3.0 |
+  |---|---|
+  | `import imr_sensitivity` | `from imr_fast import sensitivity` |
+  | `import imr_inference` | `from imr_fast import inference` |
+  | `import imr_data` | `from imr_fast import data` |
+  | `import imr_design` | `from imr_fast import design` |
+  | `import imr_pymc` | `from imr_fast import pymc_op` |
+  | `import thermal_fd`, `thermal_spectral` | `from imr_fast import thermal_fd`, `thermal_spectral` |
+  | `_imr_config`, `_imr_materials`, ... | `imr_fast._config`, `imr_fast._materials`, ... |
+
+  `from imr_fast import ...` for the solver, materials, and result API is
+  unchanged — that is the documented surface, and it was already the only
+  top-level name most callers used.
+
+  Three things forced this. `thermal_fd` and `thermal_spectral` were generic
+  names occupying the global module namespace of anyone who installed the
+  package. The test suite put the repo root on `sys.path`, so it validated the
+  working tree and never the installed artefact — the failure mode a `src/`
+  layout exists to prevent, and the reason #34 stayed invisible. And the shipped
+  module list was maintained by hand in two places; `packages.find` now
+  discovers it.
+
+  `imr_pymc` became `pymc_op` rather than `imr_fast.pymc`, which would have
+  shadowed the real `pymc` inside the package.
+
+  `imr_fast._rhs` and `imr_fast._stress` name both a module and a re-exported
+  function, so attribute access gets the function -- the `datetime.datetime`
+  pattern. Import the module as `from imr_fast._rhs import ...`, not
+  `from imr_fast import _rhs`. A test pins that the modules stay reachable.
+
 - **`from imr_fast import *` no longer exports** `MediumOperators`,
   `PreparedDistributedStress`, `PreparedForcing`,
   `PreparedInstantaneousMaterial`, `StateLayout`, `params`, or `pvsat` (#8).

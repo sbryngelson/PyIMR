@@ -10,12 +10,7 @@ section each module declares.
 See issue #32.
 """
 
-import os
-import sys
-
 import pytest
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 _MEASUREMENTS = []
 

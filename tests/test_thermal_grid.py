@@ -13,9 +13,9 @@ import inspect
 import numpy as np
 import pytest
 
-import _imr_thermal
+from imr_fast import _thermal
 import imr_fast
-from _imr_thermal import _far_field_singular_index
+from imr_fast._thermal import _far_field_singular_index
 from _validation_support import NHKV, R0, REQ
 
 _FIELDS = ("yT", "yT2", "yT3", "iyT3", "iyT4", "iyT6")
@@ -128,7 +128,7 @@ def test_dissipation_paths_carry_no_suppression():
   """The behavioural test above cannot detect a re-added `np.errstate`: an inner
   suppression overrides the outer context, so it would pass either way. That is
   the same trap #35 is about, one level up. This checks the source directly."""
-  source = inspect.getsource(_imr_thermal)
+  source = inspect.getsource(_thermal)
   for name in ("_instantaneous_dissipation", "_distributed_dissipation"):
     body = source.split(f"def {name}(")[1].split("\ndef ")[0]
     assert "errstate" not in body, f"{name} suppresses floating-point errors again; see #35"
@@ -154,7 +154,7 @@ def test_wall_temperature_satisfies_its_own_boundary_condition(scale):
   theta_tail = scale * np.arange(1.0, grad_Trans.size)
   Tm_tail = 1.0 + scale * np.arange(1.0, grad_Tm.size)
 
-  theta_bw = _imr_thermal._wall_theta_bw(0.0, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans)
+  theta_bw = _thermal._wall_theta_bw(0.0, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans)
 
   Tw = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_g)) / alpha_g
   residual = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)

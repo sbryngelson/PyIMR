@@ -4,7 +4,7 @@ Everything needed to turn a `SimulationConfig` into a forward-mode problem:
 parameter paths and seeding, `Dual` copies of the config, prepared medium
 operators and forcing, collapse-precursor initial tangents, and the flat
 parameter packing the compiled kernels take. The integration itself and the
-assembly of results stay in `imr_sensitivity`.
+assembly of results stay in `imr_fast.sensitivity`.
 
 Split out under #27. `_dual_medium` here is where the spectral wall-stencil
 defect in #43 lived, which is part of why this file is worth having on its own.
@@ -21,8 +21,9 @@ from scipy.integrate import solve_ivp
 from scipy.interpolate import PchipInterpolator
 
 import imr_fast as _solver
-from _imr_autodiff import Dual, seed, unpack
-from _imr_thermal import _far_field_singular_index
+from ._rhs import _rhs
+from ._autodiff import Dual, seed, unpack
+from ._thermal import _far_field_singular_index
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,7 +187,7 @@ def _rhs_physical(time_s, packed, *, problem, config, parameters, medium, wall_s
   for index in range(state_width):
     state[index] = Dual(matrix[index, 0], matrix[index, 1:])
   nondimensional_time = time_s / parameters["t0"]
-  output = _solver._rhs(
+  output = _rhs(
     nondimensional_time,
     state,
     parameters,
@@ -245,7 +246,7 @@ def _collapse_initial_tangents(problem, config, width):
     if upstream_zener:
       output = _solver._collapse_zener_rhs(state, parameters)
     else:
-      output = _solver._rhs(
+      output = _rhs(
         time,
         state,
         parameters,
@@ -372,7 +373,7 @@ def _dual_medium(problem, parameters):
   medium = copy.copy(problem.medium)
   xi = problem.medium.xi
   length = parameters["Lt"]
-  # Same far-field singularity as _imr_prepare, and the same limits. Worth
+  # Same far-field singularity as _prepare, and the same limits. Worth
   # stating what that means for the tangent: yT -> inf and its inverse powers
   # -> 0 whatever Lt is, so the far-field entries carry NO dependence on the
   # parameters and their derivatives are exactly zero. The suppressed form

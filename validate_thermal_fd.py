@@ -15,7 +15,7 @@ behaviour explicit rather than hiding it behind a loose tolerance.
 
 import numpy as np
 
-from thermal_fd import finite_diff_mat
+from imr_fast.thermal_fd import finite_diff_mat
 
 PASS = "PASS"
 FAIL = "FAIL"

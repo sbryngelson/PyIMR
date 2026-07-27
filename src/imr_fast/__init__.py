@@ -78,7 +78,7 @@ from time import perf_counter
 import numpy as np
 from scipy.integrate import solve_ivp
 
-from _imr_autodiff import primal, primal_array  # noqa: F401
+from ._autodiff import primal, primal_array  # noqa: F401
 
 __all__ = [
   "ArrudaBoyce",
@@ -128,7 +128,7 @@ __all__ = [
   "simulate_with_sensitivities",
 ]
 
-from _imr_config import (  # noqa: F401
+from ._config import (  # noqa: F401
   C8,
   CollapseInitialization,
   CollapseStats,
@@ -166,7 +166,7 @@ from _imr_config import (  # noqa: F401
 
 # Tait equation-of-state constants for the liquid, IMRv2 defaults
 # (default_case.m: GAM, nstate), used by radial=3,4.
-from _imr_thermal import (  # noqa: F401
+from ._thermal import (  # noqa: F401
   _GAM_TAIT,
   _HUGONIOT_S,
   _NOG,
@@ -198,7 +198,7 @@ from _imr_thermal import (  # noqa: F401
 # mass-transfer / vapor-species properties, IMRv2 defaults (default_case.m)
 
 
-from _imr_materials import (  # noqa: F401
+from ._materials import (  # noqa: F401
   _is_distributed_stress,
   _stress_state_count,
   ArrudaBoyce,
@@ -233,7 +233,7 @@ from _imr_materials import (  # noqa: F401
 )
 
 
-from _imr_stress import (  # noqa: F401
+from ._stress import (  # noqa: F401
   _MaterialDomainError,
   _PE_SERIES_LIMIT,
   _distributed_stress,
@@ -246,7 +246,7 @@ from _imr_stress import (  # noqa: F401
 )
 
 
-from _imr_prepare import (  # noqa: F401
+from ._prepare import (  # noqa: F401
   _collapse_memory_state,
   _collapse_zener_rhs,
   _material_scales,
@@ -260,7 +260,7 @@ from _imr_prepare import (  # noqa: F401
 )
 
 
-from _imr_rhs import (  # noqa: F401
+from ._rhs import (  # noqa: F401
   _nZ,
   _pinf,
   _radius_floor_event,

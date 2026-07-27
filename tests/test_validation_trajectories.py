@@ -7,7 +7,7 @@ Numerical content unchanged from `run_validation.py`; see issue #32.
 import numpy as np
 import pytest
 
-import _imr_thermal
+from imr_fast import _thermal
 import imr_fast
 from _validation_support import (
   NHKV,
@@ -244,7 +244,7 @@ def mie_parameters():
 
 def test_mie_density_undisturbed_at_ambient(mie_parameters, measured):
   _, sound, slope, nog = mie_parameters
-  mu = _imr_thermal._mu_of_A(1.0 / sound**2, slope, nog)
+  mu = _thermal._mu_of_A(1.0 / sound**2, slope, nog)
   measured("rho/rho0 - 1 at ambient", f"{mu:.3e}")
   assert abs(mu) < 1e-4
 
@@ -252,7 +252,7 @@ def test_mie_density_undisturbed_at_ambient(mie_parameters, measured):
 def test_mie_sound_speed_recovers_c0(mie_parameters, measured):
   """The EoS calibration point."""
   p, sound, slope, nog = mie_parameters
-  computed, _, _ = _imr_thermal._mie_gruneisen(1.0, sound, slope, nog, p["mie_reference"])
+  computed, _, _ = _thermal._mie_gruneisen(1.0, sound, slope, nog, p["mie_reference"])
   error = abs(float(computed) - sound) / sound
   measured("c(ambient)/c0 - 1", f"{error:.3e}")
   assert error < 1e-3
@@ -263,7 +263,7 @@ def test_mie_enthalpy_weakly_compressible_limit(mie_parameters, measured):
   p, sound, slope, nog = mie_parameters
   worst = 0.0
   for pressure in (2.0, 10.0, 100.0):
-    _, enthalpy, _ = _imr_thermal._mie_gruneisen(pressure, sound, slope, nog, p["mie_reference"])
+    _, enthalpy, _ = _thermal._mie_gruneisen(pressure, sound, slope, nog, p["mie_reference"])
     worst = max(worst, abs(float(enthalpy) - (pressure - 1.0)) / (pressure - 1.0))
   measured("max |h - (P-1)|/(P-1)", f"{worst:.3e}")
   assert worst < 5e-3

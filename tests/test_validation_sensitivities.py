@@ -8,10 +8,10 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-import _imr_complex
+from imr_fast import _complex
 import imr_fast
-import imr_sensitivity
-from _imr_dual import (
+from imr_fast import sensitivity
+from imr_fast._dual import (
   _dual_config,
   _dual_forcing,
   _dual_medium,
@@ -134,11 +134,11 @@ def _dual_and_complex_rhs(problem, names):
     forcing=forcing,
     width=width,
   )
-  fast = _imr_complex.rhs_complex(
+  fast = _complex.rhs_complex(
     0.0,
     packed,
     problem=problem,
-    prepared=_imr_complex.directions(dual_config, parameters, medium, forcing, width),
+    prepared=_complex.directions(dual_config, parameters, medium, forcing, width),
     wall_states=[imr_fast._WallState() for _ in range(width)],
     width=width,
   )
@@ -183,12 +183,12 @@ def test_complex_step_matches_dual_tangents(label, options, measured, monkeypatc
   times = np.linspace(0.0, 4e-6, 6)
   names = ["material.shear_modulus_pa", "R0"]
 
-  monkeypatch.setattr(_imr_complex, "complex_step_supported", lambda _problem: False)
-  assert not _imr_complex.complex_step_supported(problem), "the Dual route was not actually selected"
-  reference = imr_sensitivity.solve_with_sensitivities(problem, times, names)
+  monkeypatch.setattr(_complex, "complex_step_supported", lambda _problem: False)
+  assert not _complex.complex_step_supported(problem), "the Dual route was not actually selected"
+  reference = sensitivity.solve_with_sensitivities(problem, times, names)
   monkeypatch.undo()
-  assert _imr_complex.complex_step_supported(problem), "the complex route was not actually selected"
-  fast = imr_sensitivity.solve_with_sensitivities(problem, times, names)
+  assert _complex.complex_step_supported(problem), "the complex route was not actually selected"
+  fast = sensitivity.solve_with_sensitivities(problem, times, names)
 
   exact = np.asarray(reference.radius_m, dtype=float)
   error = float(np.max(np.abs(exact - np.asarray(fast.radius_m, dtype=float)))) / max(
@@ -205,7 +205,7 @@ def test_distributed_materials_stay_on_the_dual_route():
   distributed = imr_fast.prepare(
     imr_fast.SimulationConfig(R0, REQ, imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), bubtherm=1, Nt=7)
   )
-  assert not _imr_complex.complex_step_supported(distributed)
-  assert _imr_complex.complex_step_supported(
+  assert not _complex.complex_step_supported(distributed)
+  assert _complex.complex_step_supported(
     imr_fast.prepare(imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), bubtherm=1, Nt=7))
   )

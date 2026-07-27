@@ -138,6 +138,7 @@ OWNED = {
   "imr_data",
   "_imr_autodiff",
   "_imr_config",
+  "_imr_dual",
   "_imr_materials",
   "_imr_prepare",
   "_imr_mechanical",

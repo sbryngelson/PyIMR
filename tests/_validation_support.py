@@ -50,5 +50,22 @@ def deviation(left, right):
   return float(np.nanmax(np.abs(left - right)))
 
 
+def median_deviation(left, right):
+  """Median pointwise deviation -- the phase-insensitive companion to the max.
+
+  The pointwise maximum on the 300-point reference grid is dominated by a
+  sub-nanosecond timing difference at the collapse, amplified by
+  |dR/dt| ~ 3.3e5 /s: a 25 ps shift of our own solution removes about 77% of it
+  (issue #23). It therefore cannot be tightened without measuring integrator
+  phase, and it hides real regressions inside its own slack.
+
+  The median has no such sensitivity. Across the pinned suite it sits at
+  3e-08 to 1.6e-06 where the maxima span 6e-06 to 2.9e-04, so bounding it
+  is roughly a hundred times tighter in absolute terms at comparable relative
+  margin.
+  """
+  return float(np.nanmedian(np.abs(left - right)))
+
+
 def relative(value, expected):
   return float(abs(value - expected) / abs(expected))

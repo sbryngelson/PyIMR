@@ -20,6 +20,16 @@ not that either is right. Three checks here do not:
 3. **Keller-Miksis reduces to Rayleigh-Plesset as `c -> inf`,** at first order
    in `1/c`. That the *order* is right, not merely the limit, is what makes this
    a test of the compressibility correction rather than of a coincidence.
+
+4. **The thermal PDE reduces to both polytropic limits.** No conduction gives
+   `P R^(3*gamma) = const`; conduction fast enough to pin the gas at the wall
+   gives `P R^3 = const`. One knob, `chi`, carries it monotonically between
+   them.
+
+Each limit is paired with its converse -- Keller-Miksis must *violate* the
+incompressible invariant, conduction must *break* the adiabatic one. Without
+those, a Keller-Miksis branch that silently fell back to Rayleigh-Plesset, or a
+conduction term that was inert, would score perfectly.
 """
 
 import numpy as np
@@ -154,6 +164,7 @@ def test_keller_miksis_approaches_rayleigh_plesset_as_first_order_in_one_over_c(
 
 
 _BASE_PHYSICS = imr_fast.PhysicalParameters()
+_T8 = 298.15  # SimulationConfig default far-field temperature, and the wall value when medtherm=0
 
 
 def _polytropic_drift(conductivity_scale, exponent, samples=600):
@@ -201,3 +212,69 @@ def test_conduction_actually_breaks_the_adiabatic_invariant(measured):
   measured("conduction breaks it", " -> ".join(f"{d:.1e}" for d in drifts))
   assert all(a < b for a, b in zip(drifts[:-1], drifts[1:], strict=True)), "drift must grow with conductivity"
   assert drifts[-1] > 0.1, "conduction at physical strength barely moved the invariant -- is it inert?"
+
+
+def _scaled_conductivity(scale):
+  """Scale gas AND vapour conductivity together.
+
+  `K8` averages the two, and `alpha_g = gas_slope * T8 / K8`. Scaling only the
+  gas terms therefore changes `alpha_g` as a side effect -- and since `theta` is
+  a Kirchhoff transform of a conductivity linear in T, the temperature it can
+  represent is bounded below by `1 - 1/alpha_g`. Raising `alpha_g` lifts that
+  floor into the physical range and the solve fails on a negative square root,
+  which looks exactly like a thermal-model breakdown and is not one.
+
+  Scaling both keeps `alpha_g` fixed and moves only the magnitude `chi`.
+  """
+  return imr_fast.PhysicalParameters(
+    gas_conductivity_slope=_BASE_PHYSICS.gas_conductivity_slope * scale,
+    gas_conductivity_offset=_BASE_PHYSICS.gas_conductivity_offset * scale,
+    vapor_conductivity_slope=_BASE_PHYSICS.vapor_conductivity_slope * scale,
+    vapor_conductivity_offset=_BASE_PHYSICS.vapor_conductivity_offset * scale,
+  )
+
+
+def _isothermal_state(scale, samples=600):
+  config = imr_fast.SimulationConfig(
+    R0=_R0,
+    Req=_R0 / 6,
+    material=imr_fast.NoStress(),
+    radial=1,
+    bubtherm=1,
+    Nt=25,
+    physics=_scaled_conductivity(scale),
+    rtol=1e-10,
+    atol=1e-12,
+  )
+  result = imr_fast.simulate(np.linspace(0.0, 40e-6, samples), config)
+  invariant = np.asarray(result.internal_pressure_pa) * np.asarray(result.radius_ratio) ** 3
+  temperature = np.asarray(result.bubble_temperature_k)
+  drift = float(np.max(np.abs(invariant - invariant[0])) / abs(invariant[0]))
+  return drift, float(np.min(temperature)), float(np.max(temperature))
+
+
+def test_thermal_pde_reduces_to_the_isothermal_polytropic_law(measured):
+  """The other limit. Fast conduction pins the gas at the wall temperature, so
+  `P R^3 = const` -- and the check is not only the invariant but that the gas
+  temperature actually collapses onto `T8`. An invariant can be satisfied for
+  the wrong reason; a bubble sitting at 298 K cannot."""
+  drift, coldest, hottest = _isothermal_state(1e5)
+  measured("thermal -> isothermal", f"P*R^3 drift={drift:.2e}  T in [{coldest:.1f}, {hottest:.1f}] K")
+  assert drift < 5e-2
+  assert abs(coldest - _T8) < 10.0 and abs(hottest - _T8) < 10.0
+
+
+def test_conduction_carries_the_gas_between_both_limits(measured):
+  """The two limits are endpoints of one knob. Raising `chi` must move the gas
+  monotonically off adiabatic and onto isothermal -- neither invariant holding
+  at both ends, and the temperature range narrowing onto the wall."""
+  scales = (1e0, 1e2, 1e5)
+  drifts = [_isothermal_state(scale) for scale in scales]
+  isothermal = [row[0] for row in drifts]
+  spread = [row[2] - row[1] for row in drifts]
+  measured(
+    "chi sweeps adiabatic -> isothermal",
+    f"P*R^3 drift {' -> '.join(f'{d:.1e}' for d in isothermal)}; T spread {' -> '.join(f'{s:.0f}K' for s in spread)}",
+  )
+  assert all(a > b for a, b in zip(isothermal[:-1], isothermal[1:], strict=True))
+  assert all(a > b for a, b in zip(spread[:-1], spread[1:], strict=True))

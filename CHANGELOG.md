@@ -11,6 +11,45 @@ numbers**, with no error and no deprecation path.
 
 ### Breaking: results change
 
+- **Thermal trajectories move: the Kirchhoff transform and its inverse are now
+  consistent with the conductivity the diffusion term uses** (#75).
+
+  The bubble thermal PDE integrates `theta`, defined so that
+  `d(theta)/dT = K*(T) = alpha*T + beta`. The shipped inverse was
+  `T = (alpha - 1 + sqrt(1 + 2*alpha*theta))/alpha`, which inverts a transform
+  whose derivative is `alpha*T + (1 - alpha)` — equal only when
+  `alpha + beta = 1`. It is `1.0024` at the defaults, because air and water
+  vapour happen to have nearly the same conductivity at 298 K, and it is
+  arbitrarily far from 1 for any other gas.
+
+  Six sites each re-derived that algebra inline. They now share one definition.
+
+  The clearest symptom: `alpha` and `beta` are normalised by `K8`, which
+  cancels from `chi * K*(T)` and is therefore pure convention — so a **dry-gas**
+  run should not care about the *vapour* conductivity at all. It did, by up to
+  `1.5e-03` in `R/R0`. It no longer does, to `2e-09`.
+
+  Measured against the pinned IMRv2 references:
+
+  | case | max &#124;dR&#124; | pinned band |
+  |---|---:|---|
+  | `bubtherm` | 2.35e-04 | still inside |
+  | `medtherm` | 2.07e-04 | still inside |
+  | `masstrans + medtherm` | 7.01e-05 | still inside |
+  | `masstrans` | 2.90e-04 | **leaves it** |
+
+  Only `masstrans` diverges enough to leave its band, because the mixture
+  coefficients vary with the vapour fraction and no fixed normalisation absorbs
+  them. `tests/ref_masstrans.csv` is retained as a record of upstream behaviour
+  and is no longer asserted in the pinned band, as `ref_radial5.csv` was in #18.
+
+  IMRv2 contains the same defect, so this is a divergence from upstream. It is
+  not a modelling disagreement: the old code made results depend on an input
+  that cannot physically matter.
+
+  **If you have published thermal numbers from 0.2.0, they carry the upstream
+  defect and are not reproducible from 0.3.0.**
+
 - **`thermal` now defaults to `"spectral"` (Chebyshev collocation) rather than
   `"fd"`** (#26). Any run with `bubtherm=1` returns different numbers unless it
   passes `thermal="fd"` explicitly.

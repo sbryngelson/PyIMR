@@ -309,3 +309,33 @@ def test_conduction_carries_the_gas_between_both_limits(measured):
   assert all(a < b for a, b in zip(adiabatic[:-1], adiabatic[1:], strict=True)), "adiabatic must degrade with chi"
   assert all(a > b for a, b in zip(isothermal[:-1], isothermal[1:], strict=True)), "isothermal must improve with chi"
   assert spread[-1] < 0.01 * spread[0], "the gas must end up pinned at the wall temperature"
+
+
+@pytest.mark.parametrize("options", ({"bubtherm": 1, "Nt": 25}, {"bubtherm": 1, "medtherm": 1, "Nt": 25, "Mt": 25}))
+def test_a_dry_run_ignores_the_vapour_conductivity(options, measured):
+  """With no vapour present, the vapour conductivity cannot affect anything.
+
+  It enters only through the normalisation `K8`, and `K8` cancels from
+  `chi * K*(T)` -- the dimensional conductivity -- so it is a unit convention.
+  A trajectory that moves when it changes is reporting a defect, and this one
+  did: up to 1.5e-03 in R/R0 before #75, roughly 200x the pinned tolerance.
+
+  This is the check that settles the Kirchhoff correction without reference to
+  IMRv2, to a closed form, or to anyone else's convention. It asserts only that
+  an irrelevant parameter is irrelevant.
+  """
+  times = np.linspace(0.0, 40e-6, 400)
+  baseline, worst = None, 0.0
+  for scale in (1.0, 1.5, 3.0, 10.0):
+    physics = imr_fast.PhysicalParameters(
+      vapor_conductivity_slope=_BASE_PHYSICS.vapor_conductivity_slope * scale,
+      vapor_conductivity_offset=_BASE_PHYSICS.vapor_conductivity_offset * scale,
+    )
+    config = imr_fast.SimulationConfig(
+      R0=_R0, Req=_R0 / 6, material=imr_fast.NoStress(), radial=1, physics=physics, rtol=1e-10, atol=1e-12, **options
+    )
+    trace = np.asarray(imr_fast.simulate(times, config).radius_ratio)
+    baseline = trace if baseline is None else baseline
+    worst = max(worst, float(np.max(np.abs(trace - baseline))))
+  measured(f"vapour-K invariance {'+medtherm' if 'medtherm' in options else 'gas'}", f"max|dR|={worst:.2e}")
+  assert worst < 1e-7

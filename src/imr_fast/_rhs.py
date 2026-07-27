@@ -144,7 +144,8 @@ def _rhs(
       mass_diffusion = (Fom / R**2) * (Rva_diff / Rmix) * dkv * dtheta
       thetadot = advection_term + nonlinear_term + mass_diffusion
       thetadot[-1] = 0.0
-      nonlinear_diffusion = dkv * (dtheta / (np.sqrt(1.0 + 2.0 * alpha_m * theta) * T) + RDkv)
+      # Kstar is alpha_m*T + beta_m, the mixture conductivity, already formed above.
+      nonlinear_diffusion = dkv * (dtheta / (Kstar * T) + RDkv)
       advection_term2 = (Uvel - Rd * ygrid) / R * dkv
       kvdot = Fom / R**2 * (ddkv - nonlinear_diffusion) - advection_term2
       kvdot[-1] = 0.0

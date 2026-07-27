@@ -41,7 +41,7 @@ from _imr_materials import (
   _stress_state_count,
 )
 from _imr_rhs import _rhs
-from _imr_thermal import _mie_F, _mu_of_A, pvsat
+from _imr_thermal import _far_field_singular_index, _mie_F, _mu_of_A, pvsat
 from thermal_fd import finite_diff_mat
 from thermal_spectral import chebyshev_diff_mat
 from thermal_spectral import nodes as chebyshev_nodes
@@ -493,10 +493,22 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
       Nm = config.Mt - 1
       deltaYm = -2.0 / Nm
       xi = chebyshev_nodes(config.Mt, 1) if spectral else 1.0 + np.arange(config.Mt) * deltaYm
-      with np.errstate(divide="ignore", invalid="ignore"):
-        yT = (2.0 / (xi + 1.0) - 1.0) * p["Lt"] + 1.0
-        yT2, yT3 = yT**2, yT**3
-        iyT3, iyT4, iyT6 = yT**-3, yT**-4, yT**-6
+      # xi = -1 exactly at the far-field node, so 2 / (xi + 1) is a genuine
+      # singularity of the grid map rather than an accident, and its limits are
+      # exact: yT -> inf, and the inverse powers -> 0. Fill them deliberately
+      # instead of suppressing the divide and trusting IEEE to land there.
+      #
+      # The assumption worth checking is not that a division by zero happens --
+      # it is WHERE. If a future grid put an interior node at xi = -1, or moved
+      # the far-field node off it, the old suppressed form produced inf in the
+      # wrong place and stayed silent.
+      _far_field_singular_index(xi)
+      stretched = np.empty_like(xi)
+      stretched[:-1] = 2.0 / (xi[:-1] + 1.0)
+      stretched[-1] = np.inf
+      yT = (stretched - 1.0) * p["Lt"] + 1.0
+      yT2, yT3 = yT**2, yT**3
+      iyT3, iyT4, iyT6 = yT**-3, yT**-4, yT**-6
       # Boundary flux weights, stored full length so the wall closure is a
       # plain dot product and does not assume a three-point uniform stencil.
       # For the finite-difference grids the tail is zero, so this is exactly

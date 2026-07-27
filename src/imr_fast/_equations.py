@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from _imr_autodiff import primal, primal_array
-from _imr_materials import _stress_state_count
-from _imr_stress import _distributed_stress, _stress
-from _imr_thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
+from ._autodiff import primal, primal_array
+from ._materials import _stress_state_count
+from ._constitutive import _distributed_stress, _stress
+from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
 
 __all__ = ["_nZ", "_pinf", "_radius_floor_event", "_rhs", "_sampled_pressure"]
 

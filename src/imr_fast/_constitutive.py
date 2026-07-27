@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from _imr_autodiff import primal, primal_array
-from _imr_materials import (
+from ._autodiff import primal, primal_array
+from ._materials import (
   Bingham,
   CarreauYasuda,
   Cross,
@@ -60,7 +60,7 @@ def _ogden_ratio(u, exponent):
   loses all precision near it, so switch to the binomial series in (u - 1).
   The predicate reads the primal value only: comparing a Dual or a complex
   perturbation directly would either fail or discard the derivative, which is
-  the trap recorded at _imr_mechanical.py's complex-step note.
+  the trap recorded at _mechanical.py's complex-step note.
   """
   offset = u - 1.0
   near = np.abs(primal_array(offset)) < _OGDEN_SERIES_LIMIT

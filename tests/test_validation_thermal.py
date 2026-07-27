@@ -17,8 +17,8 @@ import numpy as np
 import pytest
 
 import imr_fast
-import thermal_fd
-import thermal_spectral
+from imr_fast import thermal_fd
+from imr_fast import thermal_spectral
 from _validation_support import NHKV, R0, REQ
 
 SECTION = "2d. Thermal PDE discretization"

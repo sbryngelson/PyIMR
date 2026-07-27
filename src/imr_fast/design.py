@@ -17,7 +17,7 @@ the noise level, and the configuration being probed, not on what would come back
 from the experiment. `design_inference` fills that slot with a placeholder,
 which is why a design can be ranked before it is run.
 
-The prior is the unit cube, matching `imr_pymc`: each parameter is Uniform(0, 1)
+The prior is the unit cube, matching `imr_fast.pymc_bridge`: each parameter is Uniform(0, 1)
 there, and a uniform variance is 1/12. Moment-matching a uniform to a Gaussian
 is an approximation, and it is the second one here -- the first being the
 linearisation itself. Both are stated rather than hidden, and `prior_variance`
@@ -43,7 +43,7 @@ from numbers import Integral
 
 import numpy as np
 
-from imr_inference import PreparedInference, RadiusObservation, prepare_inference
+from .inference import PreparedInference, RadiusObservation, prepare_inference
 
 __all__ = ["DesignEvaluation", "design_inference", "expected_information_gain"]
 

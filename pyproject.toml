@@ -16,8 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 # Optional on purpose: PyMC pulls pytensor, arviz, pandas and xarray, which is a
-# large addition to a core install of numpy/scipy/numba. `imr_pymc` is the only
-# module that needs it, and it imports lazily so the rest of the package works
+# large addition to a core install of numpy/scipy/numba. `imr_fast.pymc_bridge`
+# is the only module that needs it, and it imports lazily so the rest of the package works
 # without it. See #25.
 inference = [
     # PyMC 6 requires Python >= 3.12, above this package's own floor of 3.10.
@@ -36,27 +36,18 @@ test = [
     "ruff>=0.15",
 ]
 
-[tool.setuptools]
-py-modules = [
-    "_imr_autodiff",
-    "_imr_complex",
-    "_imr_config",
-    "_imr_dual",
-    "_imr_materials",
-    "_imr_prepare",
-    "_imr_mechanical",
-    "_imr_rhs",
-    "_imr_stress",
-    "_imr_thermal",
-    "imr_data",
-    "imr_design",
-    "imr_fast",
-    "imr_inference",
-    "imr_pymc",
-    "imr_sensitivity",
-    "thermal_fd",
-    "thermal_spectral",
-]
+[tool.setuptools.packages.find]
+# Discovered, not listed. The hand-maintained `py-modules` array this replaces
+# was forgotten twice during file splits (#34) and needed an edit for every new
+# module; a src/ package makes the list structural instead. See #61.
+where = ["src"]
+
+[tool.pyright]
+# Build artefacts are a second copy of the whole package. Without this, anyone
+# who runs `python -m build` before the type check sees every diagnostic twice
+# and the baseline reports a flood of "new" errors. CI happens to build after
+# type checking, which is why this went unnoticed.
+exclude = ["build", "dist", ".venv", "**/__pycache__"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

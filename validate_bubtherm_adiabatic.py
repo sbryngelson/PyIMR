@@ -23,7 +23,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 import imr_fast as F
-from thermal_fd import finite_diff_mat
+from imr_fast.thermal_fd import finite_diff_mat
 
 R0, Req, G, mu = 225e-6, 225e-6 * 0.15, 2500.0, 0.1
 tv = np.linspace(0, 1.2e-4, 400)

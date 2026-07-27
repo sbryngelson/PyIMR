@@ -8,7 +8,7 @@ that costs ~15,800 Python calls per RHS evaluation and makes a sensitivity solve
 Complex128 carries the same first-order algebra -- `(a + ib)(c + id)` has
 imaginary part `ad + bc`, which is the product rule -- but NumPy vectorises it
 natively, so `D1 @ theta` is a BLAS matvec rather than a `frompyfunc` loop. The
-value path is already required to be analytic (`_imr_mechanical.py`), which is
+value path is already required to be analytic (`_mechanical.py`), which is
 exactly the condition complex-step needs, and `test_compiled_rhs_stays_analytic`
 enforces it.
 
@@ -30,7 +30,7 @@ import dataclasses
 import numpy as np
 
 import imr_fast as _solver
-from _imr_autodiff import Dual
+from ._autodiff import Dual
 
 __all__ = ["STEP", "complex_step_supported", "rhs_complex"]
 

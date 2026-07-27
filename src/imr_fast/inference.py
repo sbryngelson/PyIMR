@@ -12,7 +12,7 @@ from scipy.optimize import least_squares
 from scipy.stats import qmc
 
 import imr_fast
-from imr_sensitivity import SensitivityParameter, _normalize_parameters
+from .sensitivity import SensitivityParameter, _normalize_parameters
 
 __all__ = [
   "InferenceParameter",

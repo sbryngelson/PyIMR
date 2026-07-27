@@ -22,13 +22,13 @@ worth seeing.
 
 | file | purpose |
 |---|---|
-| `imr_fast.py` | forward solver, material models, and strict result API |
-| `imr_sensitivity.py` | production-RHS forward sensitivities |
-| `imr_inference.py` | prepared likelihood, batch, and multistart tools |
-| `imr_pymc.py` | PyMC bridge: NUTS driven by the exact tangents. Needs `pip install 'imr-fast[inference]'` |
-| `imr_design.py` | Laplace/Fisher expected information gain for ranking experiment designs |
-| `imr_data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
-| `thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
+| `src/imr_fast/__init__.py` | forward solver, material models, and strict result API |
+| `src/imr_fast/sensitivity.py` | production-RHS forward sensitivities |
+| `src/imr_fast/inference.py` | prepared likelihood, batch, and multistart tools |
+| `src/imr_fast/pymc_bridge.py` | PyMC bridge: NUTS driven by the exact tangents. Needs `pip install 'imr-fast[inference]'` |
+| `src/imr_fast/design.py` | Laplace/Fisher expected information gain for ranking experiment designs |
+| `src/imr_fast/data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
+| `src/imr_fast/thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
 | `tests/test_validation_*.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
 | `CHANGELOG.md` | released versions and every breaking change |
 | `benchmarks/run.py` | reproducible timings; `--json` and `--baseline` to compare runs |
@@ -422,7 +422,7 @@ radius likelihoods, analytic sensitivity Jacobians, deterministic
 Latin-hypercube starts, and optional process-parallel batch evaluation:
 
 ```python
-from imr_inference import (
+from imr_fast.inference import (
     InferenceParameter,
     RadiusObservation,
     prepare_inference,
@@ -520,18 +520,18 @@ explicitly regardless of what the default becomes.
 
 ## Trace estimators
 
-`imr_data` covers the step before inference: getting from a measured `R(t)`
+`imr_fast.data` covers the step before inference: getting from a measured `R(t)`
 history to the quantities a fit needs.
 
 ```python
-import imr_data
+from imr_fast import data
 
-Req = imr_data.equilibrium_radius(R0_m, initial_gas_pressure_pa)
-omega_n, beta = imr_data.natural_frequency(R0_m, Req, 2500.0, 0.1)
-collapse_times_s, peak_radii_m, peak_times_s = imr_data.collapse_features(
+Req = data.equilibrium_radius(R0_m, initial_gas_pressure_pa)
+omega_n, beta = data.natural_frequency(R0_m, Req, 2500.0, 0.1)
+collapse_times_s, peak_radii_m, peak_times_s = data.collapse_features(
     measured_time_s, measured_radius_m
 )
-imr_data.resolution_convergence(config, times_s, [(10, 10), (20, 20), (40, 40)])
+data.resolution_convergence(config, times_s, [(10, 10), (20, 20), (40, 40)])
 ```
 
 `equilibrium_radius` inverts the solver's own pressure/radius relation exactly.

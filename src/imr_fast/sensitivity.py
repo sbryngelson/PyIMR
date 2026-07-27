@@ -11,10 +11,10 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.sparse import lil_matrix
 
-import _imr_complex
+from . import _complex
 import imr_fast as _solver
-from _imr_autodiff import Dual
-from _imr_dual import (
+from ._autodiff import Dual
+from ._dual import (
   SensitivityParameter,
   _dual_config,
   _dual_forcing,
@@ -26,7 +26,7 @@ from _imr_dual import (
   _normalize_parameters,
   _rhs_physical,
 )
-from _imr_mechanical import mechanical_stress_tangent, mechanical_tangent_rhs
+from ._mechanical import mechanical_stress_tangent, mechanical_tangent_rhs
 
 __all__ = ["SensitivityParameter", "SensitivityResult", "simulate_with_sensitivities", "solve_with_sensitivities"]
 
@@ -271,12 +271,12 @@ def solve_with_sensitivities(problem, tv, parameters):
       material_data=material_data,
       width=width,
     )
-  elif _imr_complex.complex_step_supported(problem):
+  elif _complex.complex_step_supported(problem):
     # Same packed layout, ~7-46x faster on the thermal path (#44).
     rhs = partial(
-      _imr_complex.rhs_complex,
+      _complex.rhs_complex,
       problem=problem,
-      prepared=_imr_complex.directions(dual_config, dual_parameters, dual_medium, dual_forcing, width),
+      prepared=_complex.directions(dual_config, dual_parameters, dual_medium, dual_forcing, width),
       wall_states=[_solver._WallState() for _ in range(width)],
       width=width,
     )

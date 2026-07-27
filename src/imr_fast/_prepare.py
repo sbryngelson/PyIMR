@@ -14,7 +14,7 @@ from scipy.interpolate import PchipInterpolator
 from scipy.optimize import brentq
 from scipy.sparse import lil_matrix
 
-from _imr_config import (
+from ._config import (
   CollapseStats,
   MediumOperators,
   PhysicalParameters,
@@ -27,7 +27,7 @@ from _imr_config import (
   StateLayout,
   _freeze_array,
 )
-from _imr_materials import (
+from ._materials import (
   Giesekus,
   InstantaneousMaterial,
   LinearPTT,
@@ -40,11 +40,11 @@ from _imr_materials import (
   _is_distributed_stress,
   _stress_state_count,
 )
-from _imr_rhs import _rhs
-from _imr_thermal import _far_field_singular_index, _mie_F, _mu_of_A, pvsat
-from thermal_fd import finite_diff_mat
-from thermal_spectral import chebyshev_diff_mat
-from thermal_spectral import nodes as chebyshev_nodes
+from ._equations import _rhs
+from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, pvsat
+from .thermal_fd import finite_diff_mat
+from .thermal_spectral import chebyshev_diff_mat
+from .thermal_spectral import nodes as chebyshev_nodes
 
 __all__ = [
   "_collapse_memory_state",
@@ -537,7 +537,7 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         return padded
 
       # One definition of the wall stencils, used both here and by the
-      # sensitivity path's Dual rebuild in imr_sensitivity._dual_medium.
+      # sensitivity path's Dual rebuild in sensitivity._dual_medium.
       bubble_wall_stencil = bubble_first[-1, ::-1] if spectral else _pad(-coeff / deltaY, config.Nt)
       medium_wall_stencil = medium_first[0] if spectral else _pad(coeff / deltaYm, config.Mt)
 

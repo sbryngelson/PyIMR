@@ -39,11 +39,11 @@ from __future__ import annotations
 
 import numpy as np
 
-import imr_inference
+from .inference import PreparedInference
 
 __all__ = ["IMRLogLikelihood", "build_model", "sample_posterior"]
 
-_MISSING = "imr_pymc requires PyMC: pip install 'imr-fast[inference]'"
+_MISSING = "imr_fast.pymc_bridge requires PyMC: pip install 'imr-fast[inference]'"
 
 
 def _pymc():
@@ -98,7 +98,7 @@ class IMRLogLikelihood:
   """
 
   def __init__(self, inference):
-    if not isinstance(inference, imr_inference.PreparedInference):
+    if not isinstance(inference, PreparedInference):
       raise TypeError("inference must be a PreparedInference")
     self.inference = inference
     self.log_likelihood, self.gradient = _make_ops(inference)

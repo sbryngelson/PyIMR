@@ -9,10 +9,10 @@ qualitative property the linearisation must not violate.
 import numpy as np
 import pytest
 
-import imr_design
+from imr_fast import design as imr_design
 import imr_fast
 from _validation_support import R0, REQ
-from imr_inference import InferenceParameter
+from imr_fast.inference import InferenceParameter
 
 SECTION = "6. Experiment design"
 

@@ -11,10 +11,10 @@ import pytest
 
 import imr_fast
 from _validation_support import R0, REQ
-from imr_inference import InferenceParameter, RadiusObservation, prepare_inference
+from imr_fast.inference import InferenceParameter, RadiusObservation, prepare_inference
 
 pytest.importorskip("pymc")
-import imr_pymc  # noqa: E402
+from imr_fast import pymc_bridge  # noqa: E402
 
 SECTION = "5. PyMC bridge"
 _TIMES = np.linspace(0.0, 20e-6, 60)
@@ -42,7 +42,7 @@ def test_gradient_matches_central_difference(inference, point, measured):
   reference *here* -- unlike in #44, what is being checked is the chain rule, not
   the Jacobian, and that Jacobian is verified against exact tangents elsewhere."""
   unit = np.array(point)
-  analytic = imr_pymc._log_likelihood_and_gradient(inference, unit)[1]
+  analytic = pymc_bridge._log_likelihood_and_gradient(inference, unit)[1]
 
   step, difference = 1e-5, np.zeros(inference.size)
   for index in range(inference.size):
@@ -60,21 +60,21 @@ def test_gradient_matches_central_difference(inference, point, measured):
 def test_failed_solves_are_rejected_not_smoothed(inference):
   """A stiff solve can fail at values a sampler proposes. Returning -inf rejects
   the proposal; a large finite number would bias the posterior toward it."""
-  log_likelihood, gradient = imr_pymc._log_likelihood_and_gradient(inference, np.array([np.nan, 0.5]))
+  log_likelihood, gradient = pymc_bridge._log_likelihood_and_gradient(inference, np.array([np.nan, 0.5]))
   assert log_likelihood == -np.inf
   assert gradient.shape == (inference.size,) and np.all(gradient == 0.0)
 
 
 def test_model_exposes_physical_parameters(inference):
   """A trace should carry what was fitted, not unit-cube coordinates."""
-  model = imr_pymc.build_model(inference)
+  model = pymc_bridge.build_model(inference)
   names = {variable.name for variable in model.deterministics}
   assert names == {"material.shear_modulus_pa", "material.viscosity_pa_s"}
 
 
 def test_operation_rejects_foreign_input():
   with pytest.raises(TypeError, match="PreparedInference"):
-    imr_pymc.IMRLogLikelihood(object())
+    pymc_bridge.IMRLogLikelihood(object())
 
 
 def test_missing_pymc_gives_an_actionable_error(monkeypatch):
@@ -96,7 +96,7 @@ def test_missing_pymc_gives_an_actionable_error(monkeypatch):
     monkeypatch.delitem(sys.modules, module)
 
   with pytest.raises(ImportError, match=r"imr-fast\[inference\]"):
-    imr_pymc._pymc()
+    pymc_bridge._pymc()
 
 
 def test_sampling_plumbing_runs(inference):
@@ -112,7 +112,7 @@ def test_sampling_plumbing_runs(inference):
   docstring. What this suite owns is the gradient, which is tested above; PyMC's
   sampler is not ours to validate.
   """
-  trace = imr_pymc.sample_posterior(
+  trace = pymc_bridge.sample_posterior(
     inference, draws=2, tune=2, chains=1, progressbar=False, random_seed=3, compute_convergence_checks=False
   )
   for name in ("material.shear_modulus_pa", "material.viscosity_pa_s"):

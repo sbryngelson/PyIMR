@@ -13,7 +13,7 @@ from typing import Mapping
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from _imr_materials import (
+from ._materials import (
   Giesekus,
   InstantaneousMaterial,
   LinearPTT,
@@ -27,7 +27,7 @@ from _imr_materials import (
   _finite_positive,
   _stress_state_count,
 )
-from _imr_thermal import _GAM_TAIT, _HUGONIOT_S, _NSTATE_TAIT
+from ._thermal import _GAM_TAIT, _HUGONIOT_S, _NSTATE_TAIT
 
 __all__ = [
   "C8",
@@ -447,7 +447,7 @@ class PreparedProblem:
     return _solve_prepared(self, tv)
 
   def solve_with_sensitivities(self, tv, parameters):
-    from imr_sensitivity import solve_with_sensitivities
+    from .sensitivity import solve_with_sensitivities
 
     return solve_with_sensitivities(self, tv, parameters)
 

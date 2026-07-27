@@ -132,3 +132,56 @@ def test_dissipation_paths_carry_no_suppression():
   for name in ("_instantaneous_dissipation", "_distributed_dissipation"):
     body = source.split(f"def {name}(")[1].split("\ndef ")[0]
     assert "errstate" not in body, f"{name} suppresses floating-point errors again; see #35"
+
+
+def _prepared_wall_inputs(Mt=9):
+  """Real stencils and alpha_g, so the coefficient signs are the physical ones."""
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
+  problem = imr_fast.prepare(config)
+  medium = problem.medium
+  assert medium is not None
+  return problem.parameters["alpha_g"], np.asarray(medium.grad_Tm), np.asarray(medium.grad_Trans)
+
+
+@pytest.mark.parametrize("scale", (0.0, 1e-3, 0.05, -0.02))
+def test_wall_temperature_satisfies_its_own_boundary_condition(scale):
+  """`_wall_theta_bw` solves the flux match in closed form (#57), so what needs
+  guarding is the algebra and the branch choice, not convergence. This passes on
+  the secant too, by construction -- it is not the #57 regression test below,
+  but the thing that catches a mis-derived quadratic or the wrong root.
+  """
+  alpha_g, grad_Tm, grad_Trans = _prepared_wall_inputs()
+  theta_tail = scale * np.arange(1.0, grad_Trans.size)
+  Tm_tail = 1.0 + scale * np.arange(1.0, grad_Tm.size)
+
+  theta_bw = _imr_thermal._wall_theta_bw(0.0, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans)
+
+  Tw = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_g)) / alpha_g
+  residual = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
+  residual += grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
+  assert abs(residual) < 1e-12 * max(1.0, abs(grad_Tm[0]))
+  assert 1.0 + 2.0 * alpha_g * theta_bw >= 0.0, "root taken on the unphysical branch"
+
+
+@pytest.mark.parametrize("ratio", (0.1, 0.3, 0.5))
+def test_coupled_solve_survives_awkward_retardation_ratios(ratio):
+  """These retardation ratios aborted the integration outright (#57): the secant
+  failed on roughly one call in 4000, which is all it takes. Failure alternated
+  with a smoothly varying parameter -- 0.2 and 0.4 worked -- so no single value
+  is the regression test; the point is that the sensitivity to it is gone.
+  """
+  relaxation = 2.0 * R0 / np.sqrt(101325 / 1064)
+  config = imr_fast.SimulationConfig(
+    R0=R0,
+    Req=REQ,
+    material=imr_fast.OldroydB(0.1, relaxation, ratio * relaxation),
+    bubtherm=1,
+    medtherm=1,
+    Nt=9,
+    Mt=9,
+    thermal="fd",
+  )
+  result = imr_fast.simulate(np.linspace(0.0, 6e-5, 60), config)
+  assert result.stats.success
+  assert result.medium_temperature_k is not None
+  assert np.all(np.isfinite(result.medium_temperature_k))

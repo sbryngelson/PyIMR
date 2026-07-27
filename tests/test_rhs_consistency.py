@@ -60,6 +60,11 @@ _MATERIALS = {
   "elastic_fung": _instantaneous(elastic=imr_fast.Fung(2500.0, 0.2)),
   "elastic_gent": _instantaneous(elastic=imr_fast.Gent(2500.0, 250.0)),
   "elastic_arruda_boyce": _instantaneous(elastic=imr_fast.ArrudaBoyce(2500.0, 30.0)),
+  # Single-term alpha=2 is the neo-Hookean limit; the three-term case has a
+  # negative and a fractional exponent, which is where Ogden differs in kind
+  # from every other law here.
+  "elastic_ogden_one_term": _instantaneous(elastic=imr_fast.Ogden((2500.0,), (2.0,))),
+  "elastic_ogden_multi": _instantaneous(elastic=imr_fast.Ogden((1800.0, 600.0, -300.0), (1.3, 4.0, -2.0))),
   "viscous_newtonian": _instantaneous(viscous=imr_fast.Newtonian(0.1)),
   "viscous_power_law": _instantaneous(viscous=imr_fast.PowerLaw(0.1, 0.7)),
   "viscous_carreau_yasuda": _instantaneous(viscous=imr_fast.CarreauYasuda(0.5, 0.02, 20e-6, 2.0, 0.45)),

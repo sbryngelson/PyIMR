@@ -66,6 +66,33 @@ def _forcing(time, p):
 def _elastic_integrand(code, parameters, stretch, pressure_scale):
   invariant_offset = stretch**-4 + 2.0 * stretch**2 - 3.0
   geometric = (stretch**3 + 1.0) / stretch**5
+  if code == 7:
+    # Ogden. Mirrors _imr_stress._elastic_integrand: it depends on the
+    # principal stretches rather than I1, so it does not factor through
+    # `geometric`. Packed as [n_terms, mu_1..mu_n, alpha_1..alpha_n].
+    #
+    # (1 - u**a) / (1 - u) is analytic at u = 1 but 0/0 there, so the binomial
+    # series covers a neighbourhood. The predicate reads .real: comparing the
+    # complex value directly is what the note above forbids, and it would
+    # discard the complex-step perturbation.
+    terms = int(parameters[0].real)
+    u = stretch**3
+    offset = u - 1.0
+    total = 0.0 * stretch
+    for index in range(terms):
+      modulus = parameters[1 + index]
+      exponent = parameters[1 + terms + index]
+      if abs(offset.real) < 1e-3:
+        ratio = exponent * (
+          1.0
+          + (exponent - 1.0) / 2.0 * offset
+          + (exponent - 1.0) * (exponent - 2.0) / 6.0 * offset**2
+          + (exponent - 1.0) * (exponent - 2.0) * (exponent - 3.0) / 24.0 * offset**3
+        )
+      else:
+        ratio = (1.0 - u**exponent) / (1.0 - u)
+      total = total + modulus * stretch ** (-2.0 * exponent) * ratio
+    return -2.0 / (stretch * pressure_scale) * total
   if code == 1:
     coefficient = parameters[0] / pressure_scale
     return -2.0 * coefficient * geometric

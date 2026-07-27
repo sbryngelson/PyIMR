@@ -25,6 +25,14 @@ will propose. Those return -inf with a zero gradient, which PyMC treats as a
 rejected proposal. Silently returning a large finite number instead would bias
 the posterior toward the failure region.
 
+Cost: one sensitivity solve per NUTS step. `evaluate` and `jacobian` used to be
+called separately and each `Op` discarded half the result, so a leapfrog step
+paid two forward solves plus two sensitivity solves. Folding them into
+`evaluate_with_jacobian` and memoising one point removes all of that -- and it
+is also more correct, since the gradient is now the derivative of the same
+integration that produced the log-likelihood rather than of a separately
+converged one.
+
 Verified by hand on synthetic data (NHKV, 60 observations at sigma = 5e-7 m,
 truth G = 2500 Pa and mu = 0.1 Pa s): 60 draws x 2 chains in 62 s recovered
 G = 2779 +- 216 and mu = 0.1097 +- 0.0069, both inside 1.5 sd of the truth.
@@ -57,10 +65,9 @@ def _pymc():
 
 
 def _log_likelihood_and_gradient(inference, unit):
-  """Both at once. Returns (-inf, zeros) when the solve fails."""
+  """Both from one sensitivity solve. Returns (-inf, zeros) when it fails."""
   try:
-    evaluation = inference.evaluate(unit)
-    jacobian = inference.jacobian(unit)
+    evaluation, jacobian = inference.evaluate_with_jacobian(unit)
   except Exception:  # noqa: BLE001 - any solver failure is a rejected proposal
     return -np.inf, np.zeros(inference.size)
   gradient = -np.asarray(evaluation.residual) @ np.asarray(jacobian)
@@ -68,19 +75,35 @@ def _log_likelihood_and_gradient(inference, unit):
 
 
 def _make_ops(inference):
+  """The two `Op`s share one solve per point.
+
+  `logp` and `dlogp` are separate nodes in the PyTensor graph, but a sampler
+  evaluates them at the same point: NUTS needs both at every leapfrog step. A
+  one-entry memo is therefore enough to halve the work, and one entry rather
+  than a growing dict because nothing ever revisits an earlier point -- an
+  unbounded cache would retain the whole chain for no hit rate.
+  """
   _, tensor, Op = _pymc()
+  memo = {}
+
+  def evaluate(unit):
+    key = np.asarray(unit, dtype=float).tobytes()
+    if memo.get("key") != key:
+      memo["key"] = key
+      memo["value"] = _log_likelihood_and_gradient(inference, unit)
+    return memo["value"]
 
   class Gradient(Op):
     itypes, otypes = [tensor.dvector], [tensor.dvector]
 
     def perform(self, node, inputs, output_storage):
-      output_storage[0][0] = _log_likelihood_and_gradient(inference, inputs[0])[1]
+      output_storage[0][0] = evaluate(inputs[0])[1]
 
   class LogLikelihood(Op):
     itypes, otypes = [tensor.dvector], [tensor.dscalar]
 
     def perform(self, node, inputs, output_storage):
-      output_storage[0][0] = np.array(_log_likelihood_and_gradient(inference, inputs[0])[0])
+      output_storage[0][0] = np.array(evaluate(inputs[0])[0])
 
     def grad(self, inputs, output_grads):
       return [output_grads[0] * gradient_op(inputs[0])]

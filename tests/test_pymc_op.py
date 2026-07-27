@@ -38,9 +38,18 @@ def inference():
 
 @pytest.mark.parametrize("point", ([0.4, 0.35], [0.5, 0.5], [0.62, 0.44]))
 def test_gradient_matches_central_difference(inference, point, measured):
-  """The bridge is one contraction, `-r @ J`. A central difference is an adequate
-  reference *here* -- unlike in #44, what is being checked is the chain rule, not
-  the Jacobian, and that Jacobian is verified against exact tangents elsewhere."""
+  """The bridge is one contraction, `-r @ J`. A central difference is an
+  adequate reference *here* -- unlike in #44, what is being checked is the chain
+  rule, not the Jacobian, and that Jacobian is verified against exact tangents
+  elsewhere.
+
+  The difference is taken of the log-likelihood the Op itself returns, not of
+  `inference.evaluate`. Those are now different integrations: the Op takes both
+  halves from one sensitivity solve, while `evaluate` runs a plain forward solve
+  converged separately to the same tolerance. Differencing the wrong one
+  measures the gap between two integrations rather than an error in the
+  gradient, and reports ~1e-04 for a gradient that is right to 5e-08.
+  """
   unit = np.array(point)
   analytic = pymc_op._log_likelihood_and_gradient(inference, unit)[1]
 
@@ -48,13 +57,32 @@ def test_gradient_matches_central_difference(inference, point, measured):
   for index in range(inference.size):
     offset = np.zeros(inference.size)
     offset[index] = step
-    ahead = inference.evaluate(unit + offset).log_likelihood
-    behind = inference.evaluate(unit - offset).log_likelihood
+    ahead = pymc_op._log_likelihood_and_gradient(inference, unit + offset)[0]
+    behind = pymc_op._log_likelihood_and_gradient(inference, unit - offset)[0]
     difference[index] = (ahead - behind) / (2.0 * step)
 
   error = float(np.max(np.abs(analytic - difference))) / max(float(np.max(np.abs(difference))), 1e-30)
   measured(f"pymc gradient at {point}", f"rel={error:.2e}")
-  assert error < 1e-4
+  assert error < 1e-6
+
+
+def test_one_solve_serves_both_halves(inference, monkeypatch):
+  """A leapfrog step used to pay two forward solves plus two sensitivity solves,
+  because each Op discarded half of what it computed. It should now pay one."""
+  calls = []
+  real = type(inference).evaluate_with_jacobian
+  monkeypatch.setattr(
+    type(inference),
+    "evaluate_with_jacobian",
+    lambda self, unit: (calls.append(np.asarray(unit).copy()), real(self, unit))[1],
+  )
+  import pytensor.tensor as tensor
+
+  operation = pymc_op.IMRLogLikelihood(inference)
+  unit = tensor.as_tensor_variable(np.array([0.5, 0.5]))
+  operation.log_likelihood(unit).eval()
+  operation.gradient(unit).eval()
+  assert len(calls) == 1, f"expected one solve for logp and dlogp at the same point, got {len(calls)}"
 
 
 def test_failed_solves_are_rejected_not_smoothed(inference):

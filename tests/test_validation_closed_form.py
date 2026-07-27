@@ -33,6 +33,7 @@ conduction term that was inert, would score perfectly.
 """
 
 import functools
+from typing import Any
 
 import numpy as np
 import pytest
@@ -196,13 +197,19 @@ def _scaled_conductivity(scale):
   )
 
 
+_MEDIUM = {"medtherm": 1, "Mt": 25}
+
+
 @functools.lru_cache(maxsize=None)
-def _polytropic_state(conductivity_scale, exponent, samples=600):
+def _polytropic_state(conductivity_scale, exponent, samples=600, thermal=None, medium=False):
   """Relative drift of `P * R^exponent`, plus the gas temperature range.
 
   The temperature range is returned because the invariant alone cannot tell a
   successful reduction from a degenerate one -- see `_scaled_conductivity`.
   """
+  options: dict[str, Any] = dict(_MEDIUM) if medium else {}
+  if thermal is not None:
+    options["thermal"] = thermal
   config = imr_fast.SimulationConfig(
     R0=_R0,
     Req=_R0 / 6,
@@ -213,6 +220,7 @@ def _polytropic_state(conductivity_scale, exponent, samples=600):
     physics=_scaled_conductivity(conductivity_scale),
     rtol=1e-10,
     atol=1e-12,
+    **options,
   )
   result = imr_fast.simulate(np.linspace(0.0, 40e-6, samples), config)
   invariant = np.asarray(result.internal_pressure_pa) * np.asarray(result.radius_ratio) ** exponent
@@ -223,6 +231,27 @@ def _polytropic_state(conductivity_scale, exponent, samples=600):
 
 _ADIABATIC = 3.0 * imr_fast.KAPPA
 _ISOTHERMAL = 3.0
+
+
+@pytest.mark.parametrize("thermal", ("spectral", "fd"))
+@pytest.mark.parametrize("medium", (False, True), ids=("gas only", "with medtherm"))
+def test_both_schemes_anchor_at_the_adiabatic_limit(thermal, medium, measured):
+  """The closed forms must hold for the scheme that actually ships.
+
+  #67 pinned `thermal="fd"` on every IMRv2-referenced test and #68 then made
+  `"spectral"` the default, so the default was left covered only by
+  self-consistency checks -- grid parity, tangent parity -- and by nothing
+  absolute. Running the anchor at both schemes restores that, and extending it
+  over `medtherm` covers the liquid layer as well as the gas.
+
+  Not extended to `masstrans`: transferring vapour changes the gas content, so
+  `P R^(3*gamma)` is not conserved even adiabatically (measured drift 6.2e-01).
+  That configuration has no closed form and needs a different kind of check.
+  """
+  drift, _, hottest = _polytropic_state(1e-8, _ADIABATIC, thermal=thermal, medium=medium)
+  measured(f"adiabatic {thermal}{' +medtherm' if medium else ''}", f"drift={drift:.2e}  Tmax={hottest:.0f}K")
+  assert drift < 1e-3
+  assert hottest > 3000.0, "no compression heating -- the reduction is degenerate, not adiabatic"
 
 
 def test_thermal_pde_reduces_to_the_adiabatic_polytropic_law(measured):

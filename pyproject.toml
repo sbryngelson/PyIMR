@@ -20,6 +20,10 @@ dependencies = [
 # module that needs it, and it imports lazily so the rest of the package works
 # without it. See #25.
 inference = [
+    # PyMC 6 requires Python >= 3.12, above this package's own floor of 3.10.
+    # Left unguarded by a marker on purpose: a marker would make the extra a
+    # silent no-op on 3.10, whereas the bare requirement makes pip report the
+    # actual constraint.
     "pymc>=6",
 ]
 test = [

@@ -23,8 +23,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      # PyMC 6 requires Python >= 3.12 while this package supports 3.10, so the
+      # inference extra is installable on only part of the matrix. The 3.10 job
+      # therefore covers the core install -- which is what a user without the
+      # extra actually gets -- and tests/test_pymc_bridge.py skips there.
       - name: Install
-        run: python -m pip install --upgrade pip && python -m pip install -e ".[test,inference]"
+        run: |
+          python -m pip install --upgrade pip
+          extra=$([ "${{ matrix.python-version }}" = "3.10" ] && echo "test" || echo "test,inference")
+          python -m pip install -e ".[$extra]"
 
       # -rA prints one line per test, so a failure names itself in the log
       # instead of requiring a search for which check moved.

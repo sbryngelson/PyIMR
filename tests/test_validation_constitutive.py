@@ -190,12 +190,28 @@ def test_zero_nonlinearity_reproduces_ucm_keller_miksis(measured):
 
 
 def test_zero_nonlinearity_reproduces_ucm_coupled(measured):
+  """With `medtherm` the two do NOT reduce to each other at fixed De, and the
+  original form of this test asserted that they did (#47).
+
+  They take different medium-heating paths: `_dissipation` carries the polymer
+  at its quasi-steady value, `_distributed_dissipation` carries its actual
+  stress. So the gap is physics, not discretisation -- it GROWS with Mt
+  (2.0e-03, 2.7e-03, 7.2e-03 at Mt = 9, 17, 33), which is why the old fixed
+  tolerance passed at Mt=9 and failed by Mt=33. Resolution was never the
+  variable. What is true is that the gap vanishes as De -> 0, so that is what
+  gets asserted.
+  """
   options = dict(bubtherm=1, medtherm=1, vapor=1, masstrans=1, Nt=9, Mt=9)
-  ucm = solve_radius(_MEMORY_TIMES, oldroyd_b(), **options)
-  distributed = solve_radius(_MEMORY_TIMES, imr_fast.Giesekus(0.1, _RELAXATION, _RETARDATION), **options)
-  worst = deviation(distributed, ucm)
-  measured("coupled Giesekus -> UCM", f"max|dR|={worst:.2e}")
-  assert worst < 3e-3
+
+  def gap(relaxation):
+    retardation = _LAM * relaxation
+    ucm = solve_radius(_MEMORY_TIMES, imr_fast.OldroydB(0.1, relaxation, retardation), **options)
+    distributed = solve_radius(_MEMORY_TIMES, imr_fast.Giesekus(0.1, relaxation, retardation), **options)
+    return deviation(distributed, ucm)
+
+  slow, fast = gap(_RELAXATION), gap(0.25 * _RELAXATION)
+  measured("coupled Giesekus -> UCM", f"max|dR|={slow:.2e} -> {fast:.2e} at De/4")
+  assert fast < 0.8 * slow, "the two paths must converge as the polymer approaches quasi-steady"
 
 
 @pytest.mark.parametrize(

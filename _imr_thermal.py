@@ -115,6 +115,21 @@ def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3):
 
 
 def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6):
+  """Medium heating for the closed-form materials.
+
+  The `12/Re8` below is the TOTAL quasi-steady stress power, not a solvent term
+  -- the resemblance to `_distributed_dissipation`'s `12*LAM/Re8` is what makes
+  the missing `LAM` look like a bug (#47). With D = diag(-2e, e, e) for
+  spherically symmetric incompressible flow, a quasi-steady polymer
+  `tau_p = 2*mu_p*D` contributes `12*mu_p*e^2`, so solvent plus polymer is
+  `12*(mu_s + mu_p)*e^2 = 12/Re8*e^2` and the split collapses.
+
+  That makes this exact for purely viscous and Kelvin-Voigt materials, which
+  have no polymer at all, and a De << 1 approximation for the viscoelastic ones:
+  it carries no relaxation memory. `_distributed_dissipation` keeps the two
+  terms apart and is the general form. Measured, the gap between them falls like
+  O(De) -- see the issue for the table -- and is ~5% by De = 0.02.
+  """
   Ca, Re8, Br, ax = p["Ca"], p["Re8"], p["Br"], p["alphax"]
   Rst = p["req"] / R
   # Everything here is interior-only. yT3 is +inf at the far-field node, so x2

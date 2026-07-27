@@ -205,14 +205,27 @@ def _secant_root(function, guess, *, tol=1e-13, maxiter=100):
 
 
 def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, grad_Tm, grad_Trans):
+  """Solve the flux match at the wall exactly, rather than iterating on it (#57).
 
-  def resid(theta_bw):
-    Tw = (alpha_g - 1.0 + np.sqrt(1.0 + 2.0 * theta_bw * alpha_g)) / alpha_g
-    lhs = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
-    rhs = grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
-    return lhs + rhs
+  Substituting Tw = (alpha_g - 1 + s) / alpha_g and theta_bw = (s*s - 1) / (2*alpha_g),
+  where s = sqrt(1 + 2*alpha_g*theta_bw) >= 0, turns the residual into a quadratic
+    c*s**2 + 2*b*s + 2*alpha_g*k = 0,   b = grad_Tm[0], c = grad_Trans[0],
+  whose roots multiply to 2*alpha_g*k/c. That product is negative here (c > 0 and
+  k < 0 for a one-sided wall stencil), so the roots straddle zero, the physical
+  one is unique and the discriminant b*b - c*(2*alpha_g*k) cannot be negative.
 
-  return _secant_root(resid, guess)
+  The secant this replaces would fail outright on ~1 call in 4000 -- enough to
+  abort an integration -- for ordinary retardation ratios, and carried only a
+  single-step tangent on the Dual path where this is exact.
+
+  `_wall_theta_bw_full` keeps its fallback ladder: with mass transfer the vapour
+  fraction makes the residual transcendental in Tw, so no closed form exists.
+  """
+  b, c = grad_Tm[0], grad_Trans[0]
+  k = b * (alpha_g - 1.0) / alpha_g + np.sum(grad_Tm[1:] * Tm_tail)
+  k += np.sum(grad_Trans[1:] * theta_tail) - c / (2.0 * alpha_g)
+  s = (-b + np.sqrt(b * b - 2.0 * alpha_g * c * k)) / c
+  return (s * s - 1.0) / (2.0 * alpha_g)
 
 
 def _wall_theta_bw_full(

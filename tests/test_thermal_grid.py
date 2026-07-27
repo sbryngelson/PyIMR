@@ -93,6 +93,11 @@ _DISSIPATION_CASES = (
   ),
   ("distributed", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=32)),
   ("closed form", NHKV),
+  # QuadraticKelvinVoigt reaches a distinct branch of _dissipation that no other
+  # test exercised: every pinned qKV case runs without medtherm. Slicing that
+  # branch to the interior broke its shapes and nothing caught it.
+  ("quadratic kelvin-voigt", imr_fast.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)),
+  ("no stress", imr_fast.NoStress()),
 )
 
 

@@ -178,15 +178,23 @@ def _rhs(
     ddTm = mt.D2 @ Tm
     xi, yT, yT2, yT3, iyT3, iyT4, iyT6 = (mt.xi, mt.yT, mt.yT2, mt.yT3, mt.iyT3, mt.iyT4, mt.iyT6)
     Lt, Foh = p["Lt"], p["Foh"]
-    with np.errstate(divide="ignore", invalid="ignore"):
-      med_advection = (
-        (1 + xi) ** 2 / (Lt * R) * (Rd / yT2 * (1 - yT3) / 2 + Foh / R * ((xi + 1) / (2 * Lt) - 1 / yT)) * dTm
-      )
-      med_diffusion = Foh / R**2 * (xi + 1) ** 4 / Lt**2 * ddTm / 4
-      if distributed_stress is None:
-        taugradu = _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6)
-      else:
-        taugradu = _distributed_dissipation(Z, distributed_stress, p, R, Rd, yT, iyT3)
+    # Interior only: at the far-field node yT2 and yT3 are +inf, so
+    # Rd/yT2 * (1 - yT3) is 0 * -inf, a nan that Tmdot[-1] = 0.0 below
+    # overwrote. The wall entry is set to zero here instead, which is the value
+    # that overwrite produced. #35.
+    inner = slice(0, -1)
+    med_advection = np.zeros_like(yT)
+    med_advection[inner] = (
+      (1 + xi[inner]) ** 2
+      / (Lt * R)
+      * (Rd / yT2[inner] * (1 - yT3[inner]) / 2 + Foh / R * ((xi[inner] + 1) / (2 * Lt) - 1 / yT[inner]))
+      * dTm[inner]
+    )
+    med_diffusion = Foh / R**2 * (xi + 1) ** 4 / Lt**2 * ddTm / 4
+    if distributed_stress is None:
+      taugradu = _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6)
+    else:
+      taugradu = _distributed_dissipation(Z, distributed_stress, p, R, Rd, yT, iyT3)
     Tmdot = med_advection + med_diffusion + taugradu
     Tmdot[0] = 0.0
     Tmdot[-1] = 0.0

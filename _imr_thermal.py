@@ -117,16 +117,31 @@ def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3):
 def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6):
   Ca, Re8, Br, ax = p["Ca"], p["Re8"], p["Br"], p["alphax"]
   Rst = p["req"] / R
-  x2 = (yT3 - 1.0 + Rst**3) ** (2.0 / 3.0)
+  # Everything here is interior-only. yT3 is +inf at the far-field node, so x2
+  # is inf there and its reciprocal 0; the base expression then multiplies the
+  # two and yields nan. On the Dual path the same inf reaches Dual.__pow__ and
+  # produces a nan tangent as well.
+  inner = slice(0, -1)
+  x2 = (yT3[inner] - 1.0 + Rst**3) ** (2.0 / 3.0)
   ix2 = 1.0 / x2
   x4 = x2**2
-  base = 12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6 + 2.0 * Br / Ca * iyT3 * (Rd / R) * (yT2 * ix2 - iyT4 * x4)
+  # Interior only: yT2 is +inf at the far-field node and iyT3 is exactly 0
+  # there, so the second term is 0 * inf, a nan. It was invisible because the
+  # caller in _imr_rhs suppressed invalid around the whole block -- a blanket
+  # suppression hiding a nan in a function it does not own. Tmdot[-1] is
+  # overwritten with 0.0, which is the value set here. #35.
+  base = np.zeros_like(yT)
+  base[inner] = 12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6[inner] + 2.0 * Br / Ca * iyT3[inner] * (Rd / R) * (
+    yT2[inner] * ix2 - iyT4[inner] * x4
+  )
   if isinstance(material, InstantaneousMaterial):
     return _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3)
   if isinstance(material, NoStress):
     return np.zeros_like(yT)
   if isinstance(material, QuadraticKelvinVoigt):
-    return base * (1.0 + ax * (x4 * iyT4 + 2.0 * yT2 * ix2 - 3.0))
+    stiffening = np.ones_like(yT)
+    stiffening[inner] = 1.0 + ax * (x4 * iyT4[inner] + 2.0 * yT2[inner] * ix2 - 3.0)
+    return base * stiffening
   return base
 
 

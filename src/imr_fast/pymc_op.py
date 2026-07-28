@@ -49,7 +49,7 @@ import numpy as np
 
 from .inference import PreparedInference
 
-__all__ = ["IMRLogLikelihood", "build_model", "sample_posterior"]
+__all__ = ["IMRLogLikelihood", "build_model", "sample_posterior", "sample_smc"]
 
 _MISSING = "imr_fast.pymc_op requires PyMC: pip install 'imr-fast[inference]'"
 
@@ -156,3 +156,32 @@ def sample_posterior(inference, draws=1000, tune=1000, chains=4, **kwargs):
   pymc, _, _ = _pymc()
   with build_model(inference):
     return pymc.sample(draws=draws, tune=tune, chains=chains, **kwargs)
+
+
+def sample_smc(inference, draws=1000, chains=4, **kwargs):
+  """Sequential Monte Carlo over the unit cube (#25, piece 2).
+
+  Use this for **model comparison**, not for speed. SMC tempers from prior to
+  posterior and reweights along the way, so the log marginal likelihood falls
+  out of the run -- `trace.sample_stats.log_marginal_likelihood` -- which is
+  what lets two material models be compared on the same data. NUTS gives no such
+  quantity.
+
+  What it costs, stated plainly because the trade is easy to miss:
+
+  - **It throws the gradients away.** `pm.sample_smc`'s mutation kernel is
+    Metropolis; it never calls `dlogp`, so the exact tangents that are this
+    package's reason for existing go unused. `sample_posterior` is the right
+    default for parameter estimation.
+  - It needs far more total solves than a chain of the same length, though they
+    parallelise across particles rather than running serially.
+
+  On multimodality specifically: the landscape study on #25 found the
+  optimisation surface multimodal but the posterior effectively unimodal --
+  nearest competing basin at delta(-log L) = 23.5, a likelihood ratio of ~6e-11.
+  So SMC is a robustness measure here rather than a correction, and a NUTS
+  posterior that looks unimodal is not evidence of a missed mode either way.
+  """
+  pymc, _, _ = _pymc()
+  with build_model(inference):
+    return pymc.sample_smc(draws=draws, chains=chains, **kwargs)

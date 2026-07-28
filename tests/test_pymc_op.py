@@ -145,3 +145,18 @@ def test_sampling_plumbing_runs(inference):
   )
   for name in ("material.shear_modulus_pa", "material.viscosity_pa_s"):
     assert np.asarray(trace.posterior[name]).size == 2
+
+
+def test_smc_returns_a_marginal_likelihood(inference):
+  """Plumbing only, like the NUTS smoke test above -- but checking the one
+  quantity that justifies SMC's existence here.
+
+  SMC is slower than NUTS per unit of posterior and discards the gradients
+  entirely (`pm.sample_smc` mutates with Metropolis). What it buys is
+  `log_marginal_likelihood`, which NUTS cannot produce and which is what lets
+  two material models be compared on the same data.
+  """
+  trace = pymc_op.sample_smc(inference, draws=16, chains=2, progressbar=False, random_seed=3)
+  assert np.asarray(trace.posterior["material.shear_modulus_pa"]).size == 32
+  evidence = float(np.asarray(trace.sample_stats["log_marginal_likelihood"]).ravel()[-1])
+  assert np.isfinite(evidence), "SMC ran but produced no usable evidence"

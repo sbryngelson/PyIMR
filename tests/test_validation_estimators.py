@@ -206,3 +206,81 @@ def test_the_dropped_term_detects_misspecification(measured):
   ratio = inference.curvature_ratio(np.array([(2500.0 - 1500.0) / 2500.0, (0.1 - 0.05) / 0.15]))
   measured("Gauss-Newton dropped term, misspecified", f"||r.H||/||J^T J|| = {ratio:.2e}")
   assert ratio > 0.05
+
+
+_TAU = 3e-6
+
+
+@pytest.fixture(scope="module")
+def correlated():
+  times = np.linspace(2e-6, 4e-5, 40)
+  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
+  truth = np.asarray(imr_fast.simulate(times, config).radius_m)
+  observed = truth + np.random.default_rng(5).normal(0.0, 5e-7, times.size)
+  parameters = (
+    InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
+    InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
+  )
+  independent = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7), parameters)
+  linked = prepare_inference(
+    config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=_TAU), parameters
+  )
+  return times, observed, independent, linked
+
+
+def test_correlated_likelihood_matches_a_direct_multivariate_gaussian(correlated, measured):
+  """Whitening by the Cholesky factor must reproduce the full
+  `-0.5 [(y-m)^T S^-1 (y-m) + log det(2 pi S)]`, computed here without any of
+  the machinery under test."""
+  times, observed, _, linked = correlated
+  unit = np.array([0.42, 0.37])
+  lag = np.abs(times[:, None] - times[None, :])
+  covariance = (5e-7) ** 2 * np.exp(-lag / _TAU)
+  deviation = np.asarray(imr_fast.simulate(times, linked.config_from_unit(unit)).radius_m) - observed
+  direct = -0.5 * (deviation @ np.linalg.solve(covariance, deviation) + np.linalg.slogdet(2 * np.pi * covariance)[1])
+
+  computed = linked.evaluate(unit).log_likelihood
+  measured("correlated logL", f"{computed:.6f} vs direct {direct:.6f}")
+  assert abs(computed - direct) < 1e-9 * abs(direct)
+
+
+def test_the_correlated_gradient_is_still_the_derivative(correlated, measured):
+  _, _, _, linked = correlated
+  unit = np.array([0.42, 0.37])
+  evaluation, jacobian = linked.evaluate_with_jacobian(unit)
+  analytic = -np.asarray(evaluation.residual) @ jacobian
+  step, difference = 1e-5, np.zeros(2)
+  for index in range(2):
+    offset = np.zeros(2)
+    offset[index] = step
+    ahead = linked.evaluate_with_jacobian(unit + offset)[0].log_likelihood
+    behind = linked.evaluate_with_jacobian(unit - offset)[0].log_likelihood
+    difference[index] = (ahead - behind) / (2.0 * step)
+  error = float(np.max(np.abs(analytic - difference))) / max(float(np.max(np.abs(difference))), 1e-30)
+  measured("correlated gradient", f"rel={error:.2e}")
+  assert error < 1e-5
+
+
+def test_vanishing_correlation_time_reduces_to_independent_noise(correlated):
+  """The limit that must hold exactly, not approximately: at tau -> 0 the
+  covariance is diagonal and the two code paths have to agree bit for bit."""
+  times, observed, independent, _ = correlated
+  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
+  tiny = prepare_inference(
+    config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=1e-15), independent.parameters
+  )
+  unit = np.array([0.42, 0.37])
+  assert tiny.evaluate(unit).log_likelihood == independent.evaluate(unit).log_likelihood
+
+
+def test_correlated_noise_carries_less_information(correlated, measured):
+  """The reason this matters for design. Neighbouring frames that share noise
+  say less than independent ones at the same sigma, so treating a correlated
+  measurement as independent overstates what an experiment will teach."""
+  from imr_fast.design import expected_information_gain
+
+  _, _, independent, linked = correlated
+  loose = expected_information_gain(independent, draws=6).expected_information_gain
+  tight = expected_information_gain(linked, draws=6).expected_information_gain
+  measured("EIG independent vs correlated", f"{loose:.3f} -> {tight:.3f} nats")
+  assert tight < loose

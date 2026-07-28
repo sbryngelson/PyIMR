@@ -223,10 +223,17 @@ def _viscosity_and_tangent(model, shear_rate):
           -yield_stress * np.expm1(-scaled[index]) / rate if primal(rate) > 0.0 else yield_stress / regularization
         )
     else:
-      with np.errstate(divide="ignore", invalid="ignore"):
-        yield_viscosity = np.where(
-          shear_rate > 0.0, -yield_stress * np.expm1(-scaled) / shear_rate, yield_stress / regularization
-        )
+      # np.where evaluates BOTH arms, so dividing by `shear_rate` computed a
+      # 0/0 at every zero-rate node and then discarded it -- the suppression was
+      # hiding a value nothing used. Substituting 1.0 in the denominator where
+      # the arm is not selected removes the divide instead of silencing it, and
+      # selects exactly the same values. The object-dtype branch above already
+      # did this the honest way, per element (#35).
+      positive = shear_rate > 0.0
+      denominator = np.where(positive, shear_rate, 1.0)
+      yield_viscosity = np.where(
+        positive, -yield_stress * np.expm1(-scaled) / denominator, yield_stress / regularization
+      )
     effective_rate = np.sqrt(shear_rate**2 + regularization**2)
     power_viscosity = consistency * effective_rate ** (exponent - 1.0)
     viscosity = yield_viscosity + power_viscosity

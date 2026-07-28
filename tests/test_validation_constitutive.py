@@ -234,3 +234,26 @@ def test_nonlinear_parameter_produces_distinct_physics(label, model, ucm_traject
   worst = deviation(solve_radius(_MEMORY_TIMES, model), ucm_trajectory)
   measured(f"{label} parameter=0.2 vs UCM", f"max|dR|={worst:.2e}")
   assert worst > 0.05
+
+
+@pytest.mark.parametrize(
+  ("label", "viscous"),
+  (("Bingham", imr_fast.Bingham(100.0, 0.1)), ("Herschel-Bulkley", imr_fast.HerschelBulkley(100.0, 0.1, 0.8))),
+)
+def test_yield_stress_needs_no_suppression(label, viscous, measured):
+  """The yield-stress regularisation used `np.where` around a divide by the
+  shear rate, wrapped in `np.errstate` (#35). `np.where` evaluates BOTH arms, so
+  the 0/0 at every zero-rate node was computed and then discarded -- the
+  suppression hid a value nothing used.
+
+  The rate passes through zero at every rebound, so a real solve reaches it.
+  Underflow is excluded deliberately: it fires inside SciPy and NumPy ignores it
+  by default.
+  """
+  material = imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0), viscous=viscous)
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material)
+  with np.errstate(divide="raise", invalid="raise", over="raise"):
+    result = imr_fast.simulate(np.linspace(0.0, 6e-5, 200), config)
+  radius = np.asarray(result.radius_ratio)
+  measured(f"{label} no suppression", f"min R/R0={radius.min():.4f}")
+  assert np.all(np.isfinite(radius))

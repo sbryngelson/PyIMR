@@ -25,7 +25,7 @@ worth seeing.
 | `src/imr_fast/__init__.py` | forward solver, material models, and strict result API |
 | `src/imr_fast/sensitivity.py` | production-RHS forward sensitivities |
 | `src/imr_fast/inference.py` | prepared likelihood, batch, and multistart tools |
-| `src/imr_fast/pymc_op.py` | PyMC bridge: NUTS driven by the exact tangents. Needs `pip install 'imr-fast[inference]'` |
+| `src/imr_fast/pymc_op.py` | PyMC bridge: NUTS on the exact tangents, plus SMC for model comparison. Needs `pip install 'imr-fast[inference]'` |
 | `src/imr_fast/design.py` | Laplace/Fisher expected information gain for ranking experiment designs |
 | `src/imr_fast/data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
 | `src/imr_fast/thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |

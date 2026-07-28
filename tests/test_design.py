@@ -221,3 +221,44 @@ def test_a_second_observable_raises_the_information(measured):
 
   measured("EIG radius vs radius+velocity", f"{alone:.3f} -> {together:.3f} nats")
   assert together > alone, "adding an observable cannot reduce the information"
+
+
+@pytest.mark.parametrize("index", (5, 12, 20))
+def test_the_time_gradient_matches_a_central_difference(index, measured):
+  """Scoring a time grid needs `J`; moving one needs `dJ/dt`. For a radius
+  observation that is the wall-velocity tangent, which the same solve already
+  returns -- so this costs nothing beyond the arithmetic.
+
+  The reference perturbs one observation time and re-scores, which exercises the
+  whole path including the union-grid indexing.
+  """
+  times = np.linspace(2e-6, 4e-5, 25)
+  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
+
+  def score(grid):
+    return imr_design.expected_information_gain(
+      imr_design.design_inference(config, grid, _NOISE, _PARAMETERS), draws=4
+    ).expected_information_gain
+
+  analytic = imr_design.information_time_gradient(
+    imr_design.design_inference(config, times, _NOISE, _PARAMETERS), draws=4
+  )
+  step = 2e-9
+  ahead, behind = times.copy(), times.copy()
+  ahead[index] += step
+  behind[index] -= step
+  difference = (score(ahead) - score(behind)) / (2.0 * step)
+
+  error = abs(analytic[index] - difference) / max(abs(difference), 1e-30)
+  measured(f"dEIG/dt at t[{index}]", f"{analytic[index]:.4e} vs {difference:.4e}, rel={error:.2e}")
+  assert error < 1e-5
+
+
+def test_a_field_without_a_time_derivative_refuses(measured):
+  """`dP/dt` would mean differentiating the right-hand side, which is a larger
+  change than this. Refusing beats silently returning the wrong tangent."""
+  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  pressure = imr_fast.inference.FieldObservation("internal_pressure_pa", _TIMES, np.full(_TIMES.size, 1e5), 1e3)
+  inference = imr_design.DesignInference(config, pressure, _PARAMETERS)
+  with pytest.raises(NotImplementedError, match="no time derivative available"):
+    inference.jacobian_time_derivative(np.full(inference.size, 0.5))

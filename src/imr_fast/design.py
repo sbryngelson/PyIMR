@@ -239,3 +239,47 @@ def expected_information_gain(
   gains = np.array([_gain_from_fisher(matrix, variance) for matrix in matrices], dtype=float)
   error = float(np.std(gains, ddof=1) / np.sqrt(gains.size)) if gains.size > 1 else float("inf")
   return DesignEvaluation(float(np.mean(gains)), error, requested, int(gains.size), failures)
+
+
+def _time_gradient(inference, unit, variance):
+  """d(EIG)/d(t_i) at one draw.
+
+  With `M = I + sqrt(S) J^T J sqrt(S)` and `EIG = 0.5 log det M`, only row `i`
+  of `J` depends on `t_i`, so
+
+      d(J^T J)/dt_i = j'_i j_i^T + j_i j'_i^T
+
+  and, using `tr[A(u v^T + v u^T)] = 2 u^T A v` for symmetric `A`,
+
+      d(EIG)/dt_i = (sqrt(S) j'_i)^T M^-1 (sqrt(S) j_i)
+  """
+  jacobian, derivative = inference.jacobian_with_time_derivative(unit)
+  scale = np.sqrt(variance)
+  scaled = np.asarray(jacobian, dtype=float) * scale
+  scaled_rate = np.asarray(derivative, dtype=float) * scale
+  matrix = np.eye(len(variance)) + scaled.T @ scaled
+  return np.einsum("ij,ij->i", scaled_rate, np.linalg.solve(matrix, scaled.T).T)
+
+
+def information_time_gradient(inference, *, draws=128, seed=0, prior_variance=None):
+  """Prior-averaged `d(EIG)/d(observation time)`, one entry per observed value.
+
+  Scoring a candidate time grid needs `J`; moving one needs this. For a radius
+  observation `dJ/dt` is the wall-velocity tangent, which the same sensitivity
+  solve already returns, so a gradient step over observation times costs no more
+  than scoring the design did.
+
+  Sign convention: positive means moving that observation later increases the
+  expected information.
+  """
+  if not isinstance(inference, PreparedInference):
+    raise TypeError("inference must be a PreparedInference")
+  if not isinstance(draws, Integral) or draws < 1:
+    raise ValueError("draws must be a positive integer")
+  if prior_variance is None:
+    variance = np.full(inference.size, UNIFORM_VARIANCE)
+  else:
+    variance = np.broadcast_to(np.asarray(prior_variance, dtype=float), (inference.size,)).astype(float)
+
+  points = np.random.default_rng(seed).random((int(draws), inference.size))
+  return np.mean([_time_gradient(inference, point, variance) for point in points], axis=0)

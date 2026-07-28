@@ -13,6 +13,7 @@ they are load-bearing, and both fail silently.
 """
 
 import importlib
+import re
 import types
 from pathlib import Path
 
@@ -77,3 +78,17 @@ def test_unshipped_scripts_exist():
   silently weaken the check above."""
   missing = sorted(name for name in _UNSHIPPED if not (_ROOT / f"{name}.py").exists())
   assert not missing, f"_UNSHIPPED names modules that no longer exist: {missing}"
+
+
+def test_documentation_links_resolve():
+  """Splitting the README into `docs/` pages (#30) turned prose cross-references
+  into paths, and a path that stops resolving breaks silently: nothing imports
+  these files and nothing renders them in CI."""
+  pages = [_ROOT / "README.md", *sorted((_ROOT / "docs").glob("*.md"))]
+  broken = [
+    (page.name, target)
+    for page in pages
+    for target in re.findall(r"\]\((?!https?:|#)([^)#]+)", page.read_text())
+    if not (page.parent / target).exists()
+  ]
+  assert not broken, f"unresolved documentation links: {broken}"

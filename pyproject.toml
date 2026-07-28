@@ -26,6 +26,13 @@ inference = [
     # actual constraint.
     "pymc>=6",
 ]
+# Documentation is generated rather than written: #8 stripped docstrings from
+# internals and kept them on everything named in `__all__`, so "everything
+# public is documented, everything documented is public" holds by construction
+# -- which is exactly pdoc's assumption. See #30.
+docs = [
+    "pdoc>=15",
+]
 test = [
     "build>=1.2",
     # Pinned: pyright's inference changes between releases, and

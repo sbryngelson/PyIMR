@@ -464,7 +464,6 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
   initial_state = np.zeros(layout.size)
   initial_state[0] = 1.0
   initial_state[1] = initial.wall_velocity_m_s / p["Uc"]
-
   if initial.bubble_temperature_k is not None and not config.bubtherm:
     raise ValueError("initial bubble temperature requires bubtherm=1")
   if initial.medium_temperature_k is not None and not config.medtherm:
@@ -478,7 +477,6 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
     initial_state[layout.stress] = collapse_state
   elif initial.stress_state is not None:
     initial_state[layout.stress] = initial.stress_state
-
   bubble_grid = None
   bubble_D1 = None
   bubble_D2 = None
@@ -546,7 +544,6 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
       # sensitivity path's Dual rebuild in sensitivity._dual_medium.
       bubble_wall_stencil = bubble_first[-1, ::-1] if spectral else _pad(-coeff / deltaY, config.Nt)
       medium_wall_stencil = medium_first[0] if spectral else _pad(coeff / deltaYm, config.Mt)
-
       medium = MediumOperators(
         xi=_freeze_array(xi),
         yT=_freeze_array(yT),

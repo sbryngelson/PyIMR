@@ -120,7 +120,6 @@ def _compiled_mechanical_outputs(problem, config, parameters, states, width, com
   reference_radius = distributed.reference_radius if distributed is not None else np.empty(0)
   reference_radius_cubed = distributed.reference_radius_cubed if distributed is not None else np.empty(0)
   stress_weights = distributed.weights if distributed is not None and distributed.weights is not None else np.empty(0)
-
   for time_index, row in enumerate(states):
     radius = Dual(row[0, 0], row[0, 1:])
     wall_velocity = Dual(row[1, 0], row[1, 1:])
@@ -169,7 +168,6 @@ def _output_duals(problem, config, parameters, states, width, compiled=None):
   vapor_fraction = np.empty((count, config.Nt, width)) if config.masstrans else None
   wall_state = _solver._WallState()
   dual_medium = _dual_medium(problem, parameters)
-
   for time_index, row in enumerate(states):
     dual_state = np.array([Dual(row[index, 0], row[index, 1:]) for index in range(row.shape[0])], dtype=object)
     radius = dual_state[0]
@@ -229,28 +227,7 @@ def solve_with_sensitivities(problem, tv, parameters):
   if not isinstance(problem, _solver.PreparedProblem):
     raise TypeError("problem must be a PreparedProblem")
   config = problem.config
-  time_s = _solver._validate_inputs(
-    tv,
-    config.R0,
-    config.Req,
-    config.material,
-    config.radial,
-    config.vapor,
-    config.T8,
-    config.pA,
-    config.omega,
-    config.TW,
-    config.DT,
-    config.mn,
-    config.wave_type,
-    config.bubtherm,
-    config.Nt,
-    config.medtherm,
-    config.Mt,
-    config.masstrans,
-    config.rtol,
-    config.atol,
-  )
+  time_s = _solver._validate_inputs(tv, config)
   normalized, values, scales = _normalize_parameters(config, parameters)
   dual_config = _dual_config(config, normalized, values, scales)
   dual_parameters = _dual_parameters(dual_config)
@@ -258,7 +235,6 @@ def solve_with_sensitivities(problem, tv, parameters):
   dual_forcing = _dual_forcing(dual_config, dual_parameters)
   width = len(normalized)
   initial = _initial_matrix(problem, dual_config, dual_parameters, width)
-
   started = perf_counter()
   use_compiled_mechanical = not config.bubtherm and problem.forcing is None
   if use_compiled_mechanical:
@@ -347,7 +323,6 @@ def solve_with_sensitivities(problem, tv, parameters):
   )
   if not success:
     raise _solver.SimulationError(f"IMR sensitivity integration failed: {message}", stats)
-
   packed = solution.y.T.reshape(time_s.size, problem.layout.size, width + 1)
   base_states = packed[:, :, 0]
   base_solution = SimpleNamespace(y=base_states.T)

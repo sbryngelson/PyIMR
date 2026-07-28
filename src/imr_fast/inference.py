@@ -131,7 +131,6 @@ class RadiusObservation:
 # needed to differentiate a design with respect to WHEN it looks is already
 # computed. The others would need the RHS differentiated as well.
 _TIME_DERIVATIVE_OF = {"radius_m": "wall_velocity_m_s", "radius_ratio": "wall_velocity_m_s"}
-
 OBSERVABLE_FIELDS = ("radius_m", "radius_ratio", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
 
 
@@ -186,19 +185,15 @@ class FieldObservation:
 
 
 def _whitening_factor(item):
-  """Lower Cholesky factor of the noise covariance, or None when it is diagonal.
-
-  With `Sigma = L L^T`, the whitened residual `L^-1 (y - m)` and Jacobian
-  `L^-1 dm/dtheta` mean exactly what the independent-noise versions meant, so
-  everything downstream -- the `-r @ J` gradient, `J^T J` as the Fisher
-  information, EIG -- is unchanged. Correlated noise is a change of one
-  division into one triangular solve.
-
-  The kernel is exponential, `exp(-|t_i - t_j| / tau)`. Radii recovered by edge
-  detection are correlated over roughly a frame or two, and an exponential is
-  the one-parameter model of that; it is also positive definite for any tau, so
-  the factorisation cannot fail on a user's choice.
-  """
+  # Lower Cholesky factor of the noise covariance, or None when it is diagonal.
+  #
+  # With `Sigma = L L^T`, the whitened residual `L^-1 (y - m)` and Jacobian `L^-1 dm/dtheta` mean exactly what the
+  # independent-noise versions meant, so everything downstream -- the `-r @ J` gradient, `J^T J` as the Fisher
+  # information, EIG -- is unchanged. Correlated noise is a change of one division into one triangular solve.
+  #
+  # The kernel is exponential, `exp(-|t_i - t_j| / tau)`. Radii recovered by edge detection are correlated over
+  # roughly a frame or two, and an exponential is the one-parameter model of that; it is also positive definite for
+  # any tau, so the factorisation cannot fail on a user's choice.
   if item.correlation_time_s is None:
     return None
   deviation = np.asarray(item.standard_deviation)
@@ -215,7 +210,7 @@ def _whiten(values, item, factor):
 
 
 def _log_determinant(item, factor):
-  """`log det(2 pi Sigma)` for one observation."""
+  # `log det(2 pi Sigma)` for one observation.
   count = item.time_s.size
   if factor is None:
     return float(np.sum(np.log(2.0 * np.pi * np.asarray(item.standard_deviation) ** 2)))
@@ -223,12 +218,10 @@ def _log_determinant(item, factor):
 
 
 def _as_field_observations(observation):
-  """Normalise one observation, or several, into a tuple of `FieldObservation`.
-
-  `RadiusObservation` is kept rather than deprecated: it carries the positivity
-  check that only makes sense for a radius, and it is the overwhelmingly common
-  case.
-  """
+  # Normalise one observation, or several, into a tuple of `FieldObservation`.
+  #
+  # `RadiusObservation` is kept rather than deprecated: it carries the positivity check that only makes sense for a
+  # radius, and it is the overwhelmingly common case.
   items = observation if isinstance(observation, (tuple, list)) else (observation,)
   if not items:
     raise ValueError("at least one observation is required")

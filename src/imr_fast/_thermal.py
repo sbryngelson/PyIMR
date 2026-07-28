@@ -33,14 +33,9 @@ __all__ = [
   "_wall_theta_bw_full",
   "pvsat",
 ]
-
-
 _GAM_TAIT = 3049.13e5
-
 _NSTATE_TAIT = 7.15
-
 _HUGONIOT_S = 1.65
-
 _NOG = (_NSTATE_TAIT - 1.0) / 2.0
 
 
@@ -118,12 +113,11 @@ def _mie_gruneisen(P, Cstar, s, nog, reference):
 
 
 def _far_field_singular_index(xi) -> int:
-  """Index of the node where the medium grid map 2 / (xi + 1) is singular.
-
-  Raises unless there is exactly one and it is the last. The wall closure and
-  every yT power assume that; suppressing the divide instead lets a moved or
-  duplicated singularity produce inf at an interior node in silence. See #35.
-  """
+  # Index of the node where the medium grid map 2 / (xi + 1) is singular.
+  #
+  # Raises unless there is exactly one and it is the last. The wall closure and every yT power assume that;
+  # suppressing the divide instead lets a moved or duplicated singularity produce inf at an interior node in silence.
+  # See #35.
   values = np.asarray(xi, dtype=float)
   singular = np.flatnonzero(values + 1.0 == 0.0)
   if singular.size != 1 or singular[0] != values.size - 1:
@@ -242,7 +236,6 @@ def _secant_root(function, guess, *, tol=1e-13, maxiter=100):
   q1 = function(p1)
   if abs(q1) < abs(q0):
     p0, p1, q0, q1 = p1, p0, q1, q0
-
   for _ in range(maxiter):
     if q1 == q0:
       raise RuntimeError("wall boundary secant solve encountered zero slope")
@@ -369,7 +362,6 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
       wall_state.theta, theta[-2::-1], Tm[1:], p["alpha_g"], p["beta_g"], medium.grad_Tm, medium.grad_Trans
     )
     wall_state.theta = theta[-1]
-
   alpha_m = None
   if masstrans:
     alpha_m = kv * p["alpha_v"] + (1.0 - kv) * p["alpha_g"]

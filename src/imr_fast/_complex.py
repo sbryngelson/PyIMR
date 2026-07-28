@@ -33,7 +33,6 @@ from ._rhs import _rhs
 from ._autodiff import Dual
 
 __all__ = ["STEP", "complex_step_supported", "rhs_complex"]
-
 # Small enough that the O(h^2) term underflows, so the imaginary part is the
 # exact derivative rather than a difference quotient -- there is no subtractive
 # cancellation to trade against, which is the whole point of complex step.
@@ -46,16 +45,13 @@ def complex_step_supported(problem):
 
 
 def _to_complex(value, index):
-  """Map one direction of a `Dual` structure onto complex128.
-
-  `Dual(v, t)` becomes `v + i*STEP*t[index]`, so the tangent rides in the
-  imaginary part at the scale complex-step expects. The recursion covers
-  everything the dual builders produce -- nested dataclasses (configs, materials,
-  medium operators), dicts, object arrays and bare scalars -- so no per-container
-  field list has to be maintained alongside them. That list is exactly what went
-  stale in #43, where `_dual_medium` kept finite-difference wall stencils after
-  the grid learned about Chebyshev.
-  """
+  # Map one direction of a `Dual` structure onto complex128.
+  #
+  # `Dual(v, t)` becomes `v + i*STEP*t[index]`, so the tangent rides in the imaginary part at the scale complex-step
+  # expects. The recursion covers everything the dual builders produce -- nested dataclasses (configs, materials,
+  # medium operators), dicts, object arrays and bare scalars -- so no per-container field list has to be maintained
+  # alongside them. That list is exactly what went stale in #43, where `_dual_medium` kept finite-difference wall
+  # stencils after the grid learned about Chebyshev.
   if isinstance(value, Dual):
     return value.value + 1j * STEP * value.tangent[index]
   if isinstance(value, dict):

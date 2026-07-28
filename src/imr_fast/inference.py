@@ -8,6 +8,7 @@ from itertools import repeat
 from numbers import Integral
 
 import numpy as np
+from scipy.linalg import solve_triangular
 from scipy.optimize import least_squares
 from scipy.stats import qmc
 
@@ -152,6 +153,7 @@ class FieldObservation:
   time_s: np.ndarray
   values: np.ndarray
   standard_deviation: float | np.ndarray
+  correlation_time_s: float | None = None
 
   def __post_init__(self):
     if self.field not in OBSERVABLE_FIELDS:
@@ -171,11 +173,53 @@ class FieldObservation:
       raise ValueError("standard_deviation must be positive")
     if time[0] < 0.0 or np.any(np.diff(time) <= 0.0):
       raise ValueError("observation time_s must be non-negative and increasing")
+    if self.correlation_time_s is not None:
+      correlation = float(self.correlation_time_s)
+      if not np.isfinite(correlation) or correlation <= 0.0:
+        raise ValueError("correlation_time_s must be finite and positive, or None for independent noise")
+      object.__setattr__(self, "correlation_time_s", correlation)
     if deviation.ndim == 0:
       deviation = np.full(time.shape, float(deviation))
     object.__setattr__(self, "time_s", _readonly(time))
     object.__setattr__(self, "values", _readonly(values))
     object.__setattr__(self, "standard_deviation", _readonly(deviation))
+
+
+def _whitening_factor(item):
+  """Lower Cholesky factor of the noise covariance, or None when it is diagonal.
+
+  With `Sigma = L L^T`, the whitened residual `L^-1 (y - m)` and Jacobian
+  `L^-1 dm/dtheta` mean exactly what the independent-noise versions meant, so
+  everything downstream -- the `-r @ J` gradient, `J^T J` as the Fisher
+  information, EIG -- is unchanged. Correlated noise is a change of one
+  division into one triangular solve.
+
+  The kernel is exponential, `exp(-|t_i - t_j| / tau)`. Radii recovered by edge
+  detection are correlated over roughly a frame or two, and an exponential is
+  the one-parameter model of that; it is also positive definite for any tau, so
+  the factorisation cannot fail on a user's choice.
+  """
+  if item.correlation_time_s is None:
+    return None
+  deviation = np.asarray(item.standard_deviation)
+  lag = np.abs(item.time_s[:, None] - item.time_s[None, :])
+  covariance = np.outer(deviation, deviation) * np.exp(-lag / item.correlation_time_s)
+  return np.linalg.cholesky(covariance)
+
+
+def _whiten(values, item, factor):
+  if factor is None:
+    deviation = np.asarray(item.standard_deviation)
+    return values / (deviation[:, None] if values.ndim == 2 else deviation)
+  return solve_triangular(factor, values, lower=True)
+
+
+def _log_determinant(item, factor):
+  """`log det(2 pi Sigma)` for one observation."""
+  count = item.time_s.size
+  if factor is None:
+    return float(np.sum(np.log(2.0 * np.pi * np.asarray(item.standard_deviation) ** 2)))
+  return float(count * np.log(2.0 * np.pi) + 2.0 * np.sum(np.log(np.diag(factor))))
 
 
 def _as_field_observations(observation):
@@ -248,6 +292,7 @@ class PreparedInference:
   _observations: tuple = ()
   _grid: np.ndarray = field(default_factory=lambda: np.empty(0))
   _index: tuple = ()
+  _whiteners: tuple = ()
 
   def __post_init__(self):
     if not isinstance(self.config, imr_fast.SimulationConfig):
@@ -257,6 +302,7 @@ class PreparedInference:
     object.__setattr__(self, "_observations", observations)
     object.__setattr__(self, "_grid", _readonly(grid))
     object.__setattr__(self, "_index", tuple(np.searchsorted(grid, item.time_s) for item in observations))
+    object.__setattr__(self, "_whiteners", tuple(_whitening_factor(item) for item in observations))
     parameters = tuple(self.parameters)
     if not parameters or not all(isinstance(parameter, InferenceParameter) for parameter in parameters):
       raise TypeError("parameters must contain at least one InferenceParameter")
@@ -277,7 +323,9 @@ class PreparedInference:
 
   @property
   def _normalization(self):
-    return float(sum(np.sum(np.log(2.0 * np.pi * item.standard_deviation**2)) for item in self._observations))
+    return float(
+      sum(_log_determinant(item, factor) for item, factor in zip(self._observations, self._whiteners, strict=True))
+    )
 
   def physical_parameters(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
@@ -292,17 +340,17 @@ class PreparedInference:
 
   def _stack_residual(self, result):
     parts = []
-    for item, index in zip(self._observations, self._index, strict=True):
+    for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
       predicted = np.asarray(getattr(result, item.field))[index]
-      parts.append((predicted - item.values) / item.standard_deviation)
+      parts.append(_whiten(predicted - item.values, item, factor))
     return np.concatenate(parts)
 
   def _stack_jacobian(self, result, unit):
     chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
     parts = []
-    for item, index in zip(self._observations, self._index, strict=True):
+    for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
       tangent = np.asarray(getattr(result, item.field))[index]
-      parts.append(tangent / np.asarray(item.standard_deviation)[:, None] * chain)
+      parts.append(_whiten(tangent, item, factor) * chain)
     return np.concatenate(parts, axis=0)
 
   @property
@@ -384,11 +432,11 @@ class PreparedInference:
     result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
     chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
     parts = []
-    for item, index in zip(self._observations, self._index, strict=True):
+    for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
       tangent = np.asarray(getattr(result, _TIME_DERIVATIVE_OF[item.field]))[index]
       if item.field == "radius_ratio":
         tangent = tangent / self.config.R0
-      parts.append(tangent / np.asarray(item.standard_deviation)[:, None] * chain)
+      parts.append(_whiten(tangent, item, factor) * chain)
     return self._stack_jacobian(result, unit), np.concatenate(parts, axis=0)
 
   def jacobian_time_derivative(self, unit_parameters):

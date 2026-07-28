@@ -28,11 +28,11 @@ def _flaky(real, *, every):
   """Fail every `every`-th call, succeed otherwise."""
   calls = []
 
-  def wrapper(inference, unit, variance):
+  def wrapper(inference, unit):
     calls.append(unit)
     if len(calls) % every:
       raise RuntimeError("stiff solve failed")
-    return real(inference, unit, variance)
+    return real(inference, unit)
 
   return wrapper
 
@@ -116,7 +116,7 @@ def test_a_failed_draw_raises_by_default(design, monkeypatch):
   """Censoring is opt-in. A dropped draw makes the average estimate
   `E[gain | solve succeeded]`, which is not what the caller asked for and is not
   what the error bar describes -- so silence is the wrong default."""
-  monkeypatch.setattr(imr_design, "_gain", _flaky(imr_design._gain, every=2))
+  monkeypatch.setattr(imr_design, "_fisher", _flaky(imr_design._fisher, every=2))
   with pytest.raises(RuntimeError, match="max_failure_fraction"):
     imr_design.expected_information_gain(design, draws=4)
 
@@ -124,7 +124,7 @@ def test_a_failed_draw_raises_by_default(design, monkeypatch):
 def test_allowed_failures_are_counted_and_warned(design, monkeypatch):
   """With censoring opted into, the result must still say so: `draws` is what
   was requested, `successful` is what reached the average."""
-  monkeypatch.setattr(imr_design, "_gain", _flaky(imr_design._gain, every=2))
+  monkeypatch.setattr(imr_design, "_fisher", _flaky(imr_design._fisher, every=2))
   with pytest.warns(RuntimeWarning, match="conditional on"):
     result = imr_design.expected_information_gain(design, draws=4, max_failure_fraction=0.75)
   assert (result.draws, result.successful, result.failures) == (4, 2, 2)
@@ -138,7 +138,7 @@ def test_a_failure_chains_its_cause(design, monkeypatch):
   def broken(*_args):
     raise KeyError("material.not_a_field")
 
-  monkeypatch.setattr(imr_design, "_gain", broken)
+  monkeypatch.setattr(imr_design, "_fisher", broken)
   with pytest.raises(RuntimeError) as caught:
     imr_design.expected_information_gain(design, draws=2)
   assert isinstance(caught.value.__cause__, KeyError)
@@ -173,3 +173,26 @@ def test_invalid_arguments_are_rejected(design, kwargs, error):
 def test_foreign_input_is_rejected():
   with pytest.raises(TypeError, match="PreparedInference"):
     imr_design.expected_information_gain(object())
+
+
+def test_a_prior_sweep_reuses_one_set_of_solves(design, monkeypatch):
+  """`prior_variance` exists for sweeping several priors against one design, and
+  the solves do not depend on the prior. Fused, a 5-prior sweep at draws=128
+  paid 640 solves for 128 distinct Jacobians."""
+  calls = []
+  real = imr_design._fisher
+  monkeypatch.setattr(imr_design, "_fisher", lambda inference, unit: (calls.append(unit), real(inference, unit))[1])
+
+  information = imr_design.design_information(design, draws=4)
+  gains = [
+    imr_design.expected_information_gain(
+      design, information=information, prior_variance=variance
+    ).expected_information_gain
+    for variance in (
+      imr_design.UNIFORM_VARIANCE,
+      imr_design.UNIFORM_VARIANCE / 10.0,
+      imr_design.UNIFORM_VARIANCE / 100.0,
+    )
+  ]
+  assert len(calls) == 4, f"expected 4 solves for 3 priors, got {len(calls)}"
+  assert gains[0] > gains[1] > gains[2], "a tighter prior must leave less to learn"

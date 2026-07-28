@@ -194,16 +194,24 @@ def test_coupled_solve_survives_awkward_retardation_ratios(ratio):
 # `1 + arange(Mt) * deltaYm` construction, so `_far_field_singular_index`
 # rejected them and an ordinary `medtherm=1, Mt=50` run raised outright. 20 of
 # the 398 sizes in [3, 400] were affected; these are the first few.
-_ULP_HOSTILE_MT = (50, 99, 104, 108, 162, 188, 197, 198, 207, 215)
+_ULP_HOSTILE_MT = (50, 99, 104, 108, 162, 188, 197, 198, 207, 215, 238, 240, 250, 254, 323, 348, 375, 390, 393, 395)
 
 
 @pytest.mark.parametrize("Mt", _ULP_HOSTILE_MT)
 def test_medium_grid_lands_on_the_far_field_node_exactly(Mt):
   """The far-field check is only meaningful if the grid can satisfy it. A
   scheme that is correct for 95% of grid sizes and raises on the rest is a
-  construction bug, not a validated invariant."""
-  xi = np.linspace(1.0, -1.0, Mt)
-  assert _far_field_singular_index(xi) == Mt - 1
+  construction bug, not a validated invariant.
+
+  The grid is read from `prepare`, not rebuilt here. An earlier version
+  recomputed `np.linspace(1, -1, Mt)` locally, which meant reverting the #65 fix
+  left it green -- it exercised the checker and never the constructor it exists
+  to guard.
+  """
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
+  medium = imr_fast.prepare(config).medium
+  assert medium is not None
+  assert _far_field_singular_index(np.asarray(medium.xi)) == Mt - 1
 
 
 @pytest.mark.parametrize("Mt", (25, 50, 99))

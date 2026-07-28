@@ -52,7 +52,7 @@ import numpy as np
 
 from .inference import PreparedInference, RadiusObservation
 
-__all__ = ["DesignEvaluation", "DesignInference", "design_inference", "expected_information_gain"]
+__all__ = ["DesignEvaluation", "DesignInference", "design_inference", "design_information", "expected_information_gain"]
 
 UNIFORM_VARIANCE = 1.0 / 12.0
 
@@ -114,35 +114,97 @@ def design_inference(config, time_s, standard_deviation_m, parameters):
   return DesignInference(config, RadiusObservation(time_s, placeholder, standard_deviation_m), tuple(parameters))
 
 
-def _gain(inference, unit, variance):
+def _fisher(inference, unit):
+  """`J^T J` at one draw -- the sensitivity solve, and the only expensive part.
+
+  Split from the determinant because it does not depend on the prior. A sweep
+  over `prior_variance` reuses these; fused, it re-solved the whole design per
+  prior (640 solves for 128 distinct Jacobians at `draws=128`).
+  """
+  jacobian = np.asarray(inference.jacobian(unit), dtype=float)
+  return jacobian.T @ jacobian
+
+
+def _gain_from_fisher(fisher, variance):
   """0.5 * log det(I + Sigma * J^T J), via Cholesky on the symmetrised form.
 
   `sqrt(Sigma) J^T J sqrt(Sigma)` has the same determinant as `Sigma J^T J` but
   is symmetric positive definite, so the factorisation both stays stable and
   fails loudly if the information matrix is not what it should be.
   """
-  jacobian = np.asarray(inference.jacobian(unit), dtype=float)
   scale = np.sqrt(variance)
-  matrix = np.eye(inference.size) + scale[:, None] * (jacobian.T @ jacobian) * scale[None, :]
+  matrix = np.eye(len(variance)) + scale[:, None] * fisher * scale[None, :]
   return float(np.sum(np.log(np.diag(np.linalg.cholesky(matrix)))))
 
 
-def _gain_worker(argument):
-  """Returns the gain, or the exception that prevented it.
+def _gain(inference, unit, variance):
+  return _gain_from_fisher(_fisher(inference, unit), variance)
+
+
+def _fisher_worker(argument):
+  """Returns the information matrix, or the exception that prevented it.
 
   The exception is carried rather than collapsed to NaN so the caller can chain
   it. A bare handler here would turn a stale signature or a bad parameter path
   -- programming errors, not stiff solves -- into a silent failure count.
   """
-  inference, unit, variance = argument
+  inference, unit = argument
   try:
-    return _gain(inference, unit, variance)
+    return _fisher(inference, unit)
   except Exception as error:  # noqa: BLE001 - any solver or factorisation failure
     return error
 
 
+def design_information(inference, *, draws=128, seed=0, workers=1, max_failure_fraction=0.0):
+  """The `J^T J` of every prior draw, stacked.
+
+  This is the whole cost of scoring a design, and it does not depend on the
+  prior -- so a sweep over `prior_variance` should collect once and reduce many
+  times. `expected_information_gain` accepts the result via `information=`.
+  """
+  _validate(inference, draws, workers, max_failure_fraction)
+  points = np.random.default_rng(seed).random((int(draws), inference.size))
+  arguments = [(inference, point) for point in points]
+  if workers == 1:
+    outcomes = [_fisher_worker(argument) for argument in arguments]
+  else:
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+      outcomes = list(executor.map(_fisher_worker, arguments))
+
+  matrices = [value for value in outcomes if not isinstance(value, Exception)]
+  errors = [value for value in outcomes if isinstance(value, Exception)]
+  requested = len(outcomes)
+
+  if errors:
+    fraction = len(errors) / requested
+    if not matrices or fraction > max_failure_fraction:
+      raise RuntimeError(
+        f"{len(errors)} of {requested} design draws failed "
+        f"({fraction:.1%} > max_failure_fraction={max_failure_fraction:.1%}); first failure shown as the cause"
+      ) from errors[0]
+    warnings.warn(
+      f"{len(errors)} of {requested} design draws failed ({fraction:.1%}); "
+      f"the reported gain is conditional on the {len(matrices)} that succeeded. "
+      f"First failure: {type(errors[0]).__name__}: {errors[0]}",
+      RuntimeWarning,
+      stacklevel=3,
+    )
+  return np.array(matrices), requested, len(errors)
+
+
+def _validate(inference, draws, workers, max_failure_fraction):
+  if not isinstance(inference, PreparedInference):
+    raise TypeError("inference must be a PreparedInference")
+  if not isinstance(draws, Integral) or draws < 1:
+    raise ValueError("draws must be a positive integer")
+  if not isinstance(workers, Integral) or workers < 1:
+    raise ValueError("workers must be a positive integer")
+  if not 0.0 <= max_failure_fraction < 1.0:
+    raise ValueError("max_failure_fraction must be in [0, 1)")
+
+
 def expected_information_gain(
-  inference, *, draws=128, seed=0, prior_variance=None, workers=1, max_failure_fraction=0.0
+  inference, *, draws=128, seed=0, prior_variance=None, workers=1, max_failure_fraction=0.0, information=None
 ):
   """Prior-averaged Laplace EIG for one design, with its Monte Carlo error bar.
 
@@ -156,15 +218,11 @@ def expected_information_gain(
   So any failure raises by default. `max_failure_fraction` opts in to censoring
   explicitly, and the result records `draws`, `successful` and `failures` so the
   censoring stays visible downstream.
+
+  Pass `information` from `design_information` to score several priors against
+  one set of solves.
   """
-  if not isinstance(inference, PreparedInference):
-    raise TypeError("inference must be a PreparedInference")
-  if not isinstance(draws, Integral) or draws < 1:
-    raise ValueError("draws must be a positive integer")
-  if not isinstance(workers, Integral) or workers < 1:
-    raise ValueError("workers must be a positive integer")
-  if not 0.0 <= max_failure_fraction < 1.0:
-    raise ValueError("max_failure_fraction must be in [0, 1)")
+  _validate(inference, draws, workers, max_failure_fraction)
   if prior_variance is None:
     variance = np.full(inference.size, UNIFORM_VARIANCE)
   else:
@@ -172,32 +230,12 @@ def expected_information_gain(
     if np.any(variance <= 0.0) or not np.all(np.isfinite(variance)):
       raise ValueError("prior_variance must be finite and positive")
 
-  points = np.random.default_rng(seed).random((int(draws), inference.size))
-  arguments = [(inference, point, variance) for point in points]
-  if workers == 1:
-    outcomes = [_gain_worker(argument) for argument in arguments]
-  else:
-    with ProcessPoolExecutor(max_workers=workers) as executor:
-      outcomes = list(executor.map(_gain_worker, arguments))
-
-  gains = np.array([value for value in outcomes if not isinstance(value, Exception)], dtype=float)
-  errors = [value for value in outcomes if isinstance(value, Exception)]
-  requested = len(outcomes)
-
-  if errors:
-    fraction = len(errors) / requested
-    if not gains.size or fraction > max_failure_fraction:
-      raise RuntimeError(
-        f"{len(errors)} of {requested} design draws failed "
-        f"({fraction:.1%} > max_failure_fraction={max_failure_fraction:.1%}); first failure shown as the cause"
-      ) from errors[0]
-    warnings.warn(
-      f"{len(errors)} of {requested} design draws failed ({fraction:.1%}); "
-      f"the reported gain is conditional on the {gains.size} that succeeded. "
-      f"First failure: {type(errors[0]).__name__}: {errors[0]}",
-      RuntimeWarning,
-      stacklevel=2,
+  if information is None:
+    information = design_information(
+      inference, draws=draws, seed=seed, workers=workers, max_failure_fraction=max_failure_fraction
     )
+  matrices, requested, failures = information
 
+  gains = np.array([_gain_from_fisher(matrix, variance) for matrix in matrices], dtype=float)
   error = float(np.std(gains, ddof=1) / np.sqrt(gains.size)) if gains.size > 1 else float("inf")
-  return DesignEvaluation(float(np.mean(gains)), error, requested, int(gains.size), len(errors))
+  return DesignEvaluation(float(np.mean(gains)), error, requested, int(gains.size), failures)

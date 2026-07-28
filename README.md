@@ -32,6 +32,9 @@ worth seeing.
 | `tests/test_validation_*.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
 | `CHANGELOG.md` | released versions and every breaking change |
 | API reference | `pip install 'imr-fast[docs]'` then `python -m pdoc imr_fast imr_fast.sensitivity imr_fast.inference imr_fast.data imr_fast.design` |
+| `docs/discretization.md` | stress quadrature and the two thermal backends, with cost/accuracy measurements |
+| `docs/validation.md` | what the suite pins, and the per-case deviations from IMRv2 |
+| `docs/upstream.md` | defects found in IMRv2, and what imr-fast does instead |
 | `benchmarks/run.py` | reproducible timings; `--json` and `--baseline` to compare runs |
 
 ## Upgrading from 0.2.0
@@ -279,31 +282,11 @@ problems use sparse BDF, while non-stiff configurations retain LSODA.
 
 The constitutive equations at each material point are ordinary differential
 equations -- there are no spatial derivatives -- so the only spatial
-approximation is the quadrature for the stress integral
-
-$$
-I=\int_R^\infty \frac{2(\tau_{rr}-\tau_{\theta\theta})}{r}\,dr .
-$$
-
-Mapping to the Lagrangian coordinate makes the geometric factor constant in
-time, so the integral is a fixed-weight sum and its time derivative is exact
-rather than a discrete difference. `quadrature="gauss"` (the default) places
-the material points at Gauss-Legendre nodes and converges spectrally;
-`quadrature="trapezoid"` reproduces the older uniform grid.
-
-| points | trapezoid | Gauss-Legendre |
-|---:|---:|---:|
-| 60 | 3.4e-01 | 3.9e-04 |
-| 120 | 2.2e-01 | 1.5e-07 |
-| 240 | 7.4e-02 | 6.0e-08 |
-| 480 | 2.6e-02 | 5.1e-08 |
-
-Maximum absolute `R/R0` deviation from a converged reference, nonlinear
-Giesekus at mobility 0.2. The default is 240 Gauss points, which is both 1.4x
-faster and about five orders of magnitude more accurate than the 480-point
-trapezoid grid used previously. That older default carried percent-level
-error which the Oldroyd-B reduction limit alone did not reveal, because the
-linear limit is far easier to integrate than the nonlinear problem.
+approximation is the quadrature for the stress integral. `quadrature="gauss"`
+(the default, 240 points) places the material points at Gauss-Legendre nodes
+and converges spectrally; it is about five orders of magnitude more accurate
+than the 480-point `quadrature="trapezoid"` grid it replaced, and 1.4x faster.
+See [docs/discretization.md](docs/discretization.md).
 
 At zero mobility or zero extensibility, the distributed models converge to the
 analytic Oldroyd-B solution. Use `OldroydB` directly when that closure applies:
@@ -458,96 +441,16 @@ discard alternative basins.
 
 ### Thermal discretization
 
-Unlike the distributed stress -- whose Lagrangian form has no spatial
-derivatives at all -- the thermal fields genuinely need a spatial
-discretization, so collocation buys something real here.
-`thermal="spectral"` switches both the gas and liquid grids to Chebyshev
-collocation:
+`thermal="spectral"` -- the default since 0.3.0 -- puts both the gas and liquid
+grids on Chebyshev collocation. `thermal="fd"` is the cheaper second-order
+finite difference, and is what every pinned IMRv2 trajectory was generated
+against, so the pinned suite sets it explicitly regardless of the default.
 
-```python
-config = SimulationConfig(
-    R0=225e-6, Req=37.5e-6,
-    material=NeoHookeanKelvinVoigt(2500.0, 0.1),
-    bubtherm=1, Nt=25, thermal="spectral",
-)
-```
-
-The spherical Laplacian is built on the even extension of the gas grid, so
-regularity at the bubble centre is exact and the removable `2/y` singularity
-never has to be special-cased. Boundary flux weights come from the relevant
-row of the first-derivative matrix rather than a hardcoded three-point
-stencil, which is what makes the wall closure work on a non-uniform grid.
-
-On the spherical Laplacian alone at `N = 17`, the Chebyshev operator errs by
-`1.9e-11` against `2.6e-02` for the finite-difference stencil.
-
-On the trajectory, measure collapse depth and timing on an output grid fine
-enough to resolve the minimum. A coarse grid samples the sharp collapse at
-slightly different phases as the solution shifts, which produces an apparent
-error floor near `1e-04` that has nothing to do with the discretization:
-
-| | minimum radius | collapse time |
-|---|---:|---:|
-| spectral, `Nt = 25` | 4.4e-06 | 0.0005 ns |
-| finite difference, `Nt = 400` | 4.7e-06 | 0.0119 ns |
-
-**Spectral at 25 points matches or beats finite difference at 400** on both,
-and keeps converging -- there is no floor. It is also far cheaper at that
-accuracy. Collapse-depth error against a converged reference, with wall time:
-
-| | error | seconds |
-|---|---:|---:|
-| finite difference, `Nt = 25` | 1.15e-03 | 0.61 |
-| finite difference, `Nt = 400` | 1.82e-05 | 26.67 |
-| spectral, `Nt = 25` | **1.80e-06** | **0.64** |
-
-Ten times more accurate than `fd(400)` at a fortieth of the cost.
-
-#### Which to use
-
-`thermal="spectral"` is the **default** since 0.3.0 (#26). The case for it is
-stronger on the fully coupled model than on `bubtherm` alone. Against a
-converged reference, on `bubtherm + medtherm + masstrans + vapor`, max
-deviation in `R/R0`:
-
-| scheme | N | cost | error |
-|---|---:|---:|---:|
-| finite difference | 25 | 1.9 s | **2.8e-01** |
-| finite difference | 50 | 6.6 s | 1.9e-01 |
-| **spectral** | **25** | 9.0 s | **5.0e-02** |
-| finite difference | 100 | 24.9 s | 1.1e-01 |
-| spectral | 50 | 30.6 s | 1.0e-02 |
-| finite difference | 200 | 100.5 s | 5.3e-02 |
-
-Spectral at `N = 25` matches finite difference at `N = 200` for a ninth of the
-cost, and at matched cost is about three times more accurate. The reference is
-spectral at `N = 100`, which is only trustworthy because **finite difference
-converges toward it monotonically** — two independent discretisations agreeing
-is the evidence, not either one alone.
-
-Spectral is *stiffer*, so it costs more at equal `N` — 1.6x to 4.9x. The cause
-is step count, not per-step work: RHS evaluations go from 9,986 to 51,428 on
-the coupled case, because the Chebyshev second-derivative operator has
-eigenvalues scaling like `N**4` against `N**2` for finite difference.
-
-Pass `thermal="fd"` when you want the cheaper scheme, or to reproduce numbers
-published under 0.2.0. It is also what every pinned IMRv2 trajectory was
-generated against — IMRv2 is a finite-difference code and has no spectral
-branch — so the pinned suite sets it explicitly regardless of the default.
-
-**Neither scheme is converged at `Nt = 25` on the fully coupled model.**
-Choosing the scheme and choosing the resolution are separate decisions, and the
-default makes only the first.
-
-> Earlier revisions of this section recommended `thermal="fd"` for the coupled
-> model, on the grounds that spectral "does not converge" there — the
-> `Giesekus(mobility=0)` to `Oldroyd-B` reduction limit sat at `1.4e-02` and
-> worsened under refinement. That was a misattribution, resolved in #47: the
-> gap is physics, not discretisation. `_dissipation` carries the polymer at its
-> quasi-steady value while `_distributed_dissipation` carries its actual
-> stress, so the two differ by `O(De)` and the gap grows with `Mt` under
-> **finite difference too** (`2.0e-03`, `2.7e-03`, `7.2e-03` at `Mt = 9, 17,
-> 33`). It was never evidence about the spectral operator.
+On the fully coupled model, spectral at `Nt = 25` matches finite difference at
+`Nt = 200` for a ninth of the cost. **Neither is converged there**, and
+choosing the scheme is a separate decision from choosing the resolution -- the
+default makes only the first. Both cost/accuracy tables are in
+**[docs/discretization.md](docs/discretization.md)**.
 
 ## Trace estimators
 
@@ -580,53 +483,17 @@ image analysis, and scikit-image covers it.
 
 ## Validation
 
-The regression suite covers pinned IMRv2 trajectories across radial equations,
-forcing, vapor, heat transfer, mass transfer, and the specialized constitutive
-models. It also checks:
+The suite pins IMRv2 trajectories across radial equations, forcing, vapor, heat
+transfer, mass transfer and the specialized constitutive models, and separately
+checks closed forms, reduction limits, and every analytic tangent against
+independent centered differences.
 
-- composable neo-Hookean/Newtonian dynamics against the closed-form
-  Kelvin-Voigt path;
-- elastic and viscous reduction limits;
-- analytic stress-rate and acceleration tangents against centered finite
-  differences;
-- Giesekus and linear PTT convergence to Oldroyd-B;
-- sparse coupled thermal-memory integration;
-- mechanical, thermal, distributed, and collapse-shooting sensitivities against
-  independent centered differences;
-- likelihood Jacobians and retained multistart endpoints.
-
-Two statistics are reported per pinned trajectory, because they measure
-different things (issue #23).
-
-The **pointwise maximum** sits at a collapse in every pinned case. There
-`|dR/dt| ~ 3.3e5 /s`, so it is dominated by a sub-nanosecond timing difference
-rather than by radius accuracy: shifting our own solution by **25 ps** removes
-about 77% of it, taking Keller-Miksis neo-Hookean from `8.6e-06` to `2.0e-06`.
-The residual matches the deviation away from collapses, `2-10e-06`, so the true
-pointwise agreement is several times better than the maxima below suggest. The
-maximum cannot be tightened without measuring integrator phase.
-
-The **median** carries no such sensitivity, and is what the suite bounds
-tightly. It is far more responsive to real error: a `3e-5` relative
-perturbation of the polytropic pressure moves Keller-Miksis NHKV's median by a
-factor of 38 and its maximum by only 1.35x. Bounds are per case rather than
-uniform, because baseline medians span `3e-08` to `1.6e-06` and one threshold
-would be set by the worst case.
-
-Representative maximum absolute radius-ratio deviations from pinned IMRv2
-trajectories are:
-
-| case | maximum deviation |
-|---|---:|
-| Zener, Deborah number 2, stretch 6 | 2.6e-05 |
-| neo-Hookean Kelvin-Voigt parameter grid | 6.3e-05 |
-| quadratic Kelvin-Voigt | 1.7e-05 |
-| Oldroyd-B | 6.2e-05 |
-| thermal and mass-transfer branches | 1.6e-05 |
-| compressible radial-equation families | 1.6e-05 |
-
-These are numerical comparisons with the reference implementation, not
-estimates of physical-model error.
+Two statistics are reported per pinned case, because they measure different
+things (#23): the pointwise maximum sits at a collapse in every case and is
+dominated by sub-nanosecond integrator phase, while the median carries no such
+sensitivity and is what the suite bounds tightly. The per-case deviation tables
+and the argument behind that split are in
+**[docs/validation.md](docs/validation.md)**.
 
 ## Boundaries
 
@@ -637,7 +504,7 @@ estimates of physical-model error.
 - `radial = 6` (Gilmore/Mie-Gruneisen) **is supported here**, and is the one
   configuration IMRv2 cannot run at all -- upstream returns complex radii
   (`max|imag(R/R0)| = 4.069`) without raising. The cause is a wrong root of the
-  Mie-Gruneisen density quadratic; see the reference-implementation notes.
+  Mie-Gruneisen density quadratic; see [docs/upstream.md](docs/upstream.md).
 - `radial = 5` and `radial = 6` **deliberately diverge from IMRv2**. Upstream's
   Mie-Gruneisen branch is physically wrong; the corrections are validated
   against the independent Tait branches and the weakly-compressible limit
@@ -649,56 +516,15 @@ estimates of physical-model error.
 
 ## Reference implementation
 
-Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
-`tools/gen_imrv2_cases.m` and `tools/probe_viscosity.m`. Full list in
-`PLAN.md`.
+imr-fast diverges from IMRv2 in several places, always deliberately. Eight
+defects were found at `dea31cd`, each reproduced with MATLAB R2025a via
+`tools/gen_imrv2_cases.m`, and each correction validated against something
+other than upstream -- a closed form, an independent equation of state, or a
+reduction limit. The wrong Mie-Gruneisen root, the non-functional
+non-Newtonian viscosity suite, the stubbed collapse initialization and the
+rest are in **[docs/upstream.md](docs/upstream.md)**.
 
-- **Giesekus and linear PTT cannot be run.** `f_call_params.m` dispatches
-  `stress` 6 and 7 and forces spectral collocation for both, but its own input
-  gate rejects `stress > 5`. imr-fast implements both.
-- **The non-Newtonian viscosity suite is non-functional.** `nu_model` 3--7
-  leave `intf`/`dintf`/`ddintf` unassigned and raise; `nu_model = 2`
-  (Carreau-Yasuda) calls a four-argument helper with three arguments and
-  raises. Only `nu_model = 1` (Carreau) runs, and it fails its own Newtonian
-  reduction by `6.7e-01` -- its stress integral is quadratic in the strain rate
-  where the Newtonian term it must reduce to is linear.
-- **Collapse initialization is a stub for most materials.** `f_call_params.m`
-  applies a precursor only for the Zener family; it leaves the initial stress
-  empty for memoryless materials and returns zeros under an explicit
-  `% TODO initial max stress for UCM and Oldroyd-B`. The flag is accepted and
-  silently ignored. imr-fast implements the precursor for Oldroyd-B and the
-  distributed models, and refuses the flag outright for memoryless materials.
-- **The collapse precursor locates the maximum by discrete argmax.**
-  `f_init_stress.m` takes `max(abs(X(:,1)))` over ode23tb output points rather
-  than root-solving the wall velocity. `R` is locally quadratic at the maximum
-  and the stress locally linear, so this costs O(sqrt(tol)) in peak position
-  and carries that straight into the initial stress. Upstream's `Szero` is
-  `-0.1600469117` against `-0.1599451098` here -- a 1.02e-04 offset equivalent
-  to sampling 1.9e-03 before the peak, where the radius is only 2.06e-06 lower.
-  That single number accounts for the whole 1.55e-03 deviation on the pinned
-  collapse-Zener trajectory; injecting upstream's own `Szero` reproduces it at
-  2.08e-05. imr-fast root-finds `v = 0` instead, which is O(tol).
-- **The Mie-Gruneisen branch takes the wrong root of its own density
-  quadratic.** `a*mu^2 + b*mu + A = 0` has roots tending to `0` and `-1/nog`
-  as `A -> 0`; `f_radial_eq.m` takes `(-b + sqrt(d))/(2a)`, which is the
-  `-1/nog` branch -- a 32.5% density deficit at ambient pressure, a 48-60%
-  enthalpy error, and a negative `c^2`. That negative `c^2` is why `radial = 6`
-  returns complex radii: it is the only branch that evaluates the sound speed
-  from the EoS. The branch also omits the stress term from `Pb`, which
-  `radial = 3` and `4` both include.
-
-  With the correct root, density and sound speed recover their ambient values
-  (`rho/rho0 - 1 = 4.3e-05`, `c/c0 - 1 = 2.8e-04`), the analytic enthalpy
-  matches both `h ~ P - 1` and a direct numerical integral of `1/rho`, and
-  `radial = 5` agrees with the independent Tait form `radial = 3` to
-  **5.2e-04** -- against **4.8e-01** as shipped. Upstream's `radial = 5`
-  collapses to `R/R0 = 0.0536` where its own Tait branch gives `0.0821`.
-- **The `radial` constraint is stated three mutually inconsistent ways.**
-- **`f_init_stress.m` uses an undefined `z1`** in the `De == 0 || De == Inf`
-  branch. Unreachable for the memory models that call it, so latent rather
-  than active.
-
-These are the reason several imr-fast models are validated by reduction limit
+Those defects are why several imr-fast models are validated by reduction limit
 rather than against a pinned upstream trajectory: for those models, no working
 upstream implementation exists to pin against.
 

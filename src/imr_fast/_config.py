@@ -236,7 +236,13 @@ class SimulationConfig:
   bubtherm: int = 0
   Nt: int = 25
   medtherm: int = 0
-  Mt: int = 25
+  # 100, not the 25 that matches Nt and IMRv2 (#69). On the fully coupled model
+  # the error is set by the medium grid almost alone: refining Mt 25 -> 100 at
+  # fixed Nt improves accuracy 1100x (4.98e-02 -> 4.46e-05 in R/R0 against a
+  # converged reference), while refining Nt 25 -> 100 at fixed Mt changes
+  # nothing (4.98e-02 -> 5.03e-02). It costs under 2x, because medium nodes
+  # carry no mass-transfer coupling. Nt stays at 25.
+  Mt: int = 100
   masstrans: int = 0
   rtol: float = 1e-8
   atol: float = 1e-10

@@ -59,7 +59,7 @@ jobs:
         if: matrix.python-version == '3.12'
         run: |
           python -m pip install "pdoc>=15"
-          python -m pdoc -o site imr_fast imr_fast.sensitivity imr_fast.inference imr_fast.data imr_fast.design
+          python -m pdoc -o site imr_fast imr_fast.sensitivity imr_fast.inference imr_fast.data imr_fast.design imr_fast.pymc_op
 
       - name: Build distributions
         if: matrix.python-version == '3.12'

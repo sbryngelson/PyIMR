@@ -54,14 +54,12 @@ _OGDEN_SERIES_LIMIT = 1e-3
 
 
 def _ogden_ratio(u, exponent):
-  """(1 - u**exponent) / (1 - u), continued analytically through u = 1.
-
-  The singularity is removable -- the limit is `exponent` -- but the quotient
-  loses all precision near it, so switch to the binomial series in (u - 1).
-  The predicate reads the primal value only: comparing a Dual or a complex
-  perturbation directly would either fail or discard the derivative, which is
-  the trap recorded at _mechanical.py's complex-step note.
-  """
+  # (1 - u**exponent) / (1 - u), continued analytically through u = 1.
+  #
+  # The singularity is removable -- the limit is `exponent` -- but the quotient loses all precision near it, so switch
+  # to the binomial series in (u - 1). The predicate reads the primal value only: comparing a Dual or a complex
+  # perturbation directly would either fail or discard the derivative, which is the trap recorded at _mechanical.py's
+  # complex-step note.
   offset = u - 1.0
   near = np.abs(primal_array(offset)) < _OGDEN_SERIES_LIMIT
   series = exponent * (
@@ -345,7 +343,6 @@ def _distributed_stress(material, prepared, p, R, Rd, state, need_rate):
   inverse_radius_cubed = 1.0 / radius_cubed
   strain_rate = Rd * R**2 * inverse_radius_cubed
   polymer_viscosity = (1.0 - p["LAM"]) / p["Re8"]
-
   if isinstance(material, Giesekus):
     nonlinear_scale = material.mobility / polymer_viscosity
     radial_rate = (
@@ -373,7 +370,6 @@ def _distributed_stress(material, prepared, p, R, Rd, state, need_rate):
       + 2.0 * strain_rate * hoop_stress
       + 2.0 * polymer_viscosity * strain_rate / p["De"]
     )
-
   radius = np.cbrt(radius_cubed)
   stress_difference = radial_stress - hoop_stress
   polymer_integral_rate = 0.0

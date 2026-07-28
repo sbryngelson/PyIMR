@@ -50,7 +50,6 @@ import numpy as np
 from .inference import PreparedInference
 
 __all__ = ["IMRLogLikelihood", "build_model", "log_marginal_likelihood", "sample_posterior", "sample_smc"]
-
 _MISSING = "imr_fast.pymc_op requires PyMC: pip install 'imr-fast[inference]'"
 
 
@@ -65,7 +64,7 @@ def _pymc():
 
 
 def _log_likelihood_and_gradient(inference, unit):
-  """Both from one sensitivity solve. Returns (-inf, zeros) when it fails."""
+  # Both from one sensitivity solve. Returns (-inf, zeros) when it fails.
   try:
     evaluation, jacobian = inference.evaluate_with_jacobian(unit)
   except Exception:  # noqa: BLE001 - any solver failure is a rejected proposal
@@ -75,14 +74,12 @@ def _log_likelihood_and_gradient(inference, unit):
 
 
 def _make_ops(inference):
-  """The two `Op`s share one solve per point.
-
-  `logp` and `dlogp` are separate nodes in the PyTensor graph, but a sampler
-  evaluates them at the same point: NUTS needs both at every leapfrog step. A
-  one-entry memo is therefore enough to halve the work, and one entry rather
-  than a growing dict because nothing ever revisits an earlier point -- an
-  unbounded cache would retain the whole chain for no hit rate.
-  """
+  # The two `Op`s share one solve per point.
+  #
+  # `logp` and `dlogp` are separate nodes in the PyTensor graph, but a sampler evaluates them at the same point: NUTS
+  # needs both at every leapfrog step. A one-entry memo is therefore enough to halve the work, and one entry rather
+  # than a growing dict because nothing ever revisits an earlier point -- an unbounded cache would retain the whole
+  # chain for no hit rate.
   _, tensor, Op = _pymc()
   memo = {}
 

@@ -76,7 +76,6 @@ _MECHANICAL_PARAMETER_KEYS = (
   "mn",
   "wave_type",
 )
-
 _NONDIFFERENTIABLE_FIELDS = {
   "radial",
   "vapor",
@@ -131,7 +130,6 @@ def _normalize_parameters(config, parameters):
   paths = [parameter.path for parameter in normalized]
   if len(set(paths)) != len(paths):
     raise ValueError("sensitivity parameter paths must be unique")
-
   values = []
   scales = []
   for parameter in normalized:
@@ -237,7 +235,6 @@ def _collapse_initial_tangents(problem, config, width):
   initial[1, 0] = problem.collapse_stats.initial_velocity_nondimensional
   initial[1, -1] = 1.0
   upstream_zener = isinstance(material, _solver.Zener)
-
   wall_state = _solver._WallState()
 
   def tangent_rhs(time, packed):
@@ -301,7 +298,6 @@ def _initial_matrix(problem, config, parameters, width):
   matrix[:, 0] = state
   p = parameters
   initial = config.initial
-
   initial_dual = np.empty(state.size, dtype=object)
   for index, value in enumerate(state):
     initial_dual[index] = seed(value, width)
@@ -418,7 +414,6 @@ def _dual_medium(problem, parameters):
 
   bubble_stencil = np.asarray(problem.medium.bubble_wall_stencil)
   medium_stencil = np.asarray(problem.medium.medium_wall_stencil)
-
   replacements = {
     "yT": y_t,
     "yT2": y_t2,

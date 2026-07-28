@@ -476,10 +476,10 @@ def mechanical_rhs(
     bubble_pressure = pressure - surface / radius + p[P_TAIT_GAMMA] + stress
     density_factor = (p[P_TAIT_SAM] / bubble_pressure) ** (1.0 / p[P_TAIT_EXPONENT])
     enthalpy = p[P_TAIT_SAM] / p[P_TAIT_NO] * ((bubble_pressure / p[P_TAIT_SAM]) ** p[P_TAIT_NO] - 1.0)
-    sound = p[P_CSTAR]
-    if radial == 4:
-      density = (bubble_pressure / p[P_TAIT_SAM]) ** (1.0 / p[P_TAIT_EXPONENT])
-      sound = np.sqrt(p[P_TAIT_EXPONENT] * bubble_pressure / density)
+    # density_factor is 1/rho, so Gilmore's sqrt(gamma*Pb/rho) needs no second
+    # power -- this recomputed the reciprocal of a value already in hand, once
+    # per RHS call in the compiled hot path.
+    sound = p[P_CSTAR] if radial == 3 else np.sqrt(p[P_TAIT_EXPONENT] * bubble_pressure * density_factor)
     numerator = (
       (1.0 + velocity / sound) * (enthalpy - forcing)
       - radius / sound * forcing_rate

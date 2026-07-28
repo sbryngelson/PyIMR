@@ -1,74 +1,25 @@
-"""Fast Python IMR solver -- a validated slice of IMRv2.
+"""Fast, validated solvers for inertial microcavitation rheometry.
 
-Covers:
-  radial   1 (Rayleigh-Plesset), 2 (Keller-Miksis, pressure form),
-           3 (Keller-Miksis, enthalpy form, Tait EoS liquid),
-           4 (Gilmore, Tait EoS liquid),
-           5 (Keller-Miksis, enthalpy form, Mie-Gruneisen EoS liquid)
-           radial=6 (Gilmore, Mie-Gruneisen EoS) NOT supported -- confirmed
-           dead/broken upstream (goes complex in real IMRv2 for essentially
-           every polytropic-gas P, mild or extreme; f_radial_eq.m evaluates
-           the EoS at raw P with no pressure-reference correction, unlike
-           radial=5's Pb=P-iWe/R)
-  bubtherm 0 (polytropic, kappa) or 1 (gas thermal PDE)
-           medtherm 0 or 1 (liquid boundary layer, requires bubtherm=1)
-           masstrans 0 or 1 (vapor mass transfer, requires bubtherm=1 and
-                             vapor=1; may be combined with medtherm=1)
-  material closed-form NHKV, quadratic KV, Zener, quadratic Zener, Oldroyd-B;
-           composable neo-Hookean, Mooney-Rivlin, Yeoh, Fung, Gent, or
-           Arruda-Boyce elasticity with Newtonian, power-law, Carreau-Yasuda,
-           Cross, Herschel-Bulkley, or Bingham viscosity; and distributed
-           Giesekus or linear PTT memory
-  forcing  wave_type 0 (constant offset), 1 (Gaussian), 2 (histotripsy),
-           3 (Heaviside step), or a dimensional sampled pressure history
+    radial     1 Rayleigh-Plesset, 2 Keller-Miksis (pressure), 3 Keller-Miksis
+               (enthalpy, Tait), 4 Gilmore (Tait), 5 Keller-Miksis (enthalpy,
+               Mie-Gruneisen), 6 Gilmore (Mie-Gruneisen)
+    bubtherm   0 polytropic, or 1 gas thermal PDE; medtherm 1 adds the liquid
+               boundary layer, masstrans 1 adds vapour transport (needs vapor=1)
+    material   closed-form NHKV, quadratic KV, Zener, quadratic Zener,
+               Oldroyd-B; composable hyperelastic x generalised-Newtonian; and
+               distributed Giesekus or linear PTT memory
+    forcing    constant offset, Gaussian, histotripsy, Heaviside step, or a
+               sampled dimensional pressure history
 
-Equations transcribed from IMRv2/src/{f_radial_eq,f_stress,f_call_params,
-f_imr_fd}.m. Validated against IMRv2 reference trajectories -- see
-tests/run_validation.py.
+Physical defaults reproduce the pinned reference trajectories and are
+configurable through `PhysicalParameters`; note IMRv2 ships a polytropic
+exponent of 1.47 where this defaults to 1.4, the value its reference data was
+generated with.
 
-The default physical constants match the pinned reference trajectories.
-They are configurable through PhysicalParameters; IMRv2's own shipped
-polytropic exponent is 1.47, whereas this solver defaults to 1.4 because that
-is the value used to generate its reference data.
-
-bubtherm=1 implements IMRv2's "elseif bubtherm" branch (f_imr_fd.m): gas-phase
-thermal PDE, dry gas (kv0=0, vapor=0). With medtherm=0, the wall is an
-isothermal-equivalent clamp (thetadot[-1]=0). Its Pdot uses bare P (kappa*P),
-NOT (P-Pv) -- this is IMRv2's actual equation for this branch, not a
-simplification; the bubtherm=0 polytropic branch's Pdot uses (P-Pv) and the
-two are NOT reconciled/harmonized, since they are genuinely different
-equations in the source.
-
-medtherm=1 (requires bubtherm=1) adds the liquid boundary layer: a stretched
-exterior grid (Mt points, Lt controls the stretching), advection+diffusion+
-viscous-dissipation RHS for Tm, and the wall temperature theta[-1] is NOT a
-free state -- it is solved every RHS call via a 1-D root-find (scipy.optimize
-style secant iteration; f_bubble_wall_thermal_bc) enforcing heat-flux
-continuity across the interface. A warm-start value is scoped to one
-integration, matching IMRv2's continuation behavior without leaking state
-between repeated prepared solves.
-thetadot[-1]=0 and Tmdot[0]=0 always because both slots are algebraic boundary
-values rather than evolved states. Forward sensitivities differentiate the
-converged scalar boundary solve.
-
-masstrans=1 (requires bubtherm=1, vapor=1) implements IMRv2's "if bubtherm &&
-masstrans" branch: a wall vapor mass fraction field kv(y,t), a mixture
-thermal conductivity/diffusivity (kv-weighted gas/vapor), extra mass-transfer
-terms in Pdot/Uvel/thetadot, and a new kvdot equation. kv[-1] (the wall value)
-is set algebraically every RHS call via vapor-liquid equilibrium (_kv_of_T,
-f_kv_of_T.m) using T[-1] computed with the STALE (pre-update) kv[-1] --
-IMRv2's own one-step lag, replicated exactly, not reconciled. With medtherm=0,
-theta[-1] never evolves (frozen at its initial value), so T[-1]===1
-identically and no implicit solve is needed for the wall BC itself. With
-medtherm=1 also set, theta[-1] is instead solved via a 3-term coupled
-root-find (_wall_theta_bw_full, f_bubble_wall_full_bc) that additionally
-enforces vapor-mass-flux continuity (via a preliminary Clausius-Clapeyron
-kv estimate at the candidate wall temperature) alongside heat-flux
-continuity; alpha_m in that solve also uses the stale kv[-1], same lag.
-Forward sensitivities cover this coupled algebraic condition.
-
-The main API is not valid for radial=6 or arbitrary constitutive callbacks.
-Re-validate before extending any branch.
+`radial` 5 and 6 deliberately diverge from IMRv2, whose Mie-Gruneisen branch
+takes the wrong root of its own density quadratic; 6 is the configuration
+IMRv2 cannot run at all. Which branches replicate upstream exactly, which
+replicate its quirks on purpose, and which correct it, is in docs/upstream.md.
 """
 
 from __future__ import annotations
@@ -309,12 +260,10 @@ def _build_result(problem: PreparedProblem, time_s: np.ndarray, solution, stats:
   Uc = p["Uc"]
   pressure_scale = p["P8"]
   kappa = p["kappa"]
-
   if layout.pressure is None:
     pressure = (p["Pb"] - p["Pv"]) * radius_ratio ** (-3 * kappa) + p["Pv"]
   else:
     pressure = states[:, layout.pressure]
-
   stress_integral = np.empty(states.shape[0])
   for index, state in enumerate(states):
     stress_state = state[layout.stress] if layout.stress.stop > layout.stress.start else None
@@ -326,7 +275,6 @@ def _build_result(problem: PreparedProblem, time_s: np.ndarray, solution, stats:
       stress_integral[index] = _distributed_stress_integral(
         problem.distributed_stress, p, state[0], state[1], stress_state
       )
-
   bubble_temperature, medium_temperature, vapor_fraction = _thermal_outputs(problem, states)
   internal_stress_state = states[:, layout.stress] if layout.stress.stop > layout.stress.start else None
   return SimulationResult(
@@ -349,28 +297,7 @@ def _build_result(problem: PreparedProblem, time_s: np.ndarray, solution, stats:
 
 def _integrate_prepared(problem: PreparedProblem, tv):
   config = problem.config
-  time_s = _validate_inputs(
-    tv,
-    config.R0,
-    config.Req,
-    config.material,
-    config.radial,
-    config.vapor,
-    config.T8,
-    config.pA,
-    config.omega,
-    config.TW,
-    config.DT,
-    config.mn,
-    config.wave_type,
-    config.bubtherm,
-    config.Nt,
-    config.medtherm,
-    config.Mt,
-    config.masstrans,
-    config.rtol,
-    config.atol,
-  )
+  time_s = _validate_inputs(tv, config)
   p = problem.parameters
   tn = time_s / p["t0"]
   args = (

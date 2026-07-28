@@ -54,3 +54,43 @@ rather than against a pinned upstream trajectory: for those models, no working
 upstream implementation exists to pin against.
 
 [Back to the README](../README.md)
+
+## Which branches replicate upstream, and which correct it
+
+Moved here from the package docstring, where four of its claims had gone stale
+without anyone noticing — it still said `radial = 6` was "NOT supported,
+confirmed dead/broken upstream" long after #18 implemented it, and still pointed
+at a `tests/run_validation.py` that #32 split up.
+
+**`bubtherm = 1`** implements IMRv2's `elseif bubtherm` branch of `f_imr_fd.m`:
+gas-phase thermal PDE, dry gas (`kv0 = 0`, `vapor = 0`). With `medtherm = 0` the
+wall is an isothermal-equivalent clamp (`thetadot[-1] = 0`). Its `Pdot` uses bare
+`P` (`kappa*P`), **not** `(P - Pv)` — that is IMRv2's actual equation for this
+branch rather than a simplification, and the `bubtherm = 0` polytropic branch's
+`Pdot` does use `(P - Pv)`. The two are deliberately not reconciled: they are
+genuinely different equations in the source.
+
+**`medtherm = 1`** adds the liquid boundary layer — a stretched exterior grid
+(`Mt` points, `Lt` controlling the stretching) and an advection + diffusion +
+viscous-dissipation right-hand side for `Tm`. The wall temperature `theta[-1]`
+is not a free state; it is an algebraic boundary value enforcing heat-flux
+continuity across the interface, and is **solved in closed form** (#57): the
+residual is a quadratic in `sqrt((alpha + beta)^2 + 2*alpha*theta)`. Upstream
+iterates a secant here. `thetadot[-1] = 0` and `Tmdot[0] = 0` always, because
+both slots are algebraic rather than evolved. Forward sensitivities
+differentiate the boundary solve.
+
+**`masstrans = 1`** (needs `bubtherm = 1`, `vapor = 1`) implements the
+`if bubtherm && masstrans` branch: a wall vapour mass fraction field `kv(y, t)`,
+a `kv`-weighted mixture conductivity and diffusivity, extra mass-transfer terms
+in `Pdot`/`Uvel`/`thetadot`, and a `kvdot` equation. `kv[-1]` is set
+algebraically each RHS call from vapour-liquid equilibrium using a `T[-1]`
+computed from the **stale, pre-update** `kv[-1]` — IMRv2's own one-step lag,
+replicated exactly rather than reconciled.
+
+With `medtherm = 0` and mass transfer on, `theta[-1]` never evolves, so
+`T[-1] == 1` identically and no wall solve is needed. With both on, `theta[-1]`
+comes from a coupled root-find (`_wall_theta_bw_full`) that enforces
+vapour-mass-flux continuity alongside heat flux; no closed form exists there,
+because the vapour fraction puts `Tw` inside `pvsat`. `alpha_m` in that solve
+uses the stale `kv[-1]` too, same lag. Forward sensitivities cover it.

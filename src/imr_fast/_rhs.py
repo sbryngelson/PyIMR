@@ -78,7 +78,6 @@ def _rhs(
   Rd = y[1]
   Pv = p["Pv"]
   kappa = p["kappa"]
-
   kv = None
   if bubtherm:
     P = y[2]
@@ -97,7 +96,6 @@ def _rhs(
   else:
     P = (p["Pb"] - Pv) * R ** (-3 * kappa) + Pv  # f_imr_fd.m:412
     Zstart = 2
-
   nz = _nZ(material)
   Z = y[Zstart : Zstart + nz] if nz else None
   if distributed_stress is None:
@@ -106,7 +104,6 @@ def _rhs(
     S, Sdot, dZ, acceleration_coefficient = _distributed_stress(material, distributed_stress, p, R, Rd, Z, radial != 1)
   Pf8, Pf8dot = _pinf(tn, p, forcing)
   iWe = p["iWe"]
-
   thetadot = None
   kvdot = None
   if bubtherm:
@@ -164,7 +161,6 @@ def _rhs(
       thetadot[-1] = 0.0
   else:
     Pdot = -3 * kappa * (p["Pb"] - Pv) * R ** (-3 * kappa - 1) * Rd
-
   Tmdot = None
   if medtherm:
     # f_imr_fd.m "surrounding temperature" block. xi[-1]=-1 exactly (the
@@ -199,7 +195,6 @@ def _rhs(
     Tmdot = med_advection + med_diffusion + taugradu
     Tmdot[0] = 0.0
     Tmdot[-1] = 0.0
-
   if radial == 1:  # Rayleigh-Plesset
     Rdd = (P - 1 - Pf8 - iWe / R + S - 1.5 * Rd**2) / R
   elif radial == 2:  # Keller-Miksis (pressure form)
@@ -211,50 +206,23 @@ def _rhs(
     )
     den = (1 - Rd / Cs) * R + acceleration_coefficient / Cs
     Rdd = num / den
-  elif radial == 3:  # Keller-Miksis, enthalpy, Tait EoS
-    Cs = p["Cstar"]
-    Pb = P - iWe / R + p["tait_gamma"] + S
-    hB = p["tait_sam"] / p["tait_no"] * ((Pb / p["tait_sam"]) ** p["tait_no"] - 1.0)
-    hH = (p["tait_sam"] / Pb) ** (1.0 / p["tait_exponent"])
-    num = (
-      (1 + Rd / Cs) * (hB - Pf8)
-      - R / Cs * Pf8dot
-      + R / Cs * hH * (Pdot + iWe * Rd / R**2 + Sdot)
-      - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
-    )
-    den = (1 - Rd / Cs) * R + acceleration_coefficient * hH / Cs
-    Rdd = num / den
-  elif radial == 4:  # Gilmore, Tait EoS
-    Pb = P - iWe / R + p["tait_gamma"] + S
-    rho = (Pb / p["tait_sam"]) ** (1.0 / p["tait_exponent"])
-    Cs = np.sqrt(p["tait_exponent"] * Pb / rho)
-    hB = p["tait_sam"] / p["tait_no"] * ((Pb / p["tait_sam"]) ** p["tait_no"] - 1.0)
-    hH = (p["tait_sam"] / Pb) ** (1.0 / p["tait_exponent"])
-    num = (
-      (1 + Rd / Cs) * (hB - Pf8)
-      - R / Cs * Pf8dot
-      + R / Cs * hH * (Pdot + iWe * Rd / R**2 + Sdot)
-      - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
-    )
-    den = (1 - Rd / Cs) * R + acceleration_coefficient * hH / Cs
-    Rdd = num / den
-  elif radial == 5:  # Keller-Miksis, enthalpy, Mie-Gruneisen EoS
-    # Pb matches radial=3/4. Upstream omits +S here; restoring it is what
-    # brings this branch back into agreement with the Tait forms (PLAN W9).
-    Cs = p["Cstar"]
-    Pb = P - iWe / R + S
-    _, hB, hH = _mie_gruneisen(Pb, Cs, p["hugoniot_slope"], p["nog"], p["mie_reference"])
-    num = (
-      (1 + Rd / Cs) * (hB - Pf8)
-      - R / Cs * Pf8dot
-      + R / Cs * hH * (Pdot + iWe * Rd / R**2 + Sdot)
-      - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
-    )
-    den = (1 - Rd / Cs) * R + acceleration_coefficient * hH / Cs
-    Rdd = num / den
-  elif radial == 6:  # Gilmore, Mie-Gruneisen EoS
-    Pb = P - iWe / R + S
-    Cs, hB, hH = _mie_gruneisen(Pb, p["Cstar"], p["hugoniot_slope"], p["nog"], p["mie_reference"])
+  elif radial in (3, 4, 5, 6):  # enthalpy forms: 3/5 Keller-Miksis, 4/6 Gilmore
+    # One formula, four equations of state. It used to be four copies of the
+    # `num`/`den` block below, byte-identical, differing only in how (Cs, hB, hH)
+    # were obtained -- and the compiled mirror in `_mechanical` had already
+    # collapsed them to two. Four copies is how one radial branch drifts from
+    # its siblings while they stay right, which is exactly what #18 found.
+    if radial in (3, 4):  # Tait
+      Pb = P - iWe / R + p["tait_gamma"] + S
+      hB = p["tait_sam"] / p["tait_no"] * ((Pb / p["tait_sam"]) ** p["tait_no"] - 1.0)
+      hH = (p["tait_sam"] / Pb) ** (1.0 / p["tait_exponent"])
+      # hH is 1/rho, so Gilmore's sqrt(gamma*Pb/rho) needs no second power.
+      Cs = p["Cstar"] if radial == 3 else np.sqrt(p["tait_exponent"] * Pb * hH)
+    else:  # Mie-Gruneisen. Upstream omits +S from Pb here; restoring it is what
+      # brings these branches back into agreement with the Tait forms (PLAN W9).
+      Pb = P - iWe / R + S
+      C, hB, hH = _mie_gruneisen(Pb, p["Cstar"], p["hugoniot_slope"], p["nog"], p["mie_reference"])
+      Cs = p["Cstar"] if radial == 5 else C
     num = (
       (1 + Rd / Cs) * (hB - Pf8)
       - R / Cs * Pf8dot
@@ -265,7 +233,6 @@ def _rhs(
     Rdd = num / den
   else:
     raise ValueError(f"radial={radial} not supported")
-
   if distributed_stress is None:
     out = [Rd, Rdd]
     if bubtherm:
@@ -278,7 +245,6 @@ def _rhs(
     if dZ is not None:
       out.extend(dZ.tolist())
     return out
-
   out = np.empty_like(y)
   out[0] = Rd
   out[1] = Rdd

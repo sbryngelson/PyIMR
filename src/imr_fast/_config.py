@@ -64,37 +64,21 @@ __all__ = [
   "_readonly_optional",
   "_validate_inputs",
 ]
-
-
 # gas and vapour thermal-conductivity coefficients, IMRv2 default_case.m
 _ATG, _BTG = 5.28e-5, 1.165e-2
 _ATV, _BTV = 3.30e-5, 1.742e-2
-
-
 P8 = 101325.0  # far-field pressure (Pa)
-
 RHO = 1064.0  # far-field density (kg/m^3)
-
 SURF = 0.07  # surface tension (N/m)
-
 KAPPA = 1.4  # polytropic exponent (see module docstring)
-
 C8 = 1484.0  # far-field sound speed (m/s)
-
 _KM = 0.55  # liquid thermal conductivity (W/m/K)
-
 _CP = 4.181e3  # liquid specific heat (J/kg/K)
-
 _LT = 2.0  # exterior-grid stretching length (default_case.m)
-
 _RU = 8.3144598  # universal gas constant (J/mol/K)
-
 _MWV = 18.01528e-3  # molar mass, water vapor (kg/mol)
-
 _MWG = 28.966e-3  # molar mass, non-condensible gas / air (kg/mol)
-
 _D0 = 24.2e-6  # binary (vapor-in-gas) diffusion coefficient (m^2/s)
-
 _LHEAT = 2264.76e3  # latent heat of vaporization (J/kg)
 
 
@@ -289,28 +273,7 @@ class SimulationConfig:
         raise ValueError("collapse initialization cannot be combined with initial.stress_state")
       if self.initial.wall_velocity_m_s != 0.0:
         raise ValueError("collapse initialization requires zero observed wall velocity")
-    _validate_inputs(
-      [0.0, 1.0],
-      self.R0,
-      self.Req,
-      self.material,
-      self.radial,
-      self.vapor,
-      self.T8,
-      self.pA,
-      self.omega,
-      self.TW,
-      self.DT,
-      self.mn,
-      self.wave_type,
-      self.bubtherm,
-      self.Nt,
-      self.medtherm,
-      self.Mt,
-      self.masstrans,
-      self.rtol,
-      self.atol,
-    )
+    _validate_config(self)
     if self.max_step_s is not None:
       _finite_positive("max_step_s", self.max_step_s)
     if self.thermal not in ("fd", "spectral"):
@@ -497,28 +460,65 @@ def _readonly_optional(values) -> np.ndarray | None:
   return None if values is None else _readonly_float_array(values)
 
 
-def _validate_inputs(
-  tv,
-  R0,
-  Req,
-  material,
-  radial,
-  vapor,
-  T8,
-  pA,
-  omega,
-  TW,
-  DT,
-  mn,
-  wave_type,
-  bubtherm,
-  Nt,
-  medtherm,
-  Mt,
-  masstrans,
-  rtol,
-  atol,
-) -> np.ndarray:
+_MATERIALS = (
+  NoStress,
+  NeoHookeanKelvinVoigt,
+  QuadraticKelvinVoigt,
+  Zener,
+  QuadraticZener,
+  OldroydB,
+  InstantaneousMaterial,
+  Giesekus,
+  LinearPTT,
+)
+
+
+def _validate_config(config) -> None:
+  # Everything checkable without a time grid.
+  #
+  # Split out because `SimulationConfig.__post_init__` wants exactly this and used to reach it by passing a fake
+  # `[0.0, 1.0]` grid through the combined check.
+  c = config
+  for name, value in (("R0", c.R0), ("Req", c.Req), ("T8", c.T8), ("rtol", c.rtol), ("atol", c.atol)):
+    if not np.isfinite(value) or value <= 0:
+      raise ValueError(f"{name} must be finite and positive")
+  if not isinstance(c.material, _MATERIALS):
+    raise TypeError("material must be a supported material model")
+  for name, value in (("pA", c.pA), ("omega", c.omega), ("TW", c.TW), ("DT", c.DT), ("mn", c.mn)):
+    if not np.isfinite(value):
+      raise ValueError(f"{name} must be finite")
+  for name, value, allowed in (("radial", c.radial, range(1, 7)), ("wave_type", c.wave_type, range(0, 4))):
+    if not isinstance(value, Integral) or value not in allowed:
+      raise ValueError(f"{name} must be one of: {', '.join(str(choice) for choice in allowed)}")
+  for name, value in (
+    ("vapor", c.vapor),
+    ("bubtherm", c.bubtherm),
+    ("medtherm", c.medtherm),
+    ("masstrans", c.masstrans),
+  ):
+    if not isinstance(value, Integral) or value not in (0, 1):
+      raise ValueError(f"{name} must be 0 or 1")
+  for name, value in (("Nt", c.Nt), ("Mt", c.Mt)):
+    if not isinstance(value, Integral) or value < 3:
+      raise ValueError(f"{name} must be an integer >= 3")
+  if c.medtherm and not c.bubtherm:
+    raise ValueError("medtherm=1 requires bubtherm=1")
+  if c.masstrans and not c.bubtherm:
+    raise ValueError("masstrans=1 requires bubtherm=1")
+  if c.masstrans and not c.vapor:
+    raise ValueError("masstrans=1 requires vapor=1")
+  if c.bubtherm and c.vapor and not c.masstrans:
+    raise ValueError("bubtherm=1 with vapor=1 currently requires masstrans=1")
+
+
+def _validate_inputs(tv, config) -> np.ndarray:
+  """Validate a time grid against a config, returning the grid as an array.
+
+  Took twenty positional arguments until every caller turned out to already hold
+  the `SimulationConfig` it was unpacking -- three call sites spelling out
+  nineteen fields in order, where a swap of any same-typed pair (`Nt`/`Mt`,
+  `bubtherm`/`medtherm`, `rtol`/`atol`) was a silent bug no type checker sees.
+  """
   times = np.asarray(tv, dtype=float)
   if times.ndim != 1 or times.size < 2:
     raise ValueError("tv must be a one-dimensional array with at least two times")
@@ -526,48 +526,7 @@ def _validate_inputs(
     raise ValueError("tv must contain only finite values")
   if times[0] < 0 or np.any(np.diff(times) <= 0):
     raise ValueError("tv must be non-negative and strictly increasing")
-
-  for name, value in (("R0", R0), ("Req", Req), ("T8", T8), ("rtol", rtol), ("atol", atol)):
-    if not np.isfinite(value) or value <= 0:
-      raise ValueError(f"{name} must be finite and positive")
-  if not isinstance(
-    material,
-    (
-      NoStress,
-      NeoHookeanKelvinVoigt,
-      QuadraticKelvinVoigt,
-      Zener,
-      QuadraticZener,
-      OldroydB,
-      InstantaneousMaterial,
-      Giesekus,
-      LinearPTT,
-    ),
-  ):
-    raise TypeError("material must be a supported material model")
-  for name, value in (("pA", pA), ("omega", omega), ("TW", TW), ("DT", DT), ("mn", mn)):
-    if not np.isfinite(value):
-      raise ValueError(f"{name} must be finite")
-
-  for name, value, allowed in (("radial", radial, range(1, 7)), ("wave_type", wave_type, range(0, 4))):
-    if not isinstance(value, Integral) or value not in allowed:
-      choices = ", ".join(str(choice) for choice in allowed)
-      raise ValueError(f"{name} must be one of: {choices}")
-  for name, value in (("vapor", vapor), ("bubtherm", bubtherm), ("medtherm", medtherm), ("masstrans", masstrans)):
-    if not isinstance(value, Integral) or value not in (0, 1):
-      raise ValueError(f"{name} must be 0 or 1")
-  for name, value in (("Nt", Nt), ("Mt", Mt)):
-    if not isinstance(value, Integral) or value < 3:
-      raise ValueError(f"{name} must be an integer >= 3")
-
-  if medtherm and not bubtherm:
-    raise ValueError("medtherm=1 requires bubtherm=1")
-  if masstrans and not bubtherm:
-    raise ValueError("masstrans=1 requires bubtherm=1")
-  if masstrans and not vapor:
-    raise ValueError("masstrans=1 requires vapor=1")
-  if bubtherm and vapor and not masstrans:
-    raise ValueError("bubtherm=1 with vapor=1 currently requires masstrans=1")
+  _validate_config(config)
   return times
 
 

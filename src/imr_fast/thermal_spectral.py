@@ -41,7 +41,7 @@ __all__ = ["chebyshev_diff_mat", "nodes"]
 
 
 def _chebyshev(count):
-  """Chebyshev-Gauss-Lobatto nodes on [1,-1] and the differentiation matrix."""
+  # Chebyshev-Gauss-Lobatto nodes on [1,-1] and the differentiation matrix.
   if count < 2:
     raise ValueError("count must be at least 2")
   last = count - 1
@@ -78,11 +78,9 @@ def chebyshev_diff_mat(count, order, tm_check=0):
   """
   if order not in (1, 2):
     raise ValueError("order must be 1 or 2")
-
   if tm_check != 0:
     _, first = _chebyshev(count)
     return first if order == 1 else first @ first
-
   # Interior grid. Work on the even extension y in [-1,1], then restrict.
   full_count = 2 * count - 1
   full_x, full_first = _chebyshev(full_count)
@@ -101,7 +99,6 @@ def chebyshev_diff_mat(count, order, tm_check=0):
     operator = fold(full_first)
     operator[0, :] = 0.0  # regularity: f'(0) = 0 exactly
     return operator
-
   full_second = full_first @ full_first
   # spherical Laplacian f'' + (2/y) f'; the 2/y term is removable at y = 0,
   # where the limit is 3 f''(0)
@@ -110,5 +107,4 @@ def chebyshev_diff_mat(count, order, tm_check=0):
   away = np.array([j for j in range(full_count) if j != centre])
   laplacian[away, :] += (2.0 / full_x[away])[:, None] * full_first[away, :]
   laplacian[centre, :] = 3.0 * full_second[centre, :]
-
   return fold(laplacian)

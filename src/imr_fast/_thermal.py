@@ -25,6 +25,7 @@ __all__ = [
   "_kv_of_T",
   "kirchhoff_temperature",
   "kirchhoff_theta",
+  "mixture_kirchhoff",
   "_mie_F",
   "_mie_gruneisen",
   "_mu_of_A",
@@ -37,7 +38,6 @@ _GAM_TAIT = 3049.13e5
 _NSTATE_TAIT = 7.15
 _HUGONIOT_S = 1.65
 _NOG = (_NSTATE_TAIT - 1.0) / 2.0
-
 
 def kirchhoff_theta(temperature, alpha, beta):
   """The Kirchhoff transform of a conductivity linear in temperature.
@@ -61,7 +61,6 @@ def kirchhoff_theta(temperature, alpha, beta):
   """
   return 0.5 * alpha * (temperature**2 - 1.0) + beta * (temperature - 1.0)
 
-
 def kirchhoff_temperature(theta, alpha, beta):
   """Inverse of :func:`kirchhoff_theta`.
 
@@ -75,10 +74,22 @@ def kirchhoff_temperature(theta, alpha, beta):
   """
   return (-beta + np.sqrt((alpha + beta) ** 2 + 2.0 * alpha * theta)) / alpha
 
+def mixture_kirchhoff(vapor_fraction, p, masstrans):
+  """The `(alpha, beta)` a gas/vapour mixture presents to :func:`kirchhoff_theta`.
 
-def pvsat(T):
-  return 1.17e11 * np.exp(-5200.0 / T)
+  Mass fraction weighted, or the dry-gas pair when there is no vapour to mix.
+  Shared for the same reason the transform itself is: #75 was five sites each
+  inlining their own Kirchhoff algebra, and two of them had grown this pair back
+  independently -- the primal initial state and its dual, which must agree
+  exactly or the tangents differentiate a different conductivity than the
+  forward solve integrates.
+  """
+  if not masstrans: return p["alpha_g"], p["beta_g"]
+  alpha = vapor_fraction * p["alpha_v"] + (1.0 - vapor_fraction) * p["alpha_g"]
+  beta = vapor_fraction * p["beta_v"] + (1.0 - vapor_fraction) * p["beta_g"]
+  return alpha, beta
 
+def pvsat(T): return 1.17e11 * np.exp(-5200.0 / T)
 
 def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG):
   # The discriminant of a*mu**2 + b*mu + A collapses: b**2 - 4*a*A is
@@ -88,15 +99,9 @@ def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG):
   # cancellation the subtracted form suffers. See #35.
   return (2.0 * A * s + 1.0 - np.sqrt(1.0 + 4.0 * A * (s + nog))) / (2.0 * (A * s**2 - nog))
 
-
 def _mie_F(mu, s=_HUGONIOT_S, nog=_NOG):
   w = 1.0 - s * mu
-  return (
-    (2 * nog + s - 1) / (s + 1) ** 3 * np.log(w / (mu + 1.0))
-    + (nog + s) / (s * (s + 1) * w**2)
-    - (2 * nog + s - 1) / ((s + 1) ** 2 * w)
-  )
-
+  return (2 * nog + s - 1) / (s + 1) ** 3 * np.log(w / (mu + 1.0)) + (nog + s) / (s * (s + 1) * w**2) - (2 * nog + s - 1) / ((s + 1) ** 2 * w)
 
 def _mie_gruneisen(P, Cstar, s, nog, reference):
   A = P / Cstar**2
@@ -111,7 +116,6 @@ def _mie_gruneisen(P, Cstar, s, nog, reference):
   hB = Cstar**2 * (_mie_F(mu, s, nog) - reference)
   return C, hB, hH
 
-
 def _far_field_singular_index(xi) -> int:
   # Index of the node where the medium grid map 2 / (xi + 1) is singular.
   #
@@ -121,12 +125,8 @@ def _far_field_singular_index(xi) -> int:
   values = np.asarray(xi, dtype=float)
   singular = np.flatnonzero(values + 1.0 == 0.0)
   if singular.size != 1 or singular[0] != values.size - 1:
-    raise ValueError(
-      f"medium grid singularity must be the far-field node alone: xi + 1 == 0 at {singular.tolist()} "
-      f"of {values.size} nodes"
-    )
+    raise ValueError(f"medium grid singularity must be the far-field node alone: xi + 1 == 0 at {singular.tolist()} of {values.size} nodes")
   return int(singular[0])
-
 
 def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3):
   strain_rate = Rd / R * iyT3
@@ -147,7 +147,6 @@ def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3):
     viscosity, _ = _viscosity_and_tangent(material.viscous, shear_rate)
     heating += 12.0 * viscosity / p["viscosity_scale"] * strain_rate**2
   return p["Br"] * heating
-
 
 def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6):
   """Medium heating for the closed-form materials.
@@ -181,19 +180,14 @@ def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6):
   # suppression hiding a nan in a function it does not own. Tmdot[-1] is
   # overwritten with 0.0, which is the value set here. #35.
   base = np.zeros_like(yT)
-  base[inner] = 12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6[inner] + 2.0 * Br / Ca * iyT3[inner] * (Rd / R) * (
-    yT2[inner] * ix2 - iyT4[inner] * x4
-  )
-  if isinstance(material, InstantaneousMaterial):
-    return _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3)
-  if isinstance(material, NoStress):
-    return np.zeros_like(yT)
+  base[inner] = 12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6[inner] + 2.0 * Br / Ca * iyT3[inner] * (Rd / R) * (yT2[inner] * ix2 - iyT4[inner] * x4)
+  if isinstance(material, InstantaneousMaterial): return _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3)
+  if isinstance(material, NoStress): return np.zeros_like(yT)
   if isinstance(material, QuadraticKelvinVoigt):
     stiffening = np.ones_like(yT)
     stiffening[inner] = 1.0 + ax * (x4 * iyT4[inner] + 2.0 * yT2[inner] * ix2 - 3.0)
     return base * stiffening
   return base
-
 
 def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3):
   points = prepared.reference_radius.size
@@ -212,9 +206,7 @@ def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3):
       else:
         left = np.searchsorted(source_radius, radius_value) - 1
         fraction = (radius - source_radius[left]) / (source_radius[left + 1] - source_radius[left])
-        sampled_difference[index] = stress_difference[left] + fraction * (
-          stress_difference[left + 1] - stress_difference[left]
-        )
+        sampled_difference[index] = stress_difference[left] + fraction * (stress_difference[left + 1] - stress_difference[left])
   else:
     sampled_difference = np.interp(reference_radius, prepared.reference_radius, stress_difference, right=0.0)
   strain_rate = Rd / R * iyT3
@@ -222,11 +214,9 @@ def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3):
   solvent_heating = 12.0 * p["LAM"] / p["Re8"] * strain_rate**2
   return p["Br"] * (polymer_heating + solvent_heating)
 
-
 def _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale):
   theta_var = Rvg_ratio * (P / (pvsat(Tw * T8) / pressure_scale) - 1.0)
   return 1.0 / (1.0 + theta_var)
-
 
 def _secant_root(function, guess, *, tol=1e-13, maxiter=100):
   p0 = float(guess)
@@ -234,24 +224,20 @@ def _secant_root(function, guess, *, tol=1e-13, maxiter=100):
   p1 += 1e-4 if p1 >= 0.0 else -1e-4
   q0 = function(p0)
   q1 = function(p1)
-  if abs(q1) < abs(q0):
-    p0, p1, q0, q1 = p1, p0, q1, q0
+  if abs(q1) < abs(q0): p0, p1, q0, q1 = p1, p0, q1, q0
   for _ in range(maxiter):
-    if q1 == q0:
-      raise RuntimeError("wall boundary secant solve encountered zero slope")
+    if q1 == q0: raise RuntimeError("wall boundary secant solve encountered zero slope")
     if abs(q1) > abs(q0):
       ratio = q0 / q1
       root = (-ratio * p1 + p0) / (1.0 - ratio)
     else:
       ratio = q1 / q0
       root = (-ratio * p0 + p1) / (1.0 - ratio)
-    if abs(root - p1) <= tol:
-      return root
+    if abs(root - p1) <= tol: return root
     p0, q0 = p1, q1
     p1 = root
     q1 = function(p1)
   raise RuntimeError(f"wall boundary secant solve failed to converge after {maxiter} iterations")
-
 
 def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans):
   """Solve the flux match at the wall exactly, rather than iterating on it (#57).
@@ -277,7 +263,6 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Tr
   k += np.sum(grad_Trans[1:] * theta_tail) - c * span / (2.0 * alpha_g)
   s = (-b + np.sqrt(b * b - 2.0 * alpha_g * c * k)) / c
   return (s * s - span) / (2.0 * alpha_g)
-
 
 def _wall_theta_bw_full(
   guess,
@@ -329,10 +314,8 @@ def _wall_theta_bw_full(
         roots.append(_secant_root(resid, fallback))
       except RuntimeError:
         pass
-  if roots:
-    return min(roots, key=lambda root: abs(root - guess))
+  if roots: return min(roots, key=lambda root: abs(root - guess))
   raise failure
-
 
 def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state):
   if medium is not None and masstrans:
@@ -358,9 +341,7 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
     )
     wall_state.theta = theta[-1]
   elif medium is not None:
-    theta[-1] = _wall_theta_bw(
-      wall_state.theta, theta[-2::-1], Tm[1:], p["alpha_g"], p["beta_g"], medium.grad_Tm, medium.grad_Trans
-    )
+    theta[-1] = _wall_theta_bw(wall_state.theta, theta[-2::-1], Tm[1:], p["alpha_g"], p["beta_g"], medium.grad_Tm, medium.grad_Trans)
     wall_state.theta = theta[-1]
   alpha_m = None
   if masstrans:
@@ -370,6 +351,5 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
     kv[-1] = _kv_of_T(temperature[-1], P, p["T8"], p["Rv_star"] / p["Rg_star"], p["P8"])
   else:
     temperature = kirchhoff_temperature(theta, p["alpha_g"], p["beta_g"])
-  if Tm is not None:
-    Tm[0] = temperature[-1]
+  if Tm is not None: Tm[0] = temperature[-1]
   return temperature, alpha_m

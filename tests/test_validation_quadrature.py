@@ -35,9 +35,7 @@ _FLOOR = 1e-6
 def _giesekus(points, quadrature, mobility=0.2):
   return imr_fast.simulate(
     _TIMES,
-    imr_fast.SimulationConfig(
-      R0=R0, Req=REQ, material=imr_fast.Giesekus(0.1, 2 * T0, 0.4 * T0, mobility, points=points, quadrature=quadrature)
-    ),
+    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.Giesekus(0.1, 2 * T0, 0.4 * T0, mobility, points=points, quadrature=quadrature)),
   ).radius_ratio
 
 

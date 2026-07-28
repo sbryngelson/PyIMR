@@ -43,22 +43,14 @@ def test_simulate_matches_prepared_solver():
 def test_structured_result_arrays_are_read_only():
   result = simulate(np.linspace(0.0, 1e-5, 10), base_config())
 
-  for array in (
-    result.time_s,
-    result.radius_ratio,
-    result.wall_velocity_m_s,
-    result.internal_pressure_pa,
-    result.stress_integral_pa,
-  ):
+  for array in (result.time_s, result.radius_ratio, result.wall_velocity_m_s, result.internal_pressure_pa, result.stress_integral_pa):
     with pytest.raises(ValueError):
       array.flat[0] = 2.0
 
 
 def test_prepared_problem_is_reusable_and_returns_active_fields():
   times = np.linspace(0.0, 2e-5, 25)
-  config = base_config(
-    material=Zener(2500.0, 0.1, relaxation_time_s=1e-6), bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=7
-  )
+  config = base_config(material=Zener(2500.0, 0.1, relaxation_time_s=1e-6), bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=7)
   problem = prepare(config)
 
   first = problem.solve(times)
@@ -75,9 +67,7 @@ def test_prepared_problem_is_reusable_and_returns_active_fields():
 def test_sampled_constant_forcing_matches_analytic_forcing():
   times = np.linspace(0.0, 2e-5, 30)
   analytic = simulate(times, base_config(pA=4e4))
-  sampled = simulate(
-    times, base_config(sampled_forcing=SampledForcing(time_s=(times[0], times[-1]), pressure_pa=(4e4, 4e4)))
-  )
+  sampled = simulate(times, base_config(sampled_forcing=SampledForcing(time_s=(times[0], times[-1]), pressure_pa=(4e4, 4e4))))
 
   np.testing.assert_array_equal(sampled.radius_ratio, analytic.radius_ratio)
 
@@ -132,14 +122,7 @@ def test_structured_api_requires_config():
     simulate([0.0, 1.0], object())
 
 
-PUBLIC_MODULES = (
-  "imr_fast",
-  "imr_fast.sensitivity",
-  "imr_fast.inference",
-  "imr_fast.data",
-  "imr_fast.design",
-  "imr_fast.pymc_op",
-)
+PUBLIC_MODULES = ("imr_fast", "imr_fast.sensitivity", "imr_fast.inference", "imr_fast.data", "imr_fast.design", "imr_fast.pymc_op")
 # Was a hand-maintained set of 18 top-level names, edited once per new module.
 # Inside a package every owned `__module__` starts with the package name, so
 # the list is structural now (#61).
@@ -193,9 +176,7 @@ def test_natural_frequency_rejects_equilibrium_above_maximum():
     data.natural_frequency(225e-6, 300e-6, 2500.0, 0.1)
 
 
-@pytest.mark.parametrize(
-  "time,radius", [([0.0, 1.0], [1.0, 1.0]), ([0.0, 1.0, 0.5, 2.0, 3.0], [1.0, 1.0, 1.0, 1.0, 1.0])]
-)
+@pytest.mark.parametrize("time,radius", [([0.0, 1.0], [1.0, 1.0]), ([0.0, 1.0, 0.5, 2.0, 3.0], [1.0, 1.0, 1.0, 1.0, 1.0])])
 def test_collapse_features_rejects_bad_traces(time, radius):
   from imr_fast import data
 
@@ -265,7 +246,5 @@ def test_floating_point_suppression_stays_where_it_was_argued_for():
   just a re-added one.
   """
   root = Path(str(importlib.import_module(PACKAGE).__file__)).resolve().parent
-  found = {
-    site for path in sorted(root.glob("*.py")) for site in _errstate_sites(ast.parse(path.read_text()), path.stem)
-  }
+  found = {site for path in sorted(root.glob("*.py")) for site in _errstate_sites(ast.parse(path.read_text()), path.stem)}
   assert found == ERRSTATE_ALLOWED, f"floating-point suppression moved: {found ^ ERRSTATE_ALLOWED}; see #35"

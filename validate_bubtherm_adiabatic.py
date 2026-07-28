@@ -60,9 +60,7 @@ def _thermal_chi0(p, rtol, atol, Nt=25):
   D2 = finite_diff_mat(Nt, 2, tm_check=0)
   ygrid = np.linspace(0.0, 1.0, Nt)
   y0 = [1.0, 0.0, p["Pb"]] + [0.0] * Nt
-  s = solve_ivp(
-    _rhs, (tn[0], tn[-1]), y0, t_eval=tn, args=(p, material, 1, 1, D1, D2, ygrid), method="LSODA", rtol=rtol, atol=atol
-  )
+  s = solve_ivp(_rhs, (tn[0], tn[-1]), y0, t_eval=tn, args=(p, material, 1, 1, D1, D2, ygrid), method="LSODA", rtol=rtol, atol=atol)
   return s.y[0]
 
 

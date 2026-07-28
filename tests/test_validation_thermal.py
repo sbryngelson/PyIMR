@@ -62,9 +62,7 @@ def test_spectral_laplacian_operator(measured):
   nodes = thermal_spectral.nodes(17, 0)
   spectral = float(np.max(np.abs(thermal_spectral.chebyshev_diff_mat(17, 2, 0) @ _cosine(nodes) - _laplacian(nodes))))
   uniform = np.linspace(0.0, 1.0, 17)
-  finite = float(
-    np.max(np.abs((thermal_fd.finite_diff_mat(17, 2, 0) @ _cosine(uniform))[:-1] - _laplacian(uniform)[:-1]))
-  )
+  finite = float(np.max(np.abs((thermal_fd.finite_diff_mat(17, 2, 0) @ _cosine(uniform))[:-1] - _laplacian(uniform)[:-1])))
   measured("spherical Laplacian N=17", f"spectral={spectral:.2e}  finite difference={finite:.2e}")
   assert spectral < 1e-9
 
@@ -73,9 +71,7 @@ def test_spectral_laplacian_operator(measured):
 def _collapse_metrics(nt, backend):
   radius = imr_fast.simulate(
     _FINE_TIMES,
-    imr_fast.SimulationConfig(
-      R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=nt, thermal=backend, rtol=_CONVERGENCE_RTOL, atol=_CONVERGENCE_ATOL
-    ),
+    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=nt, thermal=backend, rtol=_CONVERGENCE_RTOL, atol=_CONVERGENCE_ATOL),
   ).radius_ratio
   index = int(radius.argmin())
   before, at, after = radius[index - 1], radius[index], radius[index + 1]
@@ -100,10 +96,7 @@ def test_spectral_beats_fine_finite_difference_on_timing(measured):
   _, reference = _collapse_metrics(200, "spectral")
   _, spectral = _collapse_metrics(25, "spectral")
   _, finite = _collapse_metrics(200, "fd")
-  measured(
-    "collapse time",
-    f"spectral(25)={abs(spectral - reference) * 1e9:.4f}ns  fd(200)={abs(finite - reference) * 1e9:.4f}ns",
-  )
+  measured("collapse time", f"spectral(25)={abs(spectral - reference) * 1e9:.4f}ns  fd(200)={abs(finite - reference) * 1e9:.4f}ns")
   assert abs(spectral - reference) < abs(finite - reference)
 
 

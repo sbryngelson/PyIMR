@@ -170,10 +170,7 @@ def ucm_trajectory():
 
 @pytest.mark.parametrize(
   "label,model",
-  [
-    ("giesekus", imr_fast.Giesekus(0.1, _RELAXATION, _RETARDATION)),
-    ("linear PTT", imr_fast.LinearPTT(0.1, _RELAXATION, _RETARDATION)),
-  ],
+  [("giesekus", imr_fast.Giesekus(0.1, _RELAXATION, _RETARDATION)), ("linear PTT", imr_fast.LinearPTT(0.1, _RELAXATION, _RETARDATION))],
   ids=["giesekus", "linear-ptt"],
 )
 def test_zero_nonlinearity_reproduces_ucm(label, model, ucm_trajectory, measured):
@@ -237,8 +234,7 @@ def test_nonlinear_parameter_produces_distinct_physics(label, model, ucm_traject
 
 
 @pytest.mark.parametrize(
-  ("label", "viscous"),
-  (("Bingham", imr_fast.Bingham(100.0, 0.1)), ("Herschel-Bulkley", imr_fast.HerschelBulkley(100.0, 0.1, 0.8))),
+  ("label", "viscous"), (("Bingham", imr_fast.Bingham(100.0, 0.1)), ("Herschel-Bulkley", imr_fast.HerschelBulkley(100.0, 0.1, 0.8)))
 )
 def test_yield_stress_needs_no_suppression(label, viscous, measured):
   """The yield-stress regularisation used `np.where` around a divide by the

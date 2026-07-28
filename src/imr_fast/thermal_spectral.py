@@ -39,11 +39,9 @@ import numpy as np
 
 __all__ = ["chebyshev_diff_mat", "nodes"]
 
-
 def _chebyshev(count):
   # Chebyshev-Gauss-Lobatto nodes on [1,-1] and the differentiation matrix.
-  if count < 2:
-    raise ValueError("count must be at least 2")
+  if count < 2: raise ValueError("count must be at least 2")
   last = count - 1
   x = np.cos(np.pi * np.arange(count) / last)
   scale = np.ones(count)
@@ -54,7 +52,6 @@ def _chebyshev(count):
   matrix = np.outer(scale, 1.0 / scale) / (offset + np.eye(count))
   matrix -= np.diag(matrix.sum(axis=1))
   return x, matrix
-
 
 def nodes(count, tm_check=0):
   """Collocation nodes matching :func:`chebyshev_diff_mat`.
@@ -69,15 +66,13 @@ def nodes(count, tm_check=0):
     return np.ascontiguousarray(full[count - 1 :: -1])
   return _chebyshev(count)[0]
 
-
 def chebyshev_diff_mat(count, order, tm_check=0):
   """Spectral analogue of ``thermal_fd.finite_diff_mat``.
 
   ``order=1`` is ``d/dy``. ``order=2`` on the interior grid is the spherical
   Laplacian; on the exterior grid it is ``d^2/dxi^2``.
   """
-  if order not in (1, 2):
-    raise ValueError("order must be 1 or 2")
+  if order not in (1, 2): raise ValueError("order must be 1 or 2")
   if tm_check != 0:
     _, first = _chebyshev(count)
     return first if order == 1 else first @ first

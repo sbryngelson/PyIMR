@@ -41,7 +41,7 @@ from ._materials import (
   _stress_state_count,
 )
 from ._rhs import _rhs
-from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, pvsat
+from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, mixture_kirchhoff, pvsat
 from .thermal_fd import finite_diff_mat
 from .thermal_spectral import chebyshev_diff_mat
 from .thermal_spectral import nodes as chebyshev_nodes
@@ -59,17 +59,13 @@ __all__ = [
   "prepare",
 ]
 
-
 def _material_scales(material):
-  if isinstance(material, NoStress):
-    return 0.0, 0.0, 0.0, 0.0, 0.0
+  if isinstance(material, NoStress): return 0.0, 0.0, 0.0, 0.0, 0.0
   if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener)):
     modulus = material.shear_modulus_pa
   else:
     modulus = 0.0
-  if isinstance(
-    material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)
-  ):
+  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)):
     viscosity = material.viscosity_pa_s
   else:
     viscosity = 0.0
@@ -82,23 +78,7 @@ def _material_scales(material):
   stiffening = material.stiffening if isinstance(material, (QuadraticKelvinVoigt, QuadraticZener)) else 0.0
   return modulus, viscosity, relaxation, retardation, stiffening
 
-
-def params(
-  R0,
-  Req,
-  material,
-  vapor=0,
-  T8=298.15,
-  pA=0.0,
-  omega=0.0,
-  TW=0.0,
-  DT=0.0,
-  mn=0.0,
-  wave_type=0,
-  bubtherm=0,
-  masstrans=0,
-  physics=None,
-):
+def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0, masstrans=0, physics=None):
   physics = PhysicalParameters() if physics is None else physics
   P8_value = physics.far_field_pressure_pa
   density = physics.medium_density_kg_m3
@@ -118,10 +98,7 @@ def params(
   # thermal groups (f_call_params.m); cheap, computed unconditionally so
   # bubtherm=1 needs no separate params() path
   K8 = 0.5 * (
-    physics.gas_conductivity_slope * T8
-    + physics.gas_conductivity_offset
-    + physics.vapor_conductivity_slope * T8
-    + physics.vapor_conductivity_offset
+    physics.gas_conductivity_slope * T8 + physics.gas_conductivity_offset + physics.vapor_conductivity_slope * T8 + physics.vapor_conductivity_offset
   )
   chi = T8 * K8 / (P8_value * R0 * Uc)
   alpha_g = physics.gas_conductivity_slope * T8 / K8
@@ -147,8 +124,7 @@ def params(
   Rg_star = Rg / Rnondim
   Fom = physics.mass_diffusivity_m2_s / (Uc * R0)
   L_heat_star = physics.latent_heat_j_kg / Uc**2
-  if masstrans and vapor == 0:
-    raise ValueError("masstrans=1 requires vapor=1 (kv0's formula is only physically meaningful with Pv_star>0)")
+  if masstrans and vapor == 0: raise ValueError("masstrans=1 requires vapor=1 (kv0's formula is only physically meaningful with Pv_star>0)")
   if Pv_star > 0:
     kv0 = 1.0 / (1.0 + (Rv_star / Rg_star) * (Pb / Pv_star - 1.0))
   else:
@@ -206,23 +182,18 @@ def params(
     kv0=kv0,
   )
 
-
 def _prepare_forcing(config, parameters):
-  if config.sampled_forcing is None:
-    return None
+  if config.sampled_forcing is None: return None
   forcing = config.sampled_forcing
   knots = np.asarray(forcing.time_s) / parameters["t0"]
   values = np.asarray(forcing.pressure_pa) / parameters["P8"]
   interpolant = PchipInterpolator(knots, values, extrapolate=False)
   return PreparedForcing(knots=_freeze_array(knots), coefficients=_freeze_array(interpolant.c))
 
-
 def _prepare_instantaneous_material(material):
-  if not isinstance(material, InstantaneousMaterial):
-    return None
+  if not isinstance(material, InstantaneousMaterial): return None
   nodes, weights = np.polynomial.legendre.leggauss(material.quadrature_points)
   return PreparedInstantaneousMaterial(interval_nodes=_freeze_array(nodes), interval_weights=_freeze_array(weights))
-
 
 def _prepare_distributed_stress(material):
   """Lagrangian grid for the distributed stress, plus its quadrature weights.
@@ -244,8 +215,7 @@ def _prepare_distributed_stress(material):
   weights do not move, the integral's time derivative is exact rather than a
   discrete difference.
   """
-  if not _is_distributed_stress(material):
-    return None
+  if not _is_distributed_stress(material): return None
   span = material.extent - 1.0
   if material.quadrature == "gauss":
     nodes, weights = np.polynomial.legendre.leggauss(material.points)
@@ -261,12 +231,9 @@ def _prepare_distributed_stress(material):
     weights=None if geometric is None else _freeze_array(geometric * reference_radius**2),
   )
 
-
 def _prepare_distributed_jacobian(config, layout):
-  if not _is_distributed_stress(config.material):
-    return None
-  if not (config.medtherm or config.masstrans):
-    return None
+  if not _is_distributed_stress(config.material): return None
+  if not (config.medtherm or config.masstrans): return None
   size = layout.size
   stress_start = layout.stress.start
   points = config.material.points
@@ -300,10 +267,7 @@ def _prepare_distributed_jacobian(config, layout):
   sparse_pattern.indptr.setflags(write=False)
   return sparse_pattern
 
-
-def _thermal_state(temperature_ratio, alpha, beta):
-  return kirchhoff_theta(temperature_ratio, alpha, beta)
-
+def _thermal_state(temperature_ratio, alpha, beta): return kirchhoff_theta(temperature_ratio, alpha, beta)
 
 def _collapse_zener_rhs(state, p):
   radius, velocity, stress = state
@@ -325,21 +289,10 @@ def _collapse_zener_rhs(state, p):
   denominator = (1.0 - velocity / sound) * radius + 4.0 / (p["Re8"] * sound)
   return velocity, numerator / denominator, stress_rate
 
-
 def _collapse_memory_state(config, instantaneous_material, distributed_stress):
   settings = config.collapse
-  if settings is None:
-    return None, None
-  precursor = params(
-    config.R0,
-    config.Req,
-    config.material,
-    config.vapor,
-    config.T8,
-    physics=config.physics,
-    bubtherm=1,
-    masstrans=config.masstrans,
-  )
+  if settings is None: return None, None
+  precursor = params(config.R0, config.Req, config.material, config.vapor, config.T8, physics=config.physics, bubtherm=1, masstrans=config.masstrans)
   # The upstream precursor is a geometric-volume pressure law, P ~ R^-3.
   precursor["kappa"] = 1.0
   state_width = _stress_state_count(config.material)
@@ -348,8 +301,7 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
   shooting_evaluations = 0
   upstream_zener = isinstance(config.material, Zener)
 
-  def maximum_event(_time, state):
-    return state[1]
+  def maximum_event(_time, state): return state[1]
 
   maximum_event.terminal = True
   maximum_event.direction = -1
@@ -362,19 +314,12 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
 
     def production_rhs(time, state):
       return _rhs(
-        time,
-        state,
-        precursor,
-        config.material,
-        config.radial,
-        instantaneous_material=instantaneous_material,
-        distributed_stress=distributed_stress,
+        time, state, precursor, config.material, config.radial, instantaneous_material=instantaneous_material, distributed_stress=distributed_stress
       )
 
     if upstream_zener:
 
-      def collapse_rhs(_time, state):
-        return _collapse_zener_rhs(state, precursor)
+      def collapse_rhs(_time, state): return _collapse_zener_rhs(state, precursor)
     else:
       collapse_rhs = production_rhs
     solution = solve_ivp(
@@ -387,12 +332,9 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
       atol=min(config.atol, 1e-11),
     )
     integration_evaluations += int(solution.nfev)
-    if not solution.success:
-      raise SimulationError(f"collapse precursor integration failed: {solution.message}")
+    if not solution.success: raise SimulationError(f"collapse precursor integration failed: {solution.message}")
     if solution.t_events[0].size == 0:
-      raise SimulationError(
-        f"collapse precursor did not reach a maximum radius within t={settings.maximum_time_nondimensional:g}"
-      )
+      raise SimulationError(f"collapse precursor did not reach a maximum radius within t={settings.maximum_time_nondimensional:g}")
     return solution.y_events[0][-1]
 
   def residual(initial_velocity):
@@ -402,8 +344,7 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
 
   lower_velocity = max(settings.initial_velocity_guess * 1e-8, np.finfo(float).eps)
   lower_residual = residual(lower_velocity)
-  if lower_residual >= 0.0:
-    raise SimulationError("collapse precursor equilibrium radius is not below the observed maximum radius")
+  if lower_residual >= 0.0: raise SimulationError("collapse precursor equilibrium radius is not below the observed maximum radius")
   upper_velocity = settings.initial_velocity_guess
   upper_residual = residual(upper_velocity)
   expansions = 0
@@ -412,15 +353,9 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
     upper_residual = residual(upper_velocity)
     expansions += 1
   if upper_residual < 0.0:
-    raise SimulationError(
-      f"collapse shooting could not bracket an initial velocity after {settings.maximum_bracket_expansions} expansions"
-    )
+    raise SimulationError(f"collapse shooting could not bracket an initial velocity after {settings.maximum_bracket_expansions} expansions")
   initial_velocity = brentq(
-    residual,
-    lower_velocity,
-    upper_velocity,
-    xtol=settings.radius_tolerance,
-    rtol=max(settings.radius_tolerance, 4.0 * np.finfo(float).eps),
+    residual, lower_velocity, upper_velocity, xtol=settings.radius_tolerance, rtol=max(settings.radius_tolerance, 4.0 * np.finfo(float).eps)
   )
   maximum_state = integrate(initial_velocity)
   memory_state = _freeze_array(maximum_state[2:])
@@ -433,11 +368,9 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
   )
   return memory_state, stats
 
-
 def prepare(config: SimulationConfig) -> PreparedProblem:
   """Prepare reusable grids, operators, parameters, and state layout."""
-  if not isinstance(config, SimulationConfig):
-    raise TypeError("config must be a SimulationConfig")
+  if not isinstance(config, SimulationConfig): raise TypeError("config must be a SimulationConfig")
   p = params(
     config.R0,
     config.Req,
@@ -458,25 +391,20 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
   distributed_stress = _prepare_distributed_stress(config.material)
   collapse_state, collapse_stats = _collapse_memory_state(config, instantaneous_material, distributed_stress)
   initial = config.initial
-  if initial.internal_pressure_pa is not None:
-    p["Pb"] = initial.internal_pressure_pa / p["P8"]
+  if initial.internal_pressure_pa is not None: p["Pb"] = initial.internal_pressure_pa / p["P8"]
   layout = StateLayout.from_config(config)
   initial_state = np.zeros(layout.size)
   initial_state[0] = 1.0
   initial_state[1] = initial.wall_velocity_m_s / p["Uc"]
-  if initial.bubble_temperature_k is not None and not config.bubtherm:
-    raise ValueError("initial bubble temperature requires bubtherm=1")
-  if initial.medium_temperature_k is not None and not config.medtherm:
-    raise ValueError("initial medium temperature requires medtherm=1")
-  if initial.vapor_mass_fraction is not None and not config.masstrans:
-    raise ValueError("initial vapor mass fraction requires masstrans=1")
+  if initial.bubble_temperature_k is not None and not config.bubtherm: raise ValueError("initial bubble temperature requires bubtherm=1")
+  if initial.medium_temperature_k is not None and not config.medtherm: raise ValueError("initial medium temperature requires medtherm=1")
+  if initial.vapor_mass_fraction is not None and not config.masstrans: raise ValueError("initial vapor mass fraction requires masstrans=1")
   stress_width = layout.stress.stop - layout.stress.start
   if initial.stress_state is not None and len(initial.stress_state) != stress_width:
     raise ValueError(f"initial stress_state requires exactly {stress_width} values")
   if collapse_state is not None:
     initial_state[layout.stress] = collapse_state
-  elif initial.stress_state is not None:
-    initial_state[layout.stress] = initial.stress_state
+  elif initial.stress_state is not None: initial_state[layout.stress] = initial.stress_state
   bubble_grid = None
   bubble_D1 = None
   bubble_D2 = None
@@ -491,17 +419,12 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
     bubble_D1 = _freeze_array(bubble_first)
     bubble_D2 = _freeze_array(_diff(config.Nt, 2, 0))
     vapor_fraction = p["kv0"] if initial.vapor_mass_fraction is None else initial.vapor_mass_fraction
-    if config.masstrans:
-      initial_state[layout.vapor_fraction] = vapor_fraction
+    if config.masstrans: initial_state[layout.vapor_fraction] = vapor_fraction
     temperature_ratio = 1.0 if initial.bubble_temperature_k is None else initial.bubble_temperature_k / config.T8
-    mixes = config.masstrans
-    alpha = vapor_fraction * p["alpha_v"] + (1.0 - vapor_fraction) * p["alpha_g"] if mixes else p["alpha_g"]
-    beta = vapor_fraction * p["beta_v"] + (1.0 - vapor_fraction) * p["beta_g"] if mixes else p["beta_g"]
+    alpha, beta = mixture_kirchhoff(vapor_fraction, p, config.masstrans)
     initial_state[layout.bubble_thermal] = _thermal_state(temperature_ratio, alpha, beta)
     if config.medtherm:
-      medium_temperature_ratio = (
-        1.0 if initial.medium_temperature_k is None else initial.medium_temperature_k / config.T8
-      )
+      medium_temperature_ratio = 1.0 if initial.medium_temperature_k is None else initial.medium_temperature_k / config.T8
       initial_state[layout.medium_thermal] = medium_temperature_ratio
       Nm = config.Mt - 1
       deltaYm = -2.0 / Nm
@@ -559,17 +482,11 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         # the arithmetic and moves forward trajectories by a few ulp, and a fix
         # to the sensitivity path should not touch the forward solve at all.
         grad_Tm=_freeze_array(
-          2 * p["chi"] * p["iota"] * medium_first[0]
-          if spectral
-          else _pad(2 * p["chi"] * p["iota"] / deltaYm * coeff, config.Mt)
+          2 * p["chi"] * p["iota"] * medium_first[0] if spectral else _pad(2 * p["chi"] * p["iota"] / deltaYm * coeff, config.Mt)
         ),
-        grad_Trans=_freeze_array(
-          p["chi"] * bubble_first[-1, ::-1] if spectral else _pad(-coeff * p["chi"] / deltaY, config.Nt)
-        ),
+        grad_Trans=_freeze_array(p["chi"] * bubble_first[-1, ::-1] if spectral else _pad(-coeff * p["chi"] / deltaY, config.Nt)),
         grad_C=_freeze_array(
-          p["Fom"] * p["L_heat_star"] * bubble_first[-1, ::-1]
-          if spectral
-          else _pad(-coeff * p["Fom"] * p["L_heat_star"] / deltaY, config.Nt)
+          p["Fom"] * p["L_heat_star"] * bubble_first[-1, ::-1] if spectral else _pad(-coeff * p["Fom"] * p["L_heat_star"] / deltaY, config.Nt)
         ),
         bubble_wall_stencil=_freeze_array(bubble_wall_stencil),
         medium_wall_stencil=_freeze_array(medium_wall_stencil),

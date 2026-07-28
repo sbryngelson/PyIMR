@@ -16,12 +16,10 @@ from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_diss
 
 __all__ = ["_nZ", "_pinf", "_radius_floor_event", "_rhs", "_sampled_pressure"]
 
-
 def _sampled_pressure(tn, forcing):
   time_value = primal(tn)
   knot_values = primal_array(forcing.knots)
-  if time_value < knot_values[0] or time_value > knot_values[-1]:
-    return 0.0, 0.0
+  if time_value < knot_values[0] or time_value > knot_values[-1]: return 0.0, 0.0
   interval = np.searchsorted(knot_values, time_value, side="right") - 1
   interval = min(interval, knot_values.size - 2)
   offset = tn - forcing.knots[interval]
@@ -30,31 +28,24 @@ def _sampled_pressure(tn, forcing):
   pressure_rate = (3.0 * c0 * offset + 2.0 * c1) * offset + c2
   return pressure, pressure_rate
 
-
 def _pinf(tn, p, forcing=None):
-  if forcing is not None:
-    return _sampled_pressure(tn, forcing)
+  if forcing is not None: return _sampled_pressure(tn, forcing)
   wt, ee, om, tw, dt, mn = (p["wave_type"], p["ee"], p["om"], p["tw"], p["dt"], p["mn"])
-  if ee == 0.0:
-    return 0.0, 0.0
+  if ee == 0.0: return 0.0, 0.0
   if wt == 0:  # constant offset impulse
     return ee, 0.0
   if wt == 1:  # Gaussian
     e = np.exp(-((tn - dt) ** 2) / tw**2)
     return -ee * e, ee * (2 * (tn - dt) / tw**2) * e
   if wt == 2:  # histotripsy pulse
-    if tn < dt - np.pi / om or tn > dt + np.pi / om:
-      return 0.0, 0.0
+    if tn < dt - np.pi / om or tn > dt + np.pi / om: return 0.0, 0.0
     c = 0.5 + 0.5 * np.cos(om * (tn - dt))
     return (ee * c**mn, -ee * mn * c ** (mn - 1) * 0.5 * om * np.sin(om * (tn - dt)))
   if wt == 3:  # Heaviside step
     return (-ee * (1.0 - (1.0 if tn > tw else 0.0)), 0.0)
   raise ValueError(f"wave_type={wt} not supported")
 
-
-def _nZ(material):
-  return _stress_state_count(material)
-
+def _nZ(material): return _stress_state_count(material)
 
 def _rhs(
   tn,
@@ -126,11 +117,7 @@ def _rhs(
       Pdot = (
         3.0
         / R
-        * (
-          chi * (kappa - 1.0) * dtheta[-1] / R
-          - kappa * P * Rd
-          + kappa * P * Fom * Rv_star * dkv[-1] / (T[-1] * R * Rmix[-1] * (1.0 - kv[-1]))
-        )
+        * (chi * (kappa - 1.0) * dtheta[-1] / R - kappa * P * Rd + kappa * P * Fom * Rv_star * dkv[-1] / (T[-1] * R * Rmix[-1] * (1.0 - kv[-1])))
       )
       Uvel = (chi / R * (kappa - 1.0) * dtheta - ygrid * R * Pdot / 3.0) / (kappa * P) + Fom / R * RDkv
       Kstar_g = alpha_g * T + beta_g
@@ -182,10 +169,7 @@ def _rhs(
     inner = slice(0, -1)
     med_advection = np.zeros_like(yT)
     med_advection[inner] = (
-      (1 + xi[inner]) ** 2
-      / (Lt * R)
-      * (Rd / yT2[inner] * (1 - yT3[inner]) / 2 + Foh / R * ((xi[inner] + 1) / (2 * Lt) - 1 / yT[inner]))
-      * dTm[inner]
+      (1 + xi[inner]) ** 2 / (Lt * R) * (Rd / yT2[inner] * (1 - yT3[inner]) / 2 + Foh / R * ((xi[inner] + 1) / (2 * Lt) - 1 / yT[inner])) * dTm[inner]
     )
     med_diffusion = Foh / R**2 * (xi + 1) ** 4 / Lt**2 * ddTm / 4
     if distributed_stress is None:
@@ -199,11 +183,7 @@ def _rhs(
     Rdd = (P - 1 - Pf8 - iWe / R + S - 1.5 * Rd**2) / R
   elif radial == 2:  # Keller-Miksis (pressure form)
     Cs = p["Cstar"]
-    num = (
-      (1 + Rd / Cs) * (P - 1 - Pf8 - iWe / R + S)
-      + R / Cs * (Pdot + iWe * Rd / R**2 + Sdot - Pf8dot)
-      - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
-    )
+    num = (1 + Rd / Cs) * (P - 1 - Pf8 - iWe / R + S) + R / Cs * (Pdot + iWe * Rd / R**2 + Sdot - Pf8dot) - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
     den = (1 - Rd / Cs) * R + acceleration_coefficient / Cs
     Rdd = num / den
   elif radial in (3, 4, 5, 6):  # enthalpy forms: 3/5 Keller-Miksis, 4/6 Gilmore
@@ -223,12 +203,7 @@ def _rhs(
       Pb = P - iWe / R + S
       C, hB, hH = _mie_gruneisen(Pb, p["Cstar"], p["hugoniot_slope"], p["nog"], p["mie_reference"])
       Cs = p["Cstar"] if radial == 5 else C
-    num = (
-      (1 + Rd / Cs) * (hB - Pf8)
-      - R / Cs * Pf8dot
-      + R / Cs * hH * (Pdot + iWe * Rd / R**2 + Sdot)
-      - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
-    )
+    num = (1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot + R / Cs * hH * (Pdot + iWe * Rd / R**2 + Sdot) - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
     den = (1 - Rd / Cs) * R + acceleration_coefficient * hH / Cs
     Rdd = num / den
   else:
@@ -238,12 +213,9 @@ def _rhs(
     if bubtherm:
       out.append(Pdot)
       out.extend(thetadot.tolist())
-    if medtherm:
-      out.extend(Tmdot.tolist())
-    if masstrans:
-      out.extend(kvdot.tolist())
-    if dZ is not None:
-      out.extend(dZ.tolist())
+    if medtherm: out.extend(Tmdot.tolist())
+    if masstrans: out.extend(kvdot.tolist())
+    if dZ is not None: out.extend(dZ.tolist())
     return out
   out = np.empty_like(y)
   out[0] = Rd
@@ -260,10 +232,7 @@ def _rhs(
   if masstrans:
     out[cursor : cursor + kvdot.size] = kvdot
     cursor += kvdot.size
-  if dZ is not None:
-    out[cursor : cursor + dZ.size] = dZ
+  if dZ is not None: out[cursor : cursor + dZ.size] = dZ
   return out
 
-
-def _radius_floor_event(_tn, y, *_args):
-  return y[0] - 1e-8
+def _radius_floor_event(_tn, y, *_args): return y[0] - 1e-8

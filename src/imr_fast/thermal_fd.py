@@ -36,7 +36,6 @@ ODE state -- this file has no simulate()-side dependencies.
 
 import numpy as np
 
-
 def finite_diff_mat(nodes, order, tm_check=0):
   N = nodes - 1
   if tm_check == 0:

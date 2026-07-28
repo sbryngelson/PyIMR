@@ -43,9 +43,7 @@ _MATERIALS = {
   "zener": imr_fast.Zener(2500.0, 0.1, 40e-6, 8e-6),
   "quadratic_zener": imr_fast.QuadraticZener(2500.0, 0.1, 40e-6, 8e-6, 0.25),
   "oldroyd_b": imr_fast.OldroydB(0.1, 40e-6, 8e-6),
-  "giesekus": imr_fast.Giesekus(
-    viscosity_pa_s=0.1, relaxation_time_s=40e-6, retardation_time_s=8e-6, mobility=0.2, points=_DISTRIBUTED_POINTS
-  ),
+  "giesekus": imr_fast.Giesekus(viscosity_pa_s=0.1, relaxation_time_s=40e-6, retardation_time_s=8e-6, mobility=0.2, points=_DISTRIBUTED_POINTS),
   "linear_ptt": imr_fast.LinearPTT(
     viscosity_pa_s=0.1, relaxation_time_s=40e-6, retardation_time_s=8e-6, extensibility=0.05, points=_DISTRIBUTED_POINTS
   ),
@@ -68,9 +66,7 @@ _MATERIALS = {
   "viscous_modified_powell_eyring": _instantaneous(viscous=imr_fast.ModifiedPowellEyring(0.5, 0.02, 20e-6)),
   "viscous_herschel_bulkley": _instantaneous(viscous=imr_fast.HerschelBulkley(50.0, 0.1, 0.7)),
   "viscous_bingham": _instantaneous(viscous=imr_fast.Bingham(50.0, 0.1)),
-  "elastic_and_viscous": _instantaneous(
-    elastic=imr_fast.Gent(2500.0, 250.0), viscous=imr_fast.CarreauYasuda(0.5, 0.02, 20e-6, 2.0, 0.45)
-  ),
+  "elastic_and_viscous": _instantaneous(elastic=imr_fast.Gent(2500.0, 250.0), viscous=imr_fast.CarreauYasuda(0.5, 0.02, 20e-6, 2.0, 0.45)),
 }
 
 
@@ -81,9 +77,7 @@ def _config(material, radial):
 def _compiled_arguments(problem, config):
   """The argument pack `imr_sensitivity` builds for the numba path."""
   values, _ = sensitivity._mechanical_parameters(problem.parameters, 0)
-  material_code, elastic_code, elastic_values, _, viscous_code, viscous_values, _ = sensitivity._material_parameters(
-    config.material, 0
-  )
+  material_code, elastic_code, elastic_values, _, viscous_code, viscous_values, _ = sensitivity._material_parameters(config.material, 0)
   instantaneous, distributed = problem.instantaneous_material, problem.distributed_stress
   return (
     values,
@@ -237,9 +231,7 @@ def test_prepared_and_dual_wall_stencils_agree(label, options, backend):
   prepared problem rather than be assumed. Costs no ODE solve, so it runs in
   the fast suite.
   """
-  config = imr_fast.SimulationConfig(
-    R0=225e-6, Req=37.5e-6, material=_MATERIALS["neo_hookean_kelvin_voigt"], thermal=backend, **options
-  )
+  config = imr_fast.SimulationConfig(R0=225e-6, Req=37.5e-6, material=_MATERIALS["neo_hookean_kelvin_voigt"], thermal=backend, **options)
   problem = imr_fast.prepare(config)
   normalized, values, scales = sensitivity._normalize_parameters(config, ["material.shear_modulus_pa"])
   dual_config = sensitivity._dual_config(config, normalized, values, scales)

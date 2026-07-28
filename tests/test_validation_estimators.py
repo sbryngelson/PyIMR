@@ -9,7 +9,7 @@ import pytest
 from imr_fast import data
 import imr_fast
 from _validation_support import NHKV, R0, REQ
-from imr_fast.inference import InferenceParameter, RadiusObservation, prepare_inference
+from imr_fast.inference import FieldObservation, InferenceParameter, RadiusObservation, prepare_inference
 
 SECTION = "3b. Trace estimators and prepared inference"
 
@@ -101,3 +101,68 @@ def test_multistart_is_deterministic(prepared_inference, measured):
   measured("multistart", f"{len(multistart.endpoints)} endpoints, best cost={multistart.best.cost:.2e}")
   assert len(multistart.endpoints) == 2
   assert multistart.best is not None and multistart.best.cost < 1e-12
+
+
+_VELOCITY_SIGMA = 2.0
+
+
+@pytest.fixture(scope="module")
+def multi_observable():
+  """Radius on one grid, wall velocity on a coarser one -- deliberately not the
+  same times, so the union-grid path is exercised."""
+  times = np.linspace(0.0, 4e-5, 50)
+  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
+  truth = imr_fast.simulate(times, config)
+  rng = np.random.default_rng(3)
+  radius = RadiusObservation(times, np.asarray(truth.radius_m) + rng.normal(0.0, 5e-7, times.size), 5e-7)
+  coarse = times[::3]
+  velocity = FieldObservation(
+    "wall_velocity_m_s",
+    coarse,
+    np.asarray(truth.wall_velocity_m_s)[::3] + rng.normal(0.0, _VELOCITY_SIGMA, coarse.size),
+    _VELOCITY_SIGMA,
+  )
+  parameters = (
+    InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
+    InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
+  )
+  return prepare_inference(config, radius, parameters), prepare_inference(config, (radius, velocity), parameters)
+
+
+def test_a_second_observable_stacks_onto_the_residual(multi_observable, measured):
+  """One sensitivity solve already returns tangents for every observable; the
+  likelihood used to read radius and discard the rest. Observing wall velocity
+  as well costs nothing beyond the arithmetic."""
+  radius_only, both = multi_observable
+  assert radius_only.observation_size == 50
+  assert both.observation_size == 67, "50 radius plus 17 velocity samples"
+  unit = np.array([0.42, 0.37])
+  assert np.asarray(radius_only.jacobian(unit)).shape == (50, 2)
+  assert np.asarray(both.jacobian(unit)).shape == (67, 2)
+  measured("stacked observables", f"{radius_only.observation_size} -> {both.observation_size} values")
+
+
+def test_the_stacked_gradient_is_still_the_derivative(multi_observable, measured):
+  """Stacking is only correct if the log-likelihood and its gradient still agree
+  -- a mis-indexed union grid would pass the shape check above and fail here."""
+  _, both = multi_observable
+  unit = np.array([0.42, 0.37])
+  evaluation, jacobian = both.evaluate_with_jacobian(unit)
+  analytic = -np.asarray(evaluation.residual) @ jacobian
+
+  step, difference = 1e-5, np.zeros(2)
+  for index in range(2):
+    offset = np.zeros(2)
+    offset[index] = step
+    ahead = both.evaluate_with_jacobian(unit + offset)[0].log_likelihood
+    behind = both.evaluate_with_jacobian(unit - offset)[0].log_likelihood
+    difference[index] = (ahead - behind) / (2.0 * step)
+
+  error = float(np.max(np.abs(analytic - difference))) / max(float(np.max(np.abs(difference))), 1e-30)
+  measured("stacked gradient", f"rel={error:.2e}")
+  assert error < 1e-4
+
+
+def test_an_unknown_field_is_refused():
+  with pytest.raises(ValueError, match="field must be one of"):
+    FieldObservation("bubble_temperature_k", np.array([0.0, 1e-5]), np.array([300.0, 310.0]), 1.0)

@@ -166,3 +166,43 @@ def test_the_stacked_gradient_is_still_the_derivative(multi_observable, measured
 def test_an_unknown_field_is_refused():
   with pytest.raises(ValueError, match="field must be one of"):
     FieldObservation("bubble_temperature_k", np.array([0.0, 1e-5]), np.array([300.0, 310.0]), 1.0)
+
+
+def test_gauss_newton_is_exact_where_eig_uses_it(measured):
+  """`J^T J` is not an approximation to the Fisher information for a correctly
+  specified model -- the dropped term is `sum_k r_k H^k` and `E[r_k] = 0`.
+
+  So this checks the claim that lets `design.py` use `J^T J` unqualified: at the
+  parameters the data were generated from, the dropped term is negligible.
+  """
+  times = np.linspace(0.0, 4e-5, 60)
+  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
+  truth = imr_fast.simulate(times, config)
+  observed = np.asarray(truth.radius_m) + np.random.default_rng(11).normal(0.0, 5e-7, times.size)
+  parameters = (
+    InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
+    InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
+  )
+  inference = prepare_inference(config, RadiusObservation(times, observed, 5e-7), parameters)
+  ratio = inference.curvature_ratio(np.array([(2500.0 - 1500.0) / 2500.0, (0.1 - 0.05) / 0.15]))
+  measured("Gauss-Newton dropped term at truth", f"||r.H||/||J^T J|| = {ratio:.2e}")
+  assert ratio < 1e-2
+
+
+def test_the_dropped_term_detects_misspecification(measured):
+  """The diagnostic's actual use. Data from Zener, fitted with NHKV: the model
+  cannot represent the data, `E[r] != 0`, and the term Gauss-Newton drops stops
+  being negligible -- by three orders of magnitude against the matched case."""
+  times = np.linspace(0.0, 4e-5, 60)
+  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
+  other = imr_fast.SimulationConfig(R0, REQ, imr_fast.Zener(0.1, 2500.0, 2e-6, 2e-7))
+  observed = np.asarray(imr_fast.simulate(times, other).radius_m)
+  observed = observed + np.random.default_rng(11).normal(0.0, 5e-7, times.size)
+  parameters = (
+    InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
+    InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
+  )
+  inference = prepare_inference(config, RadiusObservation(times, observed, 5e-7), parameters)
+  ratio = inference.curvature_ratio(np.array([(2500.0 - 1500.0) / 2500.0, (0.1 - 0.05) / 0.15]))
+  measured("Gauss-Newton dropped term, misspecified", f"||r.H||/||J^T J|| = {ratio:.2e}")
+  assert ratio > 0.05

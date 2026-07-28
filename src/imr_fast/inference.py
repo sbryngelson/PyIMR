@@ -395,6 +395,49 @@ class PreparedInference:
     """Just the `d/dt` half; see :meth:`jacobian_with_time_derivative`."""
     return self.jacobian_with_time_derivative(unit_parameters)[1]
 
+  def curvature_ratio(self, unit_parameters, step=1e-5):
+    """`||sum_k r_k H^k|| / ||J^T J||` -- the size of what Gauss-Newton drops.
+
+    The exact Hessian of the Gaussian log-likelihood is
+
+        -d2L = J^T J + sum_k r_k H^k,     H^k = d2 r_k / dtheta2
+
+    and `J^T J` alone is the Gauss-Newton approximation used throughout this
+    package. **For expected information gain that is not an approximation at
+    all**: EIG needs the Fisher information `E[-d2L]`, and a correctly specified
+    model has `E[r_k] = 0`, so the dropped term has zero expectation. `design.py`
+    never sees data, so the term cannot enter there.
+
+    It does matter for the *observed* information -- a Laplace posterior at real
+    data -- and it is a misspecification diagnostic, which is the more useful
+    reading. Measured on synthetic data:
+
+        correct model, at the truth            3.4e-04
+        correct model, 30% off in G            6.1e-03
+        correct model, 30% off in both         7.5e-01
+        Zener data fitted with NHKV            2.8e-01
+
+    A large value away from the optimum is expected. A large value *at* a fit is
+    evidence the model cannot represent the data.
+
+    `H` is taken by central difference of the exact Jacobian, so this costs `2p`
+    sensitivity solves and no second-order machinery. That is the whole reason
+    it exists in this form: knowing when Gauss-Newton is inadequate is cheap,
+    while fixing it would mean second-order sensitivities.
+    """
+    unit = self._validate_unit_parameters(unit_parameters)
+    residual = np.asarray(self.evaluate(unit).residual)
+    jacobian = np.asarray(self.jacobian(unit))
+    dropped = np.zeros((self.size, self.size))
+    for index in range(self.size):
+      offset = np.zeros(self.size)
+      offset[index] = step
+      ahead = np.asarray(self.jacobian(np.clip(unit + offset, 0.0, 1.0)))
+      behind = np.asarray(self.jacobian(np.clip(unit - offset, 0.0, 1.0)))
+      dropped[index] = residual @ ((ahead - behind) / (2.0 * step))
+    dropped = 0.5 * (dropped + dropped.T)
+    return float(np.linalg.norm(dropped) / np.linalg.norm(jacobian.T @ jacobian))
+
   def evaluate_batch(self, unit_parameters, workers=1):
     points = self._validate_batch(unit_parameters)
     if not isinstance(workers, Integral) or workers < 1:

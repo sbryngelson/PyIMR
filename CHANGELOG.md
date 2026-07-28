@@ -201,6 +201,13 @@ numbers**, with no error and no deprecation path.
   `"fd"` (default, second-order finite difference) or `"spectral"` (Chebyshev
   collocation) (#20). Spectral at `Nt = 25` matches or beats finite difference
   at `Nt = 400` on collapse depth and timing.
+- `pymc_op.log_marginal_likelihood(trace)`, the supported way to read the
+  evidence out of a `sample_smc` run (#25). Reading it by hand does not
+  survive adaptive tempering: chains do not all take the same number of
+  stages, arviz stores unequal ones raggedly, and the obvious
+  `np.asarray(...).ravel()[-1]` then returns a list rather than a float. It
+  also kept a single chain and discarded the rest. 5 of 18 calibration runs
+  tempered raggedly.
 - `max_step_s` config field bounding the integrator step (#8).
 - `PowellEyring` and `ModifiedPowellEyring` generalized-Newtonian laws (#10).
 - `imr_data` module: equilibrium radius, natural frequency, and collapse
@@ -218,6 +225,15 @@ numbers**, with no error and no deprecation path.
   maximum measured sampling phase rather than error. The median deviation over
   the trace was `8.2e-06`, two orders lower. Spectral convergence has no floor.
 - Missing stress term in `radial = 5` (#18).
+- **The SMC log marginal likelihood was never checked against a known
+  answer** (#25). Its test asserted `np.isfinite`, which any number satisfies;
+  removing the Gaussian normalisation constant entirely still passed it, at
+  an 815-nat error. It is now validated against exact Gauss-Legendre
+  quadrature of the same posterior -- the prior is Uniform(0, 1) per
+  parameter, so the evidence is a plain integral over the unit cube that owes
+  nothing to SMC. Measured error against quadrature is +0.02 nats at 256
+  draws and +0.26 at 64; the limit is seed-to-seed scatter rather than bias.
+  No behaviour changed -- the numbers were right, nothing had established it.
 - The last two `np.errstate` suppressions in the package, and the reason one of
   them was never needed (#35). The Mie-Gruneisen sound-speed `sqrt` was
   suppressed on the strength of a comment blaming rejected LSODA trial steps;

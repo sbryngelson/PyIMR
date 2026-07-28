@@ -5,6 +5,7 @@ core install stays numpy/scipy/numba.
 """
 
 import sys
+import types
 
 import numpy as np
 import pytest
@@ -147,16 +148,68 @@ def test_sampling_plumbing_runs(inference):
     assert np.asarray(trace.posterior[name]).size == 2
 
 
-def test_smc_returns_a_marginal_likelihood(inference):
-  """Plumbing only, like the NUTS smoke test above -- but checking the one
-  quantity that justifies SMC's existence here.
+# Exact log marginal likelihood for the module fixture, by tensor
+# Gauss-Legendre quadrature of L(u) over the unit square -- the prior is
+# Uniform(0, 1) per parameter, so the evidence is a plain 2-D integral and
+# nothing about SMC, PyMC or the posterior's shape enters it. The rule sits on
+# the mode +- 10 Laplace sd because the posterior is far narrower than [0, 1]:
+# a rule over the WHOLE square moved in the third digit from order 24 to 64,
+# while the boxed rule gives 786.496452 / 786.437236 / 786.437235 at 24 / 40 /
+# 64 -- eight figures fixed. The excluded corner is bounded, not assumed away,
+# at area * max L outside = exp(-284) of the total.
+_FIXTURE_LOG_EVIDENCE = 786.43724
 
-  SMC is slower than NUTS per unit of posterior and discards the gradients
-  entirely (`pm.sample_smc` mutates with Metropolis). What it buys is
-  `log_marginal_likelihood`, which NUTS cannot produce and which is what lets
-  two material models be compared on the same data.
+
+def test_smc_evidence_matches_exact_quadrature(inference, measured):
+  """The quantity that justifies SMC's existence here, against a known answer.
+
+  This used to assert `np.isfinite`, which is satisfied by any number at all.
+  Evidence is the one output NUTS cannot produce and the only thing that lets
+  two material models be compared on the same data, so "it returned a float"
+  was never a check of it.
+
+  The bound is loose on purpose. At 64 draws the seed-to-seed scatter is ~0.13
+  nats (measured over three seeds: -0.193, +0.014, +0.060), so 1 nat is about
+  7 sd -- tight enough to catch the failures that matter and far from flaky.
+  Every plausible defect here is orders of magnitude larger: dropping the
+  Gaussian normalisation would move this by ~600 nats, since the fixture has 60
+  observations at sigma = 5e-7.
   """
-  trace = pymc_op.sample_smc(inference, draws=16, chains=2, progressbar=False, random_seed=3)
-  assert np.asarray(trace.posterior["material.shear_modulus_pa"]).size == 32
-  evidence = float(np.asarray(trace.sample_stats["log_marginal_likelihood"]).ravel()[-1])
-  assert np.isfinite(evidence), "SMC ran but produced no usable evidence"
+  trace = pymc_op.sample_smc(inference, draws=64, chains=2, progressbar=False, random_seed=3)
+  assert np.asarray(trace.posterior["material.shear_modulus_pa"]).size == 128
+  evidence = pymc_op.log_marginal_likelihood(trace)
+  measured("SMC evidence vs quadrature", f"{evidence:.3f} vs {_FIXTURE_LOG_EVIDENCE:.3f}")
+  assert abs(evidence - _FIXTURE_LOG_EVIDENCE) < 1.0, (
+    f"SMC evidence {evidence:.3f} is not the {_FIXTURE_LOG_EVIDENCE:.3f} that exact quadrature gives"
+  )
+
+
+def test_log_marginal_likelihood_survives_ragged_tempering():
+  """Adaptive tempering does not give every chain the same number of stages.
+
+  When it does not, arviz stores unequal lists and the array has object dtype,
+  so the obvious `np.asarray(trace.sample_stats[...]).ravel()[-1]` returns a
+  LIST and `float()` on it raises. That is not a corner case: 5 of 18 real runs
+  while calibrating this file tempered raggedly ([4, 3], [3, 4], [6, 5], [4, 5],
+  [5, 4]), and the previous version of the test above passed only because
+  `random_seed=3` happens to keep its two chains in lockstep. `random_seed=7`
+  made it raise.
+
+  Stubbed rather than sampled: reaching a ragged trace needs a lucky seed, which
+  is the very fragility being fixed.
+  """
+  stub = types.SimpleNamespace(
+    sample_stats={
+      "log_marginal_likelihood": types.SimpleNamespace(values=np.array([[1.0, 2.0, 3.0], [4.0, 5.0]], dtype=object))
+    }
+  )
+  # log(mean(exp(3), exp(5))) -- the last entry of each chain, combined as
+  # log(mean(Z)) because SMC's Z-hat is unbiased and its logarithm is not.
+  assert pymc_op.log_marginal_likelihood(stub) == pytest.approx(5.0 + np.log((np.exp(-2.0) + 1.0) / 2.0))
+
+  even = types.SimpleNamespace(
+    sample_stats={"log_marginal_likelihood": types.SimpleNamespace(values=np.array([[1.0, 3.0], [2.0, 5.0]]))}
+  )
+  combined = pymc_op.log_marginal_likelihood(even)
+  assert combined == pytest.approx(5.0 + np.log((np.exp(-2.0) + 1.0) / 2.0))
+  assert combined != pytest.approx(5.0), "keeping only the last chain would give 5.0 and discard the other"

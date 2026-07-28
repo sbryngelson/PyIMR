@@ -39,6 +39,7 @@ import numpy as np
 import pytest
 
 import imr_fast
+from imr_fast import _thermal
 
 SECTION = "1d. Closed forms independent of IMRv2"
 
@@ -339,3 +340,40 @@ def test_a_dry_run_ignores_the_vapour_conductivity(options, measured):
     worst = max(worst, float(np.max(np.abs(trace - baseline))))
   measured(f"vapour-K invariance {'+medtherm' if 'medtherm' in options else 'gas'}", f"max|dR|={worst:.2e}")
   assert worst < 1e-7
+
+
+@pytest.mark.parametrize("radial", (5, 6))
+def test_the_mie_gruneisen_domain_is_one_boundary_not_two(radial, measured):
+  """The Hugoniot's density root and its sound speed fail at the same place.
+
+  `_mu_of_A` solves `a*mu^2 + b*mu + A = 0`; its discriminant collapses to
+  `1 + 4*A*(s + nog)` -- the quartic terms cancel exactly -- so a real root
+  needs `A > -1/(4*(s + nog)) = -0.0529`. The sound-speed radicand reduces to
+  `(1 + (s + 2*nog)*mu) / (1 - s*mu)^3`, which vanishes at `mu = -1/(s + 2*nog)`,
+  and that is *precisely* the mu the first expression returns at its own root.
+
+  So the sound-speed `sqrt` can never see a negative argument the density
+  `sqrt` did not already turn into nan, and `sqrt(nan)` is quiet. #35 suppressed
+  it for years on the strength of a comment blaming rejected LSODA trial steps;
+  the negative values that comment described were the *spurious* root's, fixed
+  in #18. Nothing was left to suppress.
+  """
+  s, nog = _thermal._HUGONIOT_S, _thermal._NOG
+  limit = -1.0 / (4.0 * (s + nog))
+  assert _thermal._mu_of_A(limit, s, nog) == pytest.approx(-1.0 / (s + 2.0 * nog), rel=1e-12)
+
+  grid = np.concatenate([np.linspace(limit, 0.0, 4000), np.logspace(-6, 4, 4000)])
+  mu = _thermal._mu_of_A(grid, s, nog)
+  assert np.all(np.isfinite(mu)), "the closed-form discriminant must stay real on its whole domain"
+  radicand = (1.0 + (s + 2.0 * nog) * mu) / (1.0 - s * mu) ** 3
+  assert np.all(radicand >= 0.0), "a real density root must imply a real sound speed"
+
+  config = imr_fast.SimulationConfig(
+    R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=radial
+  )
+  parameters = imr_fast.prepare(config).parameters
+  result = imr_fast.simulate(np.linspace(0.0, 60e-6, 2000), config)
+  bubble = np.asarray(result.internal_pressure_pa) + np.asarray(result.stress_integral_pa)
+  reached = (bubble / parameters["P8"] - parameters["iWe"] / np.asarray(result.radius_ratio)) / parameters["Cstar"] ** 2
+  measured(f"Mie-Gruneisen A range r={radial}", f"[{reached.min():.2e}, {reached.max():.2e}] vs limit {limit:.4f}")
+  assert reached.min() > limit, "the trajectory must stay inside the Hugoniot's domain"

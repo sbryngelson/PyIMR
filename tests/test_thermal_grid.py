@@ -8,8 +8,6 @@ singularity is. A suppressed `np.errstate` produces `inf` wherever a node
 happens to land on `-1` and says nothing. See issue #35.
 """
 
-import inspect
-
 import numpy as np
 import pytest
 
@@ -124,14 +122,11 @@ def test_medium_dissipation_needs_no_suppression(label, material, backend):
     imr_fast.simulate(np.linspace(0.0, 4e-6, 20), config)
 
 
-def test_dissipation_paths_carry_no_suppression():
-  """The behavioural test above cannot detect a re-added `np.errstate`: an inner
-  suppression overrides the outer context, so it would pass either way. That is
-  the same trap #35 is about, one level up. This checks the source directly."""
-  source = inspect.getsource(_thermal)
-  for name in ("_instantaneous_dissipation", "_distributed_dissipation"):
-    body = source.split(f"def {name}(")[1].split("\ndef ")[0]
-    assert "errstate" not in body, f"{name} suppresses floating-point errors again; see #35"
+# The structural counterpart to the behavioural test above -- an inner
+# `np.errstate` overrides an outer one, so a solve under `errstate(all="raise")`
+# cannot see a suppression return -- is now package-wide rather than a
+# two-function check here: `test_api.test_floating_point_suppression_stays_where
+# _it_was_argued_for`. Scoping it to this module is what let #35 miss a site.
 
 
 def _prepared_wall_inputs(Mt=9):

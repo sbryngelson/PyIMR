@@ -218,6 +218,17 @@ numbers**, with no error and no deprecation path.
   maximum measured sampling phase rather than error. The median deviation over
   the trace was `8.2e-06`, two orders lower. Spectral convergence has no floor.
 - Missing stress term in `radial = 5` (#18).
+- The last two `np.errstate` suppressions in the package, and the reason one of
+  them was never needed (#35). The Mie-Gruneisen sound-speed `sqrt` was
+  suppressed on the strength of a comment blaming rejected LSODA trial steps;
+  those negative values belonged to the *spurious* density root fixed in #18.
+  Both discriminants now read in closed form -- `_mu_of_A`'s collapses to
+  `1 + 4*A*(s + nog)`, the sound-speed radicand to
+  `(1 + (s + 2*nog)*mu) / (1 - s*mu)**3` -- which shows the two share one
+  boundary exactly, so a negative argument at the second is unreachable. The
+  wall-temperature secant keeps its suppression, narrowed from the whole
+  fallback ladder to the residual evaluation that actually needs it. Trajectory
+  changes are at roundoff; the pinned suite is unmoved.
 - **Sensitivities with `thermal = "spectral"` were wrong** (#43). The tangent
   path rebuilt the wall-flux weights with a hardcoded three-point uniform
   finite-difference stencil, overwriting the prepared dense Chebyshev boundary

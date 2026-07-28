@@ -228,12 +228,6 @@
     "count": 1
   },
   {
-    "file": "src/imr_fast/inference.py",
-    "rule": "reportIndexIssue",
-    "message": "\"__getitem__\" method not defined on type \"float\"",
-    "count": 1
-  },
-  {
     "file": "src/imr_fast/pymc_op.py",
     "rule": "reportOperatorIssue",
     "message": "Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown] | list[Variable[Unknown, Unknown]]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"list[Variable[Unknown, Unknown]]\"",

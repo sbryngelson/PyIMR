@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from itertools import repeat
 from numbers import Integral
 
@@ -120,6 +120,79 @@ class RadiusObservation:
     object.__setattr__(self, "standard_deviation_m", _readonly(deviation))
 
 
+# Every trace the sensitivity solve already returns tangents for, and whose
+# shape is one value per observation time. `bubble_temperature_k` and
+# `medium_temperature_k` are fields over their grids -- shape (times, nodes) --
+# so observing them needs a node selection and is deliberately out of scope
+# here.
+OBSERVABLE_FIELDS = ("radius_m", "radius_ratio", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
+
+
+@dataclass(frozen=True, slots=True)
+class FieldObservation:
+  """Observations of any scalar trace the solver produces.
+
+  A single `simulate_with_sensitivities` call already returns exact tangents for
+  all of `OBSERVABLE_FIELDS`; the likelihood used to read one of them and
+  discard the rest. So observing wall velocity or internal pressure alongside
+  radius costs nothing beyond the arithmetic -- which is what makes "what to
+  measure" usable as a design variable rather than a modelling choice.
+
+  Observations may sit on different time grids. The solve runs once on the union
+  of them.
+  """
+
+  field: str
+  time_s: np.ndarray
+  values: np.ndarray
+  standard_deviation: float | np.ndarray
+
+  def __post_init__(self):
+    if self.field not in OBSERVABLE_FIELDS:
+      raise ValueError(f"field must be one of {OBSERVABLE_FIELDS}, got {self.field!r}")
+    time = np.asarray(self.time_s, dtype=float)
+    values = np.asarray(self.values, dtype=float)
+    deviation = np.asarray(self.standard_deviation, dtype=float)
+    if time.ndim != 1 or time.size < 1:
+      raise ValueError("observation time_s must be one-dimensional and non-empty")
+    if values.shape != time.shape:
+      raise ValueError("observation values must match time_s")
+    if deviation.ndim > 1 or (deviation.ndim == 1 and deviation.shape != time.shape):
+      raise ValueError("standard_deviation must be scalar or match time_s")
+    if not (np.all(np.isfinite(time)) and np.all(np.isfinite(values)) and np.all(np.isfinite(deviation))):
+      raise ValueError("observations and deviations must be finite")
+    if np.any(deviation <= 0.0):
+      raise ValueError("standard_deviation must be positive")
+    if time[0] < 0.0 or np.any(np.diff(time) <= 0.0):
+      raise ValueError("observation time_s must be non-negative and increasing")
+    if deviation.ndim == 0:
+      deviation = np.full(time.shape, float(deviation))
+    object.__setattr__(self, "time_s", _readonly(time))
+    object.__setattr__(self, "values", _readonly(values))
+    object.__setattr__(self, "standard_deviation", _readonly(deviation))
+
+
+def _as_field_observations(observation):
+  """Normalise one observation, or several, into a tuple of `FieldObservation`.
+
+  `RadiusObservation` is kept rather than deprecated: it carries the positivity
+  check that only makes sense for a radius, and it is the overwhelmingly common
+  case.
+  """
+  items = observation if isinstance(observation, (tuple, list)) else (observation,)
+  if not items:
+    raise ValueError("at least one observation is required")
+  normalized = []
+  for item in items:
+    if isinstance(item, RadiusObservation):
+      normalized.append(FieldObservation("radius_m", item.time_s, item.radius_m, item.standard_deviation_m))
+    elif isinstance(item, FieldObservation):
+      normalized.append(item)
+    else:
+      raise TypeError("observations must be RadiusObservation or FieldObservation")
+  return tuple(normalized)
+
+
 @dataclass(frozen=True, slots=True)
 class LikelihoodEvaluation:
   """One retained likelihood evaluation."""
@@ -164,14 +237,20 @@ class PreparedInference:
   """Reusable parameterization and Gaussian radius likelihood."""
 
   config: imr_fast.SimulationConfig
-  observation: RadiusObservation
+  observation: RadiusObservation | FieldObservation | tuple
   parameters: tuple[InferenceParameter, ...]
+  _observations: tuple = ()
+  _grid: np.ndarray = field(default_factory=lambda: np.empty(0))
+  _index: tuple = ()
 
   def __post_init__(self):
     if not isinstance(self.config, imr_fast.SimulationConfig):
       raise TypeError("config must be SimulationConfig")
-    if not isinstance(self.observation, RadiusObservation):
-      raise TypeError("observation must be RadiusObservation")
+    observations = _as_field_observations(self.observation)
+    grid = np.unique(np.concatenate([item.time_s for item in observations]))
+    object.__setattr__(self, "_observations", observations)
+    object.__setattr__(self, "_grid", _readonly(grid))
+    object.__setattr__(self, "_index", tuple(np.searchsorted(grid, item.time_s) for item in observations))
     parameters = tuple(self.parameters)
     if not parameters or not all(isinstance(parameter, InferenceParameter) for parameter in parameters):
       raise TypeError("parameters must contain at least one InferenceParameter")
@@ -190,6 +269,10 @@ class PreparedInference:
   def size(self):
     return len(self.parameters)
 
+  @property
+  def _normalization(self):
+    return float(sum(np.sum(np.log(2.0 * np.pi * item.standard_deviation**2)) for item in self._observations))
+
   def physical_parameters(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
     return np.array([parameter.physical_value(value) for parameter, value in zip(self.parameters, unit, strict=True)])
@@ -201,27 +284,42 @@ class PreparedInference:
       config = _replace_path(config, _path_parts(parameter.path), value)
     return config
 
+  def _stack_residual(self, result):
+    parts = []
+    for item, index in zip(self._observations, self._index, strict=True):
+      predicted = np.asarray(getattr(result, item.field))[index]
+      parts.append((predicted - item.values) / item.standard_deviation)
+    return np.concatenate(parts)
+
+  def _stack_jacobian(self, result, unit):
+    chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
+    parts = []
+    for item, index in zip(self._observations, self._index, strict=True):
+      tangent = np.asarray(getattr(result, item.field))[index]
+      parts.append(tangent / np.asarray(item.standard_deviation)[:, None] * chain)
+    return np.concatenate(parts, axis=0)
+
+  @property
+  def observation_size(self):
+    """Total number of observed values, across every field."""
+    return sum(item.time_s.size for item in self._observations)
+
   def residual(self, unit_parameters):
     config = self.config_from_unit(unit_parameters)
-    result = imr_fast.simulate(self.observation.time_s, config)
-    return (result.radius_m - self.observation.radius_m) / self.observation.standard_deviation_m
+    return self._stack_residual(imr_fast.simulate(self._grid, config))
 
   def jacobian(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
     config = self.config_from_unit(unit)
-    result = imr_fast.simulate_with_sensitivities(
-      self.observation.time_s, config, [parameter.path for parameter in self.parameters]
-    )
-    chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
-    return result.radius_m / self.observation.standard_deviation_m[:, None] * chain
+    result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
+    return self._stack_jacobian(result, unit)
 
   def evaluate(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
     config = self.config_from_unit(unit)
-    result = imr_fast.simulate(self.observation.time_s, config)
-    residual = (result.radius_m - self.observation.radius_m) / self.observation.standard_deviation_m
-    normalization = np.log(2.0 * np.pi * self.observation.standard_deviation_m**2)
-    log_likelihood = -0.5 * np.sum(residual**2 + normalization)
+    result = imr_fast.simulate(self._grid, config)
+    residual = self._stack_residual(result)
+    log_likelihood = -0.5 * (np.sum(residual**2) + self._normalization)
     return LikelihoodEvaluation(
       unit_parameters=_readonly(unit),
       physical_parameters=_readonly(self.physical_parameters(unit)),
@@ -245,14 +343,10 @@ class PreparedInference:
     """
     unit = self._validate_unit_parameters(unit_parameters)
     config = self.config_from_unit(unit)
-    result = imr_fast.simulate_with_sensitivities(
-      self.observation.time_s, config, [parameter.path for parameter in self.parameters]
-    )
-    deviation = np.asarray(self.observation.standard_deviation_m)
-    residual = (np.asarray(result.simulation.radius_m) - self.observation.radius_m) / deviation
-    chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
-    jacobian = np.asarray(result.radius_m) / deviation[:, None] * chain
-    log_likelihood = -0.5 * np.sum(residual**2 + np.log(2.0 * np.pi * deviation**2))
+    result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
+    residual = self._stack_residual(result.simulation)
+    jacobian = self._stack_jacobian(result, unit)
+    log_likelihood = -0.5 * (np.sum(residual**2) + self._normalization)
     evaluation = LikelihoodEvaluation(
       unit_parameters=_readonly(unit),
       physical_parameters=_readonly(self.physical_parameters(unit)),

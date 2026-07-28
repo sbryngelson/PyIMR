@@ -11,6 +11,7 @@ import pytest
 
 from imr_fast import design as imr_design
 import imr_fast
+import imr_fast.inference
 from _validation_support import R0, REQ
 from imr_fast.inference import InferenceParameter
 
@@ -196,3 +197,27 @@ def test_a_prior_sweep_reuses_one_set_of_solves(design, monkeypatch):
   ]
   assert len(calls) == 4, f"expected 4 solves for 3 priors, got {len(calls)}"
   assert gains[0] > gains[1] > gains[2], "a tighter prior must leave less to learn"
+
+
+def test_a_second_observable_raises_the_information(measured):
+  """The BOED reason for observables: *what to measure* becomes a design
+  variable, not a modelling choice.
+
+  Adding an observable adds a positive semidefinite block to `J^T J`, so the
+  gain cannot fall. It costs nothing in solve time -- one sensitivity solve
+  already returns tangents for every field, and the likelihood used to discard
+  all but one.
+  """
+  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  radius = imr_fast.inference.RadiusObservation(_TIMES, np.full(_TIMES.size, R0), _NOISE)
+  velocity = imr_fast.inference.FieldObservation("wall_velocity_m_s", _TIMES, np.zeros(_TIMES.size), 2.0)
+
+  alone = imr_design.expected_information_gain(
+    imr_design.DesignInference(config, radius, _PARAMETERS), draws=6
+  ).expected_information_gain
+  together = imr_design.expected_information_gain(
+    imr_design.DesignInference(config, (radius, velocity), _PARAMETERS), draws=6
+  ).expected_information_gain
+
+  measured("EIG radius vs radius+velocity", f"{alone:.3f} -> {together:.3f} nats")
+  assert together > alone, "adding an observable cannot reduce the information"

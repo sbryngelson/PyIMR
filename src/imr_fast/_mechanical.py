@@ -405,10 +405,10 @@ def _stress(
 
 @njit(cache=True)
 def _mie_mu(compression, slope, nog):
-  a = compression * slope**2 - nog
-  b = -2.0 * compression * slope - 1.0
-  discriminant = b**2 - 4.0 * a * compression
-  return (-b - np.sqrt(discriminant)) / (2.0 * a)
+  # `b**2 - 4*a*compression` collapses exactly; see `_thermal._mu_of_A`, which
+  # this must stay bit-comparable with (tests/test_rhs_consistency.py).
+  discriminant = 1.0 + 4.0 * compression * (slope + nog)
+  return (2.0 * compression * slope + 1.0 - np.sqrt(discriminant)) / (2.0 * (compression * slope**2 - nog))
 
 
 @njit(cache=True)
@@ -497,11 +497,9 @@ def mechanical_rhs(
     density_factor = 1.0 / (1.0 + mu)
     enthalpy = reference_sound**2 * (_mie_antiderivative(mu, slope, nog) - p[P_MIE_REFERENCE])
     if radial == 6:
-      # Gilmore: local sound speed from the Mie-Gruneisen EoS
-      w = 1.0 - slope * mu
-      sound = reference_sound * np.sqrt(
-        ((1.0 + 2.0 * nog * mu) * w**2 + 2.0 * slope * mu * (1.0 + nog * mu) * w) / w**4
-      )
+      # Gilmore: local sound speed from the Mie-Gruneisen EoS, radicand reduced
+      # as in `_thermal._mie_gruneisen`.
+      sound = reference_sound * np.sqrt((1.0 + (slope + 2.0 * nog) * mu) / (1.0 - slope * mu) ** 3)
     else:
       sound = reference_sound
     numerator = (

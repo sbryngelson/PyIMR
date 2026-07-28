@@ -1,6 +1,8 @@
+import ast
 import importlib
 import types
 import typing
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -224,3 +226,46 @@ def test_standalone_validation_scripts_still_run(script):
   root = pathlib.Path(__file__).resolve().parent.parent
   done = subprocess.run([sys.executable, str(root / script)], capture_output=True, text=True, cwd=root, timeout=300)
   assert done.returncode == 0, done.stdout[-2000:] + done.stderr[-2000:]
+
+
+# The one place in the package allowed to suppress a floating-point error, and
+# it is a nested function on purpose: a secant iterate can leave the Kirchhoff
+# transform's range, and the resulting nan is what tells the root-finder to back
+# off. The ladder around it, and the solver's own arithmetic, stay honest.
+ERRSTATE_ALLOWED = {"_thermal._wall_theta_bw_full.resid"}
+
+
+def _own_nodes(node):
+  """`node`'s own body, excluding any function nested inside it."""
+  for child in ast.iter_child_nodes(node):
+    if not isinstance(child, ast.FunctionDef):
+      yield child
+      yield from _own_nodes(child)
+
+
+def _errstate_sites(node, prefix):
+  for child in ast.iter_child_nodes(node):
+    nested = isinstance(child, ast.FunctionDef)
+    qualified = f"{prefix}.{child.name}" if nested else prefix
+    if nested and any(isinstance(n, ast.Attribute) and n.attr == "errstate" for n in _own_nodes(child)):
+      yield qualified
+    yield from _errstate_sites(child, qualified)
+
+
+def test_floating_point_suppression_stays_where_it_was_argued_for():
+  """#35's own miscount is the argument for checking this structurally.
+
+  That issue surveyed four modules by hand, revised the tally twice, and still
+  missed `_stress` entirely -- so the count was wrong in both directions for the
+  issue's whole life. A behavioural guard cannot help: an inner `np.errstate`
+  overrides an outer one, so a solve run under `errstate(all="raise")` passes
+  whether or not a suppression is there. Both problems are structural.
+
+  Naming the *innermost* function makes a widened scope a visible diff, not
+  just a re-added one.
+  """
+  root = Path(str(importlib.import_module(PACKAGE).__file__)).resolve().parent
+  found = {
+    site for path in sorted(root.glob("*.py")) for site in _errstate_sites(ast.parse(path.read_text()), path.stem)
+  }
+  assert found == ERRSTATE_ALLOWED, f"floating-point suppression moved: {found ^ ERRSTATE_ALLOWED}; see #35"

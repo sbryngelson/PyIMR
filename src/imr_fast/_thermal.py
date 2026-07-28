@@ -86,10 +86,12 @@ def pvsat(T):
 
 
 def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG):
-  a = A * s**2 - nog
-  b = -2.0 * A * s - 1.0
-  d = b**2 - 4.0 * a * A
-  return (-b - np.sqrt(d)) / (2.0 * a)
+  # The discriminant of a*mu**2 + b*mu + A collapses: b**2 - 4*a*A is
+  # 4*A**2*s**2 + 4*A*s + 1 - 4*A**2*s**2 + 4*nog*A, whose quartic terms cancel
+  # exactly. Writing it out gives the Hugoniot's domain in one line -- a real
+  # density root needs A > -1/(4*(s + nog)) = -0.0529 -- and avoids the
+  # cancellation the subtracted form suffers. See #35.
+  return (2.0 * A * s + 1.0 - np.sqrt(1.0 + 4.0 * A * (s + nog))) / (2.0 * (A * s**2 - nog))
 
 
 def _mie_F(mu, s=_HUGONIOT_S, nog=_NOG):
@@ -104,12 +106,12 @@ def _mie_F(mu, s=_HUGONIOT_S, nog=_NOG):
 def _mie_gruneisen(P, Cstar, s, nog, reference):
   A = P / Cstar**2
   mu = _mu_of_A(A, s, nog)
-  w = 1.0 - s * mu
-  # transient negative discriminant on rejected LSODA trial steps only --
-  # the accepted trajectory stays real (confirmed against real IMRv2, see
-  # module docstring); harmless, same pattern as the xi[-1]=-1 case below.
-  with np.errstate(invalid="ignore"):
-    C = Cstar * np.sqrt(((1 + 2 * nog * mu) * w**2 + 2 * s * mu * (1 + nog * mu) * w) / w**4)
+  # The sound-speed radicand reduces to (1 + (s + 2*nog)*mu) / (1 - s*mu)**3,
+  # which vanishes at mu = -1/(s + 2*nog) -- the same mu `_mu_of_A` returns at
+  # its own discriminant's root. The two boundaries coincide exactly, so a
+  # negative argument here is unreachable: mu is already nan by then, and
+  # sqrt(nan) is quiet. The suppression this used to carry never fired (#35).
+  C = Cstar * np.sqrt((1.0 + (s + 2.0 * nog) * mu) / (1.0 - s * mu) ** 3)
   hH = 1.0 / (1.0 + mu)
   hB = Cstar**2 * (_mie_F(mu, s, nog) - reference)
   return C, hB, hH
@@ -308,26 +310,32 @@ def _wall_theta_bw_full(
   beta_m = kv_end_stale * beta_v + (1.0 - kv_end_stale) * beta_g
 
   def resid(theta_bw):
-    Tw = kirchhoff_temperature(theta_bw, alpha_m, beta_m)
-    kvw = _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale)
-    lhs = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
-    rhs = grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
-    scalar = P / ((kvw * Rva_diff + Rg_star) * (Tw * (1.0 - kvw)))
-    extra = scalar * (grad_C[0] * kvw + np.sum(grad_C[1:] * kv_tail))
+    # A secant iterate can leave the Kirchhoff transform's range, where the
+    # inverse has no real root: measured once per 30 us solve, out to
+    # theta = -4.3e+04 against a guess of 0.50. The nan is what tells
+    # `_secant_root` to back off, so it is suppressed here and only here. The
+    # ladder below and the solver's own arithmetic raise nothing -- measured,
+    # not assumed -- and are left honest. See #35.
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+      Tw = kirchhoff_temperature(theta_bw, alpha_m, beta_m)
+      kvw = _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale)
+      lhs = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
+      rhs = grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
+      scalar = P / ((kvw * Rva_diff + Rg_star) * (Tw * (1.0 - kvw)))
+      extra = scalar * (grad_C[0] * kvw + np.sum(grad_C[1:] * kv_tail))
     return lhs + rhs + extra
 
   failure = None
-  with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-    try:
-      return _secant_root(resid, guess)
-    except RuntimeError as error:
-      failure = error
-      roots = []
-      for fallback in (0.0, 0.5 * guess, 1.5 * guess, theta_tail[0]):
-        try:
-          roots.append(_secant_root(resid, fallback))
-        except RuntimeError:
-          pass
+  try:
+    return _secant_root(resid, guess)
+  except RuntimeError as error:
+    failure = error
+    roots = []
+    for fallback in (0.0, 0.5 * guess, 1.5 * guess, theta_tail[0]):
+      try:
+        roots.append(_secant_root(resid, fallback))
+      except RuntimeError:
+        pass
   if roots:
     return min(roots, key=lambda root: abs(root - guess))
   raise failure

@@ -136,7 +136,29 @@ def build_model(inference, name="unit"):
   return model
 
 def sample_posterior(inference, draws=1000, tune=1000, chains=4, **kwargs):
-  """NUTS over the unit cube. `kwargs` pass straight through to `pymc.sample`."""
+  """NUTS over the unit cube. `kwargs` pass straight through to `pymc.sample`.
+
+  **A tighter posterior is a harder one, so a better design makes this less
+  reliable, not more.** Measured on two cases that differ only in the design:
+
+      posterior sd     R-hat   ESS of 400   outcome
+        8.8e-02         ~1.0      good      recovers the truth; the numbers in
+                                            the module docstring above
+        1.3e-03         1.84      3.1       BOTH chains stranded outside the
+                                            posterior, one 7568 nats below the
+                                            mode and frozen at sd 2.5e-03
+
+  The second is a 40-frame design concentrated at the collapse -- a *good*
+  design, which is the point. Its posterior is 68x tighter, and NUTS started
+  from `jitter+adapt_diag` never found it.
+
+  Do not pass `compute_convergence_checks=False` and then use the trace
+  quantitatively. That is what hid the failure above: R-hat 1.84 was never
+  printed, the two stranded chains were pooled with `np.cov`, and the resulting
+  covariance -- inflated by the gap between chain means -- was reported as a
+  posterior for long enough to be written into an issue as a property of the
+  EIG criterion rather than of the sampler. See #25.
+  """
   pymc, _, _ = _pymc()
   with build_model(inference):
     return pymc.sample(draws=draws, tune=tune, chains=chains, **kwargs)

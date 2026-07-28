@@ -35,6 +35,22 @@ def _flaky(real, *, every):
   return wrapper
 
 
+_TRUTH_UNIT = np.array([(2500.0 - 1500.0) / 2500.0, (0.1 - 0.05) / 0.15])
+
+def _collapse_design(count=40, half_width=1e-6):
+  """Half the frames inside +-1 us of the first collapse, half spread over 60 us.
+
+  The first LOCAL minimum, not the deepest: at low viscosity a later rebound
+  collapses deeper, and `argmin` picks that one instead -- a 32 us error where
+  the real spread between designs is 2.2 us.
+  """
+  fine = np.linspace(0.0, 60e-6, 4000)
+  trace = np.asarray(imr_fast.simulate(fine, imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))).radius_m)
+  interior = np.flatnonzero((trace[1:-1] < trace[:-2]) & (trace[1:-1] <= trace[2:])) + 1
+  collapse = float(fine[interior[0]])
+  near = np.linspace(max(collapse - half_width, 1e-7), collapse + half_width, count // 2)
+  return np.unique(np.concatenate([near, np.linspace(1e-7, 60e-6, count - count // 2)]))
+
 def _design(times=_TIMES, noise=_NOISE):
   config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
   return imr_design.design_inference(config, times, noise, _PARAMETERS)
@@ -243,3 +259,38 @@ def test_a_field_without_a_time_derivative_refuses(measured):
   inference = imr_design.DesignInference(config, pressure, _PARAMETERS)
   with pytest.raises(NotImplementedError, match="no time derivative available"):
     inference.jacobian_time_derivative(np.full(inference.size, 0.5))
+
+# Exact information gain for the design below, from tensor Gauss-Legendre
+# quadrature of the posterior over the unit square -- the prior is Uniform(0,1)
+# per parameter, so `0.5*(logdet Sigma_prior - logdet Sigma_posterior)` is a
+# 2-D integral owing nothing to the Laplace approximation being checked. Stable
+# to 1e-4 between order 40 and 64 (10.8069, 10.8068).
+_EXACT_GAIN_AT_COLLAPSE = 10.807
+
+def test_gain_matches_an_exact_posterior(measured):
+  """The criterion against a posterior computed rather than sampled.
+
+  Everything else here checks EIG's arithmetic -- the closed form, the sigma
+  scaling, monotonicity. This checks the approximation itself: EIG assumes the
+  posterior is the Gaussian its Fisher information implies, and quadrature says
+  what the posterior actually is.
+
+  #25 recorded EIG as over-predicting by 0.52-0.81 against NUTS. That was wrong,
+  and this is the reference that shows it. The NUTS runs behind that number had
+  R-hat 1.84 and 3.1 effective samples from 400 draws -- both chains stranded
+  outside the posterior, one of them 7568 nats below the mode -- and pooling
+  them inflated the covariance by ~4 nats of gain. `compute_convergence_checks`
+  had been switched off, so nothing said so. Against the exact posterior the
+  criterion is accurate to 0.003 nats here.
+
+  The failure mode is worth keeping in view: this posterior has a unit-coordinate
+  sd of 1.3e-03, about 68x tighter than the wide-prior case in `pymc_op`'s
+  docstring, where NUTS converges fine. A better design gives a tighter
+  posterior, so the sampler gets *harder* to trust exactly as the design
+  improves.
+  """
+  times = _collapse_design()
+  gain = imr_design._gain(_design(times=times), _TRUTH_UNIT, np.full(len(_PARAMETERS), imr_design.UNIFORM_VARIANCE))
+  error = abs(gain - _EXACT_GAIN_AT_COLLAPSE)
+  measured("EIG vs exact posterior", f"{gain:.4f} vs {_EXACT_GAIN_AT_COLLAPSE:.4f}, abs={error:.3f} nats")
+  assert error < 0.05, f"EIG {gain:.4f} against an exact quadrature posterior of {_EXACT_GAIN_AT_COLLAPSE:.4f}"

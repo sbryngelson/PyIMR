@@ -25,6 +25,7 @@ __all__ = [
   "_kv_of_T",
   "kirchhoff_temperature",
   "kirchhoff_theta",
+  "mixture_kirchhoff",
   "_mie_F",
   "_mie_gruneisen",
   "_mu_of_A",
@@ -72,6 +73,21 @@ def kirchhoff_temperature(theta, alpha, beta):
       theta = (s**2 - (alpha + beta)**2) / (2*alpha)
   """
   return (-beta + np.sqrt((alpha + beta) ** 2 + 2.0 * alpha * theta)) / alpha
+
+def mixture_kirchhoff(vapor_fraction, p, masstrans):
+  """The `(alpha, beta)` a gas/vapour mixture presents to :func:`kirchhoff_theta`.
+
+  Mass fraction weighted, or the dry-gas pair when there is no vapour to mix.
+  Shared for the same reason the transform itself is: #75 was five sites each
+  inlining their own Kirchhoff algebra, and two of them had grown this pair back
+  independently -- the primal initial state and its dual, which must agree
+  exactly or the tangents differentiate a different conductivity than the
+  forward solve integrates.
+  """
+  if not masstrans: return p["alpha_g"], p["beta_g"]
+  alpha = vapor_fraction * p["alpha_v"] + (1.0 - vapor_fraction) * p["alpha_g"]
+  beta = vapor_fraction * p["beta_v"] + (1.0 - vapor_fraction) * p["beta_g"]
+  return alpha, beta
 
 def pvsat(T): return 1.17e11 * np.exp(-5200.0 / T)
 

@@ -508,6 +508,11 @@ def mechanical_tangent_rhs(
     / base_parameters[P_T0]
   )
   result[:, 0] = base_output.real
+  # NOTE: these four lines are duplicated in the other tangent kernel and should
+  # stay that way. Hoisting them into an @njit helper returning the four arrays
+  # costs 5% on the sensitivity solve (46.4 -> 48.4 ms, medians 46.6 -> 48.9),
+  # measured; numba does not inline the tuple return away. Four lines is not
+  # worth 5% of the path BOED runs thousands of times.
   step = 1e-30
   for direction in range(width):
     complex_parameters = base_parameters + 1j * step * parameter_tangents[:, direction]

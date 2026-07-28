@@ -72,6 +72,26 @@ class InferenceParameter:
     value = self.physical_value(unit_value)
     return value * np.log(self.upper / self.lower)
 
+def _validate_observation(time_s, values, deviation, *, minimum, value_label, deviation_label):
+  # Shared shape/finiteness/ordering checks for an observed series, returning the three as float arrays with a scalar
+  # deviation broadcast to match. `RadiusObservation` and `FieldObservation` had six of these checks each, written
+  # twice -- and had already drifted: the radius form folded `deviation > 0` into its finiteness check, so a sigma of
+  # exactly 0.0 was rejected with "observations and deviations must be finite", which is not true of 0.0.
+  time = np.asarray(time_s, dtype=float)
+  observed = np.asarray(values, dtype=float)
+  spread = np.asarray(deviation, dtype=float)
+  if time.ndim != 1 or time.size < minimum:
+    raise ValueError(f"observation time_s must be one-dimensional with at least {minimum} point(s)")
+  if observed.shape != time.shape: raise ValueError(f"observation {value_label} must match time_s")
+  if spread.ndim > 1 or (spread.ndim == 1 and spread.shape != time.shape):
+    raise ValueError(f"{deviation_label} must be scalar or match time_s")
+  if not (np.all(np.isfinite(time)) and np.all(np.isfinite(observed)) and np.all(np.isfinite(spread))):
+    raise ValueError("observations and deviations must be finite")
+  if np.any(spread <= 0.0): raise ValueError(f"{deviation_label} must be positive")
+  if time[0] < 0.0 or np.any(np.diff(time) <= 0.0): raise ValueError("observation time_s must be non-negative and increasing")
+  if spread.ndim == 0: spread = np.full(time.shape, float(spread))
+  return time, observed, spread
+
 @dataclass(frozen=True, slots=True)
 class RadiusObservation:
   """Dimensional radius observations with independent Gaussian noise."""
@@ -81,18 +101,11 @@ class RadiusObservation:
   standard_deviation_m: float | np.ndarray
 
   def __post_init__(self):
-    time = np.asarray(self.time_s, dtype=float)
-    radius = np.asarray(self.radius_m, dtype=float)
-    deviation = np.asarray(self.standard_deviation_m, dtype=float)
-    if time.ndim != 1 or time.size < 2: raise ValueError("observation time_s must be one-dimensional")
-    if radius.shape != time.shape: raise ValueError("observation radius_m must match time_s")
-    if deviation.ndim > 1 or (deviation.ndim == 1 and deviation.shape != time.shape):
-      raise ValueError("standard_deviation_m must be scalar or match time_s")
-    if not np.all(np.isfinite(time)) or not np.all(np.isfinite(radius)) or not np.all(np.isfinite(deviation)) or np.any(deviation <= 0.0):
-      raise ValueError("observations and deviations must be finite")
-    if time[0] < 0.0 or np.any(np.diff(time) <= 0.0): raise ValueError("observation time_s must be non-negative and increasing")
+    time, radius, deviation = _validate_observation(
+      self.time_s, self.radius_m, self.standard_deviation_m,
+      minimum=2, value_label="radius_m", deviation_label="standard_deviation_m",
+    )
     if np.any(radius <= 0.0): raise ValueError("observed radii must be positive")
-    if deviation.ndim == 0: deviation = np.full(time.shape, float(deviation))
     object.__setattr__(self, "time_s", _readonly(time))
     object.__setattr__(self, "radius_m", _readonly(radius))
     object.__setattr__(self, "standard_deviation_m", _readonly(deviation))
@@ -131,23 +144,15 @@ class FieldObservation:
 
   def __post_init__(self):
     if self.field not in OBSERVABLE_FIELDS: raise ValueError(f"field must be one of {OBSERVABLE_FIELDS}, got {self.field!r}")
-    time = np.asarray(self.time_s, dtype=float)
-    values = np.asarray(self.values, dtype=float)
-    deviation = np.asarray(self.standard_deviation, dtype=float)
-    if time.ndim != 1 or time.size < 1: raise ValueError("observation time_s must be one-dimensional and non-empty")
-    if values.shape != time.shape: raise ValueError("observation values must match time_s")
-    if deviation.ndim > 1 or (deviation.ndim == 1 and deviation.shape != time.shape):
-      raise ValueError("standard_deviation must be scalar or match time_s")
-    if not (np.all(np.isfinite(time)) and np.all(np.isfinite(values)) and np.all(np.isfinite(deviation))):
-      raise ValueError("observations and deviations must be finite")
-    if np.any(deviation <= 0.0): raise ValueError("standard_deviation must be positive")
-    if time[0] < 0.0 or np.any(np.diff(time) <= 0.0): raise ValueError("observation time_s must be non-negative and increasing")
+    time, values, deviation = _validate_observation(
+      self.time_s, self.values, self.standard_deviation,
+      minimum=1, value_label="values", deviation_label="standard_deviation",
+    )
     if self.correlation_time_s is not None:
       correlation = float(self.correlation_time_s)
       if not np.isfinite(correlation) or correlation <= 0.0:
         raise ValueError("correlation_time_s must be finite and positive, or None for independent noise")
       object.__setattr__(self, "correlation_time_s", correlation)
-    if deviation.ndim == 0: deviation = np.full(time.shape, float(deviation))
     object.__setattr__(self, "time_s", _readonly(time))
     object.__setattr__(self, "values", _readonly(values))
     object.__setattr__(self, "standard_deviation", _readonly(deviation))

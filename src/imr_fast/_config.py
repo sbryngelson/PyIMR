@@ -62,6 +62,7 @@ __all__ = [
   "_freeze_array",
   "_readonly_float_array",
   "_readonly_optional",
+  "_solve_stats",
   "_validate_inputs",
 ]
 # gas and vapour thermal-conductivity coefficients, IMRv2 default_case.m
@@ -448,6 +449,26 @@ def _validate_inputs(tv, config) -> np.ndarray:
   if times[0] < 0 or np.any(np.diff(times) <= 0): raise ValueError("tv must be non-negative and strictly increasing")
   _validate_config(config)
   return times
+
+def _solve_stats(solution, time_s, backend, elapsed):
+  """`(success, message, SolverStats)` for a scipy solve that returned.
+
+  Shared because a divergence here is a correctness bug rather than an
+  inconsistency: this is where a solve that "succeeded" while emitting
+  non-finite states gets caught, and the forward and sensitivity paths had
+  byte-identical copies -- so a fix to one would silently not reach the other.
+  """
+  complete = solution.y.shape[1] == time_s.size
+  finite = bool(np.all(np.isfinite(solution.y)))
+  success = bool(solution.success and complete and finite)
+  message = str(solution.message)
+  if solution.success and not complete: message = f"{message}; terminated before the final requested time"
+  elif solution.success and not finite: message = f"{message}; solution contains non-finite states"
+  stats = SolverStats(
+    backend=backend, success=success, message=message,
+    nfev=int(solution.nfev), njev=int(solution.njev), nlu=int(solution.nlu), elapsed_s=elapsed,
+  )
+  return success, message, stats
 
 def _freeze_array(values) -> np.ndarray:
   array = np.asarray(values, dtype=float)

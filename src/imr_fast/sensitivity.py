@@ -47,17 +47,25 @@ class SensitivityResult:
   medium_temperature_k: np.ndarray | None = None
   vapor_mass_fraction: np.ndarray | None = None
 
+_EMPTY = np.empty(0)
+
+def _prepared_arrays(problem):
+  # The five arrays the compiled kernels want, with an empty stand-in wherever the prepared problem has no such
+  # component. numba needs a concrete array rather than None, which is the whole reason this shape exists -- and the
+  # reason it was pasted into both compiled entry points identically.
+  prepared, distributed = problem.instantaneous_material, problem.distributed_stress
+  nodes = prepared.interval_nodes if prepared is not None else _EMPTY
+  weights = prepared.interval_weights if prepared is not None else _EMPTY
+  reference_radius = distributed.reference_radius if distributed is not None else _EMPTY
+  reference_radius_cubed = distributed.reference_radius_cubed if distributed is not None else _EMPTY
+  stress_weights = distributed.weights if distributed is not None and distributed.weights is not None else _EMPTY
+  return nodes, weights, reference_radius, reference_radius_cubed, stress_weights
+
 def _rhs_mechanical_compiled(time_s, packed, *, problem, parameter_values, parameter_tangents, material_data, width):
   state_width = problem.layout.size
   matrix = packed.reshape(state_width, width + 1)
   (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents) = material_data
-  prepared = problem.instantaneous_material
-  nodes = prepared.interval_nodes if prepared is not None else np.empty(0)
-  weights = prepared.interval_weights if prepared is not None else np.empty(0)
-  distributed = problem.distributed_stress
-  reference_radius = distributed.reference_radius if distributed is not None else np.empty(0)
-  reference_radius_cubed = distributed.reference_radius_cubed if distributed is not None else np.empty(0)
-  stress_weights = distributed.weights if distributed is not None and distributed.weights is not None else np.empty(0)
+  nodes, weights, reference_radius, reference_radius_cubed, stress_weights = _prepared_arrays(problem)
   return mechanical_tangent_rhs(
     time_s,
     matrix,
@@ -103,13 +111,7 @@ def _compiled_mechanical_outputs(problem, config, parameters, states, width, com
   outputs = tuple(np.empty((count, width)) for _ in range(5))
   (parameter_values, parameter_tangents, material_data) = compiled
   (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents) = material_data
-  prepared = problem.instantaneous_material
-  nodes = prepared.interval_nodes if prepared is not None else np.empty(0)
-  weights = prepared.interval_weights if prepared is not None else np.empty(0)
-  distributed = problem.distributed_stress
-  reference_radius = distributed.reference_radius if distributed is not None else np.empty(0)
-  reference_radius_cubed = distributed.reference_radius_cubed if distributed is not None else np.empty(0)
-  stress_weights = distributed.weights if distributed is not None and distributed.weights is not None else np.empty(0)
+  nodes, weights, reference_radius, reference_radius_cubed, stress_weights = _prepared_arrays(problem)
   for time_index, row in enumerate(states):
     radius = Dual(row[0, 0], row[0, 1:])
     wall_velocity = Dual(row[1, 0], row[1, 1:])
@@ -259,22 +261,7 @@ def solve_with_sensitivities(problem, tv, parameters):
     stats = _solver.SolverStats(backend=f"scipy-{method.lower()}-forward", success=False, message=message, nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
     raise _solver.SimulationError(f"IMR sensitivity integration failed: {message}", stats) from error
   elapsed = perf_counter() - started
-  complete = solution.y.shape[1] == time_s.size
-  finite = bool(np.all(np.isfinite(solution.y)))
-  success = bool(solution.success and complete and finite)
-  message = str(solution.message)
-  if solution.success and not complete:
-    message = f"{message}; terminated before the final requested time"
-  elif solution.success and not finite: message = f"{message}; solution contains non-finite states"
-  stats = _solver.SolverStats(
-    backend=f"scipy-{method.lower()}-forward",
-    success=success,
-    message=message,
-    nfev=int(solution.nfev),
-    njev=int(solution.njev),
-    nlu=int(solution.nlu),
-    elapsed_s=elapsed,
-  )
+  success, message, stats = _solver._solve_stats(solution, time_s, f"scipy-{method.lower()}-forward", elapsed)
   if not success: raise _solver.SimulationError(f"IMR sensitivity integration failed: {message}", stats)
   packed = solution.y.T.reshape(time_s.size, problem.layout.size, width + 1)
   base_states = packed[:, :, 0]

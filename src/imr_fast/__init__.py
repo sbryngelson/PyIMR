@@ -112,6 +112,7 @@ from ._config import (  # noqa: F401
   _freeze_array,
   _readonly_float_array,
   _readonly_optional,
+  _solve_stats,
   _validate_inputs,
 )
 
@@ -320,22 +321,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
     stats = SolverStats(backend=f"scipy-{method.lower()}", success=False, message=message, nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
     raise SimulationError(f"IMR integration failed: {message}", stats) from error
   elapsed = perf_counter() - started
-  complete = solution.y.shape[1] == time_s.size
-  finite = bool(np.all(np.isfinite(solution.y)))
-  success = bool(solution.success and complete and finite)
-  message = str(solution.message)
-  if solution.success and not complete:
-    message = f"{message}; terminated before the final requested time"
-  elif solution.success and not finite: message = f"{message}; solution contains non-finite states"
-  stats = SolverStats(
-    backend=f"scipy-{method.lower()}",
-    success=success,
-    message=message,
-    nfev=int(solution.nfev),
-    njev=int(solution.njev),
-    nlu=int(solution.nlu),
-    elapsed_s=elapsed,
-  )
+  success, message, stats = _solve_stats(solution, time_s, f"scipy-{method.lower()}", elapsed)
   if not success: raise SimulationError(f"IMR integration failed: {message}", stats)
   return time_s, solution, stats
 

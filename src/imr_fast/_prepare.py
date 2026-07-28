@@ -41,7 +41,7 @@ from ._materials import (
   _stress_state_count,
 )
 from ._rhs import _rhs
-from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, pvsat
+from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, mixture_kirchhoff, pvsat
 from .thermal_fd import finite_diff_mat
 from .thermal_spectral import chebyshev_diff_mat
 from .thermal_spectral import nodes as chebyshev_nodes
@@ -421,9 +421,7 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
     vapor_fraction = p["kv0"] if initial.vapor_mass_fraction is None else initial.vapor_mass_fraction
     if config.masstrans: initial_state[layout.vapor_fraction] = vapor_fraction
     temperature_ratio = 1.0 if initial.bubble_temperature_k is None else initial.bubble_temperature_k / config.T8
-    mixes = config.masstrans
-    alpha = vapor_fraction * p["alpha_v"] + (1.0 - vapor_fraction) * p["alpha_g"] if mixes else p["alpha_g"]
-    beta = vapor_fraction * p["beta_v"] + (1.0 - vapor_fraction) * p["beta_g"] if mixes else p["beta_g"]
+    alpha, beta = mixture_kirchhoff(vapor_fraction, p, config.masstrans)
     initial_state[layout.bubble_thermal] = _thermal_state(temperature_ratio, alpha, beta)
     if config.medtherm:
       medium_temperature_ratio = 1.0 if initial.medium_temperature_k is None else initial.medium_temperature_k / config.T8

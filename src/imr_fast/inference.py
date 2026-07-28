@@ -125,6 +125,12 @@ class RadiusObservation:
 # `medium_temperature_k` are fields over their grids -- shape (times, nodes) --
 # so observing them needs a node selection and is deliberately out of scope
 # here.
+# d/dt of an observable, where the solver already returns the tangent of that
+# derivative. `radius_m`'s time derivative IS the wall velocity, so the tangent
+# needed to differentiate a design with respect to WHEN it looks is already
+# computed. The others would need the RHS differentiated as well.
+_TIME_DERIVATIVE_OF = {"radius_m": "wall_velocity_m_s", "radius_ratio": "wall_velocity_m_s"}
+
 OBSERVABLE_FIELDS = ("radius_m", "radius_ratio", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
 
 
@@ -355,6 +361,39 @@ class PreparedInference:
       stats=result.simulation.stats,
     )
     return evaluation, jacobian
+
+  def jacobian_with_time_derivative(self, unit_parameters):
+    """`(J, dJ/dt)` from one solve. `dJ/dt` is what a design needs -- what a design needs to move its own
+    observation times.
+
+    Scoring a time grid needs `J`; *optimising* one needs `dJ/dt`, and for a
+    radius observation that is the wall-velocity tangent, which the same solve
+    already returns. No extra integration.
+
+    Fields whose time derivative is not itself an observable raise, rather than
+    silently returning the wrong thing -- getting `dP/dt` would mean
+    differentiating the right-hand side, which is a larger change.
+    """
+    unit = self._validate_unit_parameters(unit_parameters)
+    missing = sorted({item.field for item in self._observations} - set(_TIME_DERIVATIVE_OF))
+    if missing:
+      raise NotImplementedError(
+        f"no time derivative available for {missing}; only {sorted(_TIME_DERIVATIVE_OF)} are supported"
+      )
+    config = self.config_from_unit(unit)
+    result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
+    chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
+    parts = []
+    for item, index in zip(self._observations, self._index, strict=True):
+      tangent = np.asarray(getattr(result, _TIME_DERIVATIVE_OF[item.field]))[index]
+      if item.field == "radius_ratio":
+        tangent = tangent / self.config.R0
+      parts.append(tangent / np.asarray(item.standard_deviation)[:, None] * chain)
+    return self._stack_jacobian(result, unit), np.concatenate(parts, axis=0)
+
+  def jacobian_time_derivative(self, unit_parameters):
+    """Just the `d/dt` half; see :meth:`jacobian_with_time_derivative`."""
+    return self.jacobian_with_time_derivative(unit_parameters)[1]
 
   def evaluate_batch(self, unit_parameters, workers=1):
     points = self._validate_batch(unit_parameters)

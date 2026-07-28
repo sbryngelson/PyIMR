@@ -11,6 +11,42 @@ numbers**, with no error and no deprecation path.
 
 ### Breaking: results change
 
+- **`Mt` now defaults to 100 rather than 25** (#69). `Nt` is unchanged at 25.
+  Any run with `medtherm=1` that does not set `Mt` explicitly returns different
+  numbers, and costs a little under 2x more.
+
+  On the fully coupled model the error is set by the medium grid almost alone.
+  Against a converged reference, holding one grid fixed and refining the other
+  from the old default:
+
+  ```
+  refine Mt alone, 25 -> 100:   4.98e-02 -> 4.46e-05     1100x better
+  refine Nt alone, 25 -> 100:   4.98e-02 -> 5.03e-02     no improvement
+  ```
+
+  The full sweep, spectral, reference = spectral `Nt = Mt = 150`:
+
+  | Nt | Mt | cost | error in `R/R0` |
+  |---:|---:|---:|---:|
+  | 25 | 25 | 9 s | 4.98e-02 |
+  | 25 | 50 | 13 s | 1.03e-02 |
+  | **25** | **100** | **17 s** | **4.46e-05** |
+  | 100 | 25 | 69 s | 5.03e-02 |
+  | 100 | 100 | 129 s | 1.55e-04 |
+
+  Every column is set by `Mt`: at `Mt = 25` the error is 5.0e-02 whether `Nt` is
+  25 or 100. Medium nodes are cheap because they carry no mass-transfer
+  coupling, which is why a thousandfold accuracy gain costs under 2x.
+
+  `Mt = 25` matched `Nt` and matched IMRv2; neither is a convergence argument.
+  Pass `Mt=25` to reproduce 0.2.0 numbers.
+
+  Caveat, also on #69: the `4.46e-05` sits below the reference's own
+  self-consistency of `1.55e-04`, so it means "converged as far as this
+  reference can tell". And this is one material, one `R0/Req` and one window --
+  `Mt` dominating is a statement about the medium conduction length scale
+  relative to the collapse, expected to hold generally but checked in one place.
+
 - **Thermal trajectories move: the Kirchhoff transform and its inverse are now
   consistent with the conductivity the diffusion term uses** (#75).
 

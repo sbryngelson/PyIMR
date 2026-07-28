@@ -31,6 +31,7 @@ worth seeing.
 | `src/imr_fast/thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
 | `tests/test_validation_*.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
 | `CHANGELOG.md` | released versions and every breaking change |
+| API reference | `pip install 'imr-fast[docs]'` then `python -m pdoc imr_fast imr_fast.sensitivity imr_fast.inference imr_fast.data imr_fast.design` |
 | `benchmarks/run.py` | reproducible timings; `--json` and `--baseline` to compare runs |
 
 ## Upgrading from 0.2.0

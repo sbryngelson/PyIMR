@@ -52,6 +52,15 @@ jobs:
         if: matrix.python-version == '3.12'
         run: python tools/pyright_baseline.py
 
+      # The point is not to publish, it is that a docstring which no longer
+      # parses -- a bad cross-reference, a broken code block -- fails here
+      # rather than silently degrading. Output is not committed (#30).
+      - name: Build API documentation
+        if: matrix.python-version == '3.12'
+        run: |
+          python -m pip install "pdoc>=15"
+          python -m pdoc -o site imr_fast imr_fast.sensitivity imr_fast.inference imr_fast.data imr_fast.design
+
       - name: Build distributions
         if: matrix.python-version == '3.12'
         run: python -m build

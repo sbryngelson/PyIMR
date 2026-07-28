@@ -30,10 +30,7 @@ def inference():
   return prepare_inference(
     config,
     RadiusObservation(_TIMES, observed, _NOISE),
-    (
-      InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
-      InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
-    ),
+    (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2)),
   )
 
 
@@ -72,11 +69,7 @@ def test_one_solve_serves_both_halves(inference, monkeypatch):
   because each Op discarded half of what it computed. It should now pay one."""
   calls = []
   real = type(inference).evaluate_with_jacobian
-  monkeypatch.setattr(
-    type(inference),
-    "evaluate_with_jacobian",
-    lambda self, unit: (calls.append(np.asarray(unit).copy()), real(self, unit))[1],
-  )
+  monkeypatch.setattr(type(inference), "evaluate_with_jacobian", lambda self, unit: (calls.append(np.asarray(unit).copy()), real(self, unit))[1])
   import pytensor.tensor as tensor
 
   operation = pymc_op.IMRLogLikelihood(inference)
@@ -141,9 +134,7 @@ def test_sampling_plumbing_runs(inference):
   docstring. What this suite owns is the gradient, which is tested above; PyMC's
   sampler is not ours to validate.
   """
-  trace = pymc_op.sample_posterior(
-    inference, draws=2, tune=2, chains=1, progressbar=False, random_seed=3, compute_convergence_checks=False
-  )
+  trace = pymc_op.sample_posterior(inference, draws=2, tune=2, chains=1, progressbar=False, random_seed=3, compute_convergence_checks=False)
   for name in ("material.shear_modulus_pa", "material.viscosity_pa_s"):
     assert np.asarray(trace.posterior[name]).size == 2
 
@@ -199,17 +190,13 @@ def test_log_marginal_likelihood_survives_ragged_tempering():
   is the very fragility being fixed.
   """
   stub = types.SimpleNamespace(
-    sample_stats={
-      "log_marginal_likelihood": types.SimpleNamespace(values=np.array([[1.0, 2.0, 3.0], [4.0, 5.0]], dtype=object))
-    }
+    sample_stats={"log_marginal_likelihood": types.SimpleNamespace(values=np.array([[1.0, 2.0, 3.0], [4.0, 5.0]], dtype=object))}
   )
   # log(mean(exp(3), exp(5))) -- the last entry of each chain, combined as
   # log(mean(Z)) because SMC's Z-hat is unbiased and its logarithm is not.
   assert pymc_op.log_marginal_likelihood(stub) == pytest.approx(5.0 + np.log((np.exp(-2.0) + 1.0) / 2.0))
 
-  even = types.SimpleNamespace(
-    sample_stats={"log_marginal_likelihood": types.SimpleNamespace(values=np.array([[1.0, 3.0], [2.0, 5.0]]))}
-  )
+  even = types.SimpleNamespace(sample_stats={"log_marginal_likelihood": types.SimpleNamespace(values=np.array([[1.0, 3.0], [2.0, 5.0]]))})
   combined = pymc_op.log_marginal_likelihood(even)
   assert combined == pytest.approx(5.0 + np.log((np.exp(-2.0) + 1.0) / 2.0))
   assert combined != pytest.approx(5.0), "keeping only the last chain would give 5.0 and discard the other"

@@ -60,9 +60,7 @@ def test_collapse_features_decay(rebound_trace, measured):
 def test_thermal_grid_convergence(measured):
   """Thermal grid refinement must converge monotonically."""
   convergence = data.resolution_convergence(
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=10, Mt=10),
-    np.linspace(0, 60e-6, 200),
-    [(10, 10), (20, 20), (40, 40)],
+    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=10, Mt=10), np.linspace(0, 60e-6, 200), [(10, 10), (20, 20), (40, 40)]
   )
   errors = [error for _, error in convergence]
   measured("thermal grid convergence", " ".join(f"{error:.1e}" for error in errors))
@@ -77,10 +75,7 @@ def prepared_inference():
   return times, prepare_inference(
     config,
     RadiusObservation(times, truth.radius_m, 1e-8),
-    (
-      InferenceParameter("material.shear_modulus_pa", 2000.0, 3000.0),
-      InferenceParameter("material.viscosity_pa_s", 0.05, 0.15),
-    ),
+    (InferenceParameter("material.shear_modulus_pa", 2000.0, 3000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.15)),
   )
 
 
@@ -117,15 +112,9 @@ def multi_observable():
   radius = RadiusObservation(times, np.asarray(truth.radius_m) + rng.normal(0.0, 5e-7, times.size), 5e-7)
   coarse = times[::3]
   velocity = FieldObservation(
-    "wall_velocity_m_s",
-    coarse,
-    np.asarray(truth.wall_velocity_m_s)[::3] + rng.normal(0.0, _VELOCITY_SIGMA, coarse.size),
-    _VELOCITY_SIGMA,
+    "wall_velocity_m_s", coarse, np.asarray(truth.wall_velocity_m_s)[::3] + rng.normal(0.0, _VELOCITY_SIGMA, coarse.size), _VELOCITY_SIGMA
   )
-  parameters = (
-    InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
-    InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
-  )
+  parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
   return prepare_inference(config, radius, parameters), prepare_inference(config, (radius, velocity), parameters)
 
 
@@ -179,10 +168,7 @@ def test_gauss_newton_is_exact_where_eig_uses_it(measured):
   config = imr_fast.SimulationConfig(R0, REQ, NHKV)
   truth = imr_fast.simulate(times, config)
   observed = np.asarray(truth.radius_m) + np.random.default_rng(11).normal(0.0, 5e-7, times.size)
-  parameters = (
-    InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
-    InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
-  )
+  parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
   inference = prepare_inference(config, RadiusObservation(times, observed, 5e-7), parameters)
   ratio = inference.curvature_ratio(np.array([(2500.0 - 1500.0) / 2500.0, (0.1 - 0.05) / 0.15]))
   measured("Gauss-Newton dropped term at truth", f"||r.H||/||J^T J|| = {ratio:.2e}")
@@ -198,10 +184,7 @@ def test_the_dropped_term_detects_misspecification(measured):
   other = imr_fast.SimulationConfig(R0, REQ, imr_fast.Zener(0.1, 2500.0, 2e-6, 2e-7))
   observed = np.asarray(imr_fast.simulate(times, other).radius_m)
   observed = observed + np.random.default_rng(11).normal(0.0, 5e-7, times.size)
-  parameters = (
-    InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
-    InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
-  )
+  parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
   inference = prepare_inference(config, RadiusObservation(times, observed, 5e-7), parameters)
   ratio = inference.curvature_ratio(np.array([(2500.0 - 1500.0) / 2500.0, (0.1 - 0.05) / 0.15]))
   measured("Gauss-Newton dropped term, misspecified", f"||r.H||/||J^T J|| = {ratio:.2e}")
@@ -217,14 +200,9 @@ def correlated():
   config = imr_fast.SimulationConfig(R0, REQ, NHKV)
   truth = np.asarray(imr_fast.simulate(times, config).radius_m)
   observed = truth + np.random.default_rng(5).normal(0.0, 5e-7, times.size)
-  parameters = (
-    InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
-    InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
-  )
+  parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
   independent = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7), parameters)
-  linked = prepare_inference(
-    config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=_TAU), parameters
-  )
+  linked = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=_TAU), parameters)
   return times, observed, independent, linked
 
 
@@ -266,9 +244,7 @@ def test_vanishing_correlation_time_reduces_to_independent_noise(correlated):
   covariance is diagonal and the two code paths have to agree bit for bit."""
   times, observed, independent, _ = correlated
   config = imr_fast.SimulationConfig(R0, REQ, NHKV)
-  tiny = prepare_inference(
-    config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=1e-15), independent.parameters
-  )
+  tiny = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=1e-15), independent.parameters)
   unit = np.array([0.42, 0.37])
   assert tiny.evaluate(unit).log_likelihood == independent.evaluate(unit).log_likelihood
 

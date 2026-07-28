@@ -20,9 +20,7 @@ _FIELDS = ("yT", "yT2", "yT3", "iyT3", "iyT4", "iyT6")
 
 
 def _medium(backend, mt, nt=5):
-  config = imr_fast.SimulationConfig(
-    R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=nt, Mt=mt, thermal=backend
-  )
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=nt, Mt=mt, thermal=backend)
   medium = imr_fast.prepare(config).medium
   assert medium is not None, "medtherm=1 must produce medium operators"
   return medium
@@ -85,10 +83,7 @@ def test_guard_rejects_a_moved_singularity():
 
 
 _DISSIPATION_CASES = (
-  (
-    "instantaneous",
-    imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 250.0), viscous=imr_fast.Newtonian(0.1)),
-  ),
+  ("instantaneous", imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 250.0), viscous=imr_fast.Newtonian(0.1))),
   ("distributed", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12)),
   ("closed form", NHKV),
   # QuadraticKelvinVoigt reaches a distinct branch of _dissipation that no other
@@ -110,9 +105,7 @@ def test_medium_dissipation_needs_no_suppression(label, material, backend):
   turned out to be vestigial. Neither can regress silently while this runs the
   real solve with those errors raised.
   """
-  config = imr_fast.SimulationConfig(
-    R0=R0, Req=REQ, material=material, bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=9, thermal=backend
-  )
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material, bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=9, thermal=backend)
   # Underflow excluded deliberately: it fires inside SciPy's BDF `nextafter`,
   # is unrelated to this code, and NumPy ignores it by default.
   with np.errstate(divide="raise", invalid="raise", over="raise"):
@@ -170,14 +163,7 @@ def test_coupled_solve_survives_awkward_retardation_ratios(ratio):
   """
   relaxation = 2.0 * R0 / np.sqrt(101325 / 1064)
   config = imr_fast.SimulationConfig(
-    R0=R0,
-    Req=REQ,
-    material=imr_fast.OldroydB(0.1, relaxation, ratio * relaxation),
-    bubtherm=1,
-    medtherm=1,
-    Nt=9,
-    Mt=9,
-    thermal="fd",
+    R0=R0, Req=REQ, material=imr_fast.OldroydB(0.1, relaxation, ratio * relaxation), bubtherm=1, medtherm=1, Nt=9, Mt=9, thermal="fd"
   )
   result = imr_fast.simulate(np.linspace(0.0, 6e-5, 60), config)
   assert result.stats.success
@@ -236,10 +222,7 @@ def test_kirchhoff_transform_round_trips(alpha, beta):
 def test_the_transform_derivative_is_the_conductivity_the_rhs_uses(measured):
   """The defining property, checked against the expression `_rhs` evaluates."""
   alpha, beta, temperature, step = 0.5761, 0.4263, 3.0, 1e-6
-  slope = (
-    _thermal.kirchhoff_theta(temperature + step, alpha, beta)
-    - _thermal.kirchhoff_theta(temperature - step, alpha, beta)
-  ) / (2 * step)
+  slope = (_thermal.kirchhoff_theta(temperature + step, alpha, beta) - _thermal.kirchhoff_theta(temperature - step, alpha, beta)) / (2 * step)
   conductivity = alpha * temperature + beta
   measured("d(theta)/dT vs K*(T)", f"{slope:.9f} vs {conductivity:.9f}")
   assert abs(slope - conductivity) < 1e-9

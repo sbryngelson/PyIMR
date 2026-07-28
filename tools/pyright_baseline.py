@@ -32,10 +32,7 @@ def _fingerprints():
   # reportMissingImports. Baselining those would mask a genuinely broken
   # import, which is the opposite of the point.
   process = subprocess.run(
-    [sys.executable, "-m", "pyright", "--pythonpath", sys.executable, "--outputjson", str(ROOT)],
-    capture_output=True,
-    text=True,
-    cwd=ROOT,
+    [sys.executable, "-m", "pyright", "--pythonpath", sys.executable, "--outputjson", str(ROOT)], capture_output=True, text=True, cwd=ROOT
   )
   if not process.stdout.strip():
     raise SystemExit(f"pyright produced no output\n{process.stderr}")
@@ -52,16 +49,11 @@ def _fingerprints():
 def _load():
   if not BASELINE.exists():
     return collections.Counter()
-  return collections.Counter(
-    {(k["file"], k["rule"], k["message"]): k["count"] for k in json.loads(BASELINE.read_text())}
-  )
+  return collections.Counter({(k["file"], k["rule"], k["message"]): k["count"] for k in json.loads(BASELINE.read_text())})
 
 
 def _store(counts):
-  entries = [
-    {"file": file, "rule": rule, "message": message, "count": count}
-    for (file, rule, message), count in sorted(counts.items())
-  ]
+  entries = [{"file": file, "rule": rule, "message": message, "count": count} for (file, rule, message), count in sorted(counts.items())]
   BASELINE.write_text(json.dumps(entries, indent=2) + "\n")
 
 

@@ -25,7 +25,6 @@ from ._rhs import _rhs
 from ._autodiff import Dual, seed, unpack
 from ._thermal import _far_field_singular_index
 
-
 @dataclass(frozen=True, slots=True)
 class SensitivityParameter:
   """One differentiable configuration field.
@@ -41,11 +40,9 @@ class SensitivityParameter:
   scale: float | None = None
 
   def __post_init__(self):
-    if not isinstance(self.path, str) or not self.path:
-      raise ValueError("sensitivity parameter path must be a non-empty string")
+    if not isinstance(self.path, str) or not self.path: raise ValueError("sensitivity parameter path must be a non-empty string")
     if self.scale is not None and (not np.isfinite(self.scale) or self.scale <= 0.0):
       raise ValueError("sensitivity parameter scale must be finite and positive")
-
 
 _MECHANICAL_PARAMETER_KEYS = (
   "Pv",
@@ -93,22 +90,17 @@ _NONDIFFERENTIABLE_FIELDS = {
   "collapse",
 }
 
-
 def _path_parts(path):
   parts = path.split(".")
-  if any(not part.isidentifier() for part in parts):
-    raise ValueError(f"invalid sensitivity parameter path: {path!r}")
+  if any(not part.isidentifier() for part in parts): raise ValueError(f"invalid sensitivity parameter path: {path!r}")
   return parts
-
 
 def _path_value(root, parts, full_path):
   value = root
   for part in parts:
-    if not hasattr(value, part):
-      raise ValueError(f"unknown sensitivity parameter path: {full_path!r}")
+    if not hasattr(value, part): raise ValueError(f"unknown sensitivity parameter path: {full_path!r}")
     value = getattr(value, part)
   return value
-
 
 def _seed_path(root, parts, replacement):
   clone = copy.copy(root)
@@ -119,33 +111,23 @@ def _seed_path(root, parts, replacement):
   object.__setattr__(clone, parts[0], _seed_path(child, parts[1:], replacement))
   return clone
 
-
 def _normalize_parameters(config, parameters):
-  normalized = tuple(
-    parameter if isinstance(parameter, SensitivityParameter) else SensitivityParameter(parameter)
-    for parameter in parameters
-  )
-  if not normalized:
-    raise ValueError("at least one sensitivity parameter is required")
+  normalized = tuple(parameter if isinstance(parameter, SensitivityParameter) else SensitivityParameter(parameter) for parameter in parameters)
+  if not normalized: raise ValueError("at least one sensitivity parameter is required")
   paths = [parameter.path for parameter in normalized]
-  if len(set(paths)) != len(paths):
-    raise ValueError("sensitivity parameter paths must be unique")
+  if len(set(paths)) != len(paths): raise ValueError("sensitivity parameter paths must be unique")
   values = []
   scales = []
   for parameter in normalized:
     parts = _path_parts(parameter.path)
-    if any(part in _NONDIFFERENTIABLE_FIELDS for part in parts):
-      raise ValueError(f"{parameter.path!r} is discrete or controls solver preparation")
+    if any(part in _NONDIFFERENTIABLE_FIELDS for part in parts): raise ValueError(f"{parameter.path!r} is discrete or controls solver preparation")
     value = _path_value(config, parts, parameter.path)
-    if not isinstance(value, Real) or not np.isfinite(value):
-      raise ValueError(f"{parameter.path!r} must identify one finite scalar field")
+    if not isinstance(value, Real) or not np.isfinite(value): raise ValueError(f"{parameter.path!r} must identify one finite scalar field")
     scale = parameter.scale
-    if scale is None:
-      scale = abs(float(value)) if value != 0.0 else 1.0
+    if scale is None: scale = abs(float(value)) if value != 0.0 else 1.0
     values.append(float(value))
     scales.append(float(scale))
   return normalized, values, np.asarray(scales)
-
 
 def _dual_config(config, normalized, values, scales):
   width = len(normalized)
@@ -154,7 +136,6 @@ def _dual_config(config, normalized, values, scales):
     replacement = seed(value, width, index, scale)
     result = _seed_path(result, _path_parts(parameter.path), replacement)
   return result
-
 
 def _dual_parameters(config):
   parameters = _solver.params(
@@ -173,10 +154,8 @@ def _dual_parameters(config):
     config.masstrans,
     config.physics,
   )
-  if config.initial.internal_pressure_pa is not None:
-    parameters["Pb"] = config.initial.internal_pressure_pa / parameters["P8"]
+  if config.initial.internal_pressure_pa is not None: parameters["Pb"] = config.initial.internal_pressure_pa / parameters["P8"]
   return parameters
-
 
 def _rhs_physical(time_s, packed, *, problem, config, parameters, medium, wall_state, forcing, width):
   state_width = problem.layout.size
@@ -209,7 +188,6 @@ def _rhs_physical(time_s, packed, *, problem, config, parameters, medium, wall_s
   result[:, 0] = values
   result[:, 1:] = tangents
   return result.ravel()
-
 
 def _collapse_initial_tangents(problem, config, width):
   settings = config.collapse
@@ -277,20 +255,16 @@ def _collapse_initial_tangents(problem, config, width):
   if not solution.success or solution.t_events[0].size == 0:
     raise _solver.SimulationError("collapse sensitivity precursor failed to reach maximum radius")
   event = solution.y_events[0][-1].reshape(2 + state_width, direction_width + 1)
-  event_rhs = tangent_rhs(solution.t_events[0][-1], solution.y_events[0][-1]).reshape(
-    2 + state_width, direction_width + 1
-  )
+  event_rhs = tangent_rhs(solution.t_events[0][-1], solution.y_events[0][-1]).reshape(2 + state_width, direction_width + 1)
   acceleration = event_rhs[1, 0]
   event_time_tangents = -event[1, 1:] / acceleration
   memory_tangents = event[2:, 1:] + event_rhs[2:, [0]] * event_time_tangents
   radius_tangents = event[0, 1:]
   velocity_direction = direction_width - 1
   radius_velocity = radius_tangents[velocity_direction]
-  if abs(radius_velocity) < 1e-14:
-    raise _solver.SimulationError("collapse shooting root has a singular velocity derivative")
+  if abs(radius_velocity) < 1e-14: raise _solver.SimulationError("collapse shooting root has a singular velocity derivative")
   velocity_tangents = -radius_tangents[:width] / radius_velocity
   return memory_tangents[:, :width] + memory_tangents[:, [velocity_direction]] * velocity_tangents
-
 
 def _initial_matrix(problem, config, parameters, width):
   state = np.asarray(problem.initial_state)
@@ -317,9 +291,7 @@ def _initial_matrix(problem, config, parameters, width):
     for index in range(problem.layout.bubble_thermal.start, problem.layout.bubble_thermal.stop):
       initial_dual[index] = thermal_state
     if config.medtherm:
-      medium_temperature_ratio = (
-        1.0 if initial.medium_temperature_k is None else initial.medium_temperature_k / config.T8
-      )
+      medium_temperature_ratio = 1.0 if initial.medium_temperature_k is None else initial.medium_temperature_k / config.T8
       for index in range(problem.layout.medium_thermal.start, problem.layout.medium_thermal.stop):
         initial_dual[index] = medium_temperature_ratio
   if problem.collapse_stats is not None:
@@ -327,29 +299,22 @@ def _initial_matrix(problem, config, parameters, width):
     for offset, index in enumerate(range(problem.layout.stress.start, problem.layout.stress.stop)):
       initial_dual[index] = Dual(problem.collapse_stats.stress_state[offset], collapse_tangents[offset])
   elif initial.stress_state is not None:
-    for index, value in zip(
-      range(problem.layout.stress.start, problem.layout.stress.stop), initial.stress_state, strict=True
-    ):
+    for index, value in zip(range(problem.layout.stress.start, problem.layout.stress.stop), initial.stress_state, strict=True):
       initial_dual[index] = value
   values, tangents = unpack(initial_dual, width)
   matrix[:, 0] = values
   matrix[:, 1:] = tangents
   return matrix
 
-
 def _pad_dual(value, width):
-  if isinstance(value, Dual):
-    return Dual(value.value, np.concatenate((value.tangent, [0.0])))
+  if isinstance(value, Dual): return Dual(value.value, np.concatenate((value.tangent, [0.0])))
   return seed(value, width + 1)
-
 
 def _ensure_dual(value, width):
   if isinstance(value, Dual):
-    if value.tangent.size != width:
-      raise ValueError("inconsistent tangent width in collapse precursor")
+    if value.tangent.size != width: raise ValueError("inconsistent tangent width in collapse precursor")
     return value
   return seed(value, width)
-
 
 def _pad_object(value, width):
   clone = copy.copy(value)
@@ -364,10 +329,8 @@ def _pad_object(value, width):
     object.__setattr__(clone, name, replacement)
   return clone
 
-
 def _dual_medium(problem, parameters):
-  if problem.medium is None:
-    return None
+  if problem.medium is None: return None
   medium = copy.copy(problem.medium)
   xi = problem.medium.xi
   length = parameters["Lt"]
@@ -408,8 +371,7 @@ def _dual_medium(problem, parameters):
     weights = np.zeros(stencil.size, dtype=object)
     weights[:] = 0.0
     for index, value in enumerate(stencil):
-      if value != 0.0:
-        weights[index] = scalar * float(value)
+      if value != 0.0: weights[index] = scalar * float(value)
     return weights
 
   bubble_stencil = np.asarray(problem.medium.bubble_wall_stencil)
@@ -429,19 +391,14 @@ def _dual_medium(problem, parameters):
     object.__setattr__(medium, name, value)
   return medium
 
-
 def _dual_forcing(config, parameters):
   forcing = config.sampled_forcing
-  if forcing is None:
-    return None
+  if forcing is None: return None
   physical = PchipInterpolator(np.asarray(forcing.time_s), np.asarray(forcing.pressure_pa), extrapolate=False)
   coefficients = np.empty(physical.c.shape, dtype=object)
   for row, degree in enumerate((3, 2, 1, 0)):
     coefficients[row] = physical.c[row] * parameters["t0"] ** degree / parameters["P8"]
-  return _solver.PreparedForcing(
-    knots=np.asarray(forcing.time_s, dtype=object) / parameters["t0"], coefficients=coefficients
-  )
-
+  return _solver.PreparedForcing(knots=np.asarray(forcing.time_s, dtype=object) / parameters["t0"], coefficients=coefficients)
 
 def _packed_values(values, width, size):
   result_values = np.zeros(size)
@@ -454,10 +411,8 @@ def _packed_values(values, width, size):
       result_values[index] = value
   return result_values, result_tangents
 
-
 def _mechanical_parameters(parameters, width):
   return _packed_values([parameters[key] for key in _MECHANICAL_PARAMETER_KEYS], width, len(_MECHANICAL_PARAMETER_KEYS))
-
 
 def _material_parameters(material, width):
   elastic_code = 0
@@ -534,19 +489,10 @@ def _material_parameters(material, width):
       )
     elif isinstance(viscous, (_solver.PowellEyring, _solver.ModifiedPowellEyring)):
       viscous_code = 8 if isinstance(viscous, _solver.ModifiedPowellEyring) else 7
-      viscous_fields = (
-        viscous.zero_shear_viscosity_pa_s,
-        viscous.infinite_shear_viscosity_pa_s,
-        viscous.time_constant_s,
-      )
+      viscous_fields = (viscous.zero_shear_viscosity_pa_s, viscous.infinite_shear_viscosity_pa_s, viscous.time_constant_s)
     elif isinstance(viscous, _solver.HerschelBulkley):
       viscous_code = 5
-      viscous_fields = (
-        viscous.yield_stress_pa,
-        viscous.consistency_pa_s_n,
-        viscous.exponent,
-        viscous.regularization_rate_per_s,
-      )
+      viscous_fields = (viscous.yield_stress_pa, viscous.consistency_pa_s_n, viscous.exponent, viscous.regularization_rate_per_s)
     elif isinstance(viscous, _solver.Bingham):
       viscous_code = 6
       viscous_fields = (viscous.yield_stress_pa, viscous.plastic_viscosity_pa_s, viscous.regularization_rate_per_s)

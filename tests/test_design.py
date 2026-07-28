@@ -19,10 +19,7 @@ SECTION = "6. Experiment design"
 
 _TIMES = np.linspace(0.0, 20e-6, 40)
 _NOISE = 5e-7
-_PARAMETERS = (
-  InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),
-  InferenceParameter("material.viscosity_pa_s", 0.05, 0.2),
-)
+_PARAMETERS = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
 
 
 def _flaky(real, *, every):
@@ -96,8 +93,7 @@ def test_the_prior_average_is_not_the_nominal_value(design, measured):
   shortcut, not a defect in the averaged criterion.
   """
   gains = [
-    imr_design._gain(design, unit, np.full(design.size, imr_design.UNIFORM_VARIANCE))
-    for unit in np.random.default_rng(0).random((8, design.size))
+    imr_design._gain(design, unit, np.full(design.size, imr_design.UNIFORM_VARIANCE)) for unit in np.random.default_rng(0).random((8, design.size))
   ]
   centre = imr_design._gain(design, np.full(design.size, 0.5), np.full(design.size, imr_design.UNIFORM_VARIANCE))
   spread = float(np.std(gains)) / float(np.mean(gains))
@@ -162,10 +158,7 @@ def test_a_design_inference_still_scores(design):
   assert np.all(np.isfinite(design.jacobian(np.full(design.size, 0.5))))
 
 
-@pytest.mark.parametrize(
-  ("kwargs", "error"),
-  (({"draws": 0}, ValueError), ({"workers": 0}, ValueError), ({"prior_variance": -1.0}, ValueError)),
-)
+@pytest.mark.parametrize(("kwargs", "error"), (({"draws": 0}, ValueError), ({"workers": 0}, ValueError), ({"prior_variance": -1.0}, ValueError)))
 def test_invalid_arguments_are_rejected(design, kwargs, error):
   with pytest.raises(error):
     imr_design.expected_information_gain(design, **kwargs)
@@ -186,14 +179,8 @@ def test_a_prior_sweep_reuses_one_set_of_solves(design, monkeypatch):
 
   information = imr_design.design_information(design, draws=4)
   gains = [
-    imr_design.expected_information_gain(
-      design, information=information, prior_variance=variance
-    ).expected_information_gain
-    for variance in (
-      imr_design.UNIFORM_VARIANCE,
-      imr_design.UNIFORM_VARIANCE / 10.0,
-      imr_design.UNIFORM_VARIANCE / 100.0,
-    )
+    imr_design.expected_information_gain(design, information=information, prior_variance=variance).expected_information_gain
+    for variance in (imr_design.UNIFORM_VARIANCE, imr_design.UNIFORM_VARIANCE / 10.0, imr_design.UNIFORM_VARIANCE / 100.0)
   ]
   assert len(calls) == 4, f"expected 4 solves for 3 priors, got {len(calls)}"
   assert gains[0] > gains[1] > gains[2], "a tighter prior must leave less to learn"
@@ -212,9 +199,7 @@ def test_a_second_observable_raises_the_information(measured):
   radius = imr_fast.inference.RadiusObservation(_TIMES, np.full(_TIMES.size, R0), _NOISE)
   velocity = imr_fast.inference.FieldObservation("wall_velocity_m_s", _TIMES, np.zeros(_TIMES.size), 2.0)
 
-  alone = imr_design.expected_information_gain(
-    imr_design.DesignInference(config, radius, _PARAMETERS), draws=6
-  ).expected_information_gain
+  alone = imr_design.expected_information_gain(imr_design.DesignInference(config, radius, _PARAMETERS), draws=6).expected_information_gain
   together = imr_design.expected_information_gain(
     imr_design.DesignInference(config, (radius, velocity), _PARAMETERS), draws=6
   ).expected_information_gain
@@ -236,13 +221,9 @@ def test_the_time_gradient_matches_a_central_difference(index, measured):
   config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
 
   def score(grid):
-    return imr_design.expected_information_gain(
-      imr_design.design_inference(config, grid, _NOISE, _PARAMETERS), draws=4
-    ).expected_information_gain
+    return imr_design.expected_information_gain(imr_design.design_inference(config, grid, _NOISE, _PARAMETERS), draws=4).expected_information_gain
 
-  analytic = imr_design.information_time_gradient(
-    imr_design.design_inference(config, times, _NOISE, _PARAMETERS), draws=4
-  )
+  analytic = imr_design.information_time_gradient(imr_design.design_inference(config, times, _NOISE, _PARAMETERS), draws=4)
   step = 2e-9
   ahead, behind = times.copy(), times.copy()
   ahead[index] += step

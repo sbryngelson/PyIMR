@@ -16,9 +16,7 @@ _MEASUREMENTS = []
 
 
 def pytest_configure(config):
-  config.addinivalue_line(
-    "markers", "slow: convergence studies that solve at high resolution; deselect with -m 'not slow'"
-  )
+  config.addinivalue_line("markers", "slow: convergence studies that solve at high resolution; deselect with -m 'not slow'")
 
 
 @pytest.fixture

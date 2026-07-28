@@ -81,14 +81,12 @@ _MWG = 28.966e-3  # molar mass, non-condensible gas / air (kg/mol)
 _D0 = 24.2e-6  # binary (vapor-in-gas) diffusion coefficient (m^2/s)
 _LHEAT = 2264.76e3  # latent heat of vaporization (J/kg)
 
-
 class SimulationError(RuntimeError):
   """Raised when the numerical integrator cannot complete a simulation."""
 
   def __init__(self, message: str, stats: SolverStats | None = None):
     super().__init__(message)
     self.stats = stats
-
 
 @dataclass(frozen=True, slots=True)
 class PhysicalParameters:
@@ -118,13 +116,9 @@ class PhysicalParameters:
   def __post_init__(self) -> None:
     for name in self.__dataclass_fields__:
       value = getattr(self, name)
-      if not np.isfinite(value) or value <= 0.0:
-        raise ValueError(f"physics.{name} must be finite and positive")
-    if self.polytropic_exponent <= 1.0:
-      raise ValueError("physics.polytropic_exponent must be greater than 1")
-    if self.tait_exponent <= 1.0:
-      raise ValueError("physics.tait_exponent must be greater than 1")
-
+      if not np.isfinite(value) or value <= 0.0: raise ValueError(f"physics.{name} must be finite and positive")
+    if self.polytropic_exponent <= 1.0: raise ValueError("physics.polytropic_exponent must be greater than 1")
+    if self.tait_exponent <= 1.0: raise ValueError("physics.tait_exponent must be greater than 1")
 
 @dataclass(frozen=True, slots=True)
 class SampledForcing:
@@ -140,15 +134,11 @@ class SampledForcing:
   def __post_init__(self) -> None:
     times = tuple(float(value) for value in self.time_s)
     pressure = tuple(float(value) for value in self.pressure_pa)
-    if len(times) < 2 or len(times) != len(pressure):
-      raise ValueError("sampled forcing requires equal arrays of at least 2 values")
-    if not np.all(np.isfinite(times)) or not np.all(np.isfinite(pressure)):
-      raise ValueError("sampled forcing values must be finite")
-    if times[0] < 0.0 or np.any(np.diff(times) <= 0.0):
-      raise ValueError("sampled forcing times must be non-negative and increasing")
+    if len(times) < 2 or len(times) != len(pressure): raise ValueError("sampled forcing requires equal arrays of at least 2 values")
+    if not np.all(np.isfinite(times)) or not np.all(np.isfinite(pressure)): raise ValueError("sampled forcing values must be finite")
+    if times[0] < 0.0 or np.any(np.diff(times) <= 0.0): raise ValueError("sampled forcing times must be non-negative and increasing")
     object.__setattr__(self, "time_s", times)
     object.__setattr__(self, "pressure_pa", pressure)
-
 
 @dataclass(frozen=True, slots=True)
 class InitialState:
@@ -165,21 +155,17 @@ class InitialState:
   stress_state: tuple[float, ...] | None = None
 
   def __post_init__(self) -> None:
-    if not np.isfinite(self.wall_velocity_m_s):
-      raise ValueError("initial.wall_velocity_m_s must be finite")
+    if not np.isfinite(self.wall_velocity_m_s): raise ValueError("initial.wall_velocity_m_s must be finite")
     for name in ("internal_pressure_pa", "bubble_temperature_k", "medium_temperature_k"):
       value = getattr(self, name)
-      if value is not None and (not np.isfinite(value) or value <= 0.0):
-        raise ValueError(f"initial.{name} must be finite and positive")
+      if value is not None and (not np.isfinite(value) or value <= 0.0): raise ValueError(f"initial.{name} must be finite and positive")
     fraction = self.vapor_mass_fraction
     if fraction is not None and (not np.isfinite(fraction) or not 0.0 <= fraction <= 1.0):
       raise ValueError("initial.vapor_mass_fraction must be between 0 and 1")
     if self.stress_state is not None:
       state = tuple(float(value) for value in self.stress_state)
-      if not np.all(np.isfinite(state)):
-        raise ValueError("initial.stress_state must contain finite values")
+      if not np.all(np.isfinite(state)): raise ValueError("initial.stress_state must contain finite values")
       object.__setattr__(self, "stress_state", state)
-
 
 @dataclass(frozen=True, slots=True)
 class CollapseInitialization:
@@ -196,7 +182,6 @@ class CollapseInitialization:
     _finite_positive("collapse.initial_velocity_guess", self.initial_velocity_guess)
     if not isinstance(self.maximum_bracket_expansions, Integral) or self.maximum_bracket_expansions < 1:
       raise ValueError("collapse.maximum_bracket_expansions must be a positive integer")
-
 
 @dataclass(frozen=True, slots=True)
 class SimulationConfig:
@@ -245,44 +230,26 @@ class SimulationConfig:
   def __post_init__(self) -> None:
     if not isinstance(
       self.material,
-      (
-        NoStress,
-        NeoHookeanKelvinVoigt,
-        QuadraticKelvinVoigt,
-        Zener,
-        QuadraticZener,
-        OldroydB,
-        InstantaneousMaterial,
-        Giesekus,
-        LinearPTT,
-      ),
+      (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, InstantaneousMaterial, Giesekus, LinearPTT),
     ):
       raise TypeError("material must be a supported material model")
-    if not isinstance(self.physics, PhysicalParameters):
-      raise TypeError("physics must be PhysicalParameters")
-    if not isinstance(self.initial, InitialState):
-      raise TypeError("initial must be InitialState")
+    if not isinstance(self.physics, PhysicalParameters): raise TypeError("physics must be PhysicalParameters")
+    if not isinstance(self.initial, InitialState): raise TypeError("initial must be InitialState")
     if self.sampled_forcing is not None and not isinstance(self.sampled_forcing, SampledForcing):
       raise TypeError("sampled_forcing must be SampledForcing")
-    if self.collapse is not None and not isinstance(self.collapse, CollapseInitialization):
-      raise TypeError("collapse must be CollapseInitialization")
+    if self.collapse is not None and not isinstance(self.collapse, CollapseInitialization): raise TypeError("collapse must be CollapseInitialization")
     if self.collapse is not None:
       if not isinstance(self.material, (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)):
         raise ValueError("collapse initialization requires a material with memory")
-      if self.initial.stress_state is not None:
-        raise ValueError("collapse initialization cannot be combined with initial.stress_state")
-      if self.initial.wall_velocity_m_s != 0.0:
-        raise ValueError("collapse initialization requires zero observed wall velocity")
+      if self.initial.stress_state is not None: raise ValueError("collapse initialization cannot be combined with initial.stress_state")
+      if self.initial.wall_velocity_m_s != 0.0: raise ValueError("collapse initialization requires zero observed wall velocity")
     _validate_config(self)
-    if self.max_step_s is not None:
-      _finite_positive("max_step_s", self.max_step_s)
-    if self.thermal not in ("fd", "spectral"):
-      raise ValueError("thermal must be 'fd' or 'spectral'")
+    if self.max_step_s is not None: _finite_positive("max_step_s", self.max_step_s)
+    if self.thermal not in ("fd", "spectral"): raise ValueError("thermal must be 'fd' or 'spectral'")
     if self.sampled_forcing is not None and (
       self.pA != 0.0 or self.omega != 0.0 or self.TW != 0.0 or self.DT != 0.0 or self.mn != 0.0 or self.wave_type != 0
     ):
       raise ValueError("sampled_forcing cannot be combined with analytic forcing")
-
 
 @dataclass(frozen=True, slots=True)
 class SolverStats:
@@ -296,7 +263,6 @@ class SolverStats:
   nlu: int
   elapsed_s: float
 
-
 @dataclass(frozen=True, slots=True)
 class CollapseStats:
   """Diagnostics for a completed precursor shooting solve."""
@@ -306,7 +272,6 @@ class CollapseStats:
   shooting_evaluations: int
   integration_evaluations: int
   stress_state: np.ndarray
-
 
 @dataclass(frozen=True, slots=True)
 class StateLayout:
@@ -338,14 +303,8 @@ class StateLayout:
     stress = slice(cursor, cursor + _stress_state_count(config.material))
     cursor = stress.stop
     return cls(
-      pressure=pressure,
-      bubble_thermal=bubble_thermal,
-      medium_thermal=medium_thermal,
-      vapor_fraction=vapor_fraction,
-      stress=stress,
-      size=cursor,
+      pressure=pressure, bubble_thermal=bubble_thermal, medium_thermal=medium_thermal, vapor_fraction=vapor_fraction, stress=stress, size=cursor
     )
-
 
 @dataclass(frozen=True, slots=True)
 class MediumOperators:
@@ -370,12 +329,10 @@ class MediumOperators:
   bubble_wall_stencil: np.ndarray
   medium_wall_stencil: np.ndarray
 
-
 @dataclass(frozen=True, slots=True)
 class PreparedForcing:
   knots: np.ndarray
   coefficients: np.ndarray
-
 
 @dataclass(frozen=True, slots=True)
 class PreparedDistributedStress:
@@ -385,17 +342,14 @@ class PreparedDistributedStress:
   # trapezoid rule in physical r. See _prepare_distributed_stress.
   weights: np.ndarray | None = None
 
-
 @dataclass(frozen=True, slots=True)
 class PreparedInstantaneousMaterial:
   interval_nodes: np.ndarray
   interval_weights: np.ndarray
 
-
 @dataclass(slots=True)
 class _WallState:
   theta: float = -1e-4
-
 
 @dataclass(frozen=True, slots=True)
 class PreparedProblem:
@@ -425,7 +379,6 @@ class PreparedProblem:
 
     return solve_with_sensitivities(self, tv, parameters)
 
-
 @dataclass(frozen=True, slots=True)
 class SimulationResult:
   """Immutable physical histories returned by the strict public API."""
@@ -449,29 +402,14 @@ class SimulationResult:
     radius.setflags(write=False)
     return radius
 
-
 def _readonly_float_array(values) -> np.ndarray:
   array = np.array(values, dtype=float, copy=True)
   array.setflags(write=False)
   return array
 
+def _readonly_optional(values) -> np.ndarray | None: return None if values is None else _readonly_float_array(values)
 
-def _readonly_optional(values) -> np.ndarray | None:
-  return None if values is None else _readonly_float_array(values)
-
-
-_MATERIALS = (
-  NoStress,
-  NeoHookeanKelvinVoigt,
-  QuadraticKelvinVoigt,
-  Zener,
-  QuadraticZener,
-  OldroydB,
-  InstantaneousMaterial,
-  Giesekus,
-  LinearPTT,
-)
-
+_MATERIALS = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, InstantaneousMaterial, Giesekus, LinearPTT)
 
 def _validate_config(config) -> None:
   # Everything checkable without a time grid.
@@ -480,36 +418,21 @@ def _validate_config(config) -> None:
   # `[0.0, 1.0]` grid through the combined check.
   c = config
   for name, value in (("R0", c.R0), ("Req", c.Req), ("T8", c.T8), ("rtol", c.rtol), ("atol", c.atol)):
-    if not np.isfinite(value) or value <= 0:
-      raise ValueError(f"{name} must be finite and positive")
-  if not isinstance(c.material, _MATERIALS):
-    raise TypeError("material must be a supported material model")
+    if not np.isfinite(value) or value <= 0: raise ValueError(f"{name} must be finite and positive")
+  if not isinstance(c.material, _MATERIALS): raise TypeError("material must be a supported material model")
   for name, value in (("pA", c.pA), ("omega", c.omega), ("TW", c.TW), ("DT", c.DT), ("mn", c.mn)):
-    if not np.isfinite(value):
-      raise ValueError(f"{name} must be finite")
+    if not np.isfinite(value): raise ValueError(f"{name} must be finite")
   for name, value, allowed in (("radial", c.radial, range(1, 7)), ("wave_type", c.wave_type, range(0, 4))):
     if not isinstance(value, Integral) or value not in allowed:
       raise ValueError(f"{name} must be one of: {', '.join(str(choice) for choice in allowed)}")
-  for name, value in (
-    ("vapor", c.vapor),
-    ("bubtherm", c.bubtherm),
-    ("medtherm", c.medtherm),
-    ("masstrans", c.masstrans),
-  ):
-    if not isinstance(value, Integral) or value not in (0, 1):
-      raise ValueError(f"{name} must be 0 or 1")
+  for name, value in (("vapor", c.vapor), ("bubtherm", c.bubtherm), ("medtherm", c.medtherm), ("masstrans", c.masstrans)):
+    if not isinstance(value, Integral) or value not in (0, 1): raise ValueError(f"{name} must be 0 or 1")
   for name, value in (("Nt", c.Nt), ("Mt", c.Mt)):
-    if not isinstance(value, Integral) or value < 3:
-      raise ValueError(f"{name} must be an integer >= 3")
-  if c.medtherm and not c.bubtherm:
-    raise ValueError("medtherm=1 requires bubtherm=1")
-  if c.masstrans and not c.bubtherm:
-    raise ValueError("masstrans=1 requires bubtherm=1")
-  if c.masstrans and not c.vapor:
-    raise ValueError("masstrans=1 requires vapor=1")
-  if c.bubtherm and c.vapor and not c.masstrans:
-    raise ValueError("bubtherm=1 with vapor=1 currently requires masstrans=1")
-
+    if not isinstance(value, Integral) or value < 3: raise ValueError(f"{name} must be an integer >= 3")
+  if c.medtherm and not c.bubtherm: raise ValueError("medtherm=1 requires bubtherm=1")
+  if c.masstrans and not c.bubtherm: raise ValueError("masstrans=1 requires bubtherm=1")
+  if c.masstrans and not c.vapor: raise ValueError("masstrans=1 requires vapor=1")
+  if c.bubtherm and c.vapor and not c.masstrans: raise ValueError("bubtherm=1 with vapor=1 currently requires masstrans=1")
 
 def _validate_inputs(tv, config) -> np.ndarray:
   """Validate a time grid against a config, returning the grid as an array.
@@ -520,15 +443,11 @@ def _validate_inputs(tv, config) -> np.ndarray:
   `bubtherm`/`medtherm`, `rtol`/`atol`) was a silent bug no type checker sees.
   """
   times = np.asarray(tv, dtype=float)
-  if times.ndim != 1 or times.size < 2:
-    raise ValueError("tv must be a one-dimensional array with at least two times")
-  if not np.all(np.isfinite(times)):
-    raise ValueError("tv must contain only finite values")
-  if times[0] < 0 or np.any(np.diff(times) <= 0):
-    raise ValueError("tv must be non-negative and strictly increasing")
+  if times.ndim != 1 or times.size < 2: raise ValueError("tv must be a one-dimensional array with at least two times")
+  if not np.all(np.isfinite(times)): raise ValueError("tv must contain only finite values")
+  if times[0] < 0 or np.any(np.diff(times) <= 0): raise ValueError("tv must be non-negative and strictly increasing")
   _validate_config(config)
   return times
-
 
 def _freeze_array(values) -> np.ndarray:
   array = np.asarray(values, dtype=float)

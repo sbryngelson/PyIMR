@@ -38,11 +38,9 @@ __all__ = ["STEP", "complex_step_supported", "rhs_complex"]
 # cancellation to trade against, which is the whole point of complex step.
 STEP = 1e-30
 
-
 def complex_step_supported(problem):
   """Distributed stress reaches np.cbrt/np.interp, which reject complex input."""
   return problem.distributed_stress is None
-
 
 def _to_complex(value, index):
   # Map one direction of a `Dual` structure onto complex128.
@@ -52,17 +50,13 @@ def _to_complex(value, index):
   # medium operators), dicts, object arrays and bare scalars -- so no per-container field list has to be maintained
   # alongside them. That list is exactly what went stale in #43, where `_dual_medium` kept finite-difference wall
   # stencils after the grid learned about Chebyshev.
-  if isinstance(value, Dual):
-    return value.value + 1j * STEP * value.tangent[index]
-  if isinstance(value, dict):
-    return {key: _to_complex(item, index) for key, item in value.items()}
+  if isinstance(value, Dual): return value.value + 1j * STEP * value.tangent[index]
+  if isinstance(value, dict): return {key: _to_complex(item, index) for key, item in value.items()}
   if isinstance(value, np.ndarray):
-    if value.dtype != object:
-      return value.astype(complex)
+    if value.dtype != object: return value.astype(complex)
     flat = [_to_complex(item, index) for item in value.ravel()]
     return np.array(flat, dtype=complex).reshape(value.shape)
-  if isinstance(value, tuple):
-    return tuple(_to_complex(item, index) for item in value)
+  if isinstance(value, tuple): return tuple(_to_complex(item, index) for item in value)
   if dataclasses.is_dataclass(value) and not isinstance(value, type):
     duplicate = copy.copy(value)
     for field in dataclasses.fields(value):
@@ -70,11 +64,9 @@ def _to_complex(value, index):
     return duplicate
   return value
 
-
 def directions(config, parameters, medium, forcing, width):
   """One frozen complex copy of the whole parameter set per direction."""
   return [tuple(_to_complex(item, index) for item in (config, parameters, medium, forcing)) for index in range(width)]
-
 
 def rhs_complex(time_s, packed, *, problem, prepared, wall_states, width):
   """Augmented RHS with the tangents carried in the imaginary part.
@@ -114,7 +106,6 @@ def rhs_complex(time_s, packed, *, problem, prepared, wall_states, width):
       )
       / parameters["t0"]
     )
-    if index == 0:
-      result[:, 0] = output.real
+    if index == 0: result[:, 0] = output.real
     result[:, index + 1] = output.imag / STEP
   return result.ravel()

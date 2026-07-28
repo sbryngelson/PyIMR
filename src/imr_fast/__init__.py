@@ -148,7 +148,6 @@ from ._thermal import (  # noqa: F401
 
 # mass-transfer / vapor-species properties, IMRv2 defaults (default_case.m)
 
-
 from ._materials import (  # noqa: F401
   _is_distributed_stress,
   _stress_state_count,
@@ -183,7 +182,6 @@ from ._materials import (  # noqa: F401
   _finite_positive,
 )
 
-
 from ._stress import (  # noqa: F401
   _MaterialDomainError,
   _PE_SERIES_LIMIT,
@@ -195,7 +193,6 @@ from ._stress import (  # noqa: F401
   _stress,
   _viscosity_and_tangent,
 )
-
 
 from ._prepare import (  # noqa: F401
   _collapse_memory_state,
@@ -210,7 +207,6 @@ from ._prepare import (  # noqa: F401
   prepare,
 )
 
-
 from ._rhs import (  # noqa: F401
   _nZ,
   _pinf,
@@ -219,15 +215,12 @@ from ._rhs import (  # noqa: F401
   _sampled_pressure,
 )
 
-
 _radius_floor_event.terminal = True
 _radius_floor_event.direction = -1
 
-
 def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
   config = problem.config
-  if not config.bubtherm:
-    return None, None, None
+  if not config.bubtherm: return None, None, None
   layout = problem.layout
   p = problem.parameters
   count = states.shape[0]
@@ -239,16 +232,11 @@ def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
     theta = state[layout.bubble_thermal].copy()
     Tm = state[layout.medium_thermal].copy() if layout.medium_thermal is not None else None
     kv = state[layout.vapor_fraction].copy() if layout.vapor_fraction is not None else None
-    temperature, _ = _apply_thermal_boundaries(
-      theta, Tm, kv, state[layout.pressure], p, problem.medium, config.masstrans, wall_state
-    )
+    temperature, _ = _apply_thermal_boundaries(theta, Tm, kv, state[layout.pressure], p, problem.medium, config.masstrans, wall_state)
     bubble_temperature[index] = config.T8 * temperature
-    if medium_temperature is not None:
-      medium_temperature[index] = config.T8 * Tm
-    if vapor_fraction is not None:
-      vapor_fraction[index] = kv
+    if medium_temperature is not None: medium_temperature[index] = config.T8 * Tm
+    if vapor_fraction is not None: vapor_fraction[index] = kv
   return bubble_temperature, medium_temperature, vapor_fraction
-
 
 def _build_result(problem: PreparedProblem, time_s: np.ndarray, solution, stats: SolverStats) -> SimulationResult:
   config = problem.config
@@ -268,13 +256,9 @@ def _build_result(problem: PreparedProblem, time_s: np.ndarray, solution, stats:
   for index, state in enumerate(states):
     stress_state = state[layout.stress] if layout.stress.stop > layout.stress.start else None
     if problem.distributed_stress is None:
-      stress_integral[index] = _stress(
-        config.material, p, state[0], state[1], stress_state, problem.instantaneous_material, False
-      )[0]
+      stress_integral[index] = _stress(config.material, p, state[0], state[1], stress_state, problem.instantaneous_material, False)[0]
     else:
-      stress_integral[index] = _distributed_stress_integral(
-        problem.distributed_stress, p, state[0], state[1], stress_state
-      )
+      stress_integral[index] = _distributed_stress_integral(problem.distributed_stress, p, state[0], state[1], stress_state)
   bubble_temperature, medium_temperature, vapor_fraction = _thermal_outputs(problem, states)
   internal_stress_state = states[:, layout.stress] if layout.stress.stop > layout.stress.start else None
   return SimulationResult(
@@ -287,13 +271,10 @@ def _build_result(problem: PreparedProblem, time_s: np.ndarray, solution, stats:
     medium_temperature_k=_readonly_optional(medium_temperature),
     vapor_mass_fraction=_readonly_optional(vapor_fraction),
     stress_state=_readonly_optional(internal_stress_state),
-    stress_reference_radius_ratio=(
-      problem.distributed_stress.reference_radius if problem.distributed_stress is not None else None
-    ),
+    stress_reference_radius_ratio=(problem.distributed_stress.reference_radius if problem.distributed_stress is not None else None),
     stats=stats,
     config=config,
   )
-
 
 def _integrate_prepared(problem: PreparedProblem, tv):
   config = problem.config
@@ -319,8 +300,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
   started = perf_counter()
   method = "BDF" if problem.jacobian_sparsity is not None else "LSODA"
   solver_options = {"jac_sparsity": problem.jacobian_sparsity} if problem.jacobian_sparsity is not None else {}
-  if config.max_step_s is not None:
-    solver_options["max_step"] = config.max_step_s / problem.parameters["t0"]
+  if config.max_step_s is not None: solver_options["max_step"] = config.max_step_s / problem.parameters["t0"]
   try:
     solution = solve_ivp(
       _rhs,
@@ -337,9 +317,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
   except _MaterialDomainError as error:
     elapsed = perf_counter() - started
     message = f"material domain failure: {error}"
-    stats = SolverStats(
-      backend=f"scipy-{method.lower()}", success=False, message=message, nfev=0, njev=0, nlu=0, elapsed_s=elapsed
-    )
+    stats = SolverStats(backend=f"scipy-{method.lower()}", success=False, message=message, nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
     raise SimulationError(f"IMR integration failed: {message}", stats) from error
   elapsed = perf_counter() - started
   complete = solution.y.shape[1] == time_s.size
@@ -348,8 +326,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
   message = str(solution.message)
   if solution.success and not complete:
     message = f"{message}; terminated before the final requested time"
-  elif solution.success and not finite:
-    message = f"{message}; solution contains non-finite states"
+  elif solution.success and not finite: message = f"{message}; solution contains non-finite states"
   stats = SolverStats(
     backend=f"scipy-{method.lower()}",
     success=success,
@@ -359,20 +336,16 @@ def _integrate_prepared(problem: PreparedProblem, tv):
     nlu=int(solution.nlu),
     elapsed_s=elapsed,
   )
-  if not success:
-    raise SimulationError(f"IMR integration failed: {message}", stats)
+  if not success: raise SimulationError(f"IMR integration failed: {message}", stats)
   return time_s, solution, stats
-
 
 def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
   time_s, solution, stats = _integrate_prepared(problem, tv)
   return _build_result(problem, time_s, solution, stats)
 
-
 def simulate(tv, config: SimulationConfig) -> SimulationResult:
   """Run one simulation and return immutable physical histories."""
   return prepare(config).solve(tv)
-
 
 def simulate_with_sensitivities(tv, config: SimulationConfig, parameters):
   """Run one simulation with forward sensitivities.

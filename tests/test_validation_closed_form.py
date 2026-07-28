@@ -51,9 +51,7 @@ _ANALYTIC = RAYLEIGH * _R0 * np.sqrt(_RHO / _P8)
 # Surface tension must be positive, so it is driven to zero rather than set
 # there. At 1e-12 N/m the Laplace pressure is ~1e-8 Pa against 1e5 Pa ambient.
 _SIGMA = 1e-12
-_INVISCID = imr_fast.PhysicalParameters(
-  surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO
-)
+_INVISCID = imr_fast.PhysicalParameters(surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO)
 
 _SAMPLES = 40001
 _WINDOW = 1.3 * _ANALYTIC
@@ -63,9 +61,7 @@ _RESOLUTION = _WINDOW / (_SAMPLES - 1) / _ANALYTIC
 
 
 def _collapse_time(ratio):
-  config = imr_fast.SimulationConfig(
-    R0=_R0, Req=_R0 * ratio, material=imr_fast.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13
-  )
+  config = imr_fast.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=imr_fast.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13)
   times = np.linspace(0.0, _WINDOW, _SAMPLES)
   radius = np.asarray(imr_fast.simulate(times, config).radius_ratio)
   return float(times[int(np.argmin(radius))])
@@ -98,13 +94,9 @@ def _trace(ratio, radial, sound_speed=None, window=60e-6, samples=4000):
   physics = (
     _INVISCID
     if sound_speed is None
-    else imr_fast.PhysicalParameters(
-      surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO, sound_speed_m_s=sound_speed
-    )
+    else imr_fast.PhysicalParameters(surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO, sound_speed_m_s=sound_speed)
   )
-  config = imr_fast.SimulationConfig(
-    R0=_R0, Req=_R0 * ratio, material=imr_fast.NoStress(), radial=radial, physics=physics, rtol=1e-12, atol=1e-14
-  )
+  config = imr_fast.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=imr_fast.NoStress(), radial=radial, physics=physics, rtol=1e-12, atol=1e-14)
   return imr_fast.simulate(np.linspace(0.0, window, samples), config)
 
 
@@ -368,9 +360,7 @@ def test_the_mie_gruneisen_domain_is_one_boundary_not_two(radial, measured):
   radicand = (1.0 + (s + 2.0 * nog) * mu) / (1.0 - s * mu) ** 3
   assert np.all(radicand >= 0.0), "a real density root must imply a real sound speed"
 
-  config = imr_fast.SimulationConfig(
-    R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=radial
-  )
+  config = imr_fast.SimulationConfig(R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=radial)
   parameters = imr_fast.prepare(config).parameters
   result = imr_fast.simulate(np.linspace(0.0, 60e-6, 2000), config)
   bubble = np.asarray(result.internal_pressure_pa) + np.asarray(result.stress_integral_pa)

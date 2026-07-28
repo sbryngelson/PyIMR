@@ -11,19 +11,7 @@ import pytest
 
 from imr_fast import _thermal
 import imr_fast
-from _validation_support import (
-  NHKV,
-  R0,
-  REQ,
-  T0,
-  deviation,
-  median_deviation,
-  oldroyd_b,
-  reference,
-  reference_times,
-  solve_radius,
-  zener,
-)
+from _validation_support import NHKV, R0, REQ, T0, deviation, median_deviation, oldroyd_b, reference, reference_times, solve_radius, zener
 
 SECTION = "1. Forward solver vs IMRv2 reference trajectories"
 
@@ -119,11 +107,7 @@ _EXTENDED: list[tuple[str, dict[str, Any], str]] = [
   ("vapor=1 (T=298.15K)", dict(vapor=1, T8=298.15), "ref_vapor.csv"),
   ("bubtherm=1 (thermal PDE)", dict(bubtherm=1, Nt=25, thermal="fd"), "ref_bubtherm.csv"),
   ("medtherm=1 (liquid layer)", dict(bubtherm=1, medtherm=1, Nt=25, Mt=25, thermal="fd"), "ref_medtherm.csv"),
-  (
-    "masstrans=1+medtherm=1 (coupled)",
-    dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=25, Mt=25, thermal="fd"),
-    "ref_masstrans_medtherm.csv",
-  ),
+  ("masstrans=1+medtherm=1 (coupled)", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=25, Mt=25, thermal="fd"), "ref_masstrans_medtherm.csv"),
   ("no constitutive stress", dict(material=imr_fast.NoStress()), "ref_stress0.csv"),
   ("quadratic Zener", dict(material=imr_fast.QuadraticZener(2500.0, 0.1, 2 * T0, 0.4 * T0, 0.25)), "ref_stress4.csv"),
   ("radial=3 (KM enthalpy, Tait)", dict(radial=3), "ref_radial3.csv"),
@@ -166,9 +150,7 @@ _IMRV2_SZERO = -0.1600469117114953
 
 
 def test_collapse_zener(measured):
-  config = imr_fast.SimulationConfig(
-    R0=R0, Req=REQ, material=zener(), collapse=imr_fast.CollapseInitialization(), **_FULL
-  )
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=zener(), collapse=imr_fast.CollapseInitialization(), **_FULL)
   computed = imr_fast.simulate(reference_times(), config).radius_ratio
   upstream = reference("ref_collapse_zener.csv")
   worst, typical = deviation(upstream, computed), median_deviation(upstream, computed)
@@ -203,9 +185,7 @@ def test_collapse_zener_with_upstream_szero(measured):
   only by the precursor and the Kirchhoff correction" -- both accounted for,
   neither free to grow.
   """
-  config = imr_fast.SimulationConfig(
-    R0=R0, Req=REQ, material=zener(), initial=imr_fast.InitialState(stress_state=(_IMRV2_SZERO,)), **_FULL
-  )
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=zener(), initial=imr_fast.InitialState(stress_state=(_IMRV2_SZERO,)), **_FULL)
   worst = deviation(reference("ref_collapse_zener.csv"), imr_fast.simulate(reference_times(), config).radius_ratio)
   measured("collapse Zener w/ IMRv2 Szero", f"max|dR|={worst:.2e}")
   assert worst < 2e-4
@@ -233,8 +213,7 @@ def test_memoryless_collapse_is_refused():
     # The refusal is a configuration error, so it fires on construction --
     # keep both statements inside the assertion.
     imr_fast.simulate(
-      reference_times(),
-      imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, collapse=imr_fast.CollapseInitialization(), **_FULL),
+      reference_times(), imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, collapse=imr_fast.CollapseInitialization(), **_FULL)
     )
 
 
@@ -311,10 +290,7 @@ def test_mie_enthalpy_weakly_compressible_limit(mie_parameters, measured):
 @pytest.fixture(scope="module")
 def radial_trajectories():
   return {
-    n: imr_fast.simulate(
-      reference_times(), imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, radial=n)
-    ).radius_ratio
-    for n in (2, 3, 4, 5, 6)
+    n: imr_fast.simulate(reference_times(), imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, radial=n)).radius_ratio for n in (2, 3, 4, 5, 6)
   }
 
 

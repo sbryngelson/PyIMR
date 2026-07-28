@@ -31,7 +31,6 @@ from ._mechanical import mechanical_stress_tangent, mechanical_tangent_rhs
 
 __all__ = ["SensitivityParameter", "SensitivityResult", "simulate_with_sensitivities", "solve_with_sensitivities"]
 
-
 @dataclass(frozen=True, slots=True)
 class SensitivityResult:
   """Simulation and dimensional derivatives at every requested output time."""
@@ -48,13 +47,10 @@ class SensitivityResult:
   medium_temperature_k: np.ndarray | None = None
   vapor_mass_fraction: np.ndarray | None = None
 
-
 def _rhs_mechanical_compiled(time_s, packed, *, problem, parameter_values, parameter_tangents, material_data, width):
   state_width = problem.layout.size
   matrix = packed.reshape(state_width, width + 1)
-  (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents) = (
-    material_data
-  )
+  (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents) = material_data
   prepared = problem.instantaneous_material
   nodes = prepared.interval_nodes if prepared is not None else np.empty(0)
   weights = prepared.interval_weights if prepared is not None else np.empty(0)
@@ -82,10 +78,8 @@ def _rhs_mechanical_compiled(time_s, packed, *, problem, parameter_values, param
     problem.config.radial,
   ).ravel()
 
-
 def _augmented_sparsity(base_sparsity, width):
-  if base_sparsity is None:
-    return None
+  if base_sparsity is None: return None
   components = width + 1
   size = base_sparsity.shape[0]
   pattern = lil_matrix((size * components, size * components), dtype=bool)
@@ -99,20 +93,16 @@ def _augmented_sparsity(base_sparsity, width):
       pattern[base_row + direction, base_column + direction] = True
   return pattern.tocsr()
 
-
 def _readonly(values):
   result = np.asarray(values, dtype=float)
   result.setflags(write=False)
   return result
 
-
 def _compiled_mechanical_outputs(problem, config, parameters, states, width, compiled):
   count = states.shape[0]
   outputs = tuple(np.empty((count, width)) for _ in range(5))
   (parameter_values, parameter_tangents, material_data) = compiled
-  (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents) = (
-    material_data
-  )
+  (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents) = material_data
   prepared = problem.instantaneous_material
   nodes = prepared.interval_nodes if prepared is not None else np.empty(0)
   weights = prepared.interval_weights if prepared is not None else np.empty(0)
@@ -142,21 +132,13 @@ def _compiled_mechanical_outputs(problem, config, parameters, states, width, com
       stress_weights,
     )
     stress = Dual(stress_data[0], stress_data[1:])
-    values = (
-      radius,
-      config.R0 * radius,
-      parameters["Uc"] * wall_velocity,
-      parameters["P8"] * pressure,
-      parameters["P8"] * stress,
-    )
+    values = (radius, config.R0 * radius, parameters["Uc"] * wall_velocity, parameters["P8"] * pressure, parameters["P8"] * stress)
     for target, value in zip(outputs, values, strict=True):
       target[time_index] = value.tangent
   return (*outputs, None, None, None)
 
-
 def _output_duals(problem, config, parameters, states, width, compiled=None):
-  if compiled is not None:
-    return _compiled_mechanical_outputs(problem, config, parameters, states, width, compiled)
+  if compiled is not None: return _compiled_mechanical_outputs(problem, config, parameters, states, width, compiled)
   count = states.shape[0]
   radius_ratio = np.empty((count, width))
   radius_m = np.empty_like(radius_ratio)
@@ -177,24 +159,12 @@ def _output_duals(problem, config, parameters, states, width, compiled=None):
       if config.bubtherm
       else ((parameters["Pb"] - parameters["Pv"]) * radius ** (-3.0 * parameters["kappa"]) + parameters["Pv"])
     )
-    stress_state = (
-      dual_state[problem.layout.stress] if problem.layout.stress.stop > problem.layout.stress.start else None
-    )
+    stress_state = dual_state[problem.layout.stress] if problem.layout.stress.stop > problem.layout.stress.start else None
     if problem.distributed_stress is None:
-      stress_value = _stress(
-        config.material, parameters, radius, wall_velocity, stress_state, problem.instantaneous_material, False
-      )[0]
+      stress_value = _stress(config.material, parameters, radius, wall_velocity, stress_state, problem.instantaneous_material, False)[0]
     else:
-      stress_value = _solver._distributed_stress_integral(
-        problem.distributed_stress, parameters, radius, wall_velocity, stress_state
-      )
-    output = (
-      radius,
-      config.R0 * radius,
-      parameters["Uc"] * wall_velocity,
-      parameters["P8"] * pressure_value,
-      parameters["P8"] * stress_value,
-    )
+      stress_value = _solver._distributed_stress_integral(problem.distributed_stress, parameters, radius, wall_velocity, stress_state)
+    output = (radius, config.R0 * radius, parameters["Uc"] * wall_velocity, parameters["P8"] * pressure_value, parameters["P8"] * stress_value)
     targets = (radius_ratio, radius_m, velocity, pressure, stress)
     for target, value in zip(targets, output, strict=True):
       target[time_index] = value.tangent if isinstance(value, Dual) else np.zeros(width)
@@ -206,26 +176,20 @@ def _output_duals(problem, config, parameters, states, width, compiled=None):
         theta, medium_state, vapor_state, pressure_value, parameters, dual_medium, config.masstrans, wall_state
       )
       bubble_temperature[time_index] = _tangent_values(config.T8 * temperature, width)
-      if medium_temperature is not None:
-        medium_temperature[time_index] = _tangent_values(config.T8 * medium_state, width)
-      if vapor_fraction is not None:
-        vapor_fraction[time_index] = _tangent_values(vapor_state, width)
+      if medium_temperature is not None: medium_temperature[time_index] = _tangent_values(config.T8 * medium_state, width)
+      if vapor_fraction is not None: vapor_fraction[time_index] = _tangent_values(vapor_state, width)
   return (radius_ratio, radius_m, velocity, pressure, stress, bubble_temperature, medium_temperature, vapor_fraction)
-
 
 def _tangent_values(values, width):
   array = np.asarray(values, dtype=object)
   result = np.zeros(array.shape + (width,))
   for index, value in np.ndenumerate(array):
-    if isinstance(value, Dual):
-      result[index] = value.tangent
+    if isinstance(value, Dual): result[index] = value.tangent
   return result
-
 
 def solve_with_sensitivities(problem, tv, parameters):
   """Solve one prepared problem and all requested forward sensitivities."""
-  if not isinstance(problem, _solver.PreparedProblem):
-    raise TypeError("problem must be a PreparedProblem")
+  if not isinstance(problem, _solver.PreparedProblem): raise TypeError("problem must be a PreparedProblem")
   config = problem.config
   time_s = _solver._validate_inputs(tv, config)
   normalized, values, scales = _normalize_parameters(config, parameters)
@@ -269,8 +233,7 @@ def solve_with_sensitivities(problem, tv, parameters):
       width=width,
     )
 
-  def radius_floor(_time, packed):
-    return packed[0] - 1e-8
+  def radius_floor(_time, packed): return packed[0] - 1e-8
 
   radius_floor.terminal = True
   radius_floor.direction = -1
@@ -293,15 +256,7 @@ def solve_with_sensitivities(problem, tv, parameters):
   except _solver._MaterialDomainError as error:
     elapsed = perf_counter() - started
     message = f"material domain failure: {error}"
-    stats = _solver.SolverStats(
-      backend=f"scipy-{method.lower()}-forward",
-      success=False,
-      message=message,
-      nfev=0,
-      njev=0,
-      nlu=0,
-      elapsed_s=elapsed,
-    )
+    stats = _solver.SolverStats(backend=f"scipy-{method.lower()}-forward", success=False, message=message, nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
     raise _solver.SimulationError(f"IMR sensitivity integration failed: {message}", stats) from error
   elapsed = perf_counter() - started
   complete = solution.y.shape[1] == time_s.size
@@ -310,8 +265,7 @@ def solve_with_sensitivities(problem, tv, parameters):
   message = str(solution.message)
   if solution.success and not complete:
     message = f"{message}; terminated before the final requested time"
-  elif solution.success and not finite:
-    message = f"{message}; solution contains non-finite states"
+  elif solution.success and not finite: message = f"{message}; solution contains non-finite states"
   stats = _solver.SolverStats(
     backend=f"scipy-{method.lower()}-forward",
     success=success,
@@ -321,8 +275,7 @@ def solve_with_sensitivities(problem, tv, parameters):
     nlu=int(solution.nlu),
     elapsed_s=elapsed,
   )
-  if not success:
-    raise _solver.SimulationError(f"IMR sensitivity integration failed: {message}", stats)
+  if not success: raise _solver.SimulationError(f"IMR sensitivity integration failed: {message}", stats)
   packed = solution.y.T.reshape(time_s.size, problem.layout.size, width + 1)
   base_states = packed[:, :, 0]
   base_solution = SimpleNamespace(y=base_states.T)
@@ -344,7 +297,6 @@ def solve_with_sensitivities(problem, tv, parameters):
     medium_temperature_k=(None if outputs[6] is None else _readonly(outputs[6])),
     vapor_mass_fraction=(None if outputs[7] is None else _readonly(outputs[7])),
   )
-
 
 def simulate_with_sensitivities(tv, config, parameters):
   """Prepare and solve a configuration with forward sensitivities."""

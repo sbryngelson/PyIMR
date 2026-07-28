@@ -65,16 +65,8 @@ for nodes in [25, 51, 101]:
   err_center = abs(lap_num[0] - lap_exact[0])
   pred_interior = 30 * h**2
   pred_center = 18 * h**2
-  ok &= check(
-    f"nodes={nodes:4d} interior vs HAND-PREDICTED {pred_interior:.4e}",
-    abs(err_interior - pred_interior),
-    1e-4 * pred_interior + 1e-8,
-  )
-  ok &= check(
-    f"nodes={nodes:4d} row-0 vs HAND-PREDICTED {pred_center:.4e}",
-    abs(err_center - pred_center),
-    1e-4 * pred_center + 1e-8,
-  )
+  ok &= check(f"nodes={nodes:4d} interior vs HAND-PREDICTED {pred_interior:.4e}", abs(err_interior - pred_interior), 1e-4 * pred_interior + 1e-8)
+  ok &= check(f"nodes={nodes:4d} row-0 vs HAND-PREDICTED {pred_center:.4e}", abs(err_center - pred_center), 1e-4 * pred_center + 1e-8)
 
 print()
 print("=" * 72)

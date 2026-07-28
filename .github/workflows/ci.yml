@@ -38,11 +38,14 @@ jobs:
       - name: Tests and numerical validation
         run: python -m pytest -rA
 
-      # The repo settled on `ruff format` in #17, but CI only ever ran
-      # `ruff check`, which does not enforce it -- so formatting drifted
-      # unnoticed. Both now run.
+      # `ruff format` is deliberately NOT run. It explodes `if x: return y`
+      # into three lines and mandates blank lines between definitions, which
+      # is the whole of the density this codebase is written for -- the lint
+      # ignore list (E701/E702/E703) has licensed those idioms since W7 while
+      # the formatter kept undoing them. Density is the author's job now; the
+      # correctness lints still run.
       - name: Static checks
-        run: python -m ruff check . && python -m ruff format --check .
+        run: python -m ruff check .
 
       # Gates on NEW type errors only; the pre-existing ones are recorded in
       # tools/pyright_baseline.json (issue #33). One version, because pyright

@@ -41,58 +41,19 @@ CASES = (
     "forward",
     SHORT,
     0.02,
-    dict(
-      material=F.InstantaneousMaterial(
-        elastic=F.Gent(2500.0, 250.0), viscous=F.CarreauYasuda(0.5, 0.02, 20e-6, 2.0, 0.45)
-      )
-    ),
+    dict(material=F.InstantaneousMaterial(elastic=F.Gent(2500.0, 250.0), viscous=F.CarreauYasuda(0.5, 0.02, 20e-6, 2.0, 0.45))),
     0,
   ),
-  (
-    "ogden-3-term",
-    "forward",
-    SHORT,
-    0.13,
-    dict(material=F.InstantaneousMaterial(elastic=F.Ogden((1800.0, 600.0, -300.0), (1.3, 4.0, -2.0)))),
-    0,
-  ),
-  (
-    "giesekus-gauss-240",
-    "distributed",
-    SHORT,
-    0.02,
-    dict(material=F.Giesekus(0.1, 2 * T0, 0.4 * T0, 0.2, points=240)),
-    0,
-  ),
-  (
-    "giesekus-trapz-480",
-    "distributed",
-    SHORT,
-    0.04,
-    dict(material=F.Giesekus(0.1, 2 * T0, 0.4 * T0, 0.2, points=480, quadrature="trapezoid")),
-    0,
-  ),
+  ("ogden-3-term", "forward", SHORT, 0.13, dict(material=F.InstantaneousMaterial(elastic=F.Ogden((1800.0, 600.0, -300.0), (1.3, 4.0, -2.0)))), 0),
+  ("giesekus-gauss-240", "distributed", SHORT, 0.02, dict(material=F.Giesekus(0.1, 2 * T0, 0.4 * T0, 0.2, points=240)), 0),
+  ("giesekus-trapz-480", "distributed", SHORT, 0.04, dict(material=F.Giesekus(0.1, 2 * T0, 0.4 * T0, 0.2, points=480, quadrature="trapezoid")), 0),
   ("bubtherm-fd-25", "thermal", SHORT, 0.06, dict(bubtherm=1, Nt=25, thermal="fd"), 0),
   ("bubtherm-spectral-25", "thermal", SHORT, 0.08, dict(bubtherm=1, Nt=25, thermal="spectral"), 0),
-  (
-    "coupled-fd",
-    "thermal",
-    SHORT,
-    0.30,
-    dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=25, Mt=25, thermal="fd"),
-    0,
-  ),
+  ("coupled-fd", "thermal", SHORT, 0.30, dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=25, Mt=25, thermal="fd"), 0),
   ("sens-nhkv-1", "sensitivity", SHORT, 0.2, dict(radial=2), 1),
   ("sens-nhkv-4", "sensitivity", SHORT, 0.2, dict(radial=2), 4),
   # Off the compiled path (#44): ~90% of runtime is Dual dispatch. Opt-in only.
-  (
-    "sens-coupled-fd-1",
-    "sensitivity",
-    SHORT,
-    900.0,
-    dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=7, Mt=7, thermal="fd"),
-    1,
-  ),
+  ("sens-coupled-fd-1", "sensitivity", SHORT, 900.0, dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=7, Mt=7, thermal="fd"), 1),
 )
 
 
@@ -112,14 +73,7 @@ def measure(name, group, times, kwargs, directions, repeats):
   problem = F.prepare(config)
   forward = median(lambda: F.simulate(times, config), repeats)
   prepared = median(lambda: problem.solve(times), repeats)
-  row = dict(
-    name=name,
-    group=group,
-    state=int(problem.layout.size),
-    forward_s=forward,
-    prepared_s=prepared,
-    prepare_x=forward / prepared,
-  )
+  row = dict(name=name, group=group, state=int(problem.layout.size), forward_s=forward, prepared_s=prepared, prepare_x=forward / prepared)
   if directions:
     sens = median(lambda: sensitivity.solve_with_sensitivities(problem, times, list(PARAMS[:directions])), repeats)
     row.update(directions=directions, sensitivity_s=sens, sens_over_forward=sens / prepared)
@@ -177,14 +131,7 @@ def main():
   if a.json:
     a.json.write_text(
       json.dumps(
-        dict(
-          python=platform.python_version(),
-          numpy=np.__version__,
-          repeats=a.repeats,
-          skipped=[c[0] for c in skip],
-          results=results,
-        ),
-        indent=2,
+        dict(python=platform.python_version(), numpy=np.__version__, repeats=a.repeats, skipped=[c[0] for c in skip], results=results), indent=2
       )
       + "\n"
     )

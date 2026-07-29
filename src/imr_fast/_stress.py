@@ -291,11 +291,11 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
   if isinstance(material, InstantaneousMaterial): return _instantaneous_stress(material, instantaneous, p, R, Rd, need_rate)
   raise TypeError(f"material={material!r} is not an analytic material")
 
-def _distributed_stress(material, prepared, p, R, Rd, state, need_rate):
+def _distributed_stress(material, prepared, p, R, Rd, state, need_rate, *, xp=np):
   points = prepared.reference_radius.size
   radial_stress = state[:points]
   hoop_stress = state[points:]
-  radius_cubed = np.maximum(prepared.reference_radius_cubed + R**3 - 1.0, 1e-30)
+  radius_cubed = xp.maximum(prepared.reference_radius_cubed + R**3 - 1.0, 1e-30)
   inverse_radius_cubed = 1.0 / radius_cubed
   strain_rate = Rd * R**2 * inverse_radius_cubed
   polymer_viscosity = (1.0 - p["LAM"]) / p["Re8"]
@@ -315,36 +315,36 @@ def _distributed_stress(material, prepared, p, R, Rd, state, need_rate):
     trace_factor = 1.0 + nonlinear_scale * (radial_stress + 2.0 * hoop_stress)
     radial_rate = -trace_factor * radial_stress / p["De"] - 4.0 * strain_rate * radial_stress - 4.0 * polymer_viscosity * strain_rate / p["De"]
     hoop_rate = -trace_factor * hoop_stress / p["De"] + 2.0 * strain_rate * hoop_stress + 2.0 * polymer_viscosity * strain_rate / p["De"]
-  radius = np.cbrt(radius_cubed)
+  radius = xp.cbrt(radius_cubed)
   stress_difference = radial_stress - hoop_stress
   polymer_integral_rate = 0.0
   if prepared.weights is not None:
     # Mapped form: I = sum_i w_i * 2 * dtau_i / r_i**3, with w_i fixed in time.
     # Differentiating term by term is therefore exact -- no discrete difference.
-    polymer_integral = 2.0 * np.sum(prepared.weights * stress_difference * inverse_radius_cubed)
+    polymer_integral = 2.0 * xp.sum(prepared.weights * stress_difference * inverse_radius_cubed)
     if need_rate:
-      polymer_integral_rate = 2.0 * np.sum(
+      polymer_integral_rate = 2.0 * xp.sum(
         prepared.weights * ((radial_rate - hoop_rate) * inverse_radius_cubed - 3.0 * stress_difference * R**2 * Rd * inverse_radius_cubed**2)
       )
   else:
     integrand = 2.0 * stress_difference / radius
-    polymer_integral = np.trapezoid(integrand, radius)
+    polymer_integral = xp.trapezoid(integrand, radius)
     if need_rate:
       material_velocity = R**2 * Rd / radius**2
       integrand_rate = 2.0 * ((radial_rate - hoop_rate) / radius - stress_difference * material_velocity / radius**2)
-      intervals = np.diff(radius)
-      interval_rates = np.diff(material_velocity)
-      polymer_integral_rate = np.sum(
+      intervals = xp.diff(radius)
+      interval_rates = xp.diff(material_velocity)
+      polymer_integral_rate = xp.sum(
         0.5 * ((integrand_rate[:-1] + integrand_rate[1:]) * intervals + (integrand[:-1] + integrand[1:]) * interval_rates)
       )
   solvent_scale = 4.0 * p["LAM"] / p["Re8"]
   stress_integral = polymer_integral - solvent_scale * Rd / R
   explicit_rate = polymer_integral_rate + solvent_scale * (Rd / R) ** 2
-  return (stress_integral, explicit_rate, np.concatenate((radial_rate, hoop_rate)), solvent_scale)
+  return (stress_integral, explicit_rate, xp.concatenate((radial_rate, hoop_rate)), solvent_scale)
 
-def _distributed_stress_integral(prepared, p, R, Rd, state):
+def _distributed_stress_integral(prepared, p, R, Rd, state, *, xp=np):
   points = prepared.reference_radius.size
-  radius = np.cbrt(np.maximum(prepared.reference_radius_cubed + R**3 - 1.0, 1e-30))
+  radius = xp.cbrt(xp.maximum(prepared.reference_radius_cubed + R**3 - 1.0, 1e-30))
   integrand = 2.0 * (state[:points] - state[points:]) / radius
-  polymer_integral = np.trapezoid(integrand, radius)
+  polymer_integral = xp.trapezoid(integrand, radius)
   return polymer_integral - 4.0 * p["LAM"] / p["Re8"] * Rd / R

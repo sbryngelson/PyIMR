@@ -80,11 +80,10 @@ def available() -> bool:
 def unsupported_reason(config) -> str | None:
   """Why this configuration cannot use the JAX backend yet, or None.
 
-  Stage 2b covers the mechanical path only. The thermal fields are assembled by
-  in-place slice assignment (`thetadot[-1] = 0.0` and its neighbours), which
-  needs `jnp.at[].set()` rather than a namespace swap, and distributed stress
-  packs its output into a preallocated buffer for the same reason. Both are
-  stage 4 work; naming them here beats a `KeyError` three frames down.
+  Naming the reason here beats a tracer error three frames inside diffrax. The
+  list is short now: everything except mass transfer, whose wall closure is an
+  iterative solve, and a sampled forcing history, whose interpolation searches
+  its knots.
   """
   # Mass transfer is the one thermal branch still out: `_wall_theta_bw_full`
   # solves the wall temperature by secant iteration with a fallback ladder, and
@@ -92,8 +91,6 @@ def unsupported_reason(config) -> str | None:
   # `medtherm` alone does NOT -- #57 made that wall closure closed form.
   if config.masstrans: return "masstrans=1 is not on the jax backend: its wall closure is an iterative solve -- see PLAN.md W11"
   if config.sampled_forcing is not None: return "sampled_forcing is not on the jax backend yet"
-  if getattr(config.material, "points", None) is not None:
-    return "distributed-memory materials are not on the jax backend yet -- their output is packed into a preallocated buffer"
   return None
 
 

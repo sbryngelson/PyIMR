@@ -57,13 +57,18 @@ def test_jax_backend_matches_scipy(radial, label, material, measured):
 def test_unsupported_configurations_are_refused_by_name():
   """A refusal at construction, not a tracer error several frames into diffrax.
 
-  Stage 4 brought the thermal fields in. What is left out is the distributed
-  stress, which packs its output into a preallocated buffer, and mass transfer,
-  whose wall closure is an iterative solve -- covered separately below.
+  The list is short now. Mass transfer is out because `_wall_theta_bw_full`
+  solves the wall temperature by secant with a fallback ladder, and a
+  data-dependent loop needs `lax.custom_root`. A sampled forcing history is out
+  because its interpolation searches its own knots.
   """
-  distributed = imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12)
-  with pytest.raises(ValueError, match="distributed-memory"):
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=distributed, backend="jax")
+  with pytest.raises(ValueError, match="masstrans"):
+    imr_fast.SimulationConfig(
+      R0=R0, Req=REQ, material=NHKV, backend="jax", bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9
+    )
+  sampled = imr_fast.SampledForcing(time_s=(0.0, 1e-5, 2e-5), pressure_pa=(0.0, 5e4, 0.0))
+  with pytest.raises(ValueError, match="sampled_forcing"):
+    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax", sampled_forcing=sampled)
 
 def test_backend_field_rejects_anything_else():
   with pytest.raises(ValueError, match="backend must be"):
@@ -103,6 +108,34 @@ def test_mass_transfer_is_still_refused():
     imr_fast.SimulationConfig(
       R0=R0, Req=REQ, material=NHKV, backend="jax", bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9
     )
+
+_COVERAGE_CASES = [
+  ("gaussian forcing", NHKV, dict(wave_type=1, pA=5e4, TW=5e-6, DT=2e-5)),
+  ("heaviside step", NHKV, dict(wave_type=3, pA=5e4, TW=3e-5)),
+  ("histotripsy pulse", NHKV, dict(wave_type=2, pA=1e5, omega=2 * np.pi / 2e-5, DT=3e-5, mn=2)),
+  ("giesekus", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), {}),
+  ("linear PTT", imr_fast.LinearPTT(0.1, 80e-6, 16e-6, 0.2, points=12), {}),
+  ("giesekus + medtherm", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), dict(bubtherm=1, medtherm=1, Nt=9, Mt=9, thermal="fd")),
+]
+
+@requires_jax
+@pytest.mark.parametrize("label,material,options", _COVERAGE_CASES, ids=[c[0] for c in _COVERAGE_CASES])
+def test_jax_backend_covers_forcing_and_distributed_memory(label, material, options, measured):
+  """Analytic forcing and the distributed-memory materials.
+
+  Two different blockers, both now gone. The windowed forcings branch on the
+  INTEGRATION TIME, which a tracer supplies, so those tests became `where`. The
+  distributed materials pack their output into a preallocated buffer -- 2*points
+  entries, too many for the list the other branch builds -- so that buffer is
+  filled through `at_set` instead.
+  """
+  times = np.linspace(0.0, 25e-6, 150)
+  reference = np.asarray(imr_fast.simulate(times, imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material, **options)).radius_ratio)
+  result = imr_fast.simulate(times, imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material, backend="jax", **options))
+  computed = np.asarray(result.radius_ratio)
+  worst = float(np.nanmax(np.abs(reference - computed)))
+  measured(f"jax vs scipy {label}", f"max={worst:.2e}")
+  assert worst < _MAX_BOUND
 
 _TANGENT_FIELDS = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
 

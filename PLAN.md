@@ -1303,6 +1303,40 @@ things stand in the way, and the third is the real one:
   waiting a second, so it needs its own change with its own tests rather than
   riding along with the cache.
 
+### What the jax backend now covers
+
+Forcing and the distributed-memory materials came in for the price of the same
+two mechanisms stage 2a and stage 4 already introduced.
+
+**Forcing.** `wave_type` and the amplitude are configuration and stay Python
+branches. The WINDOWS are not -- they test `tn`, the integration time, which a
+tracer supplies -- so those became `where`. One consequence worth stating: both
+arms of a `where` are evaluated, so the histotripsy cosine is clamped rather
+than guarded. Outside its window `c` would go negative and `c ** (mn - 1)`
+produce a nan, and a nan selected AGAINST still poisons a gradient.
+
+**Distributed memory.** Giesekus and linear PTT pack `2*points` derivatives --
+480 at the default -- into a preallocated buffer, which is why that branch never
+joined the list the mechanical path builds. `at_set` fills it for both backends.
+`_distributed_stress`, `_distributed_stress_integral` and
+`_distributed_dissipation` take `xp`; the Python interpolation loop inside the
+last is the object-dtype branch that only the Dual route reaches, so jax takes
+`interp` and never sees it.
+
+Measured against scipy, 150 points to 25 us:
+
+```
+gaussian forcing      1.63e-06     giesekus              3.49e-07
+heaviside step        8.45e-08     linear PTT            3.32e-07
+histotripsy pulse     2.33e-06     giesekus + medtherm   4.68e-07
+```
+
+Still refused, and both for the same underlying reason -- a search or a solve
+whose trip count depends on the data:
+
+- `masstrans=1`, whose wall closure is a secant with a fallback ladder
+- `sampled_forcing`, whose interpolation searches its own knots
+
 ### Risks
 
 | risk | why it bites | where it is handled |

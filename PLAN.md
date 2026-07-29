@@ -1003,9 +1003,9 @@ JAX arrives as a **selectable backend, defaulting off**, the same shape
       5e-13--5e-11, so JAX has to join that agreement rather than establish it.
       **Blocker resolved and the approach validated. The GATE as written here is
       wrong** -- corrected under "What the gate should be" below.
-- [ ] **Stage 4 -- thermal.** bubtherm/medtherm, then the implicit wall solve.
-      Narrower than it looks: #57 made the medtherm-only case closed-form, so
-      only mass transfer needs `lax.custom_root`.
+- [x] **Stage 4 -- thermal.** bubtherm and medtherm land; mass transfer does
+      not, because its wall closure is still a secant with a fallback ladder.
+      **Two claims here were wrong -- see "Stage 4 corrections" below.**
 - [ ] **Stage 5 -- remove numba, and only then.** Delete `_mechanical.py` once
       JAX covers the mechanical path at >= parity; delete `_dual.py` and
       `_complex.py` once JAX covers everything they do. Keeping numba through
@@ -1196,6 +1196,43 @@ all twenty traces. What remains is assembling a full `SensitivityResult` from a
 JAX solve: the state tangent is immediate, but `internal_pressure_pa` and
 `stress_integral_pa` are nonlinear functions of state and parameters that the
 Dual path gets for free and a jacfwd path has to derive.
+
+### Stage 4 corrections
+
+**"Stage 4 picks implicit or IMEX for coupled thermal" was wrong.** Explicit
+wins even on the stiffest configuration measured:
+
+```
+coupled fd        Tsit5      56.5 ms    822 steps      Kvaerno5  2716.8 ms  3697 steps
+coupled spectral  Tsit5     549.2 ms   8912 steps      Kvaerno5  4177.1 ms  6077 steps
+```
+
+The implicit solver does take fewer steps, and the stiffness ratios (3.3e+11
+and 6.9e+16) are real -- 8912 steps against 326 for the mechanical case is the
+stiffness biting. But at 26 to 53 states the Newton solve costs ~7x per step and
+never repays that. It would at larger N; it does not here.
+
+**The backend was re-tracing on every call.** Compilation dominates the solve,
+so the JAX path measured 796 ms against scipy's 30 ms while a jitted spike of
+the same problem ran in 4 ms. Now cached on the prepared problem's identity plus
+the shapes that change the traced program, bounded at 32 entries so a design
+sweep over time grids cannot grow it without limit.
+
+With that fixed, prepared once and solved repeatedly -- which is how the
+inference layer calls it:
+
+```
+mechanical           scipy  27.7 ms    jax   3.1 ms    8.8x
+bubtherm fd                122.3            22.0       5.6x
+coupled fd                 276.1            62.1       4.4x
+coupled spectral           527.1           634.1       0.8x
+```
+
+The stiffest configuration is the one JAX loses, and neither diffrax solver
+beats LSODA there. IMEX is the untried option -- `KenCarp` wants a `MultiTerm`
+split designating the stiff part, which the diffusion operator supplies
+naturally, and an earlier attempt passed a single `ODETerm` and failed for that
+reason rather than on the merits.
 
 ### Risks
 

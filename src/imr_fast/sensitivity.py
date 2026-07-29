@@ -172,7 +172,7 @@ def _output_duals(problem, config, parameters, states, width, compiled=None):
       theta = dual_state[problem.layout.bubble_thermal].copy()
       medium_state = dual_state[problem.layout.medium_thermal].copy() if config.medtherm else None
       vapor_state = dual_state[problem.layout.vapor_fraction].copy() if config.masstrans else None
-      temperature, _ = _solver._apply_thermal_boundaries(
+      *_, temperature, _ = _solver._apply_thermal_boundaries(
         theta, medium_state, vapor_state, pressure_value, parameters, dual_medium, config.masstrans, wall_state
       )
       bubble_temperature[time_index] = _tangent_values(config.T8 * temperature, width)

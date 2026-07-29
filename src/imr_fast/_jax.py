@@ -61,13 +61,34 @@ def unsupported_reason(config) -> str | None:
   packs its output into a preallocated buffer for the same reason. Both are
   stage 4 work; naming them here beats a `KeyError` three frames down.
   """
-  if config.bubtherm: return "bubtherm=1 (thermal PDE) is not on the jax backend yet -- see PLAN.md W11 stage 4"
+  # Mass transfer is the one thermal branch still out: `_wall_theta_bw_full`
+  # solves the wall temperature by secant iteration with a fallback ladder, and
+  # a data-dependent loop needs `lax.custom_root` rather than a namespace swap.
+  # `medtherm` alone does NOT -- #57 made that wall closure closed form.
+  if config.masstrans: return "masstrans=1 is not on the jax backend: its wall closure is an iterative solve -- see PLAN.md W11"
   if config.sampled_forcing is not None: return "sampled_forcing is not on the jax backend yet"
   if getattr(config.material, "points", None) is not None:
     return "distributed-memory materials are not on the jax backend yet -- their output is packed into a preallocated buffer"
   return None
 
-def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", max_step=None):
+
+# Tracing and compiling the solve costs far more than running it -- measured at
+# 796 ms against 30 ms for the same mechanical case, because every call rebuilt
+# the graph. Keyed on the caller's identity plus the shapes that change the
+# traced program; the problem is held so an id cannot be reused underneath the
+# entry. Bounded, because a design sweep that varies the time grid would
+# otherwise grow one entry per distinct length forever.
+_COMPILED: dict = {}
+_COMPILED_LIMIT = 32
+
+def _cached(key, build):
+  hit = _COMPILED.get(key)
+  if hit is None:
+    if len(_COMPILED) >= _COMPILED_LIMIT: _COMPILED.clear()
+    hit = _COMPILED[key] = build()
+  return hit
+
+def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", max_step=None, cache_key=None):
   """Run `rhs` through diffrax, returning `(times, states, stats)`.
 
   `states` comes back in scipy's `solution.y` orientation -- one row per state,
@@ -76,17 +97,21 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   jax, jnp, diffrax = _jax()
   from time import perf_counter
 
-  def field(t, y, _args): return jnp.asarray(rhs(t, y, *args, xp=jnp))
+  def build():
+    def solve(grid, start):
+      return diffrax.diffeqsolve(
+        diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *args, xp=jnp))), diffrax.Tsit5(),
+        t0=grid[0], t1=grid[-1], dt0=None, y0=start,
+        stepsize_controller=diffrax.PIDController(rtol=rtol, atol=atol, dtmax=max_step),
+        saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, throw=False,
+      )
 
-  controller = diffrax.PIDController(rtol=rtol, atol=atol, dtmax=max_step)
+    return jax.jit(solve)
+
+  compiled = _cached(cache_key, build) if cache_key is not None else build()
   started = perf_counter()
   try:
-    solution = diffrax.diffeqsolve(
-      diffrax.ODETerm(field), diffrax.Tsit5(), t0=float(times[0]), t1=float(times[-1]), dt0=None,
-      y0=jnp.asarray(np.asarray(initial, dtype=float)), stepsize_controller=controller,
-      saveat=diffrax.SaveAt(ts=jnp.asarray(np.asarray(times, dtype=float))), max_steps=1_000_000,
-      throw=False,
-    )
+    solution = compiled(jnp.asarray(np.asarray(times, dtype=float)), jnp.asarray(np.asarray(initial, dtype=float)))
   except Exception as error:  # noqa: BLE001 - any solver failure is one failure
     elapsed = perf_counter() - started
     stats = SolverStats(backend=f"jax-tsit5{label}", success=False, message=str(error), nfev=0, njev=0, nlu=0, elapsed_s=elapsed)

@@ -57,12 +57,10 @@ def test_jax_backend_matches_scipy(radial, label, material, measured):
 def test_unsupported_configurations_are_refused_by_name():
   """A refusal at construction, not a tracer error several frames into diffrax.
 
-  Stage 2b is the mechanical path only. The thermal fields and the distributed
-  stress both assemble their output by in-place assignment into a preallocated
-  buffer, which needs `jnp.at[].set()` rather than a namespace swap -- stage 4.
+  Stage 4 brought the thermal fields in. What is left out is the distributed
+  stress, which packs its output into a preallocated buffer, and mass transfer,
+  whose wall closure is an iterative solve -- covered separately below.
   """
-  with pytest.raises(ValueError, match="bubtherm"):
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax", bubtherm=1, Nt=9)
   distributed = imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12)
   with pytest.raises(ValueError, match="distributed-memory"):
     imr_fast.SimulationConfig(R0=R0, Req=REQ, material=distributed, backend="jax")
@@ -71,6 +69,40 @@ def test_backend_field_rejects_anything_else():
   with pytest.raises(ValueError, match="backend must be"):
     imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="torch")
 
+
+_THERMAL_CASES = [
+  ("bubtherm fd", dict(bubtherm=1, Nt=17, thermal="fd")),
+  ("bubtherm spectral", dict(bubtherm=1, Nt=17, thermal="spectral")),
+  ("coupled fd", dict(bubtherm=1, medtherm=1, Nt=13, Mt=13, thermal="fd")),
+  ("coupled spectral", dict(bubtherm=1, medtherm=1, Nt=13, Mt=13, thermal="spectral")),
+]
+
+@requires_jax
+@pytest.mark.parametrize("label,options", _THERMAL_CASES, ids=[c[0] for c in _THERMAL_CASES])
+def test_jax_backend_matches_scipy_on_the_thermal_path(label, options, measured):
+  """The thermal fields, which slice assignment kept off this backend until W11
+  stage 4 routed them through `at_set`.
+
+  `medtherm` needs no iterative wall solve -- #57 made that closure closed form
+  -- which is why it lands here while `masstrans`, whose closure is still a
+  secant with a fallback ladder, does not.
+  """
+  times = np.linspace(0.0, 25e-6, 200)
+  reference = np.asarray(imr_fast.simulate(times, imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, **options)).radius_ratio)
+  result = imr_fast.simulate(times, imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax", **options))
+  computed = np.asarray(result.radius_ratio)
+  worst, typical = float(np.nanmax(np.abs(reference - computed))), float(np.nanmedian(np.abs(reference - computed)))
+  measured(f"jax vs scipy {label}", f"max={worst:.2e} median={typical:.2e} steps={result.stats.nfev}")
+  assert worst < _MAX_BOUND and typical < _MEDIAN_BOUND
+
+def test_mass_transfer_is_still_refused():
+  """The one thermal branch stage 4 does not reach: `_wall_theta_bw_full` is a
+  secant with a fallback ladder, and a data-dependent loop needs
+  `lax.custom_root` rather than a namespace swap."""
+  with pytest.raises(ValueError, match="masstrans"):
+    imr_fast.SimulationConfig(
+      R0=R0, Req=REQ, material=NHKV, backend="jax", bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9
+    )
 
 _TANGENT_FIELDS = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
 

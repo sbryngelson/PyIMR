@@ -232,7 +232,7 @@ def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
     theta = state[layout.bubble_thermal].copy()
     Tm = state[layout.medium_thermal].copy() if layout.medium_thermal is not None else None
     kv = state[layout.vapor_fraction].copy() if layout.vapor_fraction is not None else None
-    temperature, _ = _apply_thermal_boundaries(theta, Tm, kv, state[layout.pressure], p, problem.medium, config.masstrans, wall_state)
+    *_, temperature, _ = _apply_thermal_boundaries(theta, Tm, kv, state[layout.pressure], p, problem.medium, config.masstrans, wall_state)
     bubble_temperature[index] = config.T8 * temperature
     if medium_temperature is not None: medium_temperature[index] = config.T8 * Tm
     if vapor_fraction is not None: vapor_fraction[index] = kv

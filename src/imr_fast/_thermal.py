@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ._autodiff import primal_array
+from ._autodiff import at_set, primal_array
 from ._materials import InstantaneousMaterial, NoStress, QuadraticKelvinVoigt
 from ._stress import _elastic_integrand, _viscosity_and_tangent
 
@@ -61,7 +61,7 @@ def kirchhoff_theta(temperature, alpha, beta):
   """
   return 0.5 * alpha * (temperature**2 - 1.0) + beta * (temperature - 1.0)
 
-def kirchhoff_temperature(theta, alpha, beta):
+def kirchhoff_temperature(theta, alpha, beta, *, xp=np):
   """Inverse of :func:`kirchhoff_theta`.
 
   Completing the square on `alpha*T**2/2 + beta*T = alpha/2 + beta + theta`
@@ -72,7 +72,7 @@ def kirchhoff_temperature(theta, alpha, beta):
       T     = (s - beta) / alpha
       theta = (s**2 - (alpha + beta)**2) / (2*alpha)
   """
-  return (-beta + np.sqrt((alpha + beta) ** 2 + 2.0 * alpha * theta)) / alpha
+  return (-beta + xp.sqrt((alpha + beta) ** 2 + 2.0 * alpha * theta)) / alpha
 
 def mixture_kirchhoff(vapor_fraction, p, masstrans):
   """The `(alpha, beta)` a gas/vapour mixture presents to :func:`kirchhoff_theta`.
@@ -89,7 +89,7 @@ def mixture_kirchhoff(vapor_fraction, p, masstrans):
   beta = vapor_fraction * p["beta_v"] + (1.0 - vapor_fraction) * p["beta_g"]
   return alpha, beta
 
-def pvsat(T): return 1.17e11 * np.exp(-5200.0 / T)
+def pvsat(T, *, xp=np): return 1.17e11 * xp.exp(-5200.0 / T)
 
 def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG, *, xp=np):
   # The discriminant of a*mu**2 + b*mu + A collapses: b**2 - 4*a*A is
@@ -148,7 +148,7 @@ def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3):
     heating += 12.0 * viscosity / p["viscosity_scale"] * strain_rate**2
   return p["Br"] * heating
 
-def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6):
+def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6, *, xp=np):
   """Medium heating for the closed-form materials.
 
   The `12/Re8` below is the TOTAL quasi-steady stress power, not a solvent term
@@ -179,13 +179,14 @@ def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6):
   # caller in _imr_rhs suppressed invalid around the whole block -- a blanket
   # suppression hiding a nan in a function it does not own. Tmdot[-1] is
   # overwritten with 0.0, which is the value set here. #35.
-  base = np.zeros_like(yT)
-  base[inner] = 12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6[inner] + 2.0 * Br / Ca * iyT3[inner] * (Rd / R) * (yT2[inner] * ix2 - iyT4[inner] * x4)
+  base = at_set(
+    xp.zeros_like(yT), inner,
+    12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6[inner] + 2.0 * Br / Ca * iyT3[inner] * (Rd / R) * (yT2[inner] * ix2 - iyT4[inner] * x4),
+  )
   if isinstance(material, InstantaneousMaterial): return _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3)
-  if isinstance(material, NoStress): return np.zeros_like(yT)
+  if isinstance(material, NoStress): return xp.zeros_like(yT)
   if isinstance(material, QuadraticKelvinVoigt):
-    stiffening = np.ones_like(yT)
-    stiffening[inner] = 1.0 + ax * (x4 * iyT4[inner] + 2.0 * yT2[inner] * ix2 - 3.0)
+    stiffening = at_set(xp.ones_like(yT), inner, 1.0 + ax * (x4 * iyT4[inner] + 2.0 * yT2[inner] * ix2 - 3.0))
     return base * stiffening
   return base
 
@@ -239,7 +240,7 @@ def _secant_root(function, guess, *, tol=1e-13, maxiter=100):
     q1 = function(p1)
   raise RuntimeError(f"wall boundary secant solve failed to converge after {maxiter} iterations")
 
-def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans):
+def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans, *, xp=np):
   """Solve the flux match at the wall exactly, rather than iterating on it (#57).
 
   Substituting Tw = (s - beta_g) / alpha_g and theta_bw = (s*s - (alpha_g +
@@ -259,9 +260,9 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Tr
   """
   b, c = grad_Tm[0], grad_Trans[0]
   span = (alpha_g + beta_g) ** 2
-  k = -b * beta_g / alpha_g + np.sum(grad_Tm[1:] * Tm_tail)
-  k += np.sum(grad_Trans[1:] * theta_tail) - c * span / (2.0 * alpha_g)
-  s = (-b + np.sqrt(b * b - 2.0 * alpha_g * c * k)) / c
+  k = -b * beta_g / alpha_g + xp.sum(grad_Tm[1:] * Tm_tail)
+  k += xp.sum(grad_Trans[1:] * theta_tail) - c * span / (2.0 * alpha_g)
+  s = (-b + xp.sqrt(b * b - 2.0 * alpha_g * c * k)) / c
   return (s * s - span) / (2.0 * alpha_g)
 
 def _wall_theta_bw_full(
@@ -317,9 +318,13 @@ def _wall_theta_bw_full(
   if roots: return min(roots, key=lambda root: abs(root - guess))
   raise failure
 
-def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state):
+def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state, *, xp=np):
+  # Returns the fields as well as the temperature: jax arrays are immutable, so
+  # the wall values cannot be written into the caller's arrays and have to come
+  # back. numpy still mutates in place inside `at_set`, so the returned objects
+  # are the same ones and nothing downstream can tell the difference.
   if medium is not None and masstrans:
-    theta[-1] = _wall_theta_bw_full(
+    theta = at_set(theta, -1, _wall_theta_bw_full(
       wall_state.theta,
       theta[-2::-1],
       Tm[1:],
@@ -338,18 +343,18 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
       medium.grad_Tm,
       medium.grad_Trans,
       medium.grad_C,
-    )
+    ))
     wall_state.theta = theta[-1]
   elif medium is not None:
-    theta[-1] = _wall_theta_bw(wall_state.theta, theta[-2::-1], Tm[1:], p["alpha_g"], p["beta_g"], medium.grad_Tm, medium.grad_Trans)
+    theta = at_set(theta, -1, _wall_theta_bw(wall_state.theta, theta[-2::-1], Tm[1:], p["alpha_g"], p["beta_g"], medium.grad_Tm, medium.grad_Trans, xp=xp))
     wall_state.theta = theta[-1]
   alpha_m = None
   if masstrans:
     alpha_m = kv * p["alpha_v"] + (1.0 - kv) * p["alpha_g"]
     beta_m = kv * p["beta_v"] + (1.0 - kv) * p["beta_g"]
-    temperature = kirchhoff_temperature(theta, alpha_m, beta_m)
-    kv[-1] = _kv_of_T(temperature[-1], P, p["T8"], p["Rv_star"] / p["Rg_star"], p["P8"])
+    temperature = kirchhoff_temperature(theta, alpha_m, beta_m, xp=xp)
+    kv = at_set(kv, -1, _kv_of_T(temperature[-1], P, p["T8"], p["Rv_star"] / p["Rg_star"], p["P8"]))
   else:
-    temperature = kirchhoff_temperature(theta, p["alpha_g"], p["beta_g"])
-  if Tm is not None: Tm[0] = temperature[-1]
-  return temperature, alpha_m
+    temperature = kirchhoff_temperature(theta, p["alpha_g"], p["beta_g"], xp=xp)
+  if Tm is not None: Tm = at_set(Tm, 0, temperature[-1])
+  return theta, Tm, kv, temperature, alpha_m

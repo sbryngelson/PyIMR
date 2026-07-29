@@ -11,6 +11,20 @@ from numbers import Real
 
 import numpy as np
 
+def at_set(array, index, value):
+  """`array[index] = value`, returning the array, for numpy AND jax alike.
+
+  jax arrays are immutable and spell this `.at[index].set(value)`. Dispatching
+  on the attribute rather than on a namespace keeps the call sites free of an
+  `xp` they would otherwise need only for this -- numpy arrays have no `.at`,
+  and neither do the object arrays the Dual route builds. See PLAN.md W11
+  stage 4: the thermal fields are assembled by slice assignment, which is what
+  kept them off the jax backend.
+  """
+  if hasattr(array, "at"): return array.at[index].set(value)
+  array[index] = value
+  return array
+
 class Dual:
   __slots__ = ("value", "tangent")
   __array_priority__ = 1000

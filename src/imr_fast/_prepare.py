@@ -78,7 +78,12 @@ def _material_scales(material):
   stiffening = material.stiffening if isinstance(material, (QuadraticKelvinVoigt, QuadraticZener)) else 0.0
   return modulus, viscosity, relaxation, retardation, stiffening
 
-def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0, masstrans=0, physics=None):
+def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0, masstrans=0, physics=None, *, xp=np, scales=None):
+  # `scales` overrides `(G, mu, lam1, lam2, alphax)` with values that may be
+  # traced, while `material` stays concrete. A material cannot be CONSTRUCTED
+  # from a traced value -- `__post_init__` calls `np.isfinite`, which converts a
+  # tracer -- so the differentiated quantity has to arrive beside the material
+  # rather than inside it. See PLAN.md W11 stage 3.
   physics = PhysicalParameters() if physics is None else physics
   P8_value = physics.far_field_pressure_pa
   density = physics.medium_density_kg_m3
@@ -86,9 +91,13 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   kappa = physics.polytropic_exponent
   Uc = np.sqrt(P8_value / density)
   t0 = R0 / Uc
-  G, mu, lam1, lam2, alphax = _material_scales(material)
-  Ca = P8_value / G if G > 0 else np.inf
-  Re8 = P8_value * R0 / (mu * Uc) if mu > 0 else np.inf
+  concrete = _material_scales(material)
+  G, mu, lam1, lam2, alphax = concrete if scales is None else scales
+  # The degenerate tests read the CONCRETE material on purpose. Whether a
+  # material has elasticity at all is structural, and cannot change under
+  # differentiation of its modulus.
+  Ca = P8_value / G if concrete[0] > 0 else xp.inf
+  Re8 = P8_value * R0 / (mu * Uc) if concrete[1] > 0 else xp.inf
   We = P8_value * R0 / (2 * surface_tension)
   Pv = vapor * pvsat(T8)
   P0_exp = 3 if bubtherm else 3 * kappa

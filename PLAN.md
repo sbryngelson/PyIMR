@@ -947,3 +947,140 @@ from reading. Reproduce with `tools/gen_imrv2_cases.m` and
 Worth reporting upstream. Defects 1--4 mean IMRv2's entire non-Newtonian
 viscosity suite and both nonlinear-memory models are non-functional at this
 revision.
+
+## W11. JAX as a second backend
+
+**Status: Stage 0 run and passed. Stages 1-5 not started.**
+
+### The bet
+
+JAX replaces `_mechanical.py` (611 lines), `_dual.py` (469) and `_complex.py`
+(125) -- **1205 lines, 21% of the package** -- and deletes the hand-written
+forward-mode AD entirely. It would also make the exact Hessian free, which is
+the open question behind #88's Gauss-Newton diagnostic.
+
+What numba currently buys, measured: **2.2x** on the mechanical sensitivity
+solve (46.6 ms compiled against 103.7 ms on the Dual path), for 611 lines of
+duplicated physics that every change must land in twice. Only a *numeric*
+consistency test catches divergence between them; nothing compares structure,
+which is how the compiled path came to have its radial branches collapsed while
+the Python path still had four copies of the same formula (#94).
+
+### The risk that actually matters
+
+Not the port. Every pinned IMRv2 trajectory is a statement about *scipy's*
+integrator at specific tolerances -- medians bounded from 2e-07 (Keller-Miksis
+NHKV) to 8e-06 across eighteen cases. A different integrator moves all of them,
+and there is no principled way to re-pin without redoing the IMRv2 comparison.
+
+### Safety principle
+
+JAX arrives as a **selectable backend, defaulting off**, the same shape
+`thermal="fd"|"spectral"` took in #20/#26. Two rules make it reversible:
+
+- **The reference for the port is scipy-backend output, not IMRv2.**
+  Cross-backend agreement on identical configs is tighter and far cheaper to
+  check than re-deriving IMRv2 agreement. The pinned tests stay on scipy.
+- **No pinned bound is ever relaxed to make JAX pass.** Disagreement beyond the
+  cross-backend bound is a finding to explain, not a tolerance to widen.
+
+### Stages
+
+- [x] **Stage 0 -- throwaway spike, outside the repo.** `radial=2`, NHKV, no
+      thermal, on JAX + diffrax. Results below. Abort condition was: cannot hold
+      2e-07, or slower than the 103.7 ms Dual path. Neither fired.
+- [ ] **Stage 1 -- the seam, with no JAX in it.** `backend: str = "scipy"` on
+      `SimulationConfig`, routing `simulate` / `solve_with_sensitivities`, with
+      only `"scipy"` implemented. Gate: existing tests green AND trajectories
+      bit-identical.
+- [ ] **Stage 2 -- forward solve, mechanical only.** `backend="jax"` for radial
+      1-6, no bubtherm, no forcing. Gate: a cross-backend test bounding
+      `|R_jax - R_scipy|` over a config sweep.
+- [ ] **Stage 3 -- sensitivities.** `jax.jacfwd` through the diffrax solve
+      replaces the Dual path for the JAX backend only. The strongest gate in the
+      plan: two independently verified tangent paths already agree at
+      5e-13--5e-11, so JAX has to join that agreement rather than establish it.
+- [ ] **Stage 4 -- thermal.** bubtherm/medtherm, then the implicit wall solve.
+      Narrower than it looks: #57 made the medtherm-only case closed-form, so
+      only mass transfer needs `lax.custom_root`.
+- [ ] **Stage 5 -- remove numba, and only then.** Delete `_mechanical.py` once
+      JAX covers the mechanical path at >= parity; delete `_dual.py` and
+      `_complex.py` once JAX covers everything they do. Keeping numba through
+      stages 0-4 is deliberate -- it is the performance reference.
+
+### Stage 0 results
+
+Ported `radial=2` + NHKV standalone (no `imr_fast` import, so nothing could
+accidentally depend on the code it is meant to replace). Against the tightest
+pinned median bound in the suite, 2e-07, where scipy sits at 3.128e-08:
+
+```
+solver              vs IMRv2 max   vs IMRv2 median   vs scipy backend
+Kvaerno5 (stiff)      9.368e-06       3.018e-08          8.15e-07
+Tsit5 (non-stiff)     9.375e-06       3.012e-08          8.22e-07
+```
+
+Sensitivity throughput, 200 points x 2 parameters:
+
+```
+Tsit5 (non-stiff)        8.8 ms     5.3x FASTER than numba
+numba compiled          46.6 ms
+Dual path              103.7 ms
+Kvaerno5 (stiff)       832.3 ms     18x slower than numba
+```
+
+Both gates pass, and JAX is marginally *more* accurate than scipy here.
+
+Two things not to over-read. The 8.8 ms is a bare jitted `jacfwd`; numba's
+46.6 ms includes `prepare`, dual-config construction and packing, so some of
+that gap is framework overhead rather than the integrator. And Kvaerno5's
+832 ms is an implicit solver doing Newton iterations on a problem that is not
+stiff -- it says nothing about genuinely stiff configurations.
+
+### Stiffness is static, so there is nothing to auto-switch
+
+The 832 ms was **my misconfiguration, not a diffrax limitation**, and the first
+draft of this section reported it as a property of the tool. Kvaerno5 takes
+*fewer* steps than explicit Bosh3 (4424 against 7436) and still costs 17x more
+per step -- 119.6 us against Tsit5's 7.2 us. That is the Newton solve, which is
+pure waste on a problem that is not stiff. The mechanical problem is not stiff:
+eigenvalue ratio 1.18.
+
+diffrax has no auto-detecting switcher, which is true and was the stated risk.
+It does have IMEX (`KenCarp3/4/5`, `Sil3`), where the stiff term is designated
+rather than detected -- a better fit here, because IMR's stiffness is
+structurally the thermal diffusion operator.
+
+But the switching is not needed at all. Measured `|lambda_max / lambda_min|` of
+`df/dy` along the trajectory:
+
+```
+mechanical NHKV                 1.18e+00     not stiff
+bubtherm=1, Nt=25, fd           8.06e+03     mildly stiff
+bubtherm + medtherm, fd         3.28e+11     very stiff
+bubtherm + medtherm, spectral   6.90e+16     extremely stiff
+```
+
+**Median equals worst in every case** -- the ratio is constant along the
+trajectory. Stiffness belongs to the configuration, not to a phase of the solve,
+so the solver can be selected at `prepare` time exactly as scipy already selects
+BDF when `jacobian_sparsity` is present. LSODA's auto-switching is not
+load-bearing for this problem.
+
+(The spectral case being five orders stiffer than finite difference is the
+Chebyshev `D**2` eigenvalue scaling of `N**4` against `N**2`, already recorded
+in W10.)
+
+Consequence for the plan: Stage 2 picks explicit for mechanical, Stage 4 picks
+implicit or IMEX for coupled thermal, and neither has to detect anything.
+
+### Risks
+
+| risk | why it bites | where it is handled |
+|---|---|---|
+| ~~**LSODA has no diffrax equivalent**~~ | **Downgraded -- see "Stiffness is static" below.** Stiffness is a property of the configuration, not of the trajectory, so there is nothing to auto-switch | solver chosen at `prepare` time, as scipy already does for BDF |
+| **Terminal events** | `_radius_floor_event` is `terminal=True, direction=-1`; diffrax's event model differs | Stage 2; the floor is a guard, so a divergent-solve check may substitute |
+| **float32 default** | would pass loose tests and fail tight ones, confusingly | `jax_enable_x64` before any dtype is touched; already required in Stage 0 |
+| **Dispatch under `jit`** | the #96 tables are Python-object keyed | closed over at trace time; static per solve |
+| **Compile latency** | 1.4 s per distinct configuration | amortised for BOED, but a design sweep that varies the time grid may retrigger |
+| **Two backends drift** | exactly the failure mode `_mechanical.py` already has | the cross-backend test must cover every config the JAX backend claims |

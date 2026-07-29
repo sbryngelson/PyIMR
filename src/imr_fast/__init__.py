@@ -24,10 +24,8 @@ replicate its quirks on purpose, and which correct it, is in docs/upstream.md.
 
 from __future__ import annotations
 
-from time import perf_counter
 
 import numpy as np
-from scipy.integrate import solve_ivp
 
 from ._autodiff import primal, primal_array  # noqa: F401
 
@@ -79,6 +77,7 @@ __all__ = [
   "simulate_with_sensitivities",
 ]
 
+from ._integrate import integrate as _integrate
 from ._config import (  # noqa: F401
   C8,
   CollapseInitialization,
@@ -298,31 +297,11 @@ def _integrate_prepared(problem: PreparedProblem, tv):
     problem.instantaneous_material,
     problem.distributed_stress,
   )
-  started = perf_counter()
-  method = "BDF" if problem.jacobian_sparsity is not None else "LSODA"
-  solver_options = {"jac_sparsity": problem.jacobian_sparsity} if problem.jacobian_sparsity is not None else {}
-  if config.max_step_s is not None: solver_options["max_step"] = config.max_step_s / problem.parameters["t0"]
-  try:
-    solution = solve_ivp(
-      _rhs,
-      (tn[0], tn[-1]),
-      problem.initial_state,
-      t_eval=tn,
-      args=args,
-      events=_radius_floor_event,
-      method=method,
-      rtol=config.rtol,
-      atol=config.atol,
-      **solver_options,
-    )
-  except _MaterialDomainError as error:
-    elapsed = perf_counter() - started
-    message = f"material domain failure: {error}"
-    stats = SolverStats(backend=f"scipy-{method.lower()}", success=False, message=message, nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
-    raise SimulationError(f"IMR integration failed: {message}", stats) from error
-  elapsed = perf_counter() - started
-  success, message, stats = _solve_stats(solution, time_s, f"scipy-{method.lower()}", elapsed)
-  if not success: raise SimulationError(f"IMR integration failed: {message}", stats)
+  solution, stats = _integrate(
+    _rhs, tn, problem.initial_state, args=args, event=_radius_floor_event, sparsity=problem.jacobian_sparsity,
+    rtol=config.rtol, atol=config.atol, failure="IMR integration failed",
+    max_step=None if config.max_step_s is None else config.max_step_s / p["t0"],
+  )
   return time_s, solution, stats
 
 def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:

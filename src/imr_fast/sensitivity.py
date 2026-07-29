@@ -4,15 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from time import perf_counter
 from types import SimpleNamespace
 
 import numpy as np
-from scipy.integrate import solve_ivp
 from scipy.sparse import lil_matrix
 
 from . import _complex
 import imr_fast as _solver
+from ._integrate import integrate as _integrate
 from ._stress import _stress
 from ._autodiff import Dual
 from ._dual import (
@@ -201,7 +200,6 @@ def solve_with_sensitivities(problem, tv, parameters):
   dual_forcing = _dual_forcing(dual_config, dual_parameters)
   width = len(normalized)
   initial = _initial_matrix(problem, dual_config, dual_parameters, width)
-  started = perf_counter()
   use_compiled_mechanical = not config.bubtherm and problem.forcing is None
   if use_compiled_mechanical:
     parameter_values, parameter_tangents = _mechanical_parameters(dual_parameters, width)
@@ -239,30 +237,11 @@ def solve_with_sensitivities(problem, tv, parameters):
 
   radius_floor.terminal = True
   radius_floor.direction = -1
-  jacobian_sparsity = _augmented_sparsity(problem.jacobian_sparsity, width)
-  method = "BDF" if jacobian_sparsity is not None else "LSODA"
-  solver_options = {"jac_sparsity": jacobian_sparsity} if jacobian_sparsity is not None else {}
-  try:
-    solution = solve_ivp(
-      rhs,
-      (time_s[0], time_s[-1]),
-      initial.ravel(),
-      t_eval=time_s,
-      args=(),
-      method=method,
-      rtol=config.rtol,
-      atol=config.atol,
-      events=radius_floor,
-      **solver_options,
-    )
-  except _solver._MaterialDomainError as error:
-    elapsed = perf_counter() - started
-    message = f"material domain failure: {error}"
-    stats = _solver.SolverStats(backend=f"scipy-{method.lower()}-forward", success=False, message=message, nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
-    raise _solver.SimulationError(f"IMR sensitivity integration failed: {message}", stats) from error
-  elapsed = perf_counter() - started
-  success, message, stats = _solver._solve_stats(solution, time_s, f"scipy-{method.lower()}-forward", elapsed)
-  if not success: raise _solver.SimulationError(f"IMR sensitivity integration failed: {message}", stats)
+  solution, stats = _integrate(
+    rhs, time_s, initial.ravel(), args=(), event=radius_floor,
+    sparsity=_augmented_sparsity(problem.jacobian_sparsity, width),
+    rtol=config.rtol, atol=config.atol, failure="IMR sensitivity integration failed", label="-forward",
+  )
   packed = solution.y.T.reshape(time_s.size, problem.layout.size, width + 1)
   base_states = packed[:, :, 0]
   base_solution = SimpleNamespace(y=base_states.T)

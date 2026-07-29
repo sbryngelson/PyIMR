@@ -1368,6 +1368,47 @@ Two refusals, both by name rather than a silent fallback:
 Falling back quietly would be worse than either: it would make one config field
 mean two different things depending on which method you called.
 
+### Mass transfer: attempted, and the blocker is root precision
+
+The wall closure is a secant with a fallback ladder, and the plan called for
+`lax.custom_root`. A simpler thing works for the iteration itself: a fixed-trip
+secant, since at the root the update is already zero and extra iterations are
+no-ops. It matched `_secant_root` to 2.2e-16 on three residual shapes and
+differentiated exactly, recovering d(sqrt(c))/dc to 1e-16.
+
+It still does not integrate. Three hypotheses, all wrong, each cheap to test and
+worth recording so they are not retried:
+
+1. **Warm start.** `_WallState` carries the previous root, and a tracer stored
+   there leaks out of the trace, so the traced path restarts from `theta[-1]`
+   each step. Measured: warm and cold starts land on the same root to 1e-16.
+   Not the cause.
+2. **Post-convergence drift.** The real wall root is ~1e-17, so both residuals
+   reach the noise floor and the fixed-trip iterate random-walks where
+   `_secant_root` would have exited. Freezing the step under tolerance fixed
+   that, and the integration still failed.
+3. **A discontinuous bracket.** `_secant_root` flips its initial offset sign at
+   zero, which is exactly where these roots sit. Removing the flip changed
+   nothing.
+
+What it actually is: **the traced root differs enough to make the right-hand
+side inconsistent at the integrator's tolerance.** Sampled along the scipy
+trajectory rather than at one state, `|dRHS|` between the two backends reaches
+**2.19e-09** against `rtol = 1e-08`. An adaptive controller cannot satisfy an
+error estimate on a function that disagrees with itself at the tolerance, so it
+shrinks `dt` until the step budget is gone -- 1e6 steps, on a problem whose
+stiffness ratio is only 1.34e+04 with `|lambda_max| = 196`, where a hundred
+steps should do.
+
+Two sampled states agreed to 9e-16, which is why this looked fine before the
+trajectory sweep. Sampling where the integrator actually goes is the check that
+matters.
+
+So mass transfer needs a root solver whose answer matches `_secant_root` to
+much better than the integrator tolerance -- `lax.custom_root` with a proper
+tangent solve, or a polish step -- not a namespace fix. Reverted rather than
+shipped behind a guard, so there is no dead code waiting for it.
+
 ### Risks
 
 | risk | why it bites | where it is handled |

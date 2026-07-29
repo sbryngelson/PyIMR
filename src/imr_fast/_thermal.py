@@ -91,29 +91,29 @@ def mixture_kirchhoff(vapor_fraction, p, masstrans):
 
 def pvsat(T): return 1.17e11 * np.exp(-5200.0 / T)
 
-def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG):
+def _mu_of_A(A, s=_HUGONIOT_S, nog=_NOG, *, xp=np):
   # The discriminant of a*mu**2 + b*mu + A collapses: b**2 - 4*a*A is
   # 4*A**2*s**2 + 4*A*s + 1 - 4*A**2*s**2 + 4*nog*A, whose quartic terms cancel
   # exactly. Writing it out gives the Hugoniot's domain in one line -- a real
   # density root needs A > -1/(4*(s + nog)) = -0.0529 -- and avoids the
   # cancellation the subtracted form suffers. See #35.
-  return (2.0 * A * s + 1.0 - np.sqrt(1.0 + 4.0 * A * (s + nog))) / (2.0 * (A * s**2 - nog))
+  return (2.0 * A * s + 1.0 - xp.sqrt(1.0 + 4.0 * A * (s + nog))) / (2.0 * (A * s**2 - nog))
 
-def _mie_F(mu, s=_HUGONIOT_S, nog=_NOG):
+def _mie_F(mu, s=_HUGONIOT_S, nog=_NOG, *, xp=np):
   w = 1.0 - s * mu
-  return (2 * nog + s - 1) / (s + 1) ** 3 * np.log(w / (mu + 1.0)) + (nog + s) / (s * (s + 1) * w**2) - (2 * nog + s - 1) / ((s + 1) ** 2 * w)
+  return (2 * nog + s - 1) / (s + 1) ** 3 * xp.log(w / (mu + 1.0)) + (nog + s) / (s * (s + 1) * w**2) - (2 * nog + s - 1) / ((s + 1) ** 2 * w)
 
-def _mie_gruneisen(P, Cstar, s, nog, reference):
+def _mie_gruneisen(P, Cstar, s, nog, reference, *, xp=np):
   A = P / Cstar**2
-  mu = _mu_of_A(A, s, nog)
+  mu = _mu_of_A(A, s, nog, xp=xp)
   # The sound-speed radicand reduces to (1 + (s + 2*nog)*mu) / (1 - s*mu)**3,
   # which vanishes at mu = -1/(s + 2*nog) -- the same mu `_mu_of_A` returns at
   # its own discriminant's root. The two boundaries coincide exactly, so a
   # negative argument here is unreachable: mu is already nan by then, and
   # sqrt(nan) is quiet. The suppression this used to carry never fired (#35).
-  C = Cstar * np.sqrt((1.0 + (s + 2.0 * nog) * mu) / (1.0 - s * mu) ** 3)
+  C = Cstar * xp.sqrt((1.0 + (s + 2.0 * nog) * mu) / (1.0 - s * mu) ** 3)
   hH = 1.0 / (1.0 + mu)
-  hB = Cstar**2 * (_mie_F(mu, s, nog) - reference)
+  hB = Cstar**2 * (_mie_F(mu, s, nog, xp=xp) - reference)
   return C, hB, hH
 
 def _far_field_singular_index(xi) -> int:

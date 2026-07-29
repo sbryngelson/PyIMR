@@ -247,7 +247,7 @@ def _instantaneous_stress(material, prepared, p, R, Rd, need_rate):
       acceleration_coefficient -= stress_tangent
   return stress_integral, explicit_rate, None, acceleration_coefficient
 
-def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True):
+def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np):
   Rst = p["req"] / R
   Ca, Re8, De, LAM, ax = p["Ca"], p["Re8"], p["De"], p["LAM"], p["alphax"]
   if isinstance(material, NoStress): return 0.0, 0.0, None, 0.0
@@ -271,7 +271,7 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True):
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * (Rd / R) ** 2
     # IMRv2's compressible radial equations use the full 4/Re8 implicit
     # coefficient for Zener, not the solvent-only coefficient visible in S.
-    return S, Sdot, np.array([Z1d]), 4.0 / Re8
+    return S, Sdot, xp.array([Z1d]), 4.0 / Re8
   if isinstance(material, QuadraticZener):
     Z1 = Z[0]
     S = Z1 / R**3 - 4 * LAM / Re8 * Rd / R
@@ -280,14 +280,14 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True):
     Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
     # Same upstream implicit coefficient convention as the linear Zener.
-    return S, Sdot, np.array([Z1d]), 4.0 / Re8
+    return S, Sdot, xp.array([Z1d]), 4.0 / Re8
   if isinstance(material, OldroydB):
     Z1, Z2 = Z[0], Z[1]
     Z1d = -(1 / De - 2 * Rd / R) * Z1 + 2 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     Z2d = -(1 / De + Rd / R) * Z2 + 2 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     S = (Z1 + Z2) / R**3 - 4 * LAM / Re8 * Rd / R
     Sdot = (Z1d + Z2d) / R**3 - 3 * Rd / R**4 * (Z1 + Z2) + 4 * LAM / Re8 * Rd**2 / R**2
-    return S, Sdot, np.array([Z1d, Z2d]), 4.0 * LAM / Re8
+    return S, Sdot, xp.array([Z1d, Z2d]), 4.0 * LAM / Re8
   if isinstance(material, InstantaneousMaterial): return _instantaneous_stress(material, instantaneous, p, R, Rd, need_rate)
   raise TypeError(f"material={material!r} is not an analytic material")
 

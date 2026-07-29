@@ -128,6 +128,17 @@ class Dual:
         np.true_divide: "__truediv__",
         np.power: "__pow__",
       }
+      # `maximum` is not an arithmetic operation and has no reverse form: it
+      # SELECTS one operand, so the tangent of the winner comes with it. `_rhs`
+      # reaches it through the radius floor, which used Python's `max` until the
+      # array namespace became swappable (W11 stage 2a) -- `max` cannot be
+      # written against a namespace, and a traced array cannot be compared with
+      # `>`. At the kink the two operands are equal and this returns the left,
+      # matching what `max` did.
+      if ufunc is np.maximum or ufunc is np.minimum:
+        wins = primal(left) >= primal(right) if ufunc is np.maximum else primal(left) <= primal(right)
+        chosen = left if wins else right
+        return chosen if isinstance(chosen, Dual) else Dual(chosen, np.zeros_like(self.tangent))
       operation = operations.get(ufunc)
       if operation is not None:
         if isinstance(left, Dual): return getattr(left, operation)(right)

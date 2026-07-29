@@ -1001,6 +1001,8 @@ JAX arrives as a **selectable backend, defaulting off**, the same shape
       replaces the Dual path for the JAX backend only. The strongest gate in the
       plan: two independently verified tangent paths already agree at
       5e-13--5e-11, so JAX has to join that agreement rather than establish it.
+      **Blocker identified -- see "How a parameter reaches the traced region"
+      below.** Larger than 2a or 2b; it needs a signature change to `params`.
 - [ ] **Stage 4 -- thermal.** bubtherm/medtherm, then the implicit wall solve.
       Narrower than it looks: #57 made the medtherm-only case closed-form, so
       only mass transfer needs `lax.custom_root`.
@@ -1114,6 +1116,48 @@ The in-place mutations remain the blocker for stages 4 and beyond, where the
 thermal fields are assembled by slice assignment. `jnp` has `.at[].set()` for
 this, which is a real edit rather than a namespace swap. That work belongs with
 stage 4, not before it.
+
+### How a parameter reaches the traced region (stage 3)
+
+Stage 2b differentiates nothing: it integrates a right-hand side whose
+parameters are already concrete. Stage 3 has to get a *physical* parameter --
+`material.shear_modulus_pa` -- into the trace, and that turns out to be the
+whole difficulty.
+
+The obvious route is to rebuild the material from a traced value and re-run
+`params`. Measured, it fails immediately:
+
+```
+jax.jacfwd(lambda g: NeoHookeanKelvinVoigt(g, 0.1).shear_modulus_pa)(2500.0)
+  -> TracerArrayConversionError
+```
+
+The material dataclasses validate in `__post_init__`, and `_finite_positive`
+calls `np.isfinite`, which converts a tracer. So a material cannot be
+CONSTRUCTED from a traced value at all -- the blocker is validation, not the
+arithmetic. I had expected the two `if G > 0` / `if mu > 0` guards in `params`
+to be the obstacle; they are not reached.
+
+That rules out one design and points at the right one. **Structure stays
+concrete; only scales are traced.** `_material_scales` is pure dispatch --
+material in, `(G, mu, lam1, lam2, alphax)` out, no numerics -- so `params`
+should accept an override for that tuple:
+
+```
+G, mu, lam1, lam2, alphax = _material_scales(material) if scales is None else scales
+```
+
+The degenerate guards then read the CONCRETE material, not the override, which
+is correct on its own terms: whether a material has elasticity is structural and
+cannot change under differentiation. `params`'s only other namespace-specific
+call is one `np.sqrt` for `Uc`, which depends on ambient pressure and density
+rather than on anything differentiated.
+
+So stage 3 is: `scales=` and `xp=` on `params`, a traced solve built from a
+concrete config plus a traced scale vector, `jax.jacfwd` over it, and the
+existing complex-step/Dual agreement as the gate. That is a real signature
+change on a function with fourteen arguments, which is why it is bigger than 2a
+or 2b rather than the same size.
 
 ### Risks
 

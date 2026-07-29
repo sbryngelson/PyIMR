@@ -6,6 +6,8 @@ across repeated solves is hoisted here.
 
 from __future__ import annotations
 
+from typing import Any, Callable
+
 from types import MappingProxyType
 
 import numpy as np
@@ -326,11 +328,13 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
         time, state, precursor, config.material, config.radial, instantaneous_material=instantaneous_material, distributed_stress=distributed_stress
       )
 
-    if upstream_zener:
+    def zener_precursor_rhs(_time, state): return _collapse_zener_rhs(state, precursor)
 
-      def collapse_rhs(_time, state): return _collapse_zener_rhs(state, precursor)
-    else:
-      collapse_rhs = production_rhs
+    # Both are what `solve_ivp` wants -- a sequence of derivatives -- but not the
+    # same static type: `_rhs` returns a list on the mechanical path and an array
+    # on the distributed one, where the Zener precursor returns a fixed tuple.
+    # Selected rather than reassigned, so neither becomes the other's declaration.
+    collapse_rhs: Callable[..., Any] = zener_precursor_rhs if upstream_zener else production_rhs
     solution = solve_ivp(
       collapse_rhs,
       (0.0, settings.maximum_time_nondimensional),

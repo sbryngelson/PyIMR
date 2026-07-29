@@ -28,21 +28,30 @@ def _sampled_pressure(tn, forcing):
   pressure_rate = (3.0 * c0 * offset + 2.0 * c1) * offset + c2
   return pressure, pressure_rate
 
-def _pinf(tn, p, forcing=None):
+def _pinf(tn, p, forcing=None, *, xp=np):
   if forcing is not None: return _sampled_pressure(tn, forcing)
   wt, ee, om, tw, dt, mn = (p["wave_type"], p["ee"], p["om"], p["tw"], p["dt"], p["mn"])
+  # `wave_type` and `ee` are configuration and stay Python branches. The WINDOWS
+  # are not: they test `tn`, the integration time, which a tracer supplies, so
+  # they become `where`. Same values on numpy -- verified bit-identical -- but
+  # both arms are now evaluated, which is why the histotripsy cosine is clamped
+  # rather than guarded. Outside its window `c` would otherwise go negative and
+  # `c ** (mn - 1)` produce a nan that `where` would then select against, and a
+  # nan selected against still poisons a gradient.
   if ee == 0.0: return 0.0, 0.0
   if wt == 0:  # constant offset impulse
     return ee, 0.0
   if wt == 1:  # Gaussian
-    e = np.exp(-((tn - dt) ** 2) / tw**2)
+    e = xp.exp(-((tn - dt) ** 2) / tw**2)
     return -ee * e, ee * (2 * (tn - dt) / tw**2) * e
   if wt == 2:  # histotripsy pulse
-    if tn < dt - np.pi / om or tn > dt + np.pi / om: return 0.0, 0.0
-    c = 0.5 + 0.5 * np.cos(om * (tn - dt))
-    return (ee * c**mn, -ee * mn * c ** (mn - 1) * 0.5 * om * np.sin(om * (tn - dt)))
+    inside = (tn >= dt - np.pi / om) & (tn <= dt + np.pi / om)
+    c = xp.maximum(0.5 + 0.5 * xp.cos(om * (tn - dt)), 1e-300)
+    pressure = ee * c**mn
+    rate = -ee * mn * c ** (mn - 1) * 0.5 * om * xp.sin(om * (tn - dt))
+    return xp.where(inside, pressure, 0.0), xp.where(inside, rate, 0.0)
   if wt == 3:  # Heaviside step
-    return (-ee * (1.0 - (1.0 if tn > tw else 0.0)), 0.0)
+    return -ee * xp.where(tn > tw, 0.0, 1.0), 0.0 * tn
   raise ValueError(f"wave_type={wt} not supported")
 
 def _nZ(material): return _stress_state_count(material)
@@ -99,8 +108,8 @@ def _rhs(
   if distributed_stress is None:
     S, Sdot, dZ, acceleration_coefficient = _stress(material, p, R, Rd, Z, instantaneous_material, radial != 1, xp=xp)
   else:
-    S, Sdot, dZ, acceleration_coefficient = _distributed_stress(material, distributed_stress, p, R, Rd, Z, radial != 1)
-  Pf8, Pf8dot = _pinf(tn, p, forcing)
+    S, Sdot, dZ, acceleration_coefficient = _distributed_stress(material, distributed_stress, p, R, Rd, Z, radial != 1, xp=xp)
+  Pf8, Pf8dot = _pinf(tn, p, forcing, xp=xp)
   iWe = p["iWe"]
   thetadot = None
   kvdot = None
@@ -179,7 +188,7 @@ def _rhs(
     if distributed_stress is None:
       taugradu = _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6, xp=xp)
     else:
-      taugradu = _distributed_dissipation(Z, distributed_stress, p, R, Rd, yT, iyT3)
+      taugradu = _distributed_dissipation(Z, distributed_stress, p, R, Rd, yT, iyT3, xp=xp)
     Tmdot = at_set(at_set(med_advection + med_diffusion + taugradu, 0, 0.0), -1, 0.0)
   if radial == 1:  # Rayleigh-Plesset
     Rdd = (P - 1 - Pf8 - iWe / R + S - 1.5 * Rd**2) / R
@@ -227,22 +236,24 @@ def _rhs(
     if kvdot is not None: out.extend(list(kvdot))
     if dZ is not None: out.extend(list(dZ))
     return out
-  out = np.empty_like(y)
-  out[0] = Rd
-  out[1] = Rdd
+  # The distributed branch keeps its preallocated buffer rather than joining the
+  # list above: `dZ` here is 2*points long -- 480 entries at the default -- and a
+  # Python list of that is not the same thing. `at_set` mutates in place on numpy
+  # and rebuilds functionally on jax, so both get what they need.
+  out = at_set(at_set(xp.zeros_like(y), 0, Rd), 1, Rdd)
   cursor = 2
-  if bubtherm:
-    out[cursor] = Pdot
+  if thetadot is not None:
+    out = at_set(out, cursor, Pdot)
     cursor += 1
-    out[cursor : cursor + thetadot.size] = thetadot
+    out = at_set(out, slice(cursor, cursor + thetadot.size), thetadot)
     cursor += thetadot.size
-  if medtherm:
-    out[cursor : cursor + Tmdot.size] = Tmdot
+  if Tmdot is not None:
+    out = at_set(out, slice(cursor, cursor + Tmdot.size), Tmdot)
     cursor += Tmdot.size
-  if masstrans:
-    out[cursor : cursor + kvdot.size] = kvdot
+  if kvdot is not None:
+    out = at_set(out, slice(cursor, cursor + kvdot.size), kvdot)
     cursor += kvdot.size
-  if dZ is not None: out[cursor : cursor + dZ.size] = dZ
+  if dZ is not None: out = at_set(out, slice(cursor, cursor + dZ.size), dZ)
   return out
 
 def _radius_floor_event(_tn, y, *_args): return y[0] - 1e-8

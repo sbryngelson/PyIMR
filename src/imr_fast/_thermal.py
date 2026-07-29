@@ -190,11 +190,11 @@ def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6, *, xp=np):
     return base * stiffening
   return base
 
-def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3):
+def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3, *, xp=np):
   points = prepared.reference_radius.size
   stress_difference = state[:points] - state[points:]
   spatial_radius = R * yT
-  reference_radius = np.cbrt(np.maximum(spatial_radius**3 - R**3 + 1.0, 1.0))
+  reference_radius = xp.cbrt(xp.maximum(spatial_radius**3 - R**3 + 1.0, 1.0))
   if reference_radius.dtype == object or stress_difference.dtype == object:
     sampled_difference = np.empty_like(reference_radius)
     reference_values = primal_array(reference_radius)
@@ -209,7 +209,7 @@ def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3):
         fraction = (radius - source_radius[left]) / (source_radius[left + 1] - source_radius[left])
         sampled_difference[index] = stress_difference[left] + fraction * (stress_difference[left + 1] - stress_difference[left])
   else:
-    sampled_difference = np.interp(reference_radius, prepared.reference_radius, stress_difference, right=0.0)
+    sampled_difference = xp.interp(reference_radius, prepared.reference_radius, stress_difference, right=0.0)
   strain_rate = Rd / R * iyT3
   polymer_heating = -2.0 * strain_rate * sampled_difference
   solvent_heating = 12.0 * p["LAM"] / p["Re8"] * strain_rate**2

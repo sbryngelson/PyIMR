@@ -164,7 +164,7 @@ def test_jax_tangents_match_the_scipy_sensitivity_path(label, material, paths, m
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material, radial=2)
   problem = imr_fast.prepare(config)
   reference = imr_fast.sensitivity.solve_with_sensitivities(problem, times, paths)
-  _, tangent = sensitivities_jax(problem, times, paths)
+  *_, tangent = sensitivities_jax(problem, times, paths)
 
   worst = {}
   for index, field in enumerate(_TANGENT_FIELDS):
@@ -194,8 +194,52 @@ def test_jax_tangents_converge_to_the_scipy_ones(measured):
     config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, radial=2, rtol=tolerance, atol=tolerance * 1e-2)
     problem = imr_fast.prepare(config)
     expected = np.asarray(imr_fast.sensitivity.solve_with_sensitivities(problem, times, paths).radius_m)
-    _, tangent = sensitivities_jax(problem, times, paths)
+    *_, tangent = sensitivities_jax(problem, times, paths)
     scale = max(float(np.max(np.abs(expected))), 1e-30)
     errors.append(float(np.max(np.abs(expected - tangent[:, 1, :]))) / scale)
   measured("jax tangent convergence", " -> ".join(f"{e:.1e}" for e in errors))
   assert errors[-1] < errors[0] / 100.0, f"tangent error did not converge under refinement: {errors}"
+
+
+@requires_jax
+@pytest.mark.parametrize(
+  "label,material,paths",
+  [("NHKV G", NHKV, ("material.shear_modulus_pa",)), ("Zener G+mu", zener(), ("material.shear_modulus_pa", "material.viscosity_pa_s"))],
+  ids=["nhkv", "zener"],
+)
+def test_solve_with_sensitivities_dispatches_on_the_backend(label, material, paths, measured):
+  """`backend="jax"` has to mean the same thing for derivatives as for
+  trajectories.
+
+  Until this dispatch existed, `sensitivities_jax` was written, tested and
+  unreachable: `solve_with_sensitivities` ignored the field entirely, so a
+  config asking for jax got a jax forward solve and Dual-route tangents. Every
+  field of the result is compared here, not just the radius -- including `state`
+  and the `simulation` embedded in it.
+  """
+  times = np.linspace(0.0, 20e-6, 80)
+  scipy_problem = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material, radial=2))
+  jax_problem = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material, radial=2, backend="jax"))
+  reference = imr_fast.sensitivity.solve_with_sensitivities(scipy_problem, times, paths)
+  computed = imr_fast.sensitivity.solve_with_sensitivities(jax_problem, times, paths)
+  worst = {}
+  for field in (*_TANGENT_FIELDS, "state"):
+    expected, got = np.asarray(getattr(reference, field)), np.asarray(getattr(computed, field))
+    assert expected.shape == got.shape, f"{field}: {expected.shape} vs {got.shape}"
+    worst[field] = float(np.max(np.abs(expected - got))) / max(float(np.max(np.abs(expected))), 1e-30)
+  trajectory = float(np.max(np.abs(np.asarray(reference.simulation.radius_ratio) - np.asarray(computed.simulation.radius_ratio))))
+  measured(f"jax sensitivity dispatch {label}", f"worst={max(worst.values()):.1e} sim={trajectory:.1e}")
+  assert max(worst.values()) < 1e-05, worst
+  assert trajectory < _MAX_BOUND
+
+def test_jax_sensitivities_refuse_what_they_do_not_cover():
+  """Refused by name rather than quietly falling back to the Dual route, which
+  would make the backend field mean one thing for trajectories and another for
+  their derivatives."""
+  times = np.linspace(0.0, 20e-6, 40)
+  thermal = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax", bubtherm=1, Nt=9))
+  with pytest.raises(NotImplementedError, match="bubtherm"):
+    imr_fast.sensitivity.solve_with_sensitivities(thermal, times, ("material.shear_modulus_pa",))
+  mechanical = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax"))
+  with pytest.raises(NotImplementedError, match="material scales"):
+    imr_fast.sensitivity.solve_with_sensitivities(mechanical, times, ("R0",))

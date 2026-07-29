@@ -1337,6 +1337,37 @@ whose trip count depends on the data:
 - `masstrans=1`, whose wall closure is a secant with a fallback ladder
 - `sampled_forcing`, whose interpolation searches its own knots
 
+### Sensitivities reach the public API
+
+`solve_with_sensitivities` dispatches on `backend`. Until it did,
+`sensitivities_jax` was written, tested and unreachable: the field was ignored
+there, so a config asking for jax got a jax forward solve and Dual-route
+tangents. `backend` has to mean the same thing for derivatives as for
+trajectories.
+
+Every field of the result matches the scipy path, not just the radius:
+
+```
+NHKV,  dG           worst 1.3e-06 across all fields   trajectory 5.7e-08
+Zener, d(G, mu)     worst 5.2e-07                     trajectory 1.7e-08
+```
+
+`state`, the tangent of the whole state vector, and the `SimulationResult`
+embedded in the sensitivity result are included in that comparison.
+
+Two refusals, both by name rather than a silent fallback:
+
+- `bubtherm=1`. The thermal outputs are produced by replaying the boundary
+  closure per time point with a carried wall state, which under trace unrolls to
+  one boundary solve per output time -- three hundred of them in a single graph.
+  That is its own piece of work.
+- Any parameter outside the five material scales. `R0` and the physical
+  parameters would need `params` traced through more than its `scales`
+  override.
+
+Falling back quietly would be worse than either: it would make one config field
+mean two different things depending on which method you called.
+
 ### Risks
 
 | risk | why it bites | where it is handled |

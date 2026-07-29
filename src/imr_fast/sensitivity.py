@@ -187,12 +187,54 @@ def _tangent_values(values, width):
     if isinstance(value, Dual): result[index] = value.tangent
   return result
 
+def _jax_sensitivities(problem, time_s, normalized):
+  """`SensitivityResult` from one `jacfwd`, for the jax backend.
+
+  Restricted to `bubtherm=0`. The thermal outputs are produced by replaying the
+  boundary closure per time point with a carried wall state, which under trace
+  becomes an unrolled loop as long as the output grid -- three hundred boundary
+  solves in one graph. That is a different piece of work from this dispatch, so
+  it is refused by name rather than silently routed back to the Dual path, which
+  would make `backend="jax"` mean one thing for trajectories and another for
+  their derivatives.
+  """
+  from ._jax import SCALE_PATHS, sensitivities_jax
+
+  config = problem.config
+  if config.bubtherm:
+    raise NotImplementedError("jax sensitivities do not cover bubtherm=1 yet; use backend='scipy' -- see PLAN.md W11")
+  paths = [parameter.path for parameter in normalized]
+  unknown = [path for path in paths if path not in SCALE_PATHS]
+  if unknown:
+    raise NotImplementedError(f"jax sensitivities cover the material scales {sorted(SCALE_PATHS)}; got {unknown}")
+
+  states, derived, state_tangent, derived_tangent = sensitivities_jax(problem, time_s, paths)
+  stats = _solver.SolverStats(
+    backend="jax-tsit5-forward", success=True, message="jacfwd through the diffrax solve",
+    nfev=0, njev=0, nlu=0, elapsed_s=0.0,
+  )
+  simulation = _solver._build_result(problem, time_s, states.T, stats)
+  return SensitivityResult(
+    simulation=simulation,
+    parameters=normalized,
+    state=_readonly(state_tangent),
+    radius_ratio=_readonly(derived_tangent[:, 0, :]),
+    radius_m=_readonly(derived_tangent[:, 1, :]),
+    wall_velocity_m_s=_readonly(derived_tangent[:, 2, :]),
+    internal_pressure_pa=_readonly(derived_tangent[:, 3, :]),
+    stress_integral_pa=_readonly(derived_tangent[:, 4, :]),
+    bubble_temperature_k=None,
+    medium_temperature_k=None,
+    vapor_mass_fraction=None,
+  )
+
 def solve_with_sensitivities(problem, tv, parameters):
   """Solve one prepared problem and all requested forward sensitivities."""
   if not isinstance(problem, _solver.PreparedProblem): raise TypeError("problem must be a PreparedProblem")
   config = problem.config
   time_s = _solver._validate_inputs(tv, config)
   normalized, values, scales = _normalize_parameters(config, parameters)
+  if config.backend == "jax": return _jax_sensitivities(problem, time_s, normalized)
   dual_config = _dual_config(config, normalized, values, scales)
   dual_parameters = _dual_parameters(dual_config)
   dual_medium = _dual_medium(problem, dual_parameters)

@@ -1409,6 +1409,57 @@ much better than the integrator tolerance -- `lax.custom_root` with a proper
 tangent solve, or a polish step -- not a namespace fix. Reverted rather than
 shipped behind a guard, so there is no dead code waiting for it.
 
+### Mass transfer, second attempt: the formulation was right, the warm start is the wall
+
+Reformulating the closure fixed the conditioning. `theta` vanishes at the
+reference state by construction -- `theta(T) = 0` at `T = 1` -- and the wall
+starts there, so the root is ~1e-17 against an ABSOLUTE tolerance of 1e-13, four
+orders the wrong way. Solved in `Tw` the root is O(1) and the same tolerance is
+effectively relative. `kirchhoff_theta` converts back exactly; #57 used the same
+substitution for the medtherm closed form.
+
+With that, mass transfer integrated on jax for the first time:
+
+```
+span     max |dR/R0|    steps    min R/R0
+ 2 us      1.37e-12        13      0.996
+ 5 us      8.92e-12        22      0.976
+10 us      7.87e-10        37      0.900
+18 us      1.82e-08        64      0.610
+20 us      FAILED                  0.461
+```
+
+Thirteen to sixty-four steps, against a million exhausted before. The roots
+agree with `_secant_root` to 2e-16 on captured inputs.
+
+What stops it is the **warm start**, not the root. numpy carries the previous
+step's root in `_WallState`, which tracks the wall as it heats through the
+collapse; a tracer stored there escapes the trace, so the traced path restarts
+cold every step. `theta[-1]` is frozen at the reference value -- its slot is
+algebraic -- so the guess stays put while the true root climbs away. Starting
+from the adjacent interior node `theta[-2]` reaches R/R0 = 0.46 but degrades
+agreement to 4.5e-03, well outside the 1e-05 bound, and the deep collapse
+(0.09) still fails.
+
+Moving that boundary needs one of: the wall temperature promoted to a real state
+variable so the warm start rides in the state legitimately, or a bracketing
+solver (Brent) that converges from any start rather than a local iteration that
+needs a good one. Both are real changes; neither is a namespace fix.
+
+Reverted again rather than shipped, because a backend that silently loses
+accuracy through the collapse is worse than one that refuses the configuration.
+
+### A measurement error worth recording
+
+Four hypotheses were tested against a sweep that rebuilt only `R`, `Rd` and `P`
+from the scipy trajectory and left the thermal fields at their INITIAL values --
+states the integrator never visits. The 2.19e-09 figure that first diagnosis
+rested on was measured there. Comparing roots on inputs captured from a real
+solve took two minutes and gave the opposite answer: the solvers agree to 2e-16.
+
+A harness that samples where the integrator does not go is worse than no
+harness, because it produces numbers that look like evidence.
+
 ### Risks
 
 | risk | why it bites | where it is handled |

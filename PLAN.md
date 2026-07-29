@@ -1037,16 +1037,48 @@ that gap is framework overhead rather than the integrator. And Kvaerno5's
 832 ms is an implicit solver doing Newton iterations on a problem that is not
 stiff -- it says nothing about genuinely stiff configurations.
 
-What it does confirm is the risk ranked first below: **95x between two diffrax
-solvers on one problem.** LSODA auto-switches stiff/non-stiff and scipy uses it
-for everything except distributed stress, so solver selection is work LSODA was
-doing invisibly and a JAX backend must do explicitly.
+### Stiffness is static, so there is nothing to auto-switch
+
+The 832 ms was **my misconfiguration, not a diffrax limitation**, and the first
+draft of this section reported it as a property of the tool. Kvaerno5 takes
+*fewer* steps than explicit Bosh3 (4424 against 7436) and still costs 17x more
+per step -- 119.6 us against Tsit5's 7.2 us. That is the Newton solve, which is
+pure waste on a problem that is not stiff. The mechanical problem is not stiff:
+eigenvalue ratio 1.18.
+
+diffrax has no auto-detecting switcher, which is true and was the stated risk.
+It does have IMEX (`KenCarp3/4/5`, `Sil3`), where the stiff term is designated
+rather than detected -- a better fit here, because IMR's stiffness is
+structurally the thermal diffusion operator.
+
+But the switching is not needed at all. Measured `|lambda_max / lambda_min|` of
+`df/dy` along the trajectory:
+
+```
+mechanical NHKV                 1.18e+00     not stiff
+bubtherm=1, Nt=25, fd           8.06e+03     mildly stiff
+bubtherm + medtherm, fd         3.28e+11     very stiff
+bubtherm + medtherm, spectral   6.90e+16     extremely stiff
+```
+
+**Median equals worst in every case** -- the ratio is constant along the
+trajectory. Stiffness belongs to the configuration, not to a phase of the solve,
+so the solver can be selected at `prepare` time exactly as scipy already selects
+BDF when `jacobian_sparsity` is present. LSODA's auto-switching is not
+load-bearing for this problem.
+
+(The spectral case being five orders stiffer than finite difference is the
+Chebyshev `D**2` eigenvalue scaling of `N**4` against `N**2`, already recorded
+in W10.)
+
+Consequence for the plan: Stage 2 picks explicit for mechanical, Stage 4 picks
+implicit or IMEX for coupled thermal, and neither has to detect anything.
 
 ### Risks
 
 | risk | why it bites | where it is handled |
 |---|---|---|
-| **LSODA has no diffrax equivalent** | auto-switches stiff/non-stiff; 95x measured between Kvaerno5 and Tsit5 on one problem | Stage 2 must choose per configuration, and say so |
+| ~~**LSODA has no diffrax equivalent**~~ | **Downgraded -- see "Stiffness is static" below.** Stiffness is a property of the configuration, not of the trajectory, so there is nothing to auto-switch | solver chosen at `prepare` time, as scipy already does for BDF |
 | **Terminal events** | `_radius_floor_event` is `terminal=True, direction=-1`; diffrax's event model differs | Stage 2; the floor is a guard, so a divergent-solve check may substitute |
 | **float32 default** | would pass loose tests and fail tight ones, confusingly | `jax_enable_x64` before any dtype is touched; already required in Stage 0 |
 | **Dispatch under `jit`** | the #96 tables are Python-object keyed | closed over at trace time; static per solve |

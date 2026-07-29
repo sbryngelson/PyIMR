@@ -43,6 +43,20 @@ __all__ = [
   "Zener",
 ]
 
+def _checked(**rules):
+  """Attach a `__post_init__` applying one validator per named field.
+
+  Thirteen of these classes existed only to call `_finite_positive` on each
+  field in turn. Applied UNDER `@dataclass` -- decorators run bottom-up, so the
+  generated method is in place before the dataclass machinery looks for it.
+  """
+  def decorate(cls):
+    def __post_init__(self):
+      for name, check in rules.items(): check(name, getattr(self, name))
+    cls.__post_init__ = __post_init__
+    return cls
+  return decorate
+
 def _finite_positive(name, value) -> None:
   if not np.isfinite(value) or value <= 0.0: raise ValueError(f"{name} must be finite and positive")
 
@@ -54,28 +68,21 @@ class NoStress:
   """No constitutive stress."""
 
 @dataclass(frozen=True, slots=True)
+@_checked(shear_modulus_pa=_finite_positive, viscosity_pa_s=_finite_positive)
 class NeoHookeanKelvinVoigt:
   """Closed-form neo-Hookean Kelvin-Voigt solid."""
 
   shear_modulus_pa: float
   viscosity_pa_s: float
 
-  def __post_init__(self) -> None:
-    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
-    _finite_positive("viscosity_pa_s", self.viscosity_pa_s)
-
 @dataclass(frozen=True, slots=True)
+@_checked(shear_modulus_pa=_finite_positive, viscosity_pa_s=_finite_positive, stiffening=_finite_nonnegative)
 class QuadraticKelvinVoigt:
   """Closed-form quadratic Kelvin-Voigt solid."""
 
   shear_modulus_pa: float
   viscosity_pa_s: float
   stiffening: float = 0.25
-
-  def __post_init__(self) -> None:
-    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
-    _finite_positive("viscosity_pa_s", self.viscosity_pa_s)
-    _finite_nonnegative("stiffening", self.stiffening)
 
 def _validate_memory_parameters(viscosity_pa_s, relaxation_time_s, retardation_time_s, *, polymer_required) -> None:
   _finite_positive("viscosity_pa_s", viscosity_pa_s)
@@ -126,10 +133,9 @@ class OldroydB:
     _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False)
 
 @dataclass(frozen=True, slots=True)
+@_checked(shear_modulus_pa=_finite_positive)
 class NeoHookean:
   shear_modulus_pa: float
-
-  def __post_init__(self) -> None: _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
 
 @dataclass(frozen=True, slots=True)
 class MooneyRivlin:
@@ -153,22 +159,16 @@ class Yeoh:
       if not np.isfinite(getattr(self, name)): raise ValueError(f"{name} must be finite")
 
 @dataclass(frozen=True, slots=True)
+@_checked(shear_modulus_pa=_finite_positive, stiffening=_finite_nonnegative)
 class Fung:
   shear_modulus_pa: float
   stiffening: float
 
-  def __post_init__(self) -> None:
-    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
-    _finite_nonnegative("stiffening", self.stiffening)
-
 @dataclass(frozen=True, slots=True)
+@_checked(shear_modulus_pa=_finite_positive, extensibility=_finite_positive)
 class Gent:
   shear_modulus_pa: float
   extensibility: float
-
-  def __post_init__(self) -> None:
-    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
-    _finite_positive("extensibility", self.extensibility)
 
 @dataclass(frozen=True, slots=True)
 class ArrudaBoyce:
@@ -210,23 +210,19 @@ class Ogden:
 ElasticModel = NeoHookean | MooneyRivlin | Yeoh | Fung | Gent | ArrudaBoyce | Ogden
 
 @dataclass(frozen=True, slots=True)
+@_checked(viscosity_pa_s=_finite_positive)
 class Newtonian:
   viscosity_pa_s: float
 
-  def __post_init__(self) -> None: _finite_positive("viscosity_pa_s", self.viscosity_pa_s)
-
 @dataclass(frozen=True, slots=True)
+@_checked(consistency_pa_s_n=_finite_positive, exponent=_finite_positive, regularization_rate_per_s=_finite_positive)
 class PowerLaw:
   consistency_pa_s_n: float
   exponent: float
   regularization_rate_per_s: float = 1e-3
 
-  def __post_init__(self) -> None:
-    _finite_positive("consistency_pa_s_n", self.consistency_pa_s_n)
-    _finite_positive("exponent", self.exponent)
-    _finite_positive("regularization_rate_per_s", self.regularization_rate_per_s)
-
 @dataclass(frozen=True, slots=True)
+@_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative, transition_exponent=_finite_positive, power_index=_finite_positive)
 class CarreauYasuda:
   zero_shear_viscosity_pa_s: float
   infinite_shear_viscosity_pa_s: float
@@ -234,14 +230,8 @@ class CarreauYasuda:
   transition_exponent: float
   power_index: float
 
-  def __post_init__(self) -> None:
-    _finite_positive("zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s)
-    _finite_nonnegative("infinite_shear_viscosity_pa_s", self.infinite_shear_viscosity_pa_s)
-    _finite_nonnegative("time_constant_s", self.time_constant_s)
-    _finite_positive("transition_exponent", self.transition_exponent)
-    _finite_positive("power_index", self.power_index)
-
 @dataclass(frozen=True, slots=True)
+@_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative)
 class PowellEyring:
   """eta_inf + (eta_0 - eta_inf) * asinh(lambda*gdot)/(lambda*gdot).
 
@@ -253,12 +243,8 @@ class PowellEyring:
   infinite_shear_viscosity_pa_s: float
   time_constant_s: float
 
-  def __post_init__(self) -> None:
-    _finite_positive("zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s)
-    _finite_nonnegative("infinite_shear_viscosity_pa_s", self.infinite_shear_viscosity_pa_s)
-    _finite_nonnegative("time_constant_s", self.time_constant_s)
-
 @dataclass(frozen=True, slots=True)
+@_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative)
 class ModifiedPowellEyring:
   """eta_inf + (eta_0 - eta_inf) * log1p(lambda*gdot)/(lambda*gdot).
 
@@ -270,47 +256,28 @@ class ModifiedPowellEyring:
   infinite_shear_viscosity_pa_s: float
   time_constant_s: float
 
-  def __post_init__(self) -> None:
-    _finite_positive("zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s)
-    _finite_nonnegative("infinite_shear_viscosity_pa_s", self.infinite_shear_viscosity_pa_s)
-    _finite_nonnegative("time_constant_s", self.time_constant_s)
-
 @dataclass(frozen=True, slots=True)
+@_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative, transition_exponent=_finite_positive)
 class Cross:
   zero_shear_viscosity_pa_s: float
   infinite_shear_viscosity_pa_s: float
   time_constant_s: float
   transition_exponent: float
 
-  def __post_init__(self) -> None:
-    _finite_positive("zero_shear_viscosity_pa_s", self.zero_shear_viscosity_pa_s)
-    _finite_nonnegative("infinite_shear_viscosity_pa_s", self.infinite_shear_viscosity_pa_s)
-    _finite_nonnegative("time_constant_s", self.time_constant_s)
-    _finite_positive("transition_exponent", self.transition_exponent)
-
 @dataclass(frozen=True, slots=True)
+@_checked(yield_stress_pa=_finite_nonnegative, consistency_pa_s_n=_finite_positive, exponent=_finite_positive, regularization_rate_per_s=_finite_positive)
 class HerschelBulkley:
   yield_stress_pa: float
   consistency_pa_s_n: float
   exponent: float
   regularization_rate_per_s: float = 1e-3
 
-  def __post_init__(self) -> None:
-    _finite_nonnegative("yield_stress_pa", self.yield_stress_pa)
-    _finite_positive("consistency_pa_s_n", self.consistency_pa_s_n)
-    _finite_positive("exponent", self.exponent)
-    _finite_positive("regularization_rate_per_s", self.regularization_rate_per_s)
-
 @dataclass(frozen=True, slots=True)
+@_checked(yield_stress_pa=_finite_nonnegative, plastic_viscosity_pa_s=_finite_positive, regularization_rate_per_s=_finite_positive)
 class Bingham:
   yield_stress_pa: float
   plastic_viscosity_pa_s: float
   regularization_rate_per_s: float = 1e-3
-
-  def __post_init__(self) -> None:
-    _finite_nonnegative("yield_stress_pa", self.yield_stress_pa)
-    _finite_positive("plastic_viscosity_pa_s", self.plastic_viscosity_pa_s)
-    _finite_positive("regularization_rate_per_s", self.regularization_rate_per_s)
 
 ViscousModel = Newtonian | PowerLaw | CarreauYasuda | Cross | PowellEyring | ModifiedPowellEyring | HerschelBulkley | Bingham
 

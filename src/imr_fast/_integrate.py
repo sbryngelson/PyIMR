@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from time import perf_counter
 
+import numpy as np
 from scipy.integrate import solve_ivp
 
 from ._config import SimulationError, SolverStats, _solve_stats
@@ -44,7 +45,10 @@ def integrate(rhs, times, initial, *, args, event, sparsity, rtol, atol, failure
   if backend == "jax":
     from ._jax import integrate_jax
 
-    return integrate_jax(rhs, times, initial, args=args, rtol=rtol, atol=atol, failure=failure, label=label, max_step=max_step)
+    key = (id(args[0]), len(times), float(times[0]), float(times[-1]), np.shape(initial), rtol, atol, label)
+    return integrate_jax(
+      rhs, times, initial, args=args, rtol=rtol, atol=atol, failure=failure, label=label, max_step=max_step, cache_key=key
+    )
   method = "BDF" if sparsity is not None else "LSODA"
   options = {"jac_sparsity": sparsity} if sparsity is not None else {}
   if max_step is not None: options["max_step"] = max_step

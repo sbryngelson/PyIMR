@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ._autodiff import primal, primal_array
+from ._autodiff import at_set, primal, primal_array
 from ._materials import _stress_state_count
 from ._stress import _distributed_stress, _stress
 from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
@@ -89,7 +89,7 @@ def _rhs(
     if masstrans:
       kv = y[idx : idx + Nt].copy()
       idx += Nt
-    T, alpha_m = _apply_thermal_boundaries(theta, Tm, kv, P, p, mt, masstrans, wall_state)
+    theta, Tm, kv, T, alpha_m = _apply_thermal_boundaries(theta, Tm, kv, P, p, mt, masstrans, wall_state, xp=xp)
     Zstart = idx
   else:
     P = (p["Pb"] - Pv) * R ** (-3 * kappa) + Pv  # f_imr_fd.m:412
@@ -133,13 +133,11 @@ def _rhs(
       nonlinear_term = (chi * ddtheta / R**2 + Pdot) * (p["kapover"] * Kstar * T / P)
       advection_term = -dtheta * (Uvel - ygrid * Rd) / R
       mass_diffusion = (Fom / R**2) * (Rva_diff / Rmix) * dkv * dtheta
-      thetadot = advection_term + nonlinear_term + mass_diffusion
-      thetadot[-1] = 0.0
+      thetadot = at_set(advection_term + nonlinear_term + mass_diffusion, -1, 0.0)
       # Kstar is alpha_m*T + beta_m, the mixture conductivity, already formed above.
       nonlinear_diffusion = dkv * (dtheta / (Kstar * T) + RDkv)
       advection_term2 = (Uvel - Rd * ygrid) / R * dkv
-      kvdot = Fom / R**2 * (ddkv - nonlinear_diffusion) - advection_term2
-      kvdot[-1] = 0.0
+      kvdot = at_set(Fom / R**2 * (ddkv - nonlinear_diffusion) - advection_term2, -1, 0.0)
     else:
       # f_imr_fd.m, "elseif bubtherm" branch, kv0=0 (dry gas) simplification.
       # Identical whether medtherm is on or off -- only theta[-1]'s VALUE
@@ -151,8 +149,7 @@ def _rhs(
       Kstar = alpha_g * T + beta_g
       diffusion = (chi * ddtheta / R**2 + Pdot) * (p["kapover"] * Kstar * T / P)
       advection = -dtheta * (Uvel - ygrid * Rd) / R
-      thetadot = advection + diffusion
-      thetadot[-1] = 0.0
+      thetadot = at_set(advection + diffusion, -1, 0.0)
   else:
     Pdot = -3 * kappa * (p["Pb"] - Pv) * R ** (-3 * kappa - 1) * Rd
   Tmdot = None
@@ -174,18 +171,16 @@ def _rhs(
     # overwrote. The wall entry is set to zero here instead, which is the value
     # that overwrite produced. #35.
     inner = slice(0, -1)
-    med_advection = np.zeros_like(yT)
-    med_advection[inner] = (
-      (1 + xi[inner]) ** 2 / (Lt * R) * (Rd / yT2[inner] * (1 - yT3[inner]) / 2 + Foh / R * ((xi[inner] + 1) / (2 * Lt) - 1 / yT[inner])) * dTm[inner]
+    med_advection = at_set(
+      xp.zeros_like(yT), inner,
+      (1 + xi[inner]) ** 2 / (Lt * R) * (Rd / yT2[inner] * (1 - yT3[inner]) / 2 + Foh / R * ((xi[inner] + 1) / (2 * Lt) - 1 / yT[inner])) * dTm[inner],
     )
     med_diffusion = Foh / R**2 * (xi + 1) ** 4 / Lt**2 * ddTm / 4
     if distributed_stress is None:
-      taugradu = _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6)
+      taugradu = _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6, xp=xp)
     else:
       taugradu = _distributed_dissipation(Z, distributed_stress, p, R, Rd, yT, iyT3)
-    Tmdot = med_advection + med_diffusion + taugradu
-    Tmdot[0] = 0.0
-    Tmdot[-1] = 0.0
+    Tmdot = at_set(at_set(med_advection + med_diffusion + taugradu, 0, 0.0), -1, 0.0)
   if radial == 1:  # Rayleigh-Plesset
     Rdd = (P - 1 - Pf8 - iWe / R + S - 1.5 * Rd**2) / R
   elif radial == 2:  # Keller-Miksis (pressure form)

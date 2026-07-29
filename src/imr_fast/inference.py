@@ -308,6 +308,19 @@ class PreparedInference:
     """Total number of observed values, across every field."""
     return sum(item.time_s.size for item in self._observations)
 
+  def _evaluation(self, unit, residual, stats):
+    # The Gaussian log-likelihood and the value object around it, in one place.
+    # `_normalization` carries `sum(log(2*pi*sigma**2))`, or `log det(2*pi*Sigma)`
+    # when the noise is correlated -- a constant the posterior never sees but the
+    # marginal likelihood does, so it is worth having exactly one copy of.
+    return LikelihoodEvaluation(
+      unit_parameters=_readonly(unit),
+      physical_parameters=_readonly(self.physical_parameters(unit)),
+      residual=_readonly(residual),
+      log_likelihood=float(-0.5 * (np.sum(residual**2) + self._normalization)),
+      stats=stats,
+    )
+
   def residual(self, unit_parameters):
     config = self.config_from_unit(unit_parameters)
     return self._stack_residual(imr_fast.simulate(self._grid, config))
@@ -322,15 +335,7 @@ class PreparedInference:
     unit = self._validate_unit_parameters(unit_parameters)
     config = self.config_from_unit(unit)
     result = imr_fast.simulate(self._grid, config)
-    residual = self._stack_residual(result)
-    log_likelihood = -0.5 * (np.sum(residual**2) + self._normalization)
-    return LikelihoodEvaluation(
-      unit_parameters=_readonly(unit),
-      physical_parameters=_readonly(self.physical_parameters(unit)),
-      residual=_readonly(residual),
-      log_likelihood=float(log_likelihood),
-      stats=result.stats,
-    )
+    return self._evaluation(unit, self._stack_residual(result), result.stats)
 
   def evaluate_with_jacobian(self, unit_parameters):
     """Likelihood and Jacobian from a single sensitivity solve.
@@ -350,15 +355,7 @@ class PreparedInference:
     result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
     residual = self._stack_residual(result.simulation)
     jacobian = self._stack_jacobian(result, unit)
-    log_likelihood = -0.5 * (np.sum(residual**2) + self._normalization)
-    evaluation = LikelihoodEvaluation(
-      unit_parameters=_readonly(unit),
-      physical_parameters=_readonly(self.physical_parameters(unit)),
-      residual=_readonly(residual),
-      log_likelihood=float(log_likelihood),
-      stats=result.simulation.stats,
-    )
-    return evaluation, jacobian
+    return self._evaluation(unit, residual, result.simulation.stats), jacobian
 
   def jacobian_with_time_derivative(self, unit_parameters):
     """`(J, dJ/dt)` from one solve. `dJ/dt` is what a design needs -- what a design needs to move its own

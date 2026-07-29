@@ -413,90 +413,53 @@ def _packed_values(values, width, size):
 def _mechanical_parameters(parameters, width):
   return _packed_values([parameters[key] for key in _MECHANICAL_PARAMETER_KEYS], width, len(_MECHANICAL_PARAMETER_KEYS))
 
+# type -> (code, field names). Exact-type lookup rather than an isinstance ladder:
+# these are all flat frozen dataclasses, so the two agree, and a subclass fails
+# loudly here instead of being silently treated as its parent.
+_MATERIAL_CODES = {
+  "NoStress": 0, "NeoHookeanKelvinVoigt": 1, "QuadraticKelvinVoigt": 2, "Zener": 3, "QuadraticZener": 4,
+  "OldroydB": 5, "InstantaneousMaterial": 6, "Giesekus": 7, "LinearPTT": 8,
+}
+_MATERIAL_FIELDS = {"Giesekus": ("mobility",), "LinearPTT": ("extensibility",)}
+_ELASTIC = {
+  "NeoHookean": (1, ("shear_modulus_pa",)),
+  "MooneyRivlin": (2, ("c10_pa", "c01_pa")),
+  "Yeoh": (3, ("c1_pa", "c2_pa", "c3_pa")),
+  "Fung": (4, ("shear_modulus_pa", "stiffening")),
+  "Gent": (5, ("shear_modulus_pa", "extensibility")),
+  "ArrudaBoyce": (6, ("shear_modulus_pa", "chain_segments")),
+  "Ogden": (7, None),  # flattened below: the compiled kernel takes one array
+}
+_VISCOUS = {
+  "Newtonian": (1, ("viscosity_pa_s",)),
+  "PowerLaw": (2, ("consistency_pa_s_n", "exponent", "regularization_rate_per_s")),
+  "CarreauYasuda": (3, ("zero_shear_viscosity_pa_s", "infinite_shear_viscosity_pa_s", "time_constant_s", "transition_exponent", "power_index")),
+  "Cross": (4, ("zero_shear_viscosity_pa_s", "infinite_shear_viscosity_pa_s", "time_constant_s", "transition_exponent")),
+  "HerschelBulkley": (5, ("yield_stress_pa", "consistency_pa_s_n", "exponent", "regularization_rate_per_s")),
+  "Bingham": (6, ("yield_stress_pa", "plastic_viscosity_pa_s", "regularization_rate_per_s")),
+  "PowellEyring": (7, ("zero_shear_viscosity_pa_s", "infinite_shear_viscosity_pa_s", "time_constant_s")),
+  "ModifiedPowellEyring": (8, ("zero_shear_viscosity_pa_s", "infinite_shear_viscosity_pa_s", "time_constant_s")),
+}
+
+def _coded(model, table):
+  # (code, field values) for one constitutive component, or (0, ()) when absent.
+  if model is None: return 0, ()
+  code, names = table[type(model).__name__]
+  # Ogden depends on its own term count, so the count travels with the data as
+  # [n_terms, mu_1..mu_n, alpha_1..alpha_n].
+  if names is None: return code, (float(len(model.exponents)), *model.shear_moduli_pa, *model.exponents)
+  return code, tuple(getattr(model, name) for name in names)
+
 def _material_parameters(material, width):
-  elastic_code = 0
-  viscous_code = 0
-  elastic_fields = ()
+  name = type(material).__name__
+  if name not in _MATERIAL_CODES: raise TypeError("unsupported mechanical material")
+  material_code = _MATERIAL_CODES[name]
+  elastic_fields = tuple(getattr(material, field) for field in _MATERIAL_FIELDS.get(name, ()))
+  elastic_code = viscous_code = 0
   viscous_fields = ()
-  if isinstance(material, _solver.NoStress):
-    material_code = 0
-  elif isinstance(material, _solver.NeoHookeanKelvinVoigt):
-    material_code = 1
-  elif isinstance(material, _solver.QuadraticKelvinVoigt):
-    material_code = 2
-  elif isinstance(material, _solver.Zener):
-    material_code = 3
-  elif isinstance(material, _solver.QuadraticZener):
-    material_code = 4
-  elif isinstance(material, _solver.OldroydB):
-    material_code = 5
-  elif isinstance(material, _solver.Giesekus):
-    material_code = 7
-    elastic_fields = (material.mobility,)
-  elif isinstance(material, _solver.LinearPTT):
-    material_code = 8
-    elastic_fields = (material.extensibility,)
-  elif isinstance(material, _solver.InstantaneousMaterial):
-    material_code = 6
-    elastic = material.elastic
-    if isinstance(elastic, _solver.NeoHookean):
-      elastic_code = 1
-      elastic_fields = (elastic.shear_modulus_pa,)
-    elif isinstance(elastic, _solver.MooneyRivlin):
-      elastic_code = 2
-      elastic_fields = (elastic.c10_pa, elastic.c01_pa)
-    elif isinstance(elastic, _solver.Yeoh):
-      elastic_code = 3
-      elastic_fields = (elastic.c1_pa, elastic.c2_pa, elastic.c3_pa)
-    elif isinstance(elastic, _solver.Fung):
-      elastic_code = 4
-      elastic_fields = (elastic.shear_modulus_pa, elastic.stiffening)
-    elif isinstance(elastic, _solver.Gent):
-      elastic_code = 5
-      elastic_fields = (elastic.shear_modulus_pa, elastic.extensibility)
-    elif isinstance(elastic, _solver.Ogden):
-      elastic_code = 7
-      # [n_terms, mu_1..mu_n, alpha_1..alpha_n]; the compiled kernel takes a
-      # flat array, so the term count travels with the data.
-      elastic_fields = (float(len(elastic.exponents)), *elastic.shear_moduli_pa, *elastic.exponents)
-    elif isinstance(elastic, _solver.ArrudaBoyce):
-      elastic_code = 6
-      elastic_fields = (elastic.shear_modulus_pa, elastic.chain_segments)
-    viscous = material.viscous
-    if isinstance(viscous, _solver.Newtonian):
-      viscous_code = 1
-      viscous_fields = (viscous.viscosity_pa_s,)
-    elif isinstance(viscous, _solver.PowerLaw):
-      viscous_code = 2
-      viscous_fields = (viscous.consistency_pa_s_n, viscous.exponent, viscous.regularization_rate_per_s)
-    elif isinstance(viscous, _solver.CarreauYasuda):
-      viscous_code = 3
-      viscous_fields = (
-        viscous.zero_shear_viscosity_pa_s,
-        viscous.infinite_shear_viscosity_pa_s,
-        viscous.time_constant_s,
-        viscous.transition_exponent,
-        viscous.power_index,
-      )
-    elif isinstance(viscous, _solver.Cross):
-      viscous_code = 4
-      viscous_fields = (
-        viscous.zero_shear_viscosity_pa_s,
-        viscous.infinite_shear_viscosity_pa_s,
-        viscous.time_constant_s,
-        viscous.transition_exponent,
-      )
-    elif isinstance(viscous, (_solver.PowellEyring, _solver.ModifiedPowellEyring)):
-      viscous_code = 8 if isinstance(viscous, _solver.ModifiedPowellEyring) else 7
-      viscous_fields = (viscous.zero_shear_viscosity_pa_s, viscous.infinite_shear_viscosity_pa_s, viscous.time_constant_s)
-    elif isinstance(viscous, _solver.HerschelBulkley):
-      viscous_code = 5
-      viscous_fields = (viscous.yield_stress_pa, viscous.consistency_pa_s_n, viscous.exponent, viscous.regularization_rate_per_s)
-    elif isinstance(viscous, _solver.Bingham):
-      viscous_code = 6
-      viscous_fields = (viscous.yield_stress_pa, viscous.plastic_viscosity_pa_s, viscous.regularization_rate_per_s)
-  else:
-    raise TypeError("unsupported mechanical material")
+  if material_code == 6:
+    elastic_code, elastic_fields = _coded(material.elastic, _ELASTIC)
+    viscous_code, viscous_fields = _coded(material.viscous, _VISCOUS)
   # Sized to the data, not to a constant. Every law before Ogden had at most
   # three parameters, so a hardcoded 5 was invisible slack; Ogden needs
   # 1 + 2 * terms and overflowed it. max() keeps the padding the compiled

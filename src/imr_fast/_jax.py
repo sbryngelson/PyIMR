@@ -176,9 +176,9 @@ def sensitivities_jax(problem, times, paths):
   `_output_duals` and `_compiled_mechanical_outputs` exist to do exactly this by
   hand.
 
-  Returns `(time, output)` and `(time, output, parameter)` arrays, with outputs
+  Returns `(states, derived, state_tangent, derived_tangent)`. `derived` is
   ordered `radius_ratio, radius_m, wall_velocity_m_s, internal_pressure_pa,
-  stress_integral_pa`.
+  stress_integral_pa`; the tangents carry a trailing parameter axis.
   """
   jax, jnp, diffrax = _jax()
   from ._config import _WallState
@@ -220,10 +220,11 @@ def sensitivities_jax(problem, times, paths):
     # looped -- verified equal to the loop at 0 and 3.5e-18 for NHKV and Zener.
     pressure = (p["Pb"] - p["Pv"]) * radius ** (-3.0 * p["kappa"]) + p["Pv"]
     stress = _stress(config.material, p, radius, velocity, stress_state, problem.instantaneous_material, False, xp=jnp)[0]
-    return jnp.stack(
+    derived = jnp.stack(
       [radius, radius * config.R0, velocity * config.R0 / p["t0"], pressure * p["P8"], stress * p["P8"]], axis=1
     )
+    return states, derived
 
   values = jnp.asarray(base[slots])
   primal, tangent = outputs(values), jax.jacfwd(outputs)(values)
-  return np.asarray(jax.block_until_ready(primal), dtype=float), np.asarray(jax.block_until_ready(tangent), dtype=float)
+  return tuple(np.asarray(jax.block_until_ready(item), dtype=float) for pair in (primal, tangent) for item in pair)

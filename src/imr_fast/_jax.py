@@ -24,7 +24,7 @@ import numpy as np
 
 from ._config import SimulationError, SolverStats
 
-__all__ = ["available", "integrate_jax", "unsupported_reason"]
+__all__ = ["SCALE_PATHS", "available", "integrate_jax", "sensitivities_jax", "unsupported_reason"]
 
 _MISSING = "backend='jax' requires jax and diffrax: pip install 'imr-fast[jax]'"
 
@@ -106,3 +106,77 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   stats = SolverStats(backend=f"jax-tsit5{label}", success=success, message=message, nfev=steps, njev=0, nlu=0, elapsed_s=elapsed)
   if not success: raise SimulationError(f"{failure}: {message}", stats)
   return states, stats
+
+# The five scales `_material_scales` returns, by the parameter path that names
+# each. Structure stays concrete and only these are traced -- a material cannot
+# be built from a traced value at all, because `__post_init__` validates with
+# `np.isfinite`. See PLAN.md W11 stage 3.
+SCALE_PATHS = {
+  "material.shear_modulus_pa": 0,
+  "material.viscosity_pa_s": 1,
+  "material.relaxation_time_s": 2,
+  "material.retardation_time_s": 3,
+  "material.stiffening": 4,
+}
+
+def sensitivities_jax(problem, times, paths):
+  """`(outputs, tangents)` for the mechanical path, both from one `jacfwd`.
+
+  The payoff over the Dual route is that nothing here derives a tangent. The
+  traced function returns the primal outputs -- radius, velocity, pressure,
+  stress integral -- and `jacfwd` differentiates all of them together, so
+  `internal_pressure_pa`'s sensitivity costs no more code than the radius's.
+  `_output_duals` and `_compiled_mechanical_outputs` exist to do exactly this by
+  hand.
+
+  Returns `(time, output)` and `(time, output, parameter)` arrays, with outputs
+  ordered `radius_ratio, radius_m, wall_velocity_m_s, internal_pressure_pa,
+  stress_integral_pa`.
+  """
+  jax, jnp, diffrax = _jax()
+  from ._config import _WallState
+  from ._prepare import _material_scales, params
+  from ._rhs import _rhs
+  from ._stress import _stress
+
+  config = problem.config
+  unknown = [path for path in paths if path not in SCALE_PATHS]
+  if unknown: raise ValueError(f"jax sensitivities cover the material scales {sorted(SCALE_PATHS)}; got {unknown}")
+  base = np.asarray(_material_scales(config.material), dtype=float)
+  slots = [SCALE_PATHS[path] for path in paths]
+  layout = problem.layout
+  has_stress = layout.stress.stop > layout.stress.start
+  initial = jnp.asarray(np.asarray(problem.initial_state, dtype=float))
+  grid_s = np.asarray(times, dtype=float)
+
+  def outputs(values):
+    scales = jnp.asarray(base)
+    for slot, value in zip(slots, values, strict=True): scales = scales.at[slot].set(value)
+    p = params(
+      config.R0, config.Req, config.material, config.vapor, config.T8, config.pA, config.omega, config.TW,
+      config.DT, config.mn, config.wave_type, config.bubtherm, config.masstrans, config.physics,
+      xp=jnp, scales=tuple(scales),
+    )
+    args = (p, config.material, config.radial, 0, None, None, None, 0, None, 0, _WallState(), problem.forcing,
+            problem.instantaneous_material, None)
+    grid = jnp.asarray(grid_s) / p["t0"]
+    solution = diffrax.diffeqsolve(
+      diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), diffrax.Tsit5(),
+      t0=grid[0], t1=grid[-1], dt0=None, y0=initial,
+      stepsize_controller=diffrax.PIDController(rtol=config.rtol, atol=config.atol),
+      saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, adjoint=diffrax.ForwardMode(),
+    )
+    states = solution.ys
+    radius, velocity = states[:, 0], states[:, 1]
+    stress_state = states[:, layout.stress].T if has_stress else None
+    # Same closed forms `_build_result` uses, vectorised over time rather than
+    # looped -- verified equal to the loop at 0 and 3.5e-18 for NHKV and Zener.
+    pressure = (p["Pb"] - p["Pv"]) * radius ** (-3.0 * p["kappa"]) + p["Pv"]
+    stress = _stress(config.material, p, radius, velocity, stress_state, problem.instantaneous_material, False, xp=jnp)[0]
+    return jnp.stack(
+      [radius, radius * config.R0, velocity * config.R0 / p["t0"], pressure * p["P8"], stress * p["P8"]], axis=1
+    )
+
+  values = jnp.asarray(base[slots])
+  primal, tangent = outputs(values), jax.jacfwd(outputs)(values)
+  return np.asarray(jax.block_until_ready(primal), dtype=float), np.asarray(jax.block_until_ready(tangent), dtype=float)

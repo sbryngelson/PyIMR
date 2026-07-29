@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 import imr_fast
+import imr_fast.sensitivity
 from _validation_support import NHKV, R0, REQ, oldroyd_b, zener
 
 # Scoped to the cross-backend test rather than the module: the refusals below
@@ -69,3 +70,67 @@ def test_unsupported_configurations_are_refused_by_name():
 def test_backend_field_rejects_anything_else():
   with pytest.raises(ValueError, match="backend must be"):
     imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="torch")
+
+
+_TANGENT_FIELDS = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
+
+@requires_jax
+@pytest.mark.parametrize(
+  "label,material,paths",
+  [
+    ("NHKV G", NHKV, ("material.shear_modulus_pa",)),
+    ("NHKV G+mu", NHKV, ("material.shear_modulus_pa", "material.viscosity_pa_s")),
+    ("Zener G", zener(), ("material.shear_modulus_pa",)),
+  ],
+  ids=["nhkv-G", "nhkv-G-mu", "zener-G"],
+)
+def test_jax_tangents_match_the_scipy_sensitivity_path(label, material, paths, measured):
+  """Every output's tangent, from one `jacfwd`.
+
+  What is being checked is not just the radius. `internal_pressure_pa` and
+  `stress_integral_pa` are nonlinear in state and parameters, and on the scipy
+  route their tangents come from `_output_duals` deriving each one. Here the
+  traced function returns the primal outputs and `jacfwd` differentiates all of
+  them together, so they cost no extra code -- and no extra chance to be wrong.
+  """
+  from imr_fast._jax import sensitivities_jax
+
+  times = np.linspace(0.0, 20e-6, 80)
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material, radial=2)
+  problem = imr_fast.prepare(config)
+  reference = imr_fast.sensitivity.solve_with_sensitivities(problem, times, paths)
+  _, tangent = sensitivities_jax(problem, times, paths)
+
+  worst = {}
+  for index, field in enumerate(_TANGENT_FIELDS):
+    expected = np.asarray(getattr(reference, field))
+    scale = max(float(np.max(np.abs(expected))), 1e-30)
+    worst[field] = float(np.max(np.abs(expected - tangent[:, index, :]))) / scale
+  measured(f"jax tangents {label}", "  ".join(f"{f.split('_')[0]}={w:.1e}" for f, w in worst.items()))
+  assert max(worst.values()) < 1e-05, worst
+
+@requires_jax
+def test_jax_tangents_converge_to_the_scipy_ones(measured):
+  """The gate is convergence under refinement, not a fixed threshold.
+
+  JAX cannot join the 5e-13 agreement complex-step and Dual reach, and PLAN.md
+  W11 originally asked it to. Those two differentiate the SAME integration; JAX
+  differentiates a different integrator and carries that integrator's error. So
+  the question is whether the residual is error or a wrong derivative, and only
+  refinement distinguishes them -- a fixed bound can be met by a derivative that
+  is wrong but close.
+  """
+  from imr_fast._jax import sensitivities_jax
+
+  times = np.linspace(0.0, 20e-6, 80)
+  paths = ("material.shear_modulus_pa",)
+  errors = []
+  for tolerance in (1e-8, 1e-10, 1e-12):
+    config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, radial=2, rtol=tolerance, atol=tolerance * 1e-2)
+    problem = imr_fast.prepare(config)
+    expected = np.asarray(imr_fast.sensitivity.solve_with_sensitivities(problem, times, paths).radius_m)
+    _, tangent = sensitivities_jax(problem, times, paths)
+    scale = max(float(np.max(np.abs(expected))), 1e-30)
+    errors.append(float(np.max(np.abs(expected - tangent[:, 1, :]))) / scale)
+  measured("jax tangent convergence", " -> ".join(f"{e:.1e}" for e in errors))
+  assert errors[-1] < errors[0] / 100.0, f"tangent error did not converge under refinement: {errors}"

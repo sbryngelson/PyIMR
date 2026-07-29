@@ -1234,6 +1234,75 @@ split designating the stiff part, which the diffusion operator supplies
 naturally, and an earlier attempt passed a single `ODETerm` and failed for that
 reason rather than on the merits.
 
+### IMEX: tried, and the blocker is compile time
+
+W11 recorded IMEX as the untried option for the stiff thermal configurations, on
+the grounds that `KenCarp` wants a `MultiTerm` split naming the stiff part and
+the diffusion operator supplies one naturally. Tried it.
+
+The split itself is sound. Writing only the IMPLICIT half -- the `ddtheta` and
+`ddTm` second-derivative terms -- and taking the explicit half as `_rhs` minus
+it makes the two sum to the shipped right-hand side by construction, verified at
+**0.00e+00**. So the spike cannot integrate different physics than the package.
+
+What stopped it is compilation. `KenCarp4` on the coupled-fd problem did not
+finish compiling in **15 minutes**, against 52 ms of solve time for `Tsit5` on
+the same configuration. An implicit Runge-Kutta stage generates a Newton solve
+per stage over the whole coupled state, and the resulting graph is enormous.
+Kvaerno5 compiles in seconds by comparison, which is why it produced numbers
+earlier and `KenCarp` did not.
+
+So the ordering for the stiff thermal case stands as measured, with IMEX now
+struck off rather than pending:
+
+```
+Tsit5      549 ms    8912 steps
+Kvaerno5  4177 ms    6077 steps
+KenCarp4  compilation did not complete in 15 minutes
+```
+
+Explicit remains the right choice. The 0.8x on coupled spectral is a real loss
+against LSODA and there is currently no diffrax solver that recovers it.
+
+### Making the jax backend start fast
+
+A fresh process pays before its first solve, and the cost has two halves with
+different remedies. Isolated, on the coupled thermal problem:
+
+```
+                        cold        remedy                      after
+trace + lower          579 ms       jax.export (deserialize)     0.8 ms
+XLA compilation        803 ms       persistent on-disk cache      95 ms
+```
+
+**Shipped: the persistent cache.** One config line, no new dependency, no
+behaviour change. `IMR_FAST_JAX_CACHE` picks the directory; setting it empty
+turns it off. The thresholds are zeroed because jax's defaults skip short
+compilations and here every one is worth keeping.
+
+Through the public API it is worth about 16% of first-solve rather than the 8x
+the isolated number suggests -- min 1804 ms against 2150 ms over three runs
+each -- because tracing and imports dominate once XLA is cached. Steady-state
+solves are ~64 ms either way.
+
+**Not shipped: `jax.export`.** It works, and it is the larger half: serialising
+the lowered StableHLO makes a fresh process skip tracing entirely, taking the
+pre-run cost from ~1382 ms to ~161 ms with the same answer to 7.81e-07. Three
+things stand in the way, and the third is the real one:
+
+- `EQX_ON_ERROR=nan` is required. diffrax reports solver failures through
+  equinox host callbacks and those cannot be serialised; the flag turns them
+  into NaN instead, which `_jax` would still catch through its finiteness check,
+  but it is a change in error behaviour.
+- `flatbuffers` becomes a dependency of serialization.
+- **A stale blob silently integrates old physics.** The exported artefact is a
+  frozen copy of the right-hand side. Invalidation has to key on the jax
+  version, the platform, the problem shape AND the source of every function that
+  went into the trace -- and getting that wrong produces correct-looking
+  trajectories from code that no longer exists. That is a worse failure than
+  waiting a second, so it needs its own change with its own tests rather than
+  riding along with the cache.
+
 ### Risks
 
 | risk | why it bites | where it is handled |

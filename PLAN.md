@@ -995,7 +995,8 @@ JAX arrives as a **selectable backend, defaulting off**, the same shape
       bit-identical.
 - [ ] **Stage 2 -- forward solve, mechanical only.** `backend="jax"` for radial
       1-6, no bubtherm, no forcing. Gate: a cross-backend test bounding
-      `|R_jax - R_scipy|` over a config sweep.
+      `|R_jax - R_scipy|` over a config sweep. **Design revised -- see "JAX
+      traces the existing RHS" below. No transcribed JAX module.**
 - [ ] **Stage 3 -- sensitivities.** `jax.jacfwd` through the diffrax solve
       replaces the Dual path for the JAX backend only. The strongest gate in the
       plan: two independently verified tangent paths already agree at
@@ -1073,6 +1074,46 @@ in W10.)
 
 Consequence for the plan: Stage 2 picks explicit for mechanical, Stage 4 picks
 implicit or IMEX for coupled thermal, and neither has to detect anything.
+
+### JAX traces the existing RHS, so there is nothing to transcribe
+
+The obvious shape for stage 2 -- a `_jax.py` holding the physics written in
+`jnp` -- would have been a second implementation of the right-hand side. That is
+precisely the `_mechanical.py` problem this migration exists to remove, with the
+same divergence risk, and it would have been added rather than avoided.
+
+It is not necessary. `_rhs` already runs `Dual` objects through
+`__array_ufunc__`, so it is written against an overloadable numeric protocol
+rather than against numpy concretely. Measured: with the array namespace swapped
+for `jax.numpy` inside `_rhs`, `_stress` and `_thermal`, and Python's `max`
+routed to `jnp.maximum`, `jax.jit` traces the real function and agrees with the
+numpy path to **4.44e-16** -- one ULP, from operation ordering, not structure.
+
+An AST survey says why so little is needed. On the mechanical path `_rhs` makes
+exactly three namespace-specific calls (`np.sqrt` once, plus `np.empty_like` and
+`np.zeros_like` off-path) and one Python `max`. Every in-place mutation --
+`thetadot[-1] = 0.0`, `Tmdot[0] = 0.0`, the buffer packing at lines 221-235 --
+sits inside `if bubtherm:`, `if medtherm:`, or the distributed-stress branch.
+The mechanical path returns `out = [Rd, Rdd]`, a plain Python list, which JAX
+accepts as-is.
+
+So stage 2 becomes:
+
+- **2a** -- make the mechanical path namespace-agnostic, with numpy injected by
+  default. No JAX involved. Gate: bit-identical trajectories, the same gate
+  stage 1 met, using the same harness.
+- **2b** -- the diffrax driver, the `backend` field, jax/diffrax as OPTIONAL
+  dependencies (the `pymc_op` precedent: core stays numpy/scipy/numba), and the
+  cross-backend test.
+
+Splitting it this way keeps the risky part -- touching the most-validated
+function in the package -- in a change whose gate is exact equality, separate
+from the part that introduces new numerics.
+
+The in-place mutations remain the blocker for stages 4 and beyond, where the
+thermal fields are assembled by slice assignment. `jnp` has `.at[].set()` for
+this, which is a real edit rather than a namespace swap. That work belongs with
+stage 4, not before it.
 
 ### Risks
 

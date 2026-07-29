@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from types import SimpleNamespace
 
 import numpy as np
 from scipy.sparse import lil_matrix
@@ -237,15 +236,14 @@ def solve_with_sensitivities(problem, tv, parameters):
 
   radius_floor.terminal = True
   radius_floor.direction = -1
-  solution, stats = _integrate(
+  states, stats = _integrate(
     rhs, time_s, initial.ravel(), args=(), event=radius_floor,
     sparsity=_augmented_sparsity(problem.jacobian_sparsity, width),
     rtol=config.rtol, atol=config.atol, failure="IMR sensitivity integration failed", label="-forward",
   )
-  packed = solution.y.T.reshape(time_s.size, problem.layout.size, width + 1)
+  packed = states.T.reshape(time_s.size, problem.layout.size, width + 1)
   base_states = packed[:, :, 0]
-  base_solution = SimpleNamespace(y=base_states.T)
-  simulation = _solver._build_result(problem, time_s, base_solution, stats)
+  simulation = _solver._build_result(problem, time_s, base_states.T, stats)
   normalized_state = packed[:, :, 1:] / scales
   compiled_output = (parameter_values, parameter_tangents, material_data) if use_compiled_mechanical else None
   outputs = _output_duals(problem, dual_config, dual_parameters, packed, width, compiled_output)

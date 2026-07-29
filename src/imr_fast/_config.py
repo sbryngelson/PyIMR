@@ -223,6 +223,10 @@ class SimulationConfig:
   # matches fd at Nt=200 for a ninth of the cost. Pass thermal="fd" for the
   # cheaper scheme or to reproduce pre-0.3.0 numbers.
   thermal: str = "spectral"
+  # "scipy" (LSODA/BDF) or "jax" (diffrax). The default is what every pinned
+  # IMRv2 trajectory was validated against, and W11 keeps it that way: the jax
+  # backend is measured against scipy's output, not against the references.
+  backend: str = "scipy"
   physics: PhysicalParameters = field(default_factory=PhysicalParameters)
   sampled_forcing: SampledForcing | None = None
   initial: InitialState = field(default_factory=InitialState)
@@ -247,6 +251,14 @@ class SimulationConfig:
     _validate_config(self)
     if self.max_step_s is not None: _finite_positive("max_step_s", self.max_step_s)
     if self.thermal not in ("fd", "spectral"): raise ValueError("thermal must be 'fd' or 'spectral'")
+    if self.backend not in ("scipy", "jax"): raise ValueError("backend must be 'scipy' or 'jax'")
+    if self.backend == "jax":
+      # Lazily, and by name rather than by capability: a clear refusal at
+      # construction beats a tracer error several frames inside diffrax.
+      from ._jax import unsupported_reason
+
+      reason = unsupported_reason(self)
+      if reason is not None: raise ValueError(reason)
     if self.sampled_forcing is not None and (
       self.pA != 0.0 or self.omega != 0.0 or self.TW != 0.0 or self.DT != 0.0 or self.mn != 0.0 or self.wave_type != 0
     ):

@@ -238,11 +238,11 @@ def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
     if vapor_fraction is not None: vapor_fraction[index] = kv
   return bubble_temperature, medium_temperature, vapor_fraction
 
-def _build_result(problem: PreparedProblem, time_s: np.ndarray, solution, stats: SolverStats) -> SimulationResult:
+def _build_result(problem: PreparedProblem, time_s: np.ndarray, states, stats: SolverStats) -> SimulationResult:
   config = problem.config
   p = problem.parameters
   layout = problem.layout
-  states = solution.y.T
+  states = np.asarray(states).T
   radius_ratio = states[:, 0]
   velocity = states[:, 1]
   Uc = p["Uc"]
@@ -297,16 +297,16 @@ def _integrate_prepared(problem: PreparedProblem, tv):
     problem.instantaneous_material,
     problem.distributed_stress,
   )
-  solution, stats = _integrate(
+  states, stats = _integrate(
     _rhs, tn, problem.initial_state, args=args, event=_radius_floor_event, sparsity=problem.jacobian_sparsity,
-    rtol=config.rtol, atol=config.atol, failure="IMR integration failed",
+    rtol=config.rtol, atol=config.atol, failure="IMR integration failed", backend=config.backend,
     max_step=None if config.max_step_s is None else config.max_step_s / p["t0"],
   )
-  return time_s, solution, stats
+  return time_s, states, stats
 
 def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
-  time_s, solution, stats = _integrate_prepared(problem, tv)
-  return _build_result(problem, time_s, solution, stats)
+  time_s, states, stats = _integrate_prepared(problem, tv)
+  return _build_result(problem, time_s, states, stats)
 
 def simulate(tv, config: SimulationConfig) -> SimulationResult:
   """Run one simulation and return immutable physical histories."""

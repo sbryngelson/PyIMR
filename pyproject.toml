@@ -26,6 +26,13 @@ inference = [
     # actual constraint.
     "pymc>=6",
 ]
+# The jax backend (PLAN.md W11). Optional for the same reason `inference` is:
+# a core install stays numpy/scipy/numba, and `imr_fast._jax` defers its import
+# so nothing pays for jax unless `backend="jax"` is asked for.
+jax = [
+    "jax>=0.4",
+    "diffrax>=0.6",
+]
 # Documentation is generated rather than written: #8 stripped docstrings from
 # internals and kept them on everything named in `__all__`, so "everything
 # public is documented, everything documented is public" holds by construction

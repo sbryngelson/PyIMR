@@ -30,13 +30,21 @@ from ._stress import _MaterialDomainError
 
 __all__ = ["integrate"]
 
-def integrate(rhs, times, initial, *, args, event, sparsity, rtol, atol, failure, label="", max_step=None):
-  """Run `rhs` over `times`, returning `(solution, stats)` and raising on failure.
+def integrate(rhs, times, initial, *, args, event, sparsity, rtol, atol, failure, label="", max_step=None, backend="scipy"):
+  """Run `rhs` over `times`, returning `(states, stats)` and raising on failure.
+
+  `states` is scipy's `solution.y` orientation -- one row per state variable, one
+  column per requested time -- rather than a solver's own result object, so the
+  two backends present the same thing and callers need no branch.
 
   `failure` is the sentence a `SimulationError` leads with; `label` suffixes the
   recorded backend name, which is how the sensitivity solve reports itself as
   `scipy-lsoda-forward` rather than `scipy-lsoda`.
   """
+  if backend == "jax":
+    from ._jax import integrate_jax
+
+    return integrate_jax(rhs, times, initial, args=args, rtol=rtol, atol=atol, failure=failure, label=label, max_step=max_step)
   method = "BDF" if sparsity is not None else "LSODA"
   options = {"jac_sparsity": sparsity} if sparsity is not None else {}
   if max_step is not None: options["max_step"] = max_step
@@ -52,4 +60,4 @@ def integrate(rhs, times, initial, *, args, event, sparsity, rtol, atol, failure
     raise SimulationError(f"{failure}: {message}", stats) from error
   success, message, stats = _solve_stats(solution, times, backend, perf_counter() - started)
   if not success: raise SimulationError(f"{failure}: {message}", stats)
-  return solution, stats
+  return solution.y, stats

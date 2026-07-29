@@ -1001,8 +1001,8 @@ JAX arrives as a **selectable backend, defaulting off**, the same shape
       replaces the Dual path for the JAX backend only. The strongest gate in the
       plan: two independently verified tangent paths already agree at
       5e-13--5e-11, so JAX has to join that agreement rather than establish it.
-      **Blocker identified -- see "How a parameter reaches the traced region"
-      below.** Larger than 2a or 2b; it needs a signature change to `params`.
+      **Blocker resolved and the approach validated. The GATE as written here is
+      wrong** -- corrected under "What the gate should be" below.
 - [ ] **Stage 4 -- thermal.** bubtherm/medtherm, then the implicit wall solve.
       Narrower than it looks: #57 made the medtherm-only case closed-form, so
       only mass transfer needs `lax.custom_root`.
@@ -1158,6 +1158,44 @@ concrete config plus a traced scale vector, `jax.jacfwd` over it, and the
 existing complex-step/Dual agreement as the gate. That is a real signature
 change on a function with fourteen arguments, which is why it is bigger than 2a
 or 2b rather than the same size.
+
+### What the gate should be (stage 3)
+
+The plan said JAX must join the 5e-13 agreement between complex-step and Dual.
+That is not achievable, and chasing it would have been a bug hunt with no bug.
+Those two agree to 5e-13 because they are two AD methods differentiating **the
+same integration** -- same solver, same steps. JAX differentiates a *different*
+integrator, so its tangent carries that integrator's error exactly as its
+trajectory does.
+
+Measured, with `params` taking traced scales and `jax.jacfwd` over the diffrax
+solve, against `solve_with_sensitivities`:
+
+```
+NHKV,  dR/dG           max rel 5.81e-07
+NHKV,  dR/d(G, mu)     max rel 3.13e-07
+Zener, dR/dG           max rel 9.76e-07
+```
+
+Tightening diffrax alone plateaus at 5.67e-07, which says the residual is
+scipy's error rather than diffrax's. Tightening BOTH is the real test:
+
+```
+both rtol=1e-08     5.81e-07
+both rtol=1e-10     2.99e-09
+both rtol=1e-12     3.51e-11
+```
+
+It converges. The JAX tangent is the same derivative and the whole residual is
+mutual integration error. **The gate is convergence under refinement, not a
+fixed threshold** -- the stronger claim, since a threshold can be met by a wrong
+derivative that happens to land close.
+
+`params` now takes `xp=` and `scales=`, bit-identical on the numpy path across
+all twenty traces. What remains is assembling a full `SensitivityResult` from a
+JAX solve: the state tangent is immediate, but `internal_pressure_pa` and
+`stress_integral_pa` are nonlinear functions of state and parameters that the
+Dual path gets for free and a jacfwd path has to derive.
 
 ### Risks
 

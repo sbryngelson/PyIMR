@@ -64,8 +64,15 @@ def _rhs(
   forcing=None,
   instantaneous_material=None,
   distributed_stress=None,
+  *,
+  xp=np,
 ):
-  R = max(y[0], 1e-8)
+  # `xp` is the array namespace. numpy by default, so every existing caller and
+  # every pinned trajectory is untouched; `jax.numpy` is what a second backend
+  # passes. W11 stage 2a -- the point is that ONE right-hand side serves both,
+  # rather than a transcribed copy that can drift from this one the way
+  # `_mechanical` already has.
+  R = xp.maximum(y[0], 1e-8)
   Rd = y[1]
   Pv = p["Pv"]
   kappa = p["kappa"]
@@ -90,7 +97,7 @@ def _rhs(
   nz = _nZ(material)
   Z = y[Zstart : Zstart + nz] if nz else None
   if distributed_stress is None:
-    S, Sdot, dZ, acceleration_coefficient = _stress(material, p, R, Rd, Z, instantaneous_material, radial != 1)
+    S, Sdot, dZ, acceleration_coefficient = _stress(material, p, R, Rd, Z, instantaneous_material, radial != 1, xp=xp)
   else:
     S, Sdot, dZ, acceleration_coefficient = _distributed_stress(material, distributed_stress, p, R, Rd, Z, radial != 1)
   Pf8, Pf8dot = _pinf(tn, p, forcing)
@@ -197,11 +204,11 @@ def _rhs(
       hB = p["tait_sam"] / p["tait_no"] * ((Pb / p["tait_sam"]) ** p["tait_no"] - 1.0)
       hH = (p["tait_sam"] / Pb) ** (1.0 / p["tait_exponent"])
       # hH is 1/rho, so Gilmore's sqrt(gamma*Pb/rho) needs no second power.
-      Cs = p["Cstar"] if radial == 3 else np.sqrt(p["tait_exponent"] * Pb * hH)
+      Cs = p["Cstar"] if radial == 3 else xp.sqrt(p["tait_exponent"] * Pb * hH)
     else:  # Mie-Gruneisen. Upstream omits +S from Pb here; restoring it is what
       # brings these branches back into agreement with the Tait forms (PLAN W9).
       Pb = P - iWe / R + S
-      C, hB, hH = _mie_gruneisen(Pb, p["Cstar"], p["hugoniot_slope"], p["nog"], p["mie_reference"])
+      C, hB, hH = _mie_gruneisen(Pb, p["Cstar"], p["hugoniot_slope"], p["nog"], p["mie_reference"], xp=xp)
       Cs = p["Cstar"] if radial == 5 else C
     num = (1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot + R / Cs * hH * (Pdot + iWe * Rd / R**2 + Sdot) - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
     den = (1 - Rd / Cs) * R + acceleration_coefficient * hH / Cs
@@ -209,13 +216,21 @@ def _rhs(
   else:
     raise ValueError(f"radial={radial} not supported")
   if distributed_stress is None:
+    # `list(...)` rather than `.tolist()`: both give one element per entry, but
+    # `.tolist()` demands concrete values and a traced array has none. Shapes
+    # here are static, so iterating is fine under `jit`. numpy is unaffected --
+    # the elements become `np.float64` instead of `float` and every downstream
+    # value is identical (verified bit-for-bit).
+    # Keyed on the fields rather than the flags they came from. Each is None
+    # exactly when its flag is off, so this is the same condition -- but it is
+    # the one a type checker can narrow, and it ties the packing to the data.
     out = [Rd, Rdd]
-    if bubtherm:
+    if thetadot is not None:
       out.append(Pdot)
-      out.extend(thetadot.tolist())
-    if medtherm: out.extend(Tmdot.tolist())
-    if masstrans: out.extend(kvdot.tolist())
-    if dZ is not None: out.extend(dZ.tolist())
+      out.extend(list(thetadot))
+    if Tmdot is not None: out.extend(list(Tmdot))
+    if kvdot is not None: out.extend(list(kvdot))
+    if dZ is not None: out.extend(list(dZ))
     return out
   out = np.empty_like(y)
   out[0] = Rd

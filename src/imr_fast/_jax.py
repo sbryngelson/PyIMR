@@ -86,10 +86,12 @@ def unsupported_reason(config) -> str | None:
   its knots.
   """
   # Mass transfer is the one thermal branch still out: `_wall_theta_bw_full`
-  # solves the wall temperature by secant iteration with a fallback ladder, and
-  # a data-dependent loop needs `lax.custom_root` rather than a namespace swap.
-  # `medtherm` alone does NOT -- #57 made that wall closure closed form.
-  if config.masstrans: return "masstrans=1 is not on the jax backend: its wall closure is an iterative solve -- see PLAN.md W11"
+  # brackets the vapour fraction and hands the interval to `scipy.optimize.brentq`,
+  # which wants concrete floats. #111 made that closure a function of state alone,
+  # so what remains is mechanical -- a traced bisection on the same constant
+  # bracket -- not the branch-tracking problem it was.
+  # `medtherm` alone does NOT need any of this: #57 made its closure closed form.
+  if config.masstrans: return "masstrans=1 is not on the jax backend: its wall closure calls scipy.optimize.brentq -- see PLAN.md W11"
   if config.sampled_forcing is not None: return "sampled_forcing is not on the jax backend yet"
   return None
 
@@ -181,7 +183,6 @@ def sensitivities_jax(problem, times, paths):
   stress_integral_pa`; the tangents carry a trailing parameter axis.
   """
   jax, jnp, diffrax = _jax()
-  from ._config import _WallState
   from ._prepare import _material_scales, params
   from ._rhs import _rhs
   from ._stress import _stress
@@ -204,7 +205,7 @@ def sensitivities_jax(problem, times, paths):
       config.DT, config.mn, config.wave_type, config.bubtherm, config.masstrans, config.physics,
       xp=jnp, scales=tuple(scales),
     )
-    args = (p, config.material, config.radial, 0, None, None, None, 0, None, 0, _WallState(), problem.forcing,
+    args = (p, config.material, config.radial, 0, None, None, None, 0, None, 0, problem.forcing,
             problem.instantaneous_material, None)
     grid = jnp.asarray(grid_s) / p["t0"]
     solution = diffrax.diffeqsolve(

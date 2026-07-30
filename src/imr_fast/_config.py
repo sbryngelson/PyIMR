@@ -58,7 +58,6 @@ __all__ = [
   "_MWG",
   "_MWV",
   "_RU",
-  "_WallState",
   "_freeze_array",
   "_readonly_float_array",
   "_readonly_optional",
@@ -359,10 +358,6 @@ class PreparedDistributedStress:
 class PreparedInstantaneousMaterial:
   interval_nodes: np.ndarray
   interval_weights: np.ndarray
-
-@dataclass(slots=True)
-class _WallState:
-  theta: float = -1e-4
 
 @dataclass(frozen=True, slots=True)
 class PreparedProblem:

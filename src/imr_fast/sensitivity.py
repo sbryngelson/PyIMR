@@ -148,7 +148,6 @@ def _output_duals(problem, config, parameters, states, width, compiled=None):
   bubble_temperature = np.empty((count, config.Nt, width)) if config.bubtherm else None
   medium_temperature = np.empty((count, config.Mt, width)) if config.medtherm else None
   vapor_fraction = np.empty((count, config.Nt, width)) if config.masstrans else None
-  wall_state = _solver._WallState()
   dual_medium = _dual_medium(problem, parameters)
   for time_index, row in enumerate(states):
     dual_state = np.array([Dual(row[index, 0], row[index, 1:]) for index in range(row.shape[0])], dtype=object)
@@ -173,7 +172,7 @@ def _output_duals(problem, config, parameters, states, width, compiled=None):
       medium_state = dual_state[problem.layout.medium_thermal].copy() if config.medtherm else None
       vapor_state = dual_state[problem.layout.vapor_fraction].copy() if config.masstrans else None
       *_, temperature, _ = _solver._apply_thermal_boundaries(
-        theta, medium_state, vapor_state, pressure_value, parameters, dual_medium, config.masstrans, wall_state
+        theta, medium_state, vapor_state, pressure_value, parameters, dual_medium, config.masstrans
       )
       bubble_temperature[time_index] = _tangent_values(config.T8 * temperature, width)
       if medium_temperature is not None: medium_temperature[time_index] = _tangent_values(config.T8 * medium_state, width)
@@ -259,7 +258,6 @@ def solve_with_sensitivities(problem, tv, parameters):
       _complex.rhs_complex,
       problem=problem,
       prepared=_complex.directions(dual_config, dual_parameters, dual_medium, dual_forcing, width),
-      wall_states=[_solver._WallState() for _ in range(width)],
       width=width,
     )
   else:
@@ -269,7 +267,6 @@ def solve_with_sensitivities(problem, tv, parameters):
       config=dual_config,
       parameters=dual_parameters,
       medium=dual_medium,
-      wall_state=_solver._WallState(),
       forcing=dual_forcing,
       width=width,
     )

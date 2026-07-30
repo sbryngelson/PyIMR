@@ -8,6 +8,7 @@ implicit wall-temperature solve.
 from __future__ import annotations
 
 import numpy as np
+from scipy.optimize import brentq
 
 from ._autodiff import at_set, primal_array
 from ._materials import InstantaneousMaterial, NoStress, QuadraticKelvinVoigt
@@ -29,7 +30,8 @@ __all__ = [
   "_mie_F",
   "_mie_gruneisen",
   "_mu_of_A",
-  "_secant_root",
+  "_T_of_kv",
+  "_bracketed_root",
   "_wall_theta_bw",
   "_wall_theta_bw_full",
   "pvsat",
@@ -38,6 +40,10 @@ _GAM_TAIT = 3049.13e5
 _NSTATE_TAIT = 7.15
 _HUGONIOT_S = 1.65
 _NOG = (_NSTATE_TAIT - 1.0) / 2.0
+# Endpoint inset for the vapour-fraction bracket: `kv` is a mass fraction, so the
+# bracket IS its physical range (0, 1), opened just enough that the residual is
+# evaluated inside it rather than at its removable ends.
+_KV_EPS = 1e-13
 
 def kirchhoff_theta(temperature, alpha, beta):
   """The Kirchhoff transform of a conductivity linear in temperature.
@@ -219,28 +225,71 @@ def _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale):
   theta_var = Rvg_ratio * (P / (pvsat(Tw * T8) / pressure_scale) - 1.0)
   return 1.0 / (1.0 + theta_var)
 
-def _secant_root(function, guess, *, tol=1e-13, maxiter=100):
-  p0 = float(guess)
-  p1 = p0 * 1.0001
-  p1 += 1e-4 if p1 >= 0.0 else -1e-4
-  q0 = function(p0)
-  q1 = function(p1)
-  if abs(q1) < abs(q0): p0, p1, q0, q1 = p1, p0, q1, q0
-  for _ in range(maxiter):
-    if q1 == q0: raise RuntimeError("wall boundary secant solve encountered zero slope")
-    if abs(q1) > abs(q0):
-      ratio = q0 / q1
-      root = (-ratio * p1 + p0) / (1.0 - ratio)
-    else:
-      ratio = q1 / q0
-      root = (-ratio * p0 + p1) / (1.0 - ratio)
-    if abs(root - p1) <= tol: return root
-    p0, q0 = p1, q1
-    p1 = root
-    q1 = function(p1)
-  raise RuntimeError(f"wall boundary secant solve failed to converge after {maxiter} iterations")
+def _T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale):
+  """Closed-form inverse of :func:`_kv_of_T`.
 
-def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans, *, xp=np):
+  `_kv_of_T` is strictly increasing in `Tw` -- `pvsat` is -- so it inverts, and
+  inverting it is what turns the wall solve's physical admissibility condition
+  into a constant bracket. Setting `kv = 1/(1 + Rvg*(P/ps - 1))` and solving for
+  the saturation pressure gives `ps = P*kv*Rvg / (kv*Rvg + 1 - kv)`, then
+  `pvsat(Tw*T8) = pressure_scale*ps` inverts in one log.
+
+  `kv -> 1` sends `ps -> P` and so `Tw -> Tsat(P)`; `kv -> 0` sends both to
+  zero. Every `kv` in `(0, 1)` therefore maps to a `Tw` below saturation, which
+  is precisely the admissible range: `kv` is a MASS FRACTION.
+  """
+  ps = P * kv * Rvg_ratio / (kv * Rvg_ratio + 1.0 - kv)
+  return 5200.0 / (T8 * np.log(1.17e11 / (pressure_scale * ps)))
+
+def _value(x):
+  # The residual is evaluated in whichever arithmetic the caller brought: plain
+  # float on the value path, `Dual` on the tangent path, complex128 under
+  # complex step. All three yield their real value this way.
+  return getattr(x, "value", x).real
+
+def _bracketed_root(residual, *, bracket=(_KV_EPS, 1.0 - _KV_EPS)):
+  """Solve `residual(kv) = 0` on a bracket, then attach the exact tangent.
+
+  Brent on the bracket -- bisection, secant and inverse quadratic interpolation
+  -- is the method Barajas & Johnsen prescribe for this closure, and bracketing
+  is the whole point: it cannot leave the interval, so the root it returns is
+  admissible by construction. See the module note on `_wall_theta_bw_full`.
+
+  Brent needs floats, which would drop the tangent, so Newton steps in the
+  caller's own arithmetic put it back. They do not move the value --
+  `residual(root)` is already zero there -- but by the implicit function theorem
+  the tangent becomes `-(dG/dp)/(dG/dkv)`, the derivative of the root with
+  respect to every parameter.
+
+  TWO steps, sharing one approximate slope. The slope comes from a central
+  difference, whose cancellation error is `eps/h ~ 1e-9` -- and a single step
+  passes that error straight through to the tangent, which is measurable:
+  complex-step against `Dual` on the coupled mass-transfer RHS degrades from
+  1e-13 to 8e-9. Writing the slope as `m = G'(1 + d)`, one step scales the
+  tangent by `1/(1 + d)` and two by `u*(2 - u)` with `u = 1/(1 + d)`, which
+  expands to `1 - d**2`. So the second step costs one residual evaluation and
+  squares the error rather than merely shrinking it -- no step-size tuning and
+  no wider stencil, both of which only move `d` around.
+  """
+  low, high = bracket
+  # `brentq` checks the endpoint signs itself, so checking them here first would
+  # pay for two of the ~12 residual evaluations a wall solve costs to say
+  # something it already says. Naming the values is worth it only on the way out.
+  #
+  # Its stub returns `float | tuple[float, RootResults]` regardless of
+  # `full_output`, so the scalar overload cannot be selected and pyright rejects
+  # arithmetic on the result. The runtime type is a float here.
+  try:
+    root = float(brentq(lambda kv: _value(residual(kv)), low, high, xtol=1e-15))  # pyright: ignore[reportArgumentType]
+  except ValueError as error:
+    ends = (_value(residual(low)), _value(residual(high)))
+    raise RuntimeError(f"no admissible wall vapour fraction in {bracket}: residual {ends[0]:+.3e} to {ends[1]:+.3e}") from error
+  step = 1e-7 * root
+  slope = (_value(residual(root + step)) - _value(residual(root - step))) / (2.0 * step)
+  polished = root - residual(root) / slope
+  return polished - residual(polished) / slope
+
+def _wall_theta_bw(theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans, *, xp=np):
   """Solve the flux match at the wall exactly, rather than iterating on it (#57).
 
   Substituting Tw = (s - beta_g) / alpha_g and theta_bw = (s*s - (alpha_g +
@@ -255,8 +304,9 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Tr
   abort an integration -- for ordinary retardation ratios, and carried only a
   single-step tangent on the Dual path where this is exact.
 
-  `_wall_theta_bw_full` keeps its fallback ladder: with mass transfer the vapour
-  fraction makes the residual transcendental in Tw, so no closed form exists.
+  `_wall_theta_bw_full` cannot be reduced this far -- with mass transfer the
+  vapour fraction makes the residual transcendental -- but it is bracketed
+  rather than iterated from a guess, for the reasons recorded there.
   """
   b, c = grad_Tm[0], grad_Trans[0]
   span = (alpha_g + beta_g) ** 2
@@ -266,7 +316,6 @@ def _wall_theta_bw(guess, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Tr
   return (s * s - span) / (2.0 * alpha_g)
 
 def _wall_theta_bw_full(
-  guess,
   theta_tail,
   Tm_tail,
   kv_tail,
@@ -285,47 +334,59 @@ def _wall_theta_bw_full(
   grad_Trans,
   grad_C,
 ):
+  """Wall energy balance with equilibrium phase change, solved on `kv in (0, 1)`.
+
+  Barajas & Johnsen close the wall with `rho_w C_w = pvsat(Tw)/(Rv Tw)` and
+  solve the resulting algebraic condition "using an algorithm based on a
+  combination of bisection, secant, and inverse quadratic interpolation" -- that
+  is Brent's method, a BRACKETING solve. Two things follow, and this function
+  was doing neither (#111).
+
+  First, the unknown is taken to be the vapour mass fraction rather than
+  `theta_bw`. `_T_of_kv` inverts the equilibrium condition in closed form, so
+  `kv`'s physical range -- a mass fraction lies in `(0, 1)` -- becomes the
+  bracket, the same constant for every state. Written in `Tw` the admissible
+  interval is instead `(0, Tsat(P))`, which has to be recomputed per state.
+
+  Second, the residual is multiplied through by its own denominator
+  `D = (kv*Rva_diff + Rg_star)*Tw*(1 - kv)`. As shipped the `1/(1 - kv)` factor
+  put a POLE at `kv = 1`, exactly at the edge of admissibility, and iterating
+  from a guess walked through it: measured over a 25 us NHKV collapse, 26 of
+  1480 wall solves returned mass fractions outside `(0, 1)` -- as far as +179
+  and -603 -- all of them in the last 2% of the solve, at deepest collapse.
+  `D > 0` strictly inside the bracket, so multiplying it out removes the pole
+  while preserving every root, and the product extends continuously to both
+  endpoints. Measured on the same 1480 solves: exactly one sign change each,
+  finite throughout, roots in `[0.472, 0.804]`.
+
+  So the root is unique on the bracket and no branch has to be chosen. That is
+  what makes this closure a function of state alone -- it previously warm-started
+  from the previous call's answer, which made the whole right-hand side depend on
+  the integrator's step history and is why the jax backend could not host mass
+  transfer. IMRv2 warm-starts a plain secant here and inherits the excursion;
+  the pinned reference does too, so the deep-collapse trajectory moves.
+  """
   alpha_m = kv_end_stale * alpha_v + (1.0 - kv_end_stale) * alpha_g
   beta_m = kv_end_stale * beta_v + (1.0 - kv_end_stale) * beta_g
 
-  def resid(theta_bw):
-    # A secant iterate can leave the Kirchhoff transform's range, where the
-    # inverse has no real root: measured once per 30 us solve, out to
-    # theta = -4.3e+04 against a guess of 0.50. The nan is what tells
-    # `_secant_root` to back off, so it is suppressed here and only here. The
-    # ladder below and the solver's own arithmetic raise nothing -- measured,
-    # not assumed -- and are left honest. See #35.
-    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
-      Tw = kirchhoff_temperature(theta_bw, alpha_m, beta_m)
-      kvw = _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale)
-      lhs = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
-      rhs = grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
-      scalar = P / ((kvw * Rva_diff + Rg_star) * (Tw * (1.0 - kvw)))
-      extra = scalar * (grad_C[0] * kvw + np.sum(grad_C[1:] * kv_tail))
-    return lhs + rhs + extra
+  def resid(kv):
+    Tw = _T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale)
+    theta_bw = kirchhoff_theta(Tw, alpha_m, beta_m)
+    flux = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
+    flux = flux + grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
+    denominator = (kv * Rva_diff + Rg_star) * Tw * (1.0 - kv)
+    return denominator * flux + P * (grad_C[0] * kv + np.sum(grad_C[1:] * kv_tail))
 
-  failure = None
-  try:
-    return _secant_root(resid, guess)
-  except RuntimeError as error:
-    failure = error
-    roots = []
-    for fallback in (0.0, 0.5 * guess, 1.5 * guess, theta_tail[0]):
-      try:
-        roots.append(_secant_root(resid, fallback))
-      except RuntimeError:
-        pass
-  if roots: return min(roots, key=lambda root: abs(root - guess))
-  raise failure
+  kv = _bracketed_root(resid)
+  return kirchhoff_theta(_T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale), alpha_m, beta_m)
 
-def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state, *, xp=np):
+def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, *, xp=np):
   # Returns the fields as well as the temperature: jax arrays are immutable, so
   # the wall values cannot be written into the caller's arrays and have to come
   # back. numpy still mutates in place inside `at_set`, so the returned objects
   # are the same ones and nothing downstream can tell the difference.
   if medium is not None and masstrans:
     theta = at_set(theta, -1, _wall_theta_bw_full(
-      wall_state.theta,
       theta[-2::-1],
       Tm[1:],
       kv[-2::-1],
@@ -344,10 +405,8 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, wall_state
       medium.grad_Trans,
       medium.grad_C,
     ))
-    wall_state.theta = theta[-1]
   elif medium is not None:
-    theta = at_set(theta, -1, _wall_theta_bw(wall_state.theta, theta[-2::-1], Tm[1:], p["alpha_g"], p["beta_g"], medium.grad_Tm, medium.grad_Trans, xp=xp))
-    wall_state.theta = theta[-1]
+    theta = at_set(theta, -1, _wall_theta_bw(theta[-2::-1], Tm[1:], p["alpha_g"], p["beta_g"], medium.grad_Tm, medium.grad_Trans, xp=xp))
   alpha_m = None
   if masstrans:
     alpha_m = kv * p["alpha_v"] + (1.0 - kv) * p["alpha_g"]

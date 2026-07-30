@@ -68,7 +68,7 @@ def directions(config, parameters, medium, forcing, width):
   """One frozen complex copy of the whole parameter set per direction."""
   return [tuple(_to_complex(item, index) for item in (config, parameters, medium, forcing)) for index in range(width)]
 
-def rhs_complex(time_s, packed, *, problem, prepared, wall_states, width):
+def rhs_complex(time_s, packed, *, problem, prepared, width):
   """Augmented RHS with the tangents carried in the imaginary part.
 
   Same packed layout as the `Dual` route -- (state, 1 + width) flattened -- so
@@ -97,7 +97,6 @@ def rhs_complex(time_s, packed, *, problem, prepared, wall_states, width):
           config.medtherm,
           medium,
           config.masstrans,
-          wall_states[index],
           forcing,
           problem.instantaneous_material,
           problem.distributed_stress,

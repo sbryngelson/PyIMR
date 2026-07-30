@@ -107,7 +107,6 @@ from ._config import (  # noqa: F401
   _MWG,
   _MWV,
   _RU,
-  _WallState,
   _freeze_array,
   _readonly_float_array,
   _readonly_optional,
@@ -130,7 +129,8 @@ from ._thermal import (  # noqa: F401
   _mie_F,
   _mie_gruneisen,
   _mu_of_A,
-  _secant_root,
+  _T_of_kv,
+  _bracketed_root,
   _wall_theta_bw,
   _wall_theta_bw_full,
   pvsat,
@@ -227,12 +227,11 @@ def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
   bubble_temperature = np.empty((count, config.Nt))
   medium_temperature = np.empty((count, config.Mt)) if config.medtherm else None
   vapor_fraction = np.empty((count, config.Nt)) if config.masstrans else None
-  wall_state = _WallState()
   for index, state in enumerate(states):
     theta = state[layout.bubble_thermal].copy()
     Tm = state[layout.medium_thermal].copy() if layout.medium_thermal is not None else None
     kv = state[layout.vapor_fraction].copy() if layout.vapor_fraction is not None else None
-    *_, temperature, _ = _apply_thermal_boundaries(theta, Tm, kv, state[layout.pressure], p, problem.medium, config.masstrans, wall_state)
+    *_, temperature, _ = _apply_thermal_boundaries(theta, Tm, kv, state[layout.pressure], p, problem.medium, config.masstrans)
     bubble_temperature[index] = config.T8 * temperature
     if medium_temperature is not None: medium_temperature[index] = config.T8 * Tm
     if vapor_fraction is not None: vapor_fraction[index] = kv
@@ -292,7 +291,6 @@ def _integrate_prepared(problem: PreparedProblem, tv):
     config.medtherm,
     problem.medium,
     config.masstrans,
-    _WallState(),
     problem.forcing,
     problem.instantaneous_material,
     problem.distributed_stress,

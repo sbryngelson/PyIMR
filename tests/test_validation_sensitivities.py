@@ -116,7 +116,6 @@ def _dual_and_complex_rhs(problem, names):
     config=dual_config,
     parameters=parameters,
     medium=medium,
-    wall_state=imr_fast._WallState(),
     forcing=forcing,
     width=width,
   )
@@ -125,7 +124,6 @@ def _dual_and_complex_rhs(problem, names):
     packed,
     problem=problem,
     prepared=_complex.directions(dual_config, parameters, medium, forcing, width),
-    wall_states=[imr_fast._WallState() for _ in range(width)],
     width=width,
   )
   return np.asarray(dual, dtype=float), np.asarray(fast, dtype=float)

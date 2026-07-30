@@ -1836,22 +1836,138 @@ Its tangent converges: `dR/dmn` agrees at 8.7e-05 at rtol 1e-08 and 1.1e-07 at
 is `DT +/- pi/omega` = [2e-05, 4e-05] and the sampled span stopped at 2e-05 -- a
 test that would have passed while testing nothing.
 
-**And the deletion still cannot happen, for a reason the parameter audit did not
-show.** `_collapse_initial_tangents` differentiates THROUGH the collapse shooting:
-it integrates an augmented precursor ODE and applies the implicit-function
-correction for both a terminal maximum-radius event and the shooting root. The
-traced path receives `collapse_stats.stress_state` as a constant, so its tangent is
-zero -- measured at relative 1.00e+00, which is wrong outright rather than
-imprecise.
+#### Differentiating through the collapse shooting
 
-Deleting 558 lines at the cost of a silently wrong tangent is not a trade worth
-making, so the deletion was reverted and only the coverage kept. What stage 5b needs
-is diffrax event support plus implicit differentiation through `brentq`, which is
-its own piece of work.
+The last blocker, and it needed neither a differentiable event nor a differentiable
+root-find. Both were the wrong framing. Two implicit conditions define the answer,
+and both can be applied AFTER a fixed-endpoint solve:
 
-Not bit-identical this time: 13 of the 14 cases, with the distributed-material Dual
-tangent moving 3 ulps (relative 6.4e-16) from the `xp` threading's reassociation.
-Stated rather than rounded to "identical".
+    v(T) = 0        the precursor is at a maximum
+    R(T) - 1 = 0    that maximum is the observed one
+
+`prepare` already locates `(v0, T)` concretely by shooting in numpy, so the traced
+flow integrates to that FIXED `T` -- no event to differentiate. Then, writing `y'`
+for the right-hand side at the endpoint:
+
+    dT/dq  = -(dv/dq) / y'[1]
+    dm/dq  =  dm/dq|_T + y'[2:] * dT/dq
+    dv0/dq = -(dR/dq) / (dR/dv0)
+
+and `dR/dq` needs no `dT` term at all, because the velocity is zero at the maximum.
+That is what decouples a 2x2 implicit system into two scalar divisions, and it is the
+same arrangement the deleted `Dual` route used -- the algorithm was already the right
+one, only its implementation was tied to `Dual`.
+
+`CollapseStats` gained `maximum_time_nondimensional` to carry `T`. The result is
+returned as a value plus a CONSTANT Jacobian and applied inside the trace as a linear
+surrogate: exact in value at the point, exact in first derivative, which is all a
+tangent is.
+
+| | |
+|---|---:|
+| starting memory tangent vs scipy | 1.7e-10 to 2.8e-08 |
+| radius tangent convergence | 3.7e-02 -> 2.3e-04 -> 7.8e-07 |
+| memory tangent convergence | 6.4e-09 -> 3.5e-10 -> 9.4e-12 |
+
+The loose default-tolerance figure is integrator error amplified by the Zener
+collapse, so the test asserts convergence rather than a single bound.
+
+#### Stage 5b: the deletion is blocked on the CACHE KEY, not on capability
+
+Every capability gap is closed -- all 28 parameter paths, and the collapse tangent
+above -- and the deletion was written, run, and reverted anyway.
+
+`sensitivities_jax` caches its compiled `jacfwd` on `id(problem)`. `inference.py`
+calls `simulate_with_sensitivities`, which is `prepare(config).solve_with_sensitivities(...)`,
+so it builds a FRESH `PreparedProblem` on every likelihood, gradient and EIG
+evaluation -- lines 331, 355 and 376. The key therefore never hits, and each
+evaluation pays a full retrace:
+
+| | per sensitivity solve |
+|---|---:|
+| numpy route (complex step) | 45-100 ms |
+| traced, same problem reused | 5-11 ms |
+| traced, fresh problem each call | **~2500 ms** |
+
+That is a 25-50x regression on the workload this package exists for, and it is
+what made the suite go from 4:30 to over 7 minutes at 38%. Measured, not inferred:
+four problems differing only in `R0` took 2019, 2445, 2536 and 2635 ms.
+
+The cause is that `id(problem)` keys on OBJECT IDENTITY where the traced program
+depends only on structure. Two configurations differing in `R0` produce the same
+graph with different constants -- so the constants belong in the arguments, not the
+closure. Fixing it means keying on shape (layout, material type, flags, grid sizes,
+paths, grid length) and passing every non-differentiated scalar as a traced
+argument, including the ones reached through `physics`, `initial` and the collapse
+surrogate. That is real work with real room to bake in the wrong thing, and it is
+the actual remaining gate on stage 5b.
+
+Kept from the attempt: the collapse tangent, the parameter coverage, and
+`CollapseStats.maximum_time_nondimensional`. Reverted: the deletion and the
+always-traced routing.
+
+### The cache key, and how it kept lying about jax
+
+`_COMPILED` keyed on `id(problem)`. Both entry points that matter prepare per call --
+`simulate(times, config)`, and `inference` on every likelihood evaluation -- so the
+cache never hit where it counted, and a fresh but IDENTICAL configuration paid a
+full retrace: 2500 ms against 1.3 ms.
+
+It produced three wrong measurements in this work before being found, twice making
+jax look slower than it is. Once as "jax sensitivities are 24x slower than the numba
+mirror", which nearly argued stage 5 backwards. Once as "the forward backend is 0.08x
+to 0.64x", i.e. jax slower on everything, when prepare-once gives 1.3x to 10.3x.
+And once inside the first `jacobians`, which called `prepare` itself and so
+reproduced the very fault it existed to fix.
+
+Keyed on CONTENT now -- a recursive hash of everything the traced closure can read.
+The faster repair, a structural key plus promoting the varying constants to
+arguments, was rejected on risk: the closure reads the prepared arrays, the untraced
+scalars, `physics`, `initial` and the collapse surrogate, and any one left behind
+would silently reuse the first problem's value for the second. Content hashing cannot
+do that -- differ anywhere and you get a different program. It costs microseconds
+against a millisecond solve, and the eager collapse integration is cached on the same
+key.
+
+### Bayesian optimal design, and the MCMC path
+
+"The MCMC path falls out for free" was **wrong**. MCMC varies the parameters every
+step, so each configuration is genuinely different content and misses legitimately.
+What it needed was the parameters as ARGUMENTS, which is the same `at=` mechanism
+BOED needed:
+
+| | scipy | jax |
+|---|---:|---:|
+| MCMC step, `evaluate_with_jacobian` | 70.8 ms | **11.0 ms** |
+| BOED, 64 draws | 6.31 s | **77 ms** |
+
+BOED's draws differ only in the values of the inference parameters, so one `prepare`
+serves all of them and `vmap` maps over the points. Batched matches sequential to
+6e-13, and the EIG to 2e-16 on the same backend.
+
+`batched=True` is opt-in, and refuses `max_failure_fraction` rather than accepting it
+and ignoring it: one traced program fails as a whole, so per-draw failure accounting
+has nothing to attribute to.
+
+**Switching the likelihood's integrator changes the model.** Routing `evaluate`
+unconditionally through the traced path broke four estimator tests, one asserting the
+residual is exactly zero at the truth -- a legitimate property, since observations
+generated on one backend do not match the other's prediction to machine precision
+(4.8e-03 whitened). The mixed state was worse than either: with `evaluate` on scipy
+and the gradient traced, the two are derivatives of different functions and their
+consistency check fell from 5e-08 to 1.7e-04. So the pair dispatches on
+`config.backend`, together.
+
+That dispatch then made the new batching test vacuous -- with no backend declared it
+compared the loop against itself and reported a flattering 2.0e-16. Pointed at
+`backend="jax"` it reads 8.9e-15 and tests batching.
+
+### The pinned bands hold on a jax forward backend
+
+Checked before proposing the removal, by forcing every configuration in
+`test_validation_trajectories.py` onto `backend="jax"`: **38 passed**, with the
+deviations essentially unchanged -- collapse Zener 1.46e-03 against scipy's 1.47e-03,
+coupled NHKV 7.15e-05 against 7.04e-05, masstrans 2.89e-04 against 2.90e-04.
 
 ### A measurement error worth recording
 

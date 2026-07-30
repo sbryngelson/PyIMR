@@ -273,6 +273,12 @@ class CollapseStats:
   """Diagnostics for a completed precursor shooting solve."""
 
   initial_velocity_nondimensional: float
+  # The event time, recorded because the traced sensitivity path needs it. Locating
+  # the maximum is a root-find on the velocity, and differentiating through a
+  # diffrax event would mean differentiating that root-find; integrating to the time
+  # this records instead turns the same problem into a fixed-endpoint solve plus an
+  # implicit correction. See `_jax._collapse_tangents`.
+  maximum_time_nondimensional: float
   maximum_radius_ratio: float
   shooting_evaluations: int
   integration_evaluations: int

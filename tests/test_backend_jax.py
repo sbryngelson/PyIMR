@@ -626,3 +626,80 @@ def test_the_traced_path_covers_every_path_the_scipy_route_accepts():
     accepted.append(path)
   assert len(accepted) > 20, f"only {len(accepted)} paths accepted; the enumeration has gone stale"
   assert not [p for p in accepted if p not in covered], f"the traced path does not cover {[p for p in accepted if p not in covered]}"
+
+
+def test_jax_differentiates_through_the_collapse_shooting(measured):
+  """The last blocker on deleting the numpy sensitivity route.
+
+  A collapse precursor makes the STARTING memory state a function of the
+  parameters, through a shooting solve with a terminal maximum-radius event. The
+  traced path used to receive that state as a constant, so its tangent was zero --
+  measured at relative 1.00, wrong outright rather than imprecise.
+
+  What makes it tractable without a differentiable event or a differentiable
+  root-find is that both conditions can be applied AFTER a fixed-endpoint solve, and
+  that `dR/dt` is zero at the maximum -- which decouples a 2x2 implicit system into
+  two scalar divisions. See `_jax._collapse_tangents`.
+
+  Asserted by convergence as well as by agreement, because the Zener collapse
+  amplifies integrator error: the radius tangent sits at 3.7e-02 at rtol 1e-08 and
+  7.8e-07 at 1e-12, so a single loose bound would say nothing about correctness.
+  """
+  times = np.linspace(0.0, 25e-6, 60)
+  radius, memory = [], []
+  for tolerance in (1e-8, 1e-10, 1e-12):
+    settings: dict[str, Any] = dict(
+      R0=R0, Req=REQ, material=zener(), collapse=imr_fast.CollapseInitialization(), rtol=tolerance, atol=tolerance
+    )
+    reference = imr_fast.sensitivity.solve_with_sensitivities(imr_fast.prepare(imr_fast.SimulationConfig(**settings)), times, ("Req",))
+    computed = imr_fast.sensitivity.solve_with_sensitivities(
+      imr_fast.prepare(imr_fast.SimulationConfig(**settings, backend="jax")), times, ("Req",)
+    )
+    expected = np.asarray(reference.radius_ratio)
+    radius.append(float(np.max(np.abs(expected - np.asarray(computed.radius_ratio)))) / float(np.max(np.abs(expected))))
+    # The starting state's own tangent, which is what `_collapse_tangents` produces.
+    start, got_start = np.asarray(reference.state)[0], np.asarray(computed.state)[0]
+    memory.append(float(np.max(np.abs(start - got_start))) / float(np.max(np.abs(start))))
+  measured("jax collapse tangent", "radius " + " -> ".join(f"{e:.1e}" for e in radius))
+  measured("jax collapse memory tangent", " -> ".join(f"{e:.1e}" for e in memory))
+  assert memory[0] < 1e-07, f"the starting memory tangent is wrong at the default-ish tolerance: {memory}"
+  assert radius[-1] < radius[0] / 1e3, f"the collapse radius tangent did not converge: {radius}"
+  assert memory[-1] < memory[0] / 1e2, f"the collapse memory tangent did not converge: {memory}"
+
+
+def test_sampled_forcing_tangents_carry_the_scaling_parameters(measured):
+  """A bug that shipped in #116 and was found by asking what `prepare` computes from
+  a parameter and then hands over as a constant.
+
+  `_prepare_forcing` divides the knots by `t0 = R0/Uc` and the cubic coefficients by
+  `P8`, each row also carrying `t0**degree`. `_rhs_args` passed the prepared forcing
+  straight through, so a tangent with respect to either lost those terms: `R0` sat at
+  3.1e-02 and `physics.far_field_pressure_pa` at 6.1e-02, both tolerance-independent.
+  `material.shear_modulus_pa` was unaffected, which is why the coverage audit missed
+  it -- the audit asked which paths RUN, not which produce the right answer.
+
+  Convergence is the assertion, because a plateau is what distinguishes a missing
+  term from integrator error.
+  """
+  rng = np.random.default_rng(3)
+  knots = np.linspace(0.0, 3e-5, 24)
+  history = imr_fast.SampledForcing(
+    time_s=tuple(knots), pressure_pa=tuple(6e4 * np.sin(2 * np.pi * knots / 1.5e-5) + 1e4 * rng.standard_normal(knots.size))
+  )
+  times = np.linspace(0.0, 20e-6, 60)
+  for path in ("R0", "physics.far_field_pressure_pa"):
+    errors = []
+    for tolerance in (1e-9, 1e-12):
+      settings: dict[str, Any] = dict(
+        R0=R0, Req=REQ, material=NHKV, sampled_forcing=history, rtol=tolerance, atol=tolerance
+      )
+      reference = imr_fast.sensitivity.solve_with_sensitivities(
+        imr_fast.prepare(imr_fast.SimulationConfig(**settings)), times, (path,)
+      )
+      computed = imr_fast.sensitivity.solve_with_sensitivities(
+        imr_fast.prepare(imr_fast.SimulationConfig(**settings, backend="jax")), times, (path,)
+      )
+      expected = np.asarray(reference.radius_ratio)
+      errors.append(float(np.max(np.abs(expected - np.asarray(computed.radius_ratio)))) / float(np.max(np.abs(expected))))
+    measured(f"jax sampled-forcing tangent {path}", " -> ".join(f"{e:.1e}" for e in errors))
+    assert errors[-1] < errors[0] / 10.0, f"{path} did not converge: {errors} -- a scaling parameter is missing"

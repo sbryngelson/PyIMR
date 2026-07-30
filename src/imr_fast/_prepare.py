@@ -44,6 +44,7 @@ from ._materials import (
   _stress_state_count,
 )
 from ._rhs import _rhs
+import imr_fast as _solver
 from ._autodiff import at_set
 from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, mixture_kirchhoff, pvsat
 from .thermal_fd import finite_diff_mat
@@ -321,6 +322,31 @@ def medium_with_parameters(medium, p, *, xp=np):
     object.__setattr__(updated, name, value)
   return updated
 
+def forcing_with_parameters(forcing, p, reference, *, xp=np):
+  """A prepared sampled forcing, rescaled for a new `p`.
+
+  `_prepare_forcing` divides the knots by `t0` and the cubic coefficients by
+  `P8`, with each coefficient row also carrying `t0**degree`. Both `t0 = R0/Uc` and
+  `P8` are parameters, so a forcing history passed through as a CONSTANT loses those
+  terms from its tangent -- measured at 3.1e-02 for `R0` and 6.1e-02 for
+  `physics.far_field_pressure_pa`, tolerance-independent, against the numpy route.
+
+  Rescaled from the prepared values rather than from the raw `SampledForcing`,
+  because that keeps `PreparedForcing` as it is: `reference` carries the concrete
+  `(t0, P8)` the preparation used, so undoing and redoing the scaling is exact.
+  `sensitivity._dual_forcing` is the counterpart that rebuilt it from the raw
+  history instead.
+  """
+  if forcing is None: return None
+  t0_reference, pressure_reference = reference
+  knots = xp.asarray(forcing.knots) * (t0_reference / p["t0"])
+  prepared = xp.asarray(forcing.coefficients)
+  rows = [
+    prepared[row] * ((pressure_reference / t0_reference**degree) * (p["t0"] ** degree / p["P8"]))
+    for row, degree in enumerate((3, 2, 1, 0))
+  ]
+  return _solver.PreparedForcing(knots=knots, coefficients=xp.stack(rows) if hasattr(xp, "stack") else np.array(rows))
+
 def initial_state_vector(config, layout, p, collapse_state, *, xp=np, initial=None):
   """The state the solve starts from, in whichever arithmetic `p` is built in.
 
@@ -421,12 +447,12 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
     if not solution.success: raise SimulationError(f"collapse precursor integration failed: {solution.message}")
     if solution.t_events[0].size == 0:
       raise SimulationError(f"collapse precursor did not reach a maximum radius within t={settings.maximum_time_nondimensional:g}")
-    return solution.y_events[0][-1]
+    return solution.y_events[0][-1], float(solution.t_events[0][-1])
 
   def residual(initial_velocity):
     nonlocal shooting_evaluations
     shooting_evaluations += 1
-    return integrate(initial_velocity)[0] - 1.0
+    return integrate(initial_velocity)[0][0] - 1.0
 
   lower_velocity = max(settings.initial_velocity_guess * 1e-8, np.finfo(float).eps)
   lower_residual = residual(lower_velocity)
@@ -443,10 +469,11 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
   initial_velocity = brentq(
     residual, lower_velocity, upper_velocity, xtol=settings.radius_tolerance, rtol=max(settings.radius_tolerance, 4.0 * np.finfo(float).eps)
   )
-  maximum_state = integrate(initial_velocity)
+  maximum_state, maximum_time = integrate(initial_velocity)
   memory_state = _freeze_array(maximum_state[2:])
   stats = CollapseStats(
     initial_velocity_nondimensional=float(initial_velocity),
+    maximum_time_nondimensional=maximum_time,
     maximum_radius_ratio=float(maximum_state[0]),
     shooting_evaluations=shooting_evaluations,
     integration_evaluations=integration_evaluations,

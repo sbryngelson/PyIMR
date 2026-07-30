@@ -29,7 +29,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from collections.abc import Mapping
+
 from ._config import InitialState, PhysicalParameters, SimulationError, SolverStats
+from ._materials import Zener
 
 __all__ = ["CONFIG_PATHS", "INITIAL_PATHS", "PHYSICS_PATHS", "SCALE_PATHS", "TracedOutputs", "integrate_jax", "sensitivities_jax"]
 
@@ -76,6 +79,41 @@ def _enable_compilation_cache(jax):
 # otherwise grow one entry per distinct length forever.
 _COMPILED: dict = {}
 _COMPILED_LIMIT = 32
+
+def _content_key(value):
+  """A hashable summary of everything a traced closure can read.
+
+  `_COMPILED` used to key on `id(problem)`, which means a freshly prepared but
+  IDENTICAL configuration always misses. That is the common case, not an edge one:
+  `simulate(times, config)` prepares per call, and `inference` prepares per
+  likelihood evaluation, so the cache never hit where it mattered most -- 2.5 s of
+  retracing against 5 ms of solving. It caught three separate measurements in this
+  work before being fixed, twice making jax look slower than it is.
+
+  Keying on CONTENT rather than identity is the conservative repair. The obvious
+  alternative -- a structural key plus promoting the varying constants to traced
+  arguments -- is faster still and much easier to get wrong: the closure reads the
+  prepared arrays, the untraced configuration scalars, `physics`, `initial` and the
+  collapse surrogate, and any one of them left behind would silently reuse the first
+  problem's value for the second. Content hashing cannot do that. If two problems
+  differ anywhere the closure can see, they get different programs.
+
+  Costs a few microseconds: the arrays involved are `Nt`- and `Mt`-sized, and this
+  runs once per call against a solve measured in milliseconds.
+  """
+  if isinstance(value, np.ndarray):
+    return ("array", value.shape, str(value.dtype), value.tobytes())
+  if isinstance(value, (str, bytes, bool, int, float, type(None))): return value
+  if isinstance(value, Mapping):
+    return ("map", tuple((key, _content_key(value[key])) for key in sorted(value)))
+  if isinstance(value, (tuple, list)):
+    return ("seq", tuple(_content_key(item) for item in value))
+  if isinstance(value, slice): return ("slice", value.start, value.stop, value.step)
+  if dataclasses.is_dataclass(value) and not isinstance(value, type):
+    return (type(value).__name__, tuple((f.name, _content_key(getattr(value, f.name))) for f in dataclasses.fields(value)))
+  # Anything else is identified by type and repr. Reached only by objects that carry
+  # no numeric content -- and a type whose repr hides state would merely retrace.
+  return (type(value).__name__, repr(value))
 
 def _cached(key, build):
   hit = _COMPILED.get(key)
@@ -152,6 +190,106 @@ class _Overridden:
     if name in values: return values[name]
     return getattr(object.__getattribute__(self, "_base"), name)
 
+def _substituted(config, paths, traced, base, jnp):
+  """`(scalars, scales, physics, initial)` with the traced values put where they go.
+
+  Four destinations for one traced vector: `params`' positional scalars, its
+  `scales=` override, and two structures reached through `_Overridden`. Shared by
+  the main traced solve and the collapse precursor so a path cannot be routed one
+  way in one and another way in the other.
+  """
+  scales = jnp.asarray(base)
+  scalars = {path: getattr(config, path) for path in CONFIG_PATHS}
+  physics_values: dict = {}
+  initial_values: dict = {}
+  for index, path in enumerate(paths):
+    if path in SCALE_PATHS: scales = scales.at[SCALE_PATHS[path]].set(traced[index])
+    elif path in CONFIG_PATHS: scalars[path] = traced[index]
+    elif path in PHYSICS_PATHS: physics_values[path.split(".", 1)[1]] = traced[index]
+    else: initial_values[path.split(".", 1)[1]] = traced[index]
+  physics = config.physics if not physics_values else _Overridden(config.physics, physics_values)
+  initial = config.initial if not initial_values else _Overridden(config.initial, initial_values)
+  return scalars, tuple(scales), physics, initial
+
+def _collapse_tangents(problem, paths, base_values, base_scales):
+  """`(memory_state, d(memory_state)/d(parameters))` for a collapse precursor.
+
+  Differentiating through the shooting looks like it needs a differentiable event
+  and a differentiable root-find. It does not. Two implicit conditions define the
+  answer, and both can be applied AFTER a fixed-endpoint solve:
+
+      v(T) = 0        the precursor is at a maximum
+      R(T) - 1 = 0    that maximum is the observed one
+
+  `prepare` already located `(v0, T)` concretely by shooting in numpy, so the flow
+  is integrated to that fixed `T` with the parameters and `v0` traced -- no event.
+  Then, writing `y'` for the right-hand side at the endpoint,
+
+      dT/dq  = -(dv/dq) / y'[1]                      from the first condition
+      dm/dq  =  dm/dq|_T + y'[2:] * dT/dq            total derivative of the memory
+      dv0/dq = -(dR/dq) / (dR/dv0)                   from the second
+
+  and `dR/dq` needs no `dT` term at all, because `y'[0]` -- the velocity -- is zero
+  at the maximum. That is what decouples a 2x2 implicit system into two scalar
+  divisions, and it is the same arrangement the deleted `Dual` route used.
+
+  Returned as a value and a CONSTANT Jacobian, evaluated once at the concrete
+  parameters. The caller applies it as a linear surrogate: exact in value at the
+  point, and exact in first derivative, which is all a tangent is.
+  """
+  jax, jnp, diffrax = _jax()
+  from ._prepare import _collapse_zener_rhs, params
+  from ._rhs import _rhs
+
+  config = problem.config
+  stats = problem.collapse_stats
+  memory_width = problem.layout.stress.stop - problem.layout.stress.start
+  upstream_zener = isinstance(config.material, Zener)
+  event_time = stats.maximum_time_nondimensional
+
+  def flow(inputs):
+    scalars, scales, physics, _initial = _substituted(config, paths, inputs, base_scales, jnp)
+    precursor = params(
+      scalars["R0"], scalars["Req"], config.material, config.vapor, scalars["T8"], physics=physics,
+      bubtherm=1, masstrans=config.masstrans, xp=jnp, scales=scales,
+    )
+    # The upstream precursor is a geometric-volume pressure law, P ~ R^-3, exactly
+    # as `_collapse_memory_state` sets it.
+    precursor = dict(precursor)
+    precursor["kappa"] = 1.0
+    start = jnp.zeros(2 + memory_width).at[0].set(precursor["req"]).at[1].set(inputs[-1])
+
+    def rhs(_t, state, _a):
+      if upstream_zener: return jnp.asarray(_collapse_zener_rhs(state, precursor))
+      return jnp.asarray(_rhs(_t, state, precursor, config.material, config.radial, xp=jnp,
+                              instantaneous_material=problem.instantaneous_material,
+                              distributed_stress=problem.distributed_stress))
+
+    solution = diffrax.diffeqsolve(
+      diffrax.ODETerm(rhs), diffrax.Tsit5(), t0=0.0, t1=event_time, dt0=None, y0=start,
+      stepsize_controller=diffrax.PIDController(rtol=min(config.rtol, 1e-9), atol=min(config.atol, 1e-11)),
+      saveat=diffrax.SaveAt(t1=True), max_steps=1_000_000, adjoint=diffrax.ForwardMode(),
+    )
+    end = solution.ys[-1]
+    return end, rhs(event_time, end, None)
+
+  # One extra input beyond the parameters: the shooting variable. Its column in the
+  # Jacobian is what the second condition divides by.
+  point = jnp.asarray([*base_values, stats.initial_velocity_nondimensional])
+  values, derivatives = flow(point), jax.jacfwd(flow)(point)
+  end, slope = (np.asarray(item, dtype=float) for item in values)
+  jacobian = np.asarray(derivatives[0], dtype=float)
+
+  acceleration = slope[1]
+  if abs(acceleration) < 1e-14: raise SimulationError("collapse precursor maximum is degenerate: zero acceleration")
+  time_tangents = -jacobian[1, :] / acceleration
+  memory_tangents = jacobian[2:, :] + slope[2:, None] * time_tangents[None, :]
+  radius_tangents = jacobian[0, :]
+  radius_velocity = radius_tangents[-1]
+  if abs(radius_velocity) < 1e-14: raise SimulationError("collapse shooting root has a singular velocity derivative")
+  velocity_tangents = -radius_tangents[:-1] / radius_velocity
+  return end[2:], memory_tangents[:, :-1] + memory_tangents[:, [-1]] * velocity_tangents[None, :]
+
 # `derived`'s column order, which `sensitivity._jax_sensitivities` unpacks.
 _DERIVED_ORDER = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
 
@@ -210,7 +348,7 @@ _INITIAL_FIELDS = tuple(f.name for f in dataclasses.fields(InitialState) if f.na
 PHYSICS_PATHS = tuple(f"physics.{name}" for name in _PHYSICS_FIELDS)
 INITIAL_PATHS = tuple(f"initial.{name}" for name in _INITIAL_FIELDS)
 
-def sensitivities_jax(problem, times, paths):
+def sensitivities_jax(problem, times, paths, at=None):
   """`(outputs, tangents)` for the mechanical path, both from one `jacfwd`.
 
   The payoff over the Dual route is that nothing here derives a tangent. The
@@ -223,9 +361,18 @@ def sensitivities_jax(problem, times, paths):
   Returns `(values, tangents)`, both `TracedOutputs`. `derived` is ordered
   `_DERIVED_ORDER`; tangents carry a trailing parameter axis. The thermal fields
   are None for a mechanical configuration, on both backends.
+
+  `at` evaluates somewhere other than the configuration's own parameter values, and
+  a 2-D `at` evaluates a BATCH of points through one traced program with `vmap`. That
+  is what makes Bayesian optimal design tractable here: its draws differ only in the
+  values of the differentiated parameters, so the graph is the same for all of them.
+  Measured on 128 draws of a two-parameter mechanical design: 0.72 s solving them one
+  at a time through the same compiled function, 0.143 s vmapped, against ~320 s for
+  the loop that prepares a fresh problem per draw. Every field gains a leading draw
+  axis when `at` is 2-D.
   """
   jax, jnp, diffrax = _jax()
-  from ._prepare import _material_scales, initial_state_vector, medium_with_parameters, params
+  from ._prepare import _material_scales, forcing_with_parameters, initial_state_vector, medium_with_parameters, params
   from ._rhs import _rhs, _rhs_args
   from ._stress import _stress
   from ._thermal import _apply_thermal_boundaries
@@ -247,31 +394,36 @@ def sensitivities_jax(problem, times, paths):
   layout = problem.layout
   has_stress = layout.stress.stop > layout.stress.start
   grid_s = np.asarray(times, dtype=float)
-  collapse_state = None if problem.collapse_stats is None else np.asarray(problem.collapse_stats.stress_state, dtype=float)
+  # A collapse precursor makes the STARTING memory state a function of the
+  # parameters, through a shooting solve. `_collapse_tangents` returns its value and
+  # a constant Jacobian; the surrogate below has that value at the concrete point
+  # and that derivative everywhere, which is exactly what a first-order tangent
+  # needs. Left as the concrete array when there is no precursor.
+  forcing_reference = (problem.parameters["t0"], problem.parameters["P8"])
+  collapse_value, collapse_jacobian = None, None
+  if problem.collapse_stats is not None:
+    # Cached too. It is an eager augmented integration plus a `jacfwd`, so running it
+    # per call would reintroduce exactly the cost the program cache just removed.
+    collapse_value, collapse_jacobian = _cached(
+      (_content_key(problem), tuple(paths), "collapse"), lambda: _collapse_tangents(problem, paths, traced_base, base)
+    )
 
   def outputs(traced, grid_s):
     # Scales override `params`' `scales=` argument; config scalars ARE its
     # positional arguments. Two destinations, one traced vector.
-    scales = jnp.asarray(base)
-    scalars = {path: getattr(config, path) for path in CONFIG_PATHS}
-    physics_values: dict = {}
-    initial_values: dict = {}
-    for index, path in enumerate(paths):
-      if path in SCALE_PATHS: scales = scales.at[SCALE_PATHS[path]].set(traced[index])
-      elif path in CONFIG_PATHS: scalars[path] = traced[index]
-      elif path in PHYSICS_PATHS: physics_values[path.split(".", 1)[1]] = traced[index]
-      else: initial_values[path.split(".", 1)[1]] = traced[index]
-    physics = config.physics if not physics_values else _Overridden(config.physics, physics_values)
-    initial = config.initial if not initial_values else _Overridden(config.initial, initial_values)
+    scalars, scales, physics, initial = _substituted(config, paths, traced, base, jnp)
     p = params(
       scalars["R0"], scalars["Req"], config.material, config.vapor, scalars["T8"], scalars["pA"], scalars["omega"],
       scalars["TW"], scalars["DT"], scalars["mn"], config.wave_type, config.bubtherm, config.masstrans, physics,
-      xp=jnp, scales=tuple(scales),
+      xp=jnp, scales=scales,
     )
     # Rebuilt from `p`, not reused from `prepare`. `Pb`, `kv0` and `Uc` all come
     # from `p`, so with R0, Req or T8 traced the STARTING state carries a tangent
     # and a concrete `problem.initial_state` would contribute exactly zero.
-    start = initial_state_vector(config, layout, p, collapse_state, xp=jnp, initial=initial)
+    collapse = collapse_value
+    if collapse_jacobian is not None:
+      collapse = jnp.asarray(collapse_value) + collapse_jacobian @ (traced - jnp.asarray(traced_base))
+    start = initial_state_vector(config, layout, p, collapse, xp=jnp, initial=initial)
     # The prepared thermal operators pass through as constants, and that is
     # correct rather than convenient: the medium's flux weights are built from
     # `chi`, `iota`, `Fom` and `L_heat_star`, and its grid powers from `Lt` --
@@ -284,6 +436,10 @@ def sensitivities_jax(problem, times, paths):
     # outputs below, which run the same wall closure.
     medium = medium_with_parameters(problem.medium, p, xp=jnp)
     args = _rhs_args(problem, p, medium=medium)
+    # The sampled forcing carries `t0` and `P8` in its knots and coefficients, so it
+    # is rescaled for the traced `p` exactly as the medium's weights are. Passing the
+    # prepared one through left the `R0` and `P8` tangents 3.1e-02 and 6.1e-02 wrong.
+    args = (*args[:10], forcing_with_parameters(problem.forcing, p, forcing_reference, xp=jnp), *args[11:])
     grid = grid_s / p["t0"]
     solution = diffrax.diffeqsolve(
       diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), diffrax.Tsit5(),
@@ -320,11 +476,21 @@ def sensitivities_jax(problem, times, paths):
   # treatment `integrate_jax` gives the forward solve. Without it every call
   # retraced the whole `jacfwd`, which measured 1121 ms against the compiled numba
   # route's 47 ms -- 24x slower for no reason other than the missing cache.
+  point = traced_base if at is None else np.asarray(at, dtype=float)
+  batched = point.ndim == 2
+  if point.shape[-1] != len(paths):
+    raise ValueError(f"`at` must supply {len(paths)} values per point; got {point.shape}")
+
   def build():
+    if batched:
+      # `in_axes=(0, None)`: map the parameter points, share the time grid.
+      return jax.jit(jax.vmap(outputs, in_axes=(0, None))), jax.jit(jax.vmap(jax.jacfwd(outputs), in_axes=(0, None)))
     return jax.jit(outputs), jax.jit(jax.jacfwd(outputs))
 
-  primal_fn, tangent_fn = _cached((id(problem), tuple(paths), grid_s.size, "sensitivities"), build)
-  values, grid = jnp.asarray(traced_base), jnp.asarray(grid_s)
+  # The batch length is part of the key because it is part of the traced shape.
+  program_key = (_content_key(problem), tuple(paths), grid_s.size, point.shape, "sensitivities")
+  primal_fn, tangent_fn = _cached(program_key, build)
+  values, grid = jnp.asarray(point), jnp.asarray(grid_s)
 
   def required(item):
     return np.asarray(jax.block_until_ready(item), dtype=float)

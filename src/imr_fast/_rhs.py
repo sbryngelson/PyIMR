@@ -36,7 +36,11 @@ def _sampled_pressure(tn, forcing, *, xp=np):
   so nothing poisons a gradient.
   """
   time_value = primal(tn)
-  knot_values = primal_array(forcing.knots)
+  # `primal_array` strips `Dual` tangents so the SEARCH runs on values, which is all
+  # it needs. Under tracing there is nothing to strip and nothing that can be: the
+  # tracer is the value, and forcing it to float64 raises. The arithmetic below still
+  # uses `forcing.knots` itself, so either way the tangent is kept where it matters.
+  knot_values = primal_array(forcing.knots) if xp is np else xp.asarray(forcing.knots)
   interval = xp.clip(xp.searchsorted(xp.asarray(knot_values), time_value, side="right") - 1, 0, knot_values.size - 2)
   # The offset keeps the ORIGINAL knots, not the primal copy above: `knots` is the
   # sampled time divided by `t0`, so it carries a tangent whenever `t0` does. The

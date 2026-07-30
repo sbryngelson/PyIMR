@@ -97,6 +97,12 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   t0 = R0 / Uc
   concrete = _material_scales(material)
   G, mu, lam1, lam2, alphax = concrete if scales is None else scales
+  # Whether a material HAS a relaxation time is a property of its type --
+  # `_material_scales` returns 0.0 for the ones that do not -- so the guard below
+  # reads the concrete scales while the values it guards may be traced. Branching
+  # on `lam1` itself worked under `jacfwd`, which keeps primals concrete, and fails
+  # under `jit`, which does not.
+  relaxing = concrete[2] > 0.0
   # The degenerate tests read the CONCRETE material on purpose. Whether a
   # material has elasticity at all is structural, and cannot change under
   # differentiation of its modulus.
@@ -138,10 +144,12 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   Fom = physics.mass_diffusivity_m2_s / (Uc * R0)
   L_heat_star = physics.latent_heat_j_kg / Uc**2
   if masstrans and vapor == 0: raise ValueError("masstrans=1 requires vapor=1 (kv0's formula is only physically meaningful with Pv_star>0)")
-  if Pv_star > 0:
-    kv0 = 1.0 / (1.0 + (Rv_star / Rg_star) * (Pb / Pv_star - 1.0))
-  else:
-    kv0 = 0.0
+  # Branched on `vapor`, not on `Pv_star > 0`. The two agree -- `pvsat` is an
+  # exponential, so `Pv_star` is positive exactly when `vapor` is nonzero -- but
+  # `Pv_star` carries `T8`, which the traced sensitivity path differentiates, and a
+  # jit-traced value cannot be branched on at all. `vapor` is discrete
+  # configuration and stays concrete in every arithmetic.
+  kv0 = 1.0 / (1.0 + (Rv_star / Rg_star) * (Pb / Pv_star - 1.0)) if vapor else 0.0
   tait_gamma = physics.tait_pressure_pa / P8_value
   tait_sam = 1.0 + tait_gamma
   tait_no = (physics.tait_exponent - 1.0) / physics.tait_exponent
@@ -162,8 +170,8 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
     T8=T8,
     kappa=kappa,
     kapover=(kappa - 1.0) / kappa,
-    De=(lam1 * Uc / R0 if lam1 > 0 else 0.0),
-    LAM=(lam2 / lam1 if lam1 > 0 else 0.0),
+    De=(lam1 * Uc / R0 if relaxing else 0.0),
+    LAM=(lam2 / lam1 if relaxing else 0.0),
     Cstar=Cstar,
     alphax=alphax,
     tait_gamma=tait_gamma,

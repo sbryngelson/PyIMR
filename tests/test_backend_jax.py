@@ -556,3 +556,57 @@ def test_the_traced_medium_is_rebuilt_for_every_consumer(measured):
     errors.append(float(np.max(np.abs(expected - np.asarray(computed.bubble_temperature_k)))) / float(np.max(np.abs(expected))))
   measured("jax T8 temperature tangent convergence", " -> ".join(f"{e:.1e}" for e in errors))
   assert errors[-1] < errors[0] / 1e4, f"the T8 temperature tangent did not converge: {errors}"
+
+
+@requires_jax
+def test_traced_sensitivities_are_compiled_once(measured):
+  """`integrate_jax` caches a `jax.jit`; `sensitivities_jax` did not, so every call
+  retraced the whole `jacfwd`. Measured at 1121 ms against the compiled numba
+  route's 47 ms -- 24x slower for no reason other than the missing cache, which is
+  the opposite of the ordering the migration assumes.
+
+  Asserted structurally rather than by timing: a wall-clock threshold on a shared
+  machine is a flaky test. What matters is that a second identical call adds no
+  cache entry and reuses the first.
+  """
+  from imr_fast import _jax
+
+  times = np.linspace(0.0, 20e-6, 60)
+  paths = ("material.shear_modulus_pa",)
+  problem = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax"))
+  _jax._COMPILED.clear()
+  first = _jax.sensitivities_jax(problem, times, paths)
+  after_one = dict(_jax._COMPILED)
+  second = _jax.sensitivities_jax(problem, times, paths)
+  measured("jax sensitivity cache entries", f"{len(after_one)} after one call, {len(_jax._COMPILED)} after two")
+  assert len(after_one) == 1, f"expected one cache entry, got {sorted(after_one)}"
+  assert list(_jax._COMPILED) == list(after_one), "a second identical call retraced instead of reusing"
+  # And the compiled pair really is the same object, not an equal-keyed rebuild.
+  assert _jax._COMPILED[next(iter(after_one))] is after_one[next(iter(after_one))]
+  assert np.array_equal(first[1].derived, second[1].derived), "cached call returned a different tangent"
+
+@requires_jax
+def test_params_branches_only_on_concrete_configuration():
+  """Two guards inside `params` tested values that the traced path differentiates.
+
+  `Pv_star > 0` is really asking whether vapour is on -- `pvsat` is an exponential
+  -- and `lam1 > 0` whether the material HAS a relaxation time, which its type
+  fixes. Both worked under `jacfwd`, which keeps primals concrete, and both raised
+  `TracerBoolConversionError` under `jit`. Rewritten to read `vapor` and the
+  concrete scales, so this is what stops them coming back.
+  """
+  import jax  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
+
+  from imr_fast._prepare import params
+
+  _, jnp, _ = _jax._jax()
+
+  def build(traced):
+    p = params(R0, REQ, NHKV, 1, traced[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, imr_fast.PhysicalParameters(), xp=jnp,
+               scales=(2500.0, traced[1], 0.0, 0.0, 0.0))
+    return jnp.asarray([p["kv0"], p["De"], p["LAM"], p["Pv"], p["chi"]])
+
+  # jit, not just jacfwd: the abstract trace is what the concrete-branch rewrite
+  # was for, and jacfwd alone would pass even with the old code.
+  jax.jit(build)(jnp.asarray([298.15, 0.1]))
+  jax.jit(jax.jacfwd(build))(jnp.asarray([298.15, 0.1]))

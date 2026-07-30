@@ -233,7 +233,7 @@ def sensitivities_jax(problem, times, paths):
   grid_s = np.asarray(times, dtype=float)
   collapse_state = None if problem.collapse_stats is None else np.asarray(problem.collapse_stats.stress_state, dtype=float)
 
-  def outputs(traced):
+  def outputs(traced, grid_s):
     # Scales override `params`' `scales=` argument; config scalars ARE its
     # positional arguments. Two destinations, one traced vector.
     scales = jnp.asarray(base)
@@ -262,7 +262,7 @@ def sensitivities_jax(problem, times, paths):
     # outputs below, which run the same wall closure.
     medium = medium_with_parameters(problem.medium, p, xp=jnp)
     args = _rhs_args(problem, p, medium=medium)
-    grid = jnp.asarray(grid_s) / p["t0"]
+    grid = grid_s / p["t0"]
     solution = diffrax.diffeqsolve(
       diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), diffrax.Tsit5(),
       t0=grid[0], t1=grid[-1], dt0=None, y0=initial,
@@ -294,7 +294,15 @@ def sensitivities_jax(problem, times, paths):
     )
     return (states, derived, *_thermal_fields(states, p, problem, medium, jnp, _apply_thermal_boundaries, scalars["T8"]))
 
-  values = jnp.asarray(traced_base)
+  # Traced and compiled ONCE per (problem, parameter set, grid length), the same
+  # treatment `integrate_jax` gives the forward solve. Without it every call
+  # retraced the whole `jacfwd`, which measured 1121 ms against the compiled numba
+  # route's 47 ms -- 24x slower for no reason other than the missing cache.
+  def build():
+    return jax.jit(outputs), jax.jit(jax.jacfwd(outputs))
+
+  primal_fn, tangent_fn = _cached((id(problem), tuple(paths), grid_s.size, "sensitivities"), build)
+  values, grid = jnp.asarray(traced_base), jnp.asarray(grid_s)
 
   def required(item):
     return np.asarray(jax.block_until_ready(item), dtype=float)
@@ -308,7 +316,7 @@ def sensitivities_jax(problem, times, paths):
     states, derived, bubble, medium, vapor = group
     return TracedOutputs(required(states), required(derived), optional(bubble), optional(medium), optional(vapor))
 
-  return plain(outputs(values)), plain(jax.jacfwd(outputs)(values))
+  return plain(primal_fn(values, grid)), plain(tangent_fn(values, grid))
 
 def _thermal_fields(states, p, problem, medium, jnp, apply_boundaries, reference_temperature):
   """`(bubble_temperature, medium_temperature, vapor_fraction)`, or three Nones.

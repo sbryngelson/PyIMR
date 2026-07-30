@@ -16,6 +16,7 @@ import pytest
 
 import imr_fast
 import imr_fast.sensitivity
+from imr_fast import _jax
 from _validation_support import NHKV, R0, REQ, oldroyd_b, zener
 
 # Scoped to the cross-backend test rather than the module: the refusals below
@@ -57,15 +58,9 @@ def test_jax_backend_matches_scipy(radial, label, material, measured):
 def test_unsupported_configurations_are_refused_by_name():
   """A refusal at construction, not a tracer error several frames into diffrax.
 
-  The list is short now. Mass transfer is out because `_wall_theta_bw_full`
-  solves the wall temperature by secant with a fallback ladder, and a
-  data-dependent loop needs `lax.custom_root`. A sampled forcing history is out
-  because its interpolation searches its own knots.
+  The list is down to one: a sampled forcing history, because its interpolation
+  searches its own knots. `test_mass_transfer_is_accepted` covers what left it.
   """
-  with pytest.raises(ValueError, match="masstrans"):
-    imr_fast.SimulationConfig(
-      R0=R0, Req=REQ, material=NHKV, backend="jax", bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9
-    )
   sampled = imr_fast.SampledForcing(time_s=(0.0, 1e-5, 2e-5), pressure_pa=(0.0, 5e4, 0.0))
   with pytest.raises(ValueError, match="sampled_forcing"):
     imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax", sampled_forcing=sampled)
@@ -80,6 +75,7 @@ _THERMAL_CASES = [
   ("bubtherm spectral", dict(bubtherm=1, Nt=17, thermal="spectral")),
   ("coupled fd", dict(bubtherm=1, medtherm=1, Nt=13, Mt=13, thermal="fd")),
   ("coupled spectral", dict(bubtherm=1, medtherm=1, Nt=13, Mt=13, thermal="spectral")),
+  ("coupled+mass fd", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=13, Mt=13, thermal="fd")),
 ]
 
 @requires_jax
@@ -88,9 +84,11 @@ def test_jax_backend_matches_scipy_on_the_thermal_path(label, options, measured)
   """The thermal fields, which slice assignment kept off this backend until W11
   stage 4 routed them through `at_set`.
 
-  `medtherm` needs no iterative wall solve -- #57 made that closure closed form
-  -- which is why it lands here while `masstrans`, whose closure is still a
-  secant with a fallback ladder, does not.
+  `medtherm` needs no iterative wall solve at all -- #57 made that closure closed
+  form. `masstrans` does, and it is here because #111 turned that solve into a
+  bracket on the vapour fraction's own physical range: `_thermal._traced_root`
+  bisects a fixed number of times, so the traced program has a fixed shape and
+  needs no `lax` primitive.
   """
   times = np.linspace(0.0, 25e-6, 200)
   reference = np.asarray(imr_fast.simulate(times, imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, **options)).radius_ratio)
@@ -100,14 +98,18 @@ def test_jax_backend_matches_scipy_on_the_thermal_path(label, options, measured)
   measured(f"jax vs scipy {label}", f"max={worst:.2e} median={typical:.2e} steps={result.stats.nfev}")
   assert worst < _MAX_BOUND and typical < _MEDIAN_BOUND
 
-def test_mass_transfer_is_still_refused():
-  """The one thermal branch stage 4 does not reach: `_wall_theta_bw_full` is a
-  secant with a fallback ladder, and a data-dependent loop needs
-  `lax.custom_root` rather than a namespace swap."""
-  with pytest.raises(ValueError, match="masstrans"):
-    imr_fast.SimulationConfig(
-      R0=R0, Req=REQ, material=NHKV, backend="jax", bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9
-    )
+def test_mass_transfer_is_accepted():
+  """The inverse of the assertion this file used to carry.
+
+  It was refused because the wall closure warm-started a secant from the previous
+  call's answer, which made the right-hand side a function of the integrator's
+  step history rather than of `(t, y)` -- a tracer stored there escapes the trace,
+  so no namespace swap could have fixed it. #111 removed the warm start.
+  """
+  config = imr_fast.SimulationConfig(
+    R0=R0, Req=REQ, material=NHKV, backend="jax", bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9
+  )
+  assert _jax.unsupported_reason(config) is None
 
 _COVERAGE_CASES = [
   ("gaussian forcing", NHKV, dict(wave_type=1, pA=5e4, TW=5e-6, DT=2e-5)),
@@ -243,3 +245,59 @@ def test_jax_sensitivities_refuse_what_they_do_not_cover():
   mechanical = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax"))
   with pytest.raises(NotImplementedError, match="material scales"):
     imr_fast.sensitivity.solve_with_sensitivities(mechanical, times, ("R0",))
+
+
+@requires_jax
+def test_the_traced_bisection_stays_inside_the_physical_bracket(measured):
+  """`_traced_root`'s counterpart to `test_thermal_grid`'s admissibility check.
+
+  Bisection cannot leave its bracket, so `kv` in `(0, 1)` is structural here in a
+  way it is not for a local iteration -- but the polish steps that follow are
+  Newton, and Newton can. Asserted on the traced path specifically, because the
+  numpy test cannot reach this solver.
+  """
+  # `_jax._jax()` rather than a bare `import jax.numpy`: it is what enables x64,
+  # and without it this runs in float32 and lands 2.4e-08 off -- which is exactly
+  # what this assertion caught the first time it was written.
+  _, jnp, _ = _jax._jax()
+
+  from imr_fast import _thermal
+
+  # A residual with the same shape as the wall closure's: one root, steep near
+  # the upper end. `_traced_root` is handed jnp so it takes the traced branch.
+  root = 0.6
+  found = float(_thermal._traced_root(lambda kv: (kv - root) * (2.0 + kv), (_thermal._KV_EPS, 1.0 - _thermal._KV_EPS), jnp))
+  measured("traced bisection root", f"{found:.15f} vs {root}")
+  assert 0.0 < found < 1.0
+  assert abs(found - root) < 1e-14
+
+@requires_jax
+def test_traced_and_brentq_roots_agree_on_the_shipped_closure(measured):
+  """The two solvers on one captured wall state, so a disagreement shows up here
+  rather than as trajectory drift it would be easy to blame on the integrator."""
+  _, jnp, _ = _jax._jax()
+
+  from imr_fast import _thermal
+
+  captured = []
+  original = _thermal._bracketed_root
+
+  def record(residual, **options):
+    captured.append(residual)
+    return original(residual, **options)
+
+  _thermal._bracketed_root = record
+  try:
+    config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd")
+    imr_fast.simulate(np.linspace(0.0, 20e-6, 60), config)
+  finally:
+    _thermal._bracketed_root = original
+
+  bracket = (_thermal._KV_EPS, 1.0 - _thermal._KV_EPS)
+  worst = 0.0
+  for residual in captured[::29]:
+    brent = float(original(residual, bracket=bracket))
+    traced = float(_thermal._traced_root(residual, bracket, jnp))
+    worst = max(worst, abs(brent - traced))
+  measured("traced vs brentq root", f"max |dkv| = {worst:.2e} over {len(captured[::29])} states")
+  assert worst < 1e-12

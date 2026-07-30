@@ -81,17 +81,13 @@ def unsupported_reason(config) -> str | None:
   """Why this configuration cannot use the JAX backend yet, or None.
 
   Naming the reason here beats a tracer error three frames inside diffrax. The
-  list is short now: everything except mass transfer, whose wall closure is an
-  iterative solve, and a sampled forcing history, whose interpolation searches
+  list is down to one: a sampled forcing history, whose interpolation searches
   its knots.
+
+  Mass transfer used to be here. #111 made its wall closure a function of state
+  alone, and `_thermal._traced_root` bisects the same constant bracket without a
+  data-dependent branch, so there is nothing left to refuse.
   """
-  # Mass transfer is the one thermal branch still out: `_wall_theta_bw_full`
-  # brackets the vapour fraction and hands the interval to `scipy.optimize.brentq`,
-  # which wants concrete floats. #111 made that closure a function of state alone,
-  # so what remains is mechanical -- a traced bisection on the same constant
-  # bracket -- not the branch-tracking problem it was.
-  # `medtherm` alone does NOT need any of this: #57 made its closure closed form.
-  if config.masstrans: return "masstrans=1 is not on the jax backend: its wall closure calls scipy.optimize.brentq -- see PLAN.md W11"
   if config.sampled_forcing is not None: return "sampled_forcing is not on the jax backend yet"
   return None
 

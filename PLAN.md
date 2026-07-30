@@ -1518,6 +1518,62 @@ Mass transfer is still refused on jax, but for a mechanical reason now --
 branch through history. A traced bisection on the same constant bracket is the
 remaining work, and it is a namespace-level change.
 
+### Mass transfer reaches the jax backend
+
+With the closure a function of state alone, what remained was mechanical.
+`_thermal._traced_root` bisects the same constant bracket a FIXED number of times,
+so the traced program has a fixed shape -- and because `xp.where` and a sign
+comparison are the only namespace operations it needs, `_thermal` requires no
+`lax` primitive and no jax import. The `lax.custom_root` this was expected to
+need never came up.
+
+The two paths keep different solvers, and that is a measured choice rather than
+an oversight. Brent needs ~12 residual evaluations; the traced bisection needs 20
+halvings plus 3 quadratic polish steps, because bisection cannot use a
+data-dependent iteration count. Forcing both onto bisection was tried:
+
+| solver on the numpy path | ms | max dR/Rmax vs brentq |
+|---|---|---|
+| brentq (shipped) | 476 | - |
+| bisect 20 + 3 polish | 843 | 7.7e-13 |
+| bisect 14 + 3 polish | 707 | 5.7e-13 |
+| bisect 10 + 4 polish | 668 | 2.2e-12 |
+| bisect 8 + 4 polish | 618 | 8.9e-13 |
+| bisect 6 + 5 polish | 627 | 3.3e-13 |
+
+The reason to unify would have been bit-identity across backends. It does not buy
+that: unifying left cross-backend agreement **unchanged to every printed digit**
+(1.44e-12 / 1.07e-11 / 2.46e-10 / 2.97e-09 / 3.23e-08 across the five spans
+below, before and after). The residual difference is the *integrators* -- scipy's
+LSODA against diffrax's Tsit5 -- not the root-finder, so unifying would have cost
+30% on the numpy path for nothing. The polish counts differ for the same reason:
+`_bracketed_root` shares one slope across two steps because Brent has already
+converged and the steps exist only to carry a tangent, while `_traced_root`
+recomputes the slope because it is still converging.
+
+Mass transfer on jax, against the scipy trajectory:
+
+```
+span     max |dR|/Rmax    nfev    min R/R0
+ 2 us       1.44e-12        11      0.996
+ 5 us       1.07e-11        19      0.976
+10 us       2.46e-10        30      0.900
+18 us       2.97e-09        51      0.610
+25 us       3.23e-08       191      0.133
+```
+
+Compare the previous attempt, which failed outright at 20 us and R/R0 = 0.46.
+The full collapse to 0.133 now runs, and `coupled+mass fd` joins the
+parametrised cross-backend suite at max 1.47e-07 / median 1.89e-09.
+
+Compile time does not suffer from unrolling 29 residual evaluations into the
+graph: 1172 ms on the first call against 1532 ms for coupled-without-mass.
+
+`unsupported_reason` is down to one entry, `sampled_forcing`. jax *sensitivities*
+still cover only the mechanical path -- `sensitivities_jax` builds its `args` with
+the thermal slots zeroed -- and refuse thermal configurations by name, which is
+unchanged and separate from this.
+
 ### A measurement error worth recording
 
 Four hypotheses were tested against a sweep that rebuilt only `R`, `Rd` and `P`

@@ -1810,15 +1810,48 @@ wall stencils.
 configuration, and a function that refuses nothing plus a test asserting it refuses
 nothing is not a safety net.
 
-#### Stage 5b, still open
+#### Stage 5b: the parameter gap closes, and one blocker remains
 
-`_dual.py` (466) and `_complex.py` (110) cannot go yet, and the reason is
-capability rather than duplication: the traced path refuses `physics.*` and
-`initial.*` sensitivity parameters, which the scipy route differentiates. The
-blocker is the same one the material scales hit -- tracing a dataclass field means
-constructing the dataclass from a tracer, and `__post_init__` validates with
-`np.isfinite` -- and the fix is likely the same shape as `scales`: pass the traced
-values beside the structure rather than inside it.
+`physics.*` and `initial.*` are traced now. Not by passing them beside the
+structure as `scales` does -- `params` reads twenty-five `physics` fields at
+scattered sites and `initial_state_vector` five off `initial`, so an override
+argument would have put the same lookup in thirty places. `_jax._Overridden`
+substitutes at ATTRIBUTE ACCESS instead: a read-only wrapper whose `__getattr__`
+returns the traced value for overridden names and delegates the rest. No read site
+changed.
+
+Two `xp` leaks fell out of it. `Uc = np.sqrt(P8/density)` breaks once `P8` is
+traced, and `params` called `_mu_of_A`/`_mie_F` at their `xp=np` defaults while
+`Cstar` carried a tracer.
+
+`mn` was also missing from `CONFIG_PATHS`, and was found by **enumerating** the
+scalar fields of the config, `physics`, `initial` and the material, keeping the ones
+the scipy route accepts, and diffing against what the traced path covers -- not by
+reading the code. That check is now a test, because the enumeration is the only
+thing that makes "the traced path covers everything" an assertion rather than a
+belief. It reports **0 of 28 paths refused**.
+
+Its tangent converges: `dR/dmn` agrees at 8.7e-05 at rtol 1e-08 and 1.1e-07 at
+1e-11. The first attempt measured identically zero, because the histotripsy window
+is `DT +/- pi/omega` = [2e-05, 4e-05] and the sampled span stopped at 2e-05 -- a
+test that would have passed while testing nothing.
+
+**And the deletion still cannot happen, for a reason the parameter audit did not
+show.** `_collapse_initial_tangents` differentiates THROUGH the collapse shooting:
+it integrates an augmented precursor ODE and applies the implicit-function
+correction for both a terminal maximum-radius event and the shooting root. The
+traced path receives `collapse_stats.stress_state` as a constant, so its tangent is
+zero -- measured at relative 1.00e+00, which is wrong outright rather than
+imprecise.
+
+Deleting 558 lines at the cost of a silently wrong tangent is not a trade worth
+making, so the deletion was reverted and only the coverage kept. What stage 5b needs
+is diffrax event support plus implicit differentiation through `brentq`, which is
+its own piece of work.
+
+Not bit-identical this time: 13 of the 14 cases, with the distributed-material Dual
+tangent moving 3 ulps (relative 6.4e-16) from the `xp` threading's reassociation.
+Stated rather than rounded to "identical".
 
 ### A measurement error worth recording
 

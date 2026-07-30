@@ -93,7 +93,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   density = physics.medium_density_kg_m3
   surface_tension = physics.surface_tension_n_m
   kappa = physics.polytropic_exponent
-  Uc = np.sqrt(P8_value / density)
+  Uc = xp.sqrt(P8_value / density)
   t0 = R0 / Uc
   concrete = _material_scales(material)
   G, mu, lam1, lam2, alphax = concrete if scales is None else scales
@@ -155,7 +155,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   tait_no = (physics.tait_exponent - 1.0) / physics.tait_exponent
   Cstar = physics.sound_speed_m_s / Uc
   nog = (physics.tait_exponent - 1.0) / 2.0
-  mie_reference = _mie_F(_mu_of_A(1.0 / Cstar**2, physics.hugoniot_slope, nog), physics.hugoniot_slope, nog)
+  mie_reference = _mie_F(_mu_of_A(1.0 / Cstar**2, physics.hugoniot_slope, nog, xp=xp), physics.hugoniot_slope, nog, xp=xp)
   return dict(
     t0=t0,
     Uc=Uc,
@@ -321,7 +321,7 @@ def medium_with_parameters(medium, p, *, xp=np):
     object.__setattr__(updated, name, value)
   return updated
 
-def initial_state_vector(config, layout, p, collapse_state, *, xp=np):
+def initial_state_vector(config, layout, p, collapse_state, *, xp=np, initial=None):
   """The state the solve starts from, in whichever arithmetic `p` is built in.
 
   One definition, because the traced sensitivity path needs it too and a second
@@ -333,7 +333,7 @@ def initial_state_vector(config, layout, p, collapse_state, *, xp=np):
   Validation stays in `prepare`. This assembles, so it can run under a trace where
   raising on a value is not available anyway.
   """
-  initial = config.initial
+  initial = config.initial if initial is None else initial
   state = xp.zeros(layout.size)
   state = at_set(state, 0, 1.0)
   state = at_set(state, 1, initial.wall_velocity_m_s / p["Uc"])

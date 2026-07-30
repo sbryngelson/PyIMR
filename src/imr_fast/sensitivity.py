@@ -126,10 +126,10 @@ def _jax_sensitivities(problem, time_s, normalized):
   would make `backend="jax"` mean one thing for trajectories and another for
   their derivatives.
   """
-  from ._jax import CONFIG_PATHS, SCALE_PATHS, sensitivities_jax
+  from ._jax import CONFIG_PATHS, INITIAL_PATHS, PHYSICS_PATHS, SCALE_PATHS, sensitivities_jax
 
   paths = [parameter.path for parameter in normalized]
-  covered = set(SCALE_PATHS) | set(CONFIG_PATHS)
+  covered = set(SCALE_PATHS) | set(CONFIG_PATHS) | set(PHYSICS_PATHS) | set(INITIAL_PATHS)
   unknown = [path for path in paths if path not in covered]
   if unknown:
     raise NotImplementedError(f"jax sensitivities cover {sorted(covered)}; got {unknown}")

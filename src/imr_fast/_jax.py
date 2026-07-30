@@ -24,13 +24,14 @@ from __future__ import annotations
 
 import os
 import pathlib
+import dataclasses
 from dataclasses import dataclass
 
 import numpy as np
 
-from ._config import SimulationError, SolverStats
+from ._config import InitialState, PhysicalParameters, SimulationError, SolverStats
 
-__all__ = ["SCALE_PATHS", "TracedOutputs", "integrate_jax", "sensitivities_jax"]
+__all__ = ["CONFIG_PATHS", "INITIAL_PATHS", "PHYSICS_PATHS", "SCALE_PATHS", "TracedOutputs", "integrate_jax", "sensitivities_jax"]
 
 def _jax():
   # No try/except around these. They are declared dependencies now, so an
@@ -127,6 +128,30 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   if not success: raise SimulationError(f"{failure}: {message}", stats)
   return states, stats
 
+class _Overridden:
+  """`base` with some attributes replaced, for reading only.
+
+  `params` reads twenty-five fields off `physics` at scattered sites, and
+  `initial_state_vector` five off `initial`. Tracing one of them cannot be done by
+  building a new dataclass -- `__post_init__` validates with `np.isfinite`, which
+  converts a tracer -- and rewriting twenty-five read sites to consult an override
+  dict would put the same lookup in twenty-five places.
+
+  So the substitution happens at attribute access instead. Read-only on purpose:
+  nothing may write through it, and a missing name is the base's error to raise.
+  """
+
+  __slots__ = ("_base", "_values")
+
+  def __init__(self, base, values):
+    object.__setattr__(self, "_base", base)
+    object.__setattr__(self, "_values", values)
+
+  def __getattr__(self, name):
+    values = object.__getattribute__(self, "_values")
+    if name in values: return values[name]
+    return getattr(object.__getattribute__(self, "_base"), name)
+
 # `derived`'s column order, which `sensitivity._jax_sensitivities` unpacks.
 _DERIVED_ORDER = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
 
@@ -170,7 +195,20 @@ SCALE_PATHS = {
 # one means constructing the dataclass from a tracer, and `__post_init__` validates
 # with `np.isfinite`. The remaining nondifferentiable config fields are discrete or
 # choose the discretisation; `_dual._NONDIFFERENTIABLE_FIELDS` lists them.
-CONFIG_PATHS = ("R0", "Req", "T8", "pA", "omega", "TW", "DT")
+CONFIG_PATHS = ("R0", "Req", "T8", "pA", "omega", "TW", "DT", "mn")
+
+# `physics.*` and `initial.*` reach `params` and `initial_state_vector` through
+# `_Overridden` rather than as arguments, because they are read off a structure
+# rather than passed. Enumerated from the dataclasses so a new field is covered
+# without editing this list -- the alternative is a hand-written tuple that goes
+# stale, which is #43's failure mode.
+#
+# `stress_state` is excluded because it is a sequence, not a scalar, and
+# `_normalize_parameters` already requires a finite scalar for every path.
+_PHYSICS_FIELDS = tuple(f.name for f in dataclasses.fields(PhysicalParameters))
+_INITIAL_FIELDS = tuple(f.name for f in dataclasses.fields(InitialState) if f.name != "stress_state")
+PHYSICS_PATHS = tuple(f"physics.{name}" for name in _PHYSICS_FIELDS)
+INITIAL_PATHS = tuple(f"initial.{name}" for name in _INITIAL_FIELDS)
 
 def sensitivities_jax(problem, times, paths):
   """`(outputs, tangents)` for the mechanical path, both from one `jacfwd`.
@@ -193,14 +231,19 @@ def sensitivities_jax(problem, times, paths):
   from ._thermal import _apply_thermal_boundaries
 
   config = problem.config
-  covered = set(SCALE_PATHS) | set(CONFIG_PATHS)
+  covered = set(SCALE_PATHS) | set(CONFIG_PATHS) | set(PHYSICS_PATHS) | set(INITIAL_PATHS)
   unknown = [path for path in paths if path not in covered]
   if unknown: raise ValueError(f"jax sensitivities cover {sorted(covered)}; got {unknown}")
   base = np.asarray(_material_scales(config.material), dtype=float)
   # ONE traced vector in the caller's order, whichever group each path belongs to:
   # `jacfwd` differentiates with respect to a single input, and the tangent columns
   # have to come back in the order the caller asked for.
-  traced_base = np.asarray([base[SCALE_PATHS[path]] if path in SCALE_PATHS else getattr(config, path) for path in paths], dtype=float)
+  def started(path):
+    if path in SCALE_PATHS: return base[SCALE_PATHS[path]]
+    group, _, field = path.partition(".")
+    return getattr(config, path) if not field else getattr(getattr(config, group), field)
+
+  traced_base = np.asarray([started(path) for path in paths], dtype=float)
   layout = problem.layout
   has_stress = layout.stress.stop > layout.stress.start
   grid_s = np.asarray(times, dtype=float)
@@ -211,18 +254,24 @@ def sensitivities_jax(problem, times, paths):
     # positional arguments. Two destinations, one traced vector.
     scales = jnp.asarray(base)
     scalars = {path: getattr(config, path) for path in CONFIG_PATHS}
+    physics_values: dict = {}
+    initial_values: dict = {}
     for index, path in enumerate(paths):
       if path in SCALE_PATHS: scales = scales.at[SCALE_PATHS[path]].set(traced[index])
-      else: scalars[path] = traced[index]
+      elif path in CONFIG_PATHS: scalars[path] = traced[index]
+      elif path in PHYSICS_PATHS: physics_values[path.split(".", 1)[1]] = traced[index]
+      else: initial_values[path.split(".", 1)[1]] = traced[index]
+    physics = config.physics if not physics_values else _Overridden(config.physics, physics_values)
+    initial = config.initial if not initial_values else _Overridden(config.initial, initial_values)
     p = params(
       scalars["R0"], scalars["Req"], config.material, config.vapor, scalars["T8"], scalars["pA"], scalars["omega"],
-      scalars["TW"], scalars["DT"], config.mn, config.wave_type, config.bubtherm, config.masstrans, config.physics,
+      scalars["TW"], scalars["DT"], scalars["mn"], config.wave_type, config.bubtherm, config.masstrans, physics,
       xp=jnp, scales=tuple(scales),
     )
     # Rebuilt from `p`, not reused from `prepare`. `Pb`, `kv0` and `Uc` all come
     # from `p`, so with R0, Req or T8 traced the STARTING state carries a tangent
     # and a concrete `problem.initial_state` would contribute exactly zero.
-    initial = initial_state_vector(config, layout, p, collapse_state, xp=jnp)
+    start = initial_state_vector(config, layout, p, collapse_state, xp=jnp, initial=initial)
     # The prepared thermal operators pass through as constants, and that is
     # correct rather than convenient: the medium's flux weights are built from
     # `chi`, `iota`, `Fom` and `L_heat_star`, and its grid powers from `Lt` --
@@ -238,7 +287,7 @@ def sensitivities_jax(problem, times, paths):
     grid = grid_s / p["t0"]
     solution = diffrax.diffeqsolve(
       diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), diffrax.Tsit5(),
-      t0=grid[0], t1=grid[-1], dt0=None, y0=initial,
+      t0=grid[0], t1=grid[-1], dt0=None, y0=start,
       stepsize_controller=diffrax.PIDController(rtol=config.rtol, atol=config.atol),
       saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, adjoint=diffrax.ForwardMode(),
     )

@@ -201,32 +201,20 @@ def test_solve_with_sensitivities_dispatches_on_the_backend(label, material, pat
   assert max(worst.values()) < 1e-05, worst
   assert trajectory < _MAX_BOUND
 
-def test_jax_sensitivities_refuse_what_they_do_not_cover():
-  """Refused by name rather than quietly falling back to the Dual route, which
-  would make the backend field mean one thing for trajectories and another for
-  their derivatives.
+def test_jax_sensitivities_refuse_only_what_is_not_a_scalar_field():
+  """Everything this test used to list is covered now.
 
-  Both earlier entries are gone: `bubtherm=1` is covered by
-  test_jax_thermal_tangents_match_the_scipy_sensitivity_path, and `R0` by
-  test_jax_config_scalar_tangents_match_the_scipy_sensitivity_path.
-
-  What is left is the boundary that has an actual reason behind it. `physics.*` and
-  `initial.*` are dataclass fields, so tracing one means constructing the dataclass
-  from a tracer -- and `__post_init__` validates with `np.isfinite`, which converts
-  it. The scipy route differentiates them; this one refuses them by name rather
-  than falling back, which would make `backend="jax"` mean one thing for
-  trajectories and another for their derivatives.
+  `bubtherm=1` went in the thermal work, `R0` with the config scalars, and
+  `physics.*`/`initial.*` with `_Overridden`. What is left refuses for a reason that
+  is not about jax: a path must name one finite SCALAR, so `initial.stress_state` --
+  a sequence -- is out on both routes, and an unknown path is a typo.
   """
   times = np.linspace(0.0, 20e-6, 40)
-  mechanical = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax"))
-  for path in ("physics.far_field_pressure_pa", "initial.wall_velocity_m_s"):
-    with pytest.raises(NotImplementedError, match="jax sensitivities cover"):
-      imr_fast.sensitivity.solve_with_sensitivities(mechanical, times, (path,))
-  # And the scipy route does support them, so this is a backend gap rather than a
-  # package-wide one -- which is what makes the refusal worth naming.
-  scipy_side = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV))
-  assert imr_fast.sensitivity.solve_with_sensitivities(scipy_side, times, ("physics.far_field_pressure_pa",)) is not None
-
+  problem = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax"))
+  with pytest.raises(ValueError, match="finite scalar"):
+    imr_fast.sensitivity.solve_with_sensitivities(problem, times, ("initial.stress_state",))
+  with pytest.raises(ValueError, match="unknown sensitivity parameter path"):
+    imr_fast.sensitivity.solve_with_sensitivities(problem, times, ("physics.not_a_field",))
 
 def test_the_traced_bisection_stays_inside_the_physical_bracket(measured):
   """`_traced_root`'s counterpart to `test_thermal_grid`'s admissibility check.
@@ -560,3 +548,81 @@ def test_params_branches_only_on_concrete_configuration():
   # was for, and jacfwd alone would pass even with the old code.
   jax.jit(build)(jnp.asarray([298.15, 0.1]))
   jax.jit(jax.jacfwd(build))(jnp.asarray([298.15, 0.1]))
+
+
+# Structure-valued parameters: `physics.*` and `initial.*`. These are read off a
+# dataclass rather than passed as arguments, and tracing one cannot be done by
+# building a new dataclass -- `__post_init__` validates with `np.isfinite`, which
+# converts a tracer. `_jax._Overridden` substitutes at attribute access instead, so
+# the twenty-five `physics` reads in `params` and the five `initial` reads in
+# `initial_state_vector` need no rewriting.
+_STRUCTURE_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float]] = [
+  ("mechanical P8", dict(radial=2), ("physics.far_field_pressure_pa",), 1e-05),
+  ("mechanical density", dict(radial=2), ("physics.medium_density_kg_m3",), 1e-05),
+  ("mechanical surface tension", dict(radial=2), ("physics.surface_tension_n_m",), 1e-05),
+  ("mechanical sound speed", dict(radial=2), ("physics.sound_speed_m_s",), 1e-05),
+  ("mechanical initial velocity", dict(radial=2), ("initial.wall_velocity_m_s",), 1e-05),
+  ("mass transfer conductivity", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.medium_conductivity_w_m_k",), 1e-05),
+  ("mass transfer latent heat", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.latent_heat_j_kg",), 1e-05),
+  ("mass transfer diffusivity", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.mass_diffusivity_m2_s",), 1e-05),
+]
+
+@pytest.mark.parametrize("label,options,paths,bound", _STRUCTURE_TANGENT_CASES, ids=[c[0] for c in _STRUCTURE_TANGENT_CASES])
+def test_jax_structure_field_tangents_match_the_scipy_sensitivity_path(label, options, paths, bound, measured):
+  """The three thermal `physics` fields are on a mass-transfer configuration on
+  purpose: on a mechanical one their tangents are identically zero, so the
+  comparison would pass without testing anything. The assertion below rejects a
+  zero reference for exactly that reason."""
+  times = np.linspace(0.0, 15e-6, 60)
+  reference = imr_fast.sensitivity.solve_with_sensitivities(
+    imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, **options)), times, paths
+  )
+  computed = imr_fast.sensitivity.solve_with_sensitivities(
+    imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax", **options)), times, paths
+  )
+  worst = {}
+  for field in _ALL_TANGENT_FIELDS:
+    expected, actual = getattr(reference, field), getattr(computed, field)
+    assert (expected is None) == (actual is None), f"{field} is None on only one backend"
+    if expected is None: continue
+    expected = np.asarray(expected)
+    scale = float(np.max(np.abs(expected)))
+    if scale == 0.0: continue
+    worst[field] = float(np.max(np.abs(expected - np.asarray(actual)))) / scale
+  assert worst, f"{label}: every tangent is identically zero -- this case tests nothing"
+  measured(f"jax structure tangents {label}", "  ".join(f"{f.split('_')[0]}={w:.1e}" for f, w in worst.items()))
+  assert max(worst.values()) < bound, worst
+
+def test_the_traced_path_covers_every_path_the_scipy_route_accepts():
+  """The gate on deleting the numpy sensitivity route, asserted rather than assumed.
+
+  Enumerates the scalar fields of the config, `physics`, `initial` and the material,
+  keeps the ones the scipy route actually accepts, and requires the traced path to
+  cover all of them. `mn` was the last holdout and was found by this check, not by
+  reading the code.
+  """
+  import dataclasses
+
+  config = imr_fast.SimulationConfig(
+    R0=R0, Req=REQ, material=NHKV, pA=1e4, wave_type=2, omega=2 * np.pi / 2e-5, DT=3e-5, mn=2.0, TW=1e-5, vapor=1
+  )
+  candidates = []
+  for field in dataclasses.fields(config):
+    value = getattr(config, field.name)
+    if isinstance(value, (int, float)) and not isinstance(value, bool): candidates.append(field.name)
+  for group in ("physics", "initial", "material"):
+    for field in dataclasses.fields(getattr(config, group)):
+      value = getattr(getattr(config, group), field.name)
+      if isinstance(value, (int, float)) and not isinstance(value, bool): candidates.append(f"{group}.{field.name}")
+
+  covered = set(_jax.SCALE_PATHS) | set(_jax.CONFIG_PATHS) | set(_jax.PHYSICS_PATHS) | set(_jax.INITIAL_PATHS)
+  times = np.linspace(0.0, 8e-6, 20)
+  accepted = []
+  for path in sorted(set(candidates)):
+    try:
+      imr_fast.sensitivity.solve_with_sensitivities(imr_fast.prepare(config), times, (path,))
+    except Exception:  # noqa: BLE001,S112 - the scipy route's own refusals are not this test's subject
+      continue
+    accepted.append(path)
+  assert len(accepted) > 20, f"only {len(accepted)} paths accepted; the enumeration has gone stale"
+  assert not [p for p in accepted if p not in covered], f"the traced path does not cover {[p for p in accepted if p not in covered]}"

@@ -1732,6 +1732,55 @@ Removing `_pinf`'s `if ee == 0.0` early-out was part of this: `ee` scales with
 `ee` was configuration, which stopped being true. No compensating arithmetic was
 needed because every arm is already proportional to `ee`.
 
+### The traced sensitivities were never compiled, and it inverted the migration
+
+`integrate_jax` caches a `jax.jit` per (caller, shape). `sensitivities_jax` did
+not, so every call retraced the whole `jacfwd`. Measured against the compiled
+numba route on the mechanical sensitivity solve:
+
+| route | ms |
+|---|---:|
+| `_mechanical.py` (numba) | 45 |
+| complex step (the fallback if it went) | 87-105 |
+| jax, retracing every call | **1121** |
+| jax, jit cached | **5-11** |
+
+So the jax path was **24x slower** than the file the migration exists to delete,
+and is now **3-10x faster** -- a 100-200x swing from adding a cache that the
+forward path already had. Any stage 5 argument made on the earlier number would
+have been backwards, which is why this is recorded rather than folded in silently.
+First call is 2.6-3.5 s of tracing and compilation, amortised over repeated solves,
+which is what inference and design do.
+
+Jitting required two guards inside `params` to stop branching on values the traced
+path differentiates. Both had worked under `jacfwd`, which evaluates a JVP with
+CONCRETE primals, and both raised `TracerBoolConversionError` under `jit`, which is
+fully abstract. That distinction is the lesson: `jacfwd` alone does not prove a
+function is traceable.
+
+- `if Pv_star > 0` is really asking whether vapour is on, since `pvsat` is an
+  exponential. Reads `vapor` now, which is discrete configuration.
+- `if lam1 > 0` is really asking whether the material HAS a relaxation time, which
+  its type fixes and `_material_scales` reports as 0.0. Reads the concrete scales.
+
+Verified bit-identical on the same 14 cases, and the `kv0`/`De`/`LAM` edge values
+for a no-vapour, non-relaxing material are unchanged at exactly 0.0.
+
+### Stage 5 scope, with jax made mandatory
+
+Measured, the deletion is gated on a dependency decision rather than on
+capability: `_mechanical.py` is dominated by the jax path but only for someone who
+has jax, and `_dual.py`/`_complex.py` are the route for someone who does not.
+
+Resolved by making jax mandatory. That drops Python 3.10 and 3.11 -- jax requires
+3.12 -- and puts ~100 MB of jaxlib in a core install. Both are real costs and were
+confirmed rather than assumed.
+
+One capability gap remains before `_dual.py` and `_complex.py` can go: the traced
+path refuses `physics.*` and `initial.*` sensitivity parameters, which the scipy
+route differentiates. Deleting the scipy route without covering them would remove
+capability, not duplication.
+
 ### A measurement error worth recording
 
 Four hypotheses were tested against a sweep that rebuilt only `R`, `Rd` and `P`

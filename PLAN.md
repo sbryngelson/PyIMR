@@ -1776,10 +1776,49 @@ Resolved by making jax mandatory. That drops Python 3.10 and 3.11 -- jax require
 3.12 -- and puts ~100 MB of jaxlib in a core install. Both are real costs and were
 confirmed rather than assumed.
 
-One capability gap remains before `_dual.py` and `_complex.py` can go: the traced
-path refuses `physics.*` and `initial.*` sensitivity parameters, which the scipy
-route differentiates. Deleting the scipy route without covering them would remove
-capability, not duplication.
+#### Stage 5a: jax is mandatory, and `_mechanical.py` is gone
+
+jax and diffrax are core dependencies. `requires-python` goes to 3.12 because jax
+requires it, so **Python 3.10 and 3.11 support is dropped** -- a breaking change,
+confirmed rather than assumed, and the reason the optional-jax design existed at
+all.
+
+What that removed, beyond the file:
+
+| deleted | lines |
+|---|---:|
+| `_mechanical.py` | 611 |
+| `_rhs_mechanical_compiled` + `_compiled_mechanical_outputs` + `_prepared_arrays` | ~85 |
+| the numba route's two consistency tests | ~180 |
+| `available()`, `unsupported_reason()`, `_MISSING`, the import guard | ~50 |
+| `requires_jax` scaffolding and the two "nothing is refused" tests | ~55 |
+
+`_mechanical.py` had no configuration to itself. `use_compiled_mechanical` fired
+for `not bubtherm and forcing is None`, and every such configuration is also
+complex-step-supported -- so it was an accelerator for a route that already
+existed, at 45 ms against complex step's 87-105 ms. `backend="jax"` does the same
+work in 5-11 ms. It was the duplicate AND the slow path.
+
+Deleting it also deleted the test that existed because it could drift.
+`test_rhs_consistency.py` opened by saying "every physics law is implemented twice
+... nothing else asserts that the two agree", and three of four physics changes
+during the parity work had introduced a bug in the second copy. That file is now 74
+lines covering the one duplication that remains: `_dual_medium`'s rebuild of the
+wall stencils.
+
+`unsupported_reason` went with it. It had been reduced to `return None` for every
+configuration, and a function that refuses nothing plus a test asserting it refuses
+nothing is not a safety net.
+
+#### Stage 5b, still open
+
+`_dual.py` (466) and `_complex.py` (110) cannot go yet, and the reason is
+capability rather than duplication: the traced path refuses `physics.*` and
+`initial.*` sensitivity parameters, which the scipy route differentiates. The
+blocker is the same one the material scales hit -- tracing a dataclass field means
+constructing the dataclass from a tracer, and `__post_init__` validates with
+`np.isfinite` -- and the fix is likely the same shape as `scales`: pass the traced
+values beside the structure rather than inside it.
 
 ### A measurement error worth recording
 

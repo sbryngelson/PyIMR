@@ -1,7 +1,8 @@
 """The jax backend against the scipy one (PLAN.md W11 stage 2b).
 
-jax and diffrax are optional, so every test here skips without them, exactly as
-`test_pymc_op.py` does for PyMC. The core install stays numpy/scipy/numba.
+Nothing here skips. jax and diffrax are core dependencies as of stage 5, so the
+`requires_jax` mark this module used to carry -- and the careful scoping that kept
+the refusal assertions running on a jax-less CI job -- are both gone.
 
 What makes this cheap to assert is that there is no second implementation to
 compare against. Stage 2a made `_rhs` namespace-agnostic, so both backends
@@ -9,7 +10,6 @@ integrate the SAME right-hand side and any disagreement is the integrator's
 alone -- diffrax's Tsit5 against scipy's LSODA.
 """
 
-import importlib.util
 from typing import Any
 
 import numpy as np
@@ -20,13 +20,6 @@ import imr_fast.sensitivity
 from imr_fast import _jax
 from _validation_support import NHKV, R0, REQ, oldroyd_b, zener
 
-# Scoped to the cross-backend tests rather than the module: the refusals below
-# need no jax at all -- `_jax.unsupported_reason` imports only numpy -- and the
-# 3.10 CI job has none, because jax requires 3.12 while this package supports
-# 3.10. A module-level skip would drop the refusal coverage on exactly the job
-# that stands in for a core install.
-_HAS_JAX = all(importlib.util.find_spec(name) is not None for name in ("jax", "diffrax"))
-requires_jax = pytest.mark.skipif(not _HAS_JAX, reason="jax and diffrax are optional; not installed")
 
 SECTION = "7. jax backend"
 _TIMES = np.linspace(0.0, 40e-6, 300)
@@ -45,7 +38,6 @@ _CASES = [(radial, "NHKV", NHKV) for radial in range(1, 7)] + [
   (4, "Zener", zener()),
 ]
 
-@requires_jax
 @pytest.mark.parametrize("radial,label,material", _CASES, ids=[f"radial{r}-{n}" for r, n, _ in _CASES])
 def test_jax_backend_matches_scipy(radial, label, material, measured):
   reference = np.asarray(
@@ -57,20 +49,6 @@ def test_jax_backend_matches_scipy(radial, label, material, measured):
   measured(f"jax vs scipy r={radial} {label}", f"max={worst:.2e} median={typical:.2e}")
   assert result.stats.backend == "jax-tsit5", "the jax backend was not actually selected"
   assert worst < _MAX_BOUND and typical < _MEDIAN_BOUND
-
-def test_nothing_is_refused_and_the_check_still_runs():
-  """The list is empty, and this asserts the emptiness rather than deleting the
-  check -- a refusal at construction is what keeps a future restriction from
-  surfacing as a tracer error several frames into diffrax.
-
-  Both entries it used to carry are covered by tests of their own:
-  `test_mass_transfer_is_accepted` and `test_sampled_forcing_matches_scipy`.
-  """
-  sampled = imr_fast.SampledForcing(time_s=(0.0, 1e-5, 2e-5), pressure_pa=(0.0, 5e4, 0.0))
-  config = imr_fast.SimulationConfig(
-    R0=R0, Req=REQ, material=NHKV, backend="jax", sampled_forcing=sampled, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9
-  )
-  assert _jax.unsupported_reason(config) is None
 
 def test_backend_field_rejects_anything_else():
   with pytest.raises(ValueError, match="backend must be"):
@@ -85,7 +63,6 @@ _THERMAL_CASES = [
   ("coupled+mass fd", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=13, Mt=13, thermal="fd")),
 ]
 
-@requires_jax
 @pytest.mark.parametrize("label,options", _THERMAL_CASES, ids=[c[0] for c in _THERMAL_CASES])
 def test_jax_backend_matches_scipy_on_the_thermal_path(label, options, measured):
   """The thermal fields, which slice assignment kept off this backend until W11
@@ -105,19 +82,6 @@ def test_jax_backend_matches_scipy_on_the_thermal_path(label, options, measured)
   measured(f"jax vs scipy {label}", f"max={worst:.2e} median={typical:.2e} steps={result.stats.nfev}")
   assert worst < _MAX_BOUND and typical < _MEDIAN_BOUND
 
-def test_mass_transfer_is_accepted():
-  """The inverse of the assertion this file used to carry.
-
-  It was refused because the wall closure warm-started a secant from the previous
-  call's answer, which made the right-hand side a function of the integrator's
-  step history rather than of `(t, y)` -- a tracer stored there escapes the trace,
-  so no namespace swap could have fixed it. #111 removed the warm start.
-  """
-  config = imr_fast.SimulationConfig(
-    R0=R0, Req=REQ, material=NHKV, backend="jax", bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9
-  )
-  assert _jax.unsupported_reason(config) is None
-
 _COVERAGE_CASES = [
   ("gaussian forcing", NHKV, dict(wave_type=1, pA=5e4, TW=5e-6, DT=2e-5)),
   ("heaviside step", NHKV, dict(wave_type=3, pA=5e4, TW=3e-5)),
@@ -127,7 +91,6 @@ _COVERAGE_CASES = [
   ("giesekus + medtherm", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), dict(bubtherm=1, medtherm=1, Nt=9, Mt=9, thermal="fd")),
 ]
 
-@requires_jax
 @pytest.mark.parametrize("label,material,options", _COVERAGE_CASES, ids=[c[0] for c in _COVERAGE_CASES])
 def test_jax_backend_covers_forcing_and_distributed_memory(label, material, options, measured):
   """Analytic forcing and the distributed-memory materials.
@@ -148,7 +111,6 @@ def test_jax_backend_covers_forcing_and_distributed_memory(label, material, opti
 
 _TANGENT_FIELDS = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
 
-@requires_jax
 @pytest.mark.parametrize(
   "label,material,paths",
   [
@@ -183,7 +145,6 @@ def test_jax_tangents_match_the_scipy_sensitivity_path(label, material, paths, m
   measured(f"jax tangents {label}", "  ".join(f"{f.split('_')[0]}={w:.1e}" for f, w in worst.items()))
   assert max(worst.values()) < 1e-05, worst
 
-@requires_jax
 def test_jax_tangents_converge_to_the_scipy_ones(measured):
   """The gate is convergence under refinement, not a fixed threshold.
 
@@ -210,7 +171,6 @@ def test_jax_tangents_converge_to_the_scipy_ones(measured):
   assert errors[-1] < errors[0] / 100.0, f"tangent error did not converge under refinement: {errors}"
 
 
-@requires_jax
 @pytest.mark.parametrize(
   "label,material,paths",
   [("NHKV G", NHKV, ("material.shear_modulus_pa",)), ("Zener G+mu", zener(), ("material.shear_modulus_pa", "material.viscosity_pa_s"))],
@@ -268,7 +228,6 @@ def test_jax_sensitivities_refuse_what_they_do_not_cover():
   assert imr_fast.sensitivity.solve_with_sensitivities(scipy_side, times, ("physics.far_field_pressure_pa",)) is not None
 
 
-@requires_jax
 def test_the_traced_bisection_stays_inside_the_physical_bracket(measured):
   """`_traced_root`'s counterpart to `test_thermal_grid`'s admissibility check.
 
@@ -292,7 +251,6 @@ def test_the_traced_bisection_stays_inside_the_physical_bracket(measured):
   assert 0.0 < found < 1.0
   assert abs(found - root) < 1e-14
 
-@requires_jax
 def test_traced_and_brentq_roots_agree_on_the_shipped_closure(measured):
   """The two solvers on one captured wall state, so a disagreement shows up here
   rather than as trajectory drift it would be easy to blame on the integrator."""
@@ -344,7 +302,6 @@ _THERMAL_TANGENT_CASES: list[tuple[str, dict[str, Any], float]] = [
 ]
 _ALL_TANGENT_FIELDS = (*_TANGENT_FIELDS, "bubble_temperature_k", "medium_temperature_k", "vapor_mass_fraction")
 
-@requires_jax
 @pytest.mark.parametrize("label,options,bound", _THERMAL_TANGENT_CASES, ids=[c[0] for c in _THERMAL_TANGENT_CASES])
 def test_jax_thermal_tangents_match_the_scipy_sensitivity_path(label, options, bound, measured):
   """Every output's tangent, including the three thermal fields.
@@ -378,7 +335,6 @@ def test_jax_thermal_tangents_match_the_scipy_sensitivity_path(label, options, b
   measured(f"jax thermal tangents {label}", "  ".join(f"{f.split('_')[0]}={w:.1e}" for f, w in worst.items()))
   assert max(worst.values()) < bound, worst
 
-@requires_jax
 def test_jax_thermal_tangents_converge_to_the_scipy_ones(measured):
   """The property the per-case bounds above stand in for.
 
@@ -409,7 +365,6 @@ def test_jax_thermal_tangents_converge_to_the_scipy_ones(measured):
   assert errors[-1] < errors[0] / 1e4, f"medium temperature tangent did not converge: {errors}"
 
 
-@requires_jax
 def test_collapse_initialization_needs_nothing_from_this_backend(measured):
   """Listed as a jax blocker; it is not one, and this records why.
 
@@ -448,7 +403,6 @@ _SAMPLED_CASES: list[tuple[str, np.ndarray, dict[str, Any]]] = [
   ("past last knot", np.linspace(0.0, 45e-6, 200), {}),
 ]
 
-@requires_jax
 @pytest.mark.parametrize("label,times,options", _SAMPLED_CASES, ids=[c[0] for c in _SAMPLED_CASES])
 def test_sampled_forcing_matches_scipy(label, times, options, measured):
   """The last entry `unsupported_reason` carried.
@@ -497,7 +451,6 @@ _CONFIG_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float]] 
   ("mass transfer R0", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("R0",), 1e-04),
 ]
 
-@requires_jax
 @pytest.mark.parametrize("label,options,paths,bound", _CONFIG_TANGENT_CASES, ids=[c[0] for c in _CONFIG_TANGENT_CASES])
 def test_jax_config_scalar_tangents_match_the_scipy_sensitivity_path(label, options, paths, bound, measured):
   """`R0`, `Req`, `T8` and `pA`, mixed with a material scale in one of the cases so
@@ -527,7 +480,6 @@ def test_jax_config_scalar_tangents_match_the_scipy_sensitivity_path(label, opti
   measured(f"jax config tangents {label}", "  ".join(f"{f.split('_')[0]}={w:.1e}" for f, w in worst.items()))
   assert max(worst.values()) < bound, worst
 
-@requires_jax
 def test_the_traced_medium_is_rebuilt_for_every_consumer(measured):
   """A regression test for a defect that only `T8` exposed, and only in two of
   seven outputs.
@@ -558,7 +510,6 @@ def test_the_traced_medium_is_rebuilt_for_every_consumer(measured):
   assert errors[-1] < errors[0] / 1e4, f"the T8 temperature tangent did not converge: {errors}"
 
 
-@requires_jax
 def test_traced_sensitivities_are_compiled_once(measured):
   """`integrate_jax` caches a `jax.jit`; `sensitivities_jax` did not, so every call
   retraced the whole `jacfwd`. Measured at 1121 ms against the compiled numba
@@ -585,7 +536,6 @@ def test_traced_sensitivities_are_compiled_once(measured):
   assert _jax._COMPILED[next(iter(after_one))] is after_one[next(iter(after_one))]
   assert np.array_equal(first[1].derived, second[1].derived), "cached call returned a different tangent"
 
-@requires_jax
 def test_params_branches_only_on_concrete_configuration():
   """Two guards inside `params` tested values that the traced path differentiates.
 

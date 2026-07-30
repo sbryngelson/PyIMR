@@ -6,8 +6,10 @@ module's whole job is to hand the SHIPPED right-hand side to diffrax with
 equations would have been a second implementation that can drift -- exactly the
 `_mechanical` problem this migration exists to remove.
 
-jax and diffrax are OPTIONAL, on the `pymc_op` precedent: a core install stays
-numpy/scipy/numba, and the import is deferred so nothing pays for it unbidden.
+jax and diffrax are core dependencies (W11 stage 5). The import is still deferred,
+but for start-up cost rather than optionality: `_jax()` is also where float64 and
+the on-disk compilation cache get switched on, and both must happen exactly once
+before anything touches a dtype.
 
 **Solver choice is static, and that is not a shortcut.** W11 measured
 `|lambda_max/lambda_min|` of `df/dy` along the trajectory at 1.18 for the
@@ -28,20 +30,16 @@ import numpy as np
 
 from ._config import SimulationError, SolverStats
 
-__all__ = ["SCALE_PATHS", "TracedOutputs", "available", "integrate_jax", "sensitivities_jax", "unsupported_reason"]
-
-_MISSING = "backend='jax' requires jax and diffrax: pip install 'imr-fast[jax]'"
+__all__ = ["SCALE_PATHS", "TracedOutputs", "integrate_jax", "sensitivities_jax"]
 
 def _jax():
-  # The ignores are local rather than baselined: `tools/pyright_baseline.py`
-  # refuses reportMissingImports on purpose, because baselining it would mask a
-  # genuinely broken import. These two are optional and absent by design.
-  try:
-    import diffrax  # pyright: ignore[reportMissingImports]
-    import jax  # pyright: ignore[reportMissingImports]
-    import jax.numpy as jnp  # pyright: ignore[reportMissingImports]
-  except ImportError as error:  # pragma: no cover - exercised only without jax
-    raise ImportError(_MISSING) from error
+  # No try/except around these. They are declared dependencies now, so an
+  # ImportError here means a broken install and the raw error says so better than
+  # anything this module could add.
+  import diffrax  # pyright: ignore[reportMissingImports]
+  import jax  # pyright: ignore[reportMissingImports]
+  import jax.numpy as jnp  # pyright: ignore[reportMissingImports]
+
   # float64 before anything touches a dtype. JAX defaults to float32, which
   # would quietly pass the loose checks in this suite and fail the tight ones.
   jax.config.update("jax_enable_x64", True)
@@ -68,31 +66,6 @@ def _enable_compilation_cache(jax):
   jax.config.update("jax_compilation_cache_dir", location)
   jax.config.update("jax_persistent_cache_min_compile_time_secs", 0.0)
   jax.config.update("jax_persistent_cache_min_entry_size_bytes", 0)
-
-def available() -> bool:
-  """Whether the optional dependencies are importable."""
-  try:
-    import diffrax  # noqa: F401  # pyright: ignore[reportMissingImports]
-    import jax  # noqa: F401  # pyright: ignore[reportMissingImports]
-  except ImportError:
-    return False
-  return True
-
-def unsupported_reason(config) -> str | None:
-  """Why this configuration cannot use the JAX backend yet, or None.
-
-  Nothing, now -- kept because the shape of the check is what makes a future
-  restriction a named refusal at construction rather than a tracer error three
-  frames inside diffrax.
-
-  Both entries it used to carry were the same kind of problem and neither needed a
-  new algorithm. Mass transfer warm-started its wall solve from the previous call's
-  answer, making the right-hand side a function of the integrator's step history;
-  #111 bracketed it instead. A sampled forcing history branched on `tn` and indexed
-  its knots with the result; `_rhs._sampled_pressure` clamps and masks instead.
-  """
-  return None
-
 
 # Tracing and compiling the solve costs far more than running it -- measured at
 # 796 ms against 30 ms for the same mechanical case, because every call rebuilt

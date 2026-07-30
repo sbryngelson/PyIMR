@@ -20,12 +20,9 @@ from ._dual import (
   _dual_medium,
   _dual_parameters,
   _initial_matrix,
-  _material_parameters,
-  _mechanical_parameters,
   _normalize_parameters,
   _rhs_physical,
 )
-from ._mechanical import mechanical_stress_tangent, mechanical_tangent_rhs
 
 __all__ = ["SensitivityParameter", "SensitivityResult", "simulate_with_sensitivities", "solve_with_sensitivities"]
 
@@ -44,45 +41,6 @@ class SensitivityResult:
   bubble_temperature_k: np.ndarray | None = None
   medium_temperature_k: np.ndarray | None = None
   vapor_mass_fraction: np.ndarray | None = None
-
-_EMPTY = np.empty(0)
-
-def _prepared_arrays(problem):
-  # The five arrays the compiled kernels want, with an empty stand-in wherever the prepared problem has no such
-  # component. numba needs a concrete array rather than None, which is the whole reason this shape exists -- and the
-  # reason it was pasted into both compiled entry points identically.
-  prepared, distributed = problem.instantaneous_material, problem.distributed_stress
-  nodes = prepared.interval_nodes if prepared is not None else _EMPTY
-  weights = prepared.interval_weights if prepared is not None else _EMPTY
-  reference_radius = distributed.reference_radius if distributed is not None else _EMPTY
-  reference_radius_cubed = distributed.reference_radius_cubed if distributed is not None else _EMPTY
-  stress_weights = distributed.weights if distributed is not None and distributed.weights is not None else _EMPTY
-  return nodes, weights, reference_radius, reference_radius_cubed, stress_weights
-
-def _rhs_mechanical_compiled(time_s, packed, *, problem, parameter_values, parameter_tangents, material_data, width):
-  state_width = problem.layout.size
-  matrix = packed.reshape(state_width, width + 1)
-  (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents) = material_data
-  nodes, weights, reference_radius, reference_radius_cubed, stress_weights = _prepared_arrays(problem)
-  return mechanical_tangent_rhs(
-    time_s,
-    matrix,
-    parameter_values,
-    parameter_tangents,
-    material_code,
-    elastic_code,
-    elastic_values,
-    elastic_tangents,
-    viscous_code,
-    viscous_values,
-    viscous_tangents,
-    nodes,
-    weights,
-    reference_radius,
-    reference_radius_cubed,
-    stress_weights,
-    problem.config.radial,
-  ).ravel()
 
 def _augmented_sparsity(base_sparsity, width):
   if base_sparsity is None: return None
@@ -109,41 +67,7 @@ def _readonly_optional(values):
   # backend, so both result assemblies need this and neither should spell it out.
   return None if values is None else _readonly(values)
 
-def _compiled_mechanical_outputs(problem, config, parameters, states, width, compiled):
-  count = states.shape[0]
-  outputs = tuple(np.empty((count, width)) for _ in range(5))
-  (parameter_values, parameter_tangents, material_data) = compiled
-  (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents) = material_data
-  nodes, weights, reference_radius, reference_radius_cubed, stress_weights = _prepared_arrays(problem)
-  for time_index, row in enumerate(states):
-    radius = Dual(row[0, 0], row[0, 1:])
-    wall_velocity = Dual(row[1, 0], row[1, 1:])
-    pressure = (parameters["Pb"] - parameters["Pv"]) * radius ** (-3.0 * parameters["kappa"]) + parameters["Pv"]
-    stress_data = mechanical_stress_tangent(
-      row,
-      parameter_values,
-      parameter_tangents,
-      material_code,
-      elastic_code,
-      elastic_values,
-      elastic_tangents,
-      viscous_code,
-      viscous_values,
-      viscous_tangents,
-      nodes,
-      weights,
-      reference_radius,
-      reference_radius_cubed,
-      stress_weights,
-    )
-    stress = Dual(stress_data[0], stress_data[1:])
-    values = (radius, config.R0 * radius, parameters["Uc"] * wall_velocity, parameters["P8"] * pressure, parameters["P8"] * stress)
-    for target, value in zip(outputs, values, strict=True):
-      target[time_index] = value.tangent
-  return (*outputs, None, None, None)
-
-def _output_duals(problem, config, parameters, states, width, compiled=None):
-  if compiled is not None: return _compiled_mechanical_outputs(problem, config, parameters, states, width, compiled)
+def _output_duals(problem, config, parameters, states, width):
   count = states.shape[0]
   radius_ratio = np.empty((count, width))
   radius_m = np.empty_like(radius_ratio)
@@ -244,19 +168,13 @@ def solve_with_sensitivities(problem, tv, parameters):
   dual_forcing = _dual_forcing(dual_config, dual_parameters)
   width = len(normalized)
   initial = _initial_matrix(problem, dual_config, dual_parameters, width)
-  use_compiled_mechanical = not config.bubtherm and problem.forcing is None
-  if use_compiled_mechanical:
-    parameter_values, parameter_tangents = _mechanical_parameters(dual_parameters, width)
-    material_data = _material_parameters(dual_config.material, width)
-    rhs = partial(
-      _rhs_mechanical_compiled,
-      problem=problem,
-      parameter_values=parameter_values,
-      parameter_tangents=parameter_tangents,
-      material_data=material_data,
-      width=width,
-    )
-  elif _complex.complex_step_supported(problem):
+  # Two routes, not three. The third was a numba mirror of the mechanical
+  # right-hand side in `_mechanical.py`: 611 lines that duplicated `_rhs` and had
+  # to be kept in step with it, for 1.9-3.0x over complex step on the one
+  # configuration set that complex step already covered. `backend="jax"` is 3-10x
+  # faster than the mirror ever was, so it was the slow path AND the duplicate.
+  # See PLAN.md W11 stage 5.
+  if _complex.complex_step_supported(problem):
     # Same packed layout, ~7-46x faster on the thermal path (#44).
     rhs = partial(
       _complex.rhs_complex,
@@ -288,8 +206,7 @@ def solve_with_sensitivities(problem, tv, parameters):
   base_states = packed[:, :, 0]
   simulation = _solver._build_result(problem, time_s, base_states.T, stats)
   normalized_state = packed[:, :, 1:] / scales
-  compiled_output = (parameter_values, parameter_tangents, material_data) if use_compiled_mechanical else None
-  outputs = _output_duals(problem, dual_config, dual_parameters, packed, width, compiled_output)
+  outputs = _output_duals(problem, dual_config, dual_parameters, packed, width)
   outputs = tuple(None if output is None else output / scales for output in outputs)
   return SensitivityResult(
     simulation=simulation,

@@ -446,21 +446,3 @@ def _coded(model, table):
   # [n_terms, mu_1..mu_n, alpha_1..alpha_n].
   if names is None: return code, (float(len(model.exponents)), *model.shear_moduli_pa, *model.exponents)
   return code, tuple(getattr(model, name) for name in names)
-
-def _material_parameters(material, width):
-  name = type(material).__name__
-  if name not in _MATERIAL_CODES: raise TypeError("unsupported mechanical material")
-  material_code = _MATERIAL_CODES[name]
-  elastic_fields = tuple(getattr(material, field) for field in _MATERIAL_FIELDS.get(name, ()))
-  elastic_code = viscous_code = 0
-  viscous_fields = ()
-  if material_code == 6:
-    elastic_code, elastic_fields = _coded(material.elastic, _ELASTIC)
-    viscous_code, viscous_fields = _coded(material.viscous, _VISCOUS)
-  # Sized to the data, not to a constant. Every law before Ogden had at most
-  # three parameters, so a hardcoded 5 was invisible slack; Ogden needs
-  # 1 + 2 * terms and overflowed it. max() keeps the padding the compiled
-  # kernels have always been able to index past the end of.
-  elastic_values, elastic_tangents = _packed_values(elastic_fields, width, max(5, len(elastic_fields)))
-  viscous_values, viscous_tangents = _packed_values(viscous_fields, width, max(5, len(viscous_fields)))
-  return (material_code, elastic_code, elastic_values, elastic_tangents, viscous_code, viscous_values, viscous_tangents)

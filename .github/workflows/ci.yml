@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.12", "3.14"]
+        python-version: ["3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -28,22 +28,14 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
-      # PyMC 6 and jax both require Python >= 3.12 while this package supports
-      # 3.10, so those extras are installable on only part of the matrix. The
-      # 3.10 job therefore covers the core install -- which is what a user
-      # without the extras actually gets -- and test_pymc_bridge.py and
-      # test_backend_jax.py skip there.
-      #
-      # Leaving jax off the 3.10 job is deliberate rather than incidental. The
-      # extra says `jax>=0.4`, and current jax requires 3.12, so pip would not
-      # fail there -- it would resolve some years-old release and exercise a code
-      # path nobody runs. Skipping is the honest outcome; the scoping note in
-      # tests/test_backend_jax.py keeps the refusal assertions running anyway.
+      # One extra set for every job now. The 3.10 entry and the two-tier install it
+      # forced are both gone: jax is a core dependency after W11 stage 5 and
+      # requires 3.12, which is the package's floor too. PyMC needs the same, so
+      # `inference` no longer splits the matrix either.
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          extra=$([ "${{ matrix.python-version }}" = "3.10" ] && echo "test" || echo "test,inference,jax")
-          python -m pip install -e ".[$extra]"
+          python -m pip install -e ".[test,inference]"
 
       # The XLA compilation cache `imr_fast._jax._enable_compilation_cache`
       # configures. Measured on tests/test_backend_jax.py with a scratch cache
@@ -56,7 +48,6 @@ jobs:
       # key carries the commit and the restore falls back to any earlier one --
       # each run starts from the newest cache and saves its own.
       - name: Cache XLA compilations
-        if: matrix.python-version != '3.10'
         uses: actions/cache@v4
         with:
           path: ~/.cache/imr_fast/jax

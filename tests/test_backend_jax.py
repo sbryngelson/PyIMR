@@ -58,15 +58,19 @@ def test_jax_backend_matches_scipy(radial, label, material, measured):
   assert result.stats.backend == "jax-tsit5", "the jax backend was not actually selected"
   assert worst < _MAX_BOUND and typical < _MEDIAN_BOUND
 
-def test_unsupported_configurations_are_refused_by_name():
-  """A refusal at construction, not a tracer error several frames into diffrax.
+def test_nothing_is_refused_and_the_check_still_runs():
+  """The list is empty, and this asserts the emptiness rather than deleting the
+  check -- a refusal at construction is what keeps a future restriction from
+  surfacing as a tracer error several frames into diffrax.
 
-  The list is down to one: a sampled forcing history, because its interpolation
-  searches its own knots. `test_mass_transfer_is_accepted` covers what left it.
+  Both entries it used to carry are covered by tests of their own:
+  `test_mass_transfer_is_accepted` and `test_sampled_forcing_matches_scipy`.
   """
   sampled = imr_fast.SampledForcing(time_s=(0.0, 1e-5, 2e-5), pressure_pa=(0.0, 5e4, 0.0))
-  with pytest.raises(ValueError, match="sampled_forcing"):
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax", sampled_forcing=sampled)
+  config = imr_fast.SimulationConfig(
+    R0=R0, Req=REQ, material=NHKV, backend="jax", sampled_forcing=sampled, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9
+  )
+  assert _jax.unsupported_reason(config) is None
 
 def test_backend_field_rejects_anything_else():
   with pytest.raises(ValueError, match="backend must be"):
@@ -414,3 +418,43 @@ def test_collapse_initialization_needs_nothing_from_this_backend(measured):
   worst = float(np.nanmax(np.abs(reference - computed)))
   measured("jax vs scipy collapse init", f"max={worst:.2e}")
   assert worst < _MAX_BOUND
+
+
+# A knotted history with noise on it, so the interpolation is actually exercised
+# between knots rather than reproducing a smooth analytic curve. Seeded: an
+# unseeded history would make a failure unreproducible.
+def _sampled_history():
+  rng = np.random.default_rng(3)
+  knots = np.linspace(0.0, 3e-5, 24)
+  pressure = 6e4 * np.sin(2 * np.pi * knots / 1.5e-5) + 1e4 * rng.standard_normal(knots.size)
+  return imr_fast.SampledForcing(time_s=tuple(knots), pressure_pa=tuple(pressure))
+
+_SAMPLED_CASES: list[tuple[str, np.ndarray, dict[str, Any]]] = [
+  ("mechanical", np.linspace(0.0, 25e-6, 200), {}),
+  ("coupled fd", np.linspace(0.0, 25e-6, 200), dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd")),
+  # Past the last knot, where the mask has to zero the forcing rather than
+  # extrapolate the clamped cubic it still evaluates.
+  ("past last knot", np.linspace(0.0, 45e-6, 200), {}),
+]
+
+@requires_jax
+@pytest.mark.parametrize("label,times,options", _SAMPLED_CASES, ids=[c[0] for c in _SAMPLED_CASES])
+def test_sampled_forcing_matches_scipy(label, times, options, measured):
+  """The last entry `unsupported_reason` carried.
+
+  What kept it out was three data-dependent uses of `tn`: an out-of-range early
+  return, `searchsorted` on the knots, and indexing a coefficient row with the
+  result. `_sampled_pressure` clamps the index and applies the range test as a
+  multiplicative mask, so the traced program has a fixed shape.
+
+  The mask is a multiply rather than an `xp.where` over the results on purpose:
+  `where` is not a ufunc, so `np.where` on a `Dual` returns an object array and
+  would break the tangent path silently. Verified bit-identical on the numpy
+  trajectory AND on the Dual tangent across that change.
+  """
+  settings: dict[str, Any] = dict(R0=R0, Req=REQ, material=NHKV, sampled_forcing=_sampled_history(), **options)
+  reference = np.asarray(imr_fast.simulate(times, imr_fast.SimulationConfig(**settings)).radius_ratio)
+  computed = np.asarray(imr_fast.simulate(times, imr_fast.SimulationConfig(**settings, backend="jax")).radius_ratio)
+  worst, typical = float(np.nanmax(np.abs(reference - computed))), float(np.nanmedian(np.abs(reference - computed)))
+  measured(f"jax vs scipy sampled forcing {label}", f"max={worst:.2e} median={typical:.2e}")
+  assert worst < _MAX_BOUND and typical < _MEDIAN_BOUND

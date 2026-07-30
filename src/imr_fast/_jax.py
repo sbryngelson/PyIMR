@@ -81,15 +81,16 @@ def available() -> bool:
 def unsupported_reason(config) -> str | None:
   """Why this configuration cannot use the JAX backend yet, or None.
 
-  Naming the reason here beats a tracer error three frames inside diffrax. The
-  list is down to one: a sampled forcing history, whose interpolation searches
-  its knots.
+  Nothing, now -- kept because the shape of the check is what makes a future
+  restriction a named refusal at construction rather than a tracer error three
+  frames inside diffrax.
 
-  Mass transfer used to be here. #111 made its wall closure a function of state
-  alone, and `_thermal._traced_root` bisects the same constant bracket without a
-  data-dependent branch, so there is nothing left to refuse.
+  Both entries it used to carry were the same kind of problem and neither needed a
+  new algorithm. Mass transfer warm-started its wall solve from the previous call's
+  answer, making the right-hand side a function of the integrator's step history;
+  #111 bracketed it instead. A sampled forcing history branched on `tn` and indexed
+  its knots with the result; `_rhs._sampled_pressure` clamps and masks instead.
   """
-  if config.sampled_forcing is not None: return "sampled_forcing is not on the jax backend yet"
   return None
 
 

@@ -104,6 +104,11 @@ def _readonly(values):
   result.setflags(write=False)
   return result
 
+def _readonly_optional(values):
+  # The three thermal tangents are absent for a mechanical config on either
+  # backend, so both result assemblies need this and neither should spell it out.
+  return None if values is None else _readonly(values)
+
 def _compiled_mechanical_outputs(problem, config, parameters, states, width, compiled):
   count = states.shape[0]
   outputs = tuple(np.empty((count, width)) for _ in range(5))
@@ -199,32 +204,30 @@ def _jax_sensitivities(problem, time_s, normalized):
   """
   from ._jax import SCALE_PATHS, sensitivities_jax
 
-  config = problem.config
-  if config.bubtherm:
-    raise NotImplementedError("jax sensitivities do not cover bubtherm=1 yet; use backend='scipy' -- see PLAN.md W11")
   paths = [parameter.path for parameter in normalized]
   unknown = [path for path in paths if path not in SCALE_PATHS]
   if unknown:
     raise NotImplementedError(f"jax sensitivities cover the material scales {sorted(SCALE_PATHS)}; got {unknown}")
 
-  states, derived, state_tangent, derived_tangent = sensitivities_jax(problem, time_s, paths)
+  values, tangents = sensitivities_jax(problem, time_s, paths)
+  derived_tangent = tangents.derived
   stats = _solver.SolverStats(
     backend="jax-tsit5-forward", success=True, message="jacfwd through the diffrax solve",
     nfev=0, njev=0, nlu=0, elapsed_s=0.0,
   )
-  simulation = _solver._build_result(problem, time_s, states.T, stats)
+  simulation = _solver._build_result(problem, time_s, values.states.T, stats)
   return SensitivityResult(
     simulation=simulation,
     parameters=normalized,
-    state=_readonly(state_tangent),
+    state=_readonly(tangents.states),
     radius_ratio=_readonly(derived_tangent[:, 0, :]),
     radius_m=_readonly(derived_tangent[:, 1, :]),
     wall_velocity_m_s=_readonly(derived_tangent[:, 2, :]),
     internal_pressure_pa=_readonly(derived_tangent[:, 3, :]),
     stress_integral_pa=_readonly(derived_tangent[:, 4, :]),
-    bubble_temperature_k=None,
-    medium_temperature_k=None,
-    vapor_mass_fraction=None,
+    bubble_temperature_k=_readonly_optional(tangents.bubble_temperature),
+    medium_temperature_k=_readonly_optional(tangents.medium_temperature),
+    vapor_mass_fraction=_readonly_optional(tangents.vapor_fraction),
   )
 
 def solve_with_sensitivities(problem, tv, parameters):
@@ -296,9 +299,9 @@ def solve_with_sensitivities(problem, tv, parameters):
     wall_velocity_m_s=_readonly(outputs[2]),
     internal_pressure_pa=_readonly(outputs[3]),
     stress_integral_pa=_readonly(outputs[4]),
-    bubble_temperature_k=(None if outputs[5] is None else _readonly(outputs[5])),
-    medium_temperature_k=(None if outputs[6] is None else _readonly(outputs[6])),
-    vapor_mass_fraction=(None if outputs[7] is None else _readonly(outputs[7])),
+    bubble_temperature_k=_readonly_optional(outputs[5]),
+    medium_temperature_k=_readonly_optional(outputs[6]),
+    vapor_mass_fraction=_readonly_optional(outputs[7]),
   )
 
 def simulate_with_sensitivities(tv, config, parameters):

@@ -32,6 +32,7 @@ __all__ = [
   "_mu_of_A",
   "_T_of_kv",
   "_bracketed_root",
+  "_traced_root",
   "_wall_theta_bw",
   "_wall_theta_bw_full",
   "pvsat",
@@ -44,6 +45,12 @@ _NOG = (_NSTATE_TAIT - 1.0) / 2.0
 # bracket IS its physical range (0, 1), opened just enough that the residual is
 # evaluated inside it rather than at its removable ends.
 _KV_EPS = 1e-13
+# Traced bisection budget. 20 halvings take a width-1 bracket to 1e-06, which is
+# well inside Newton's basin for this residual; 3 quadratic polish steps then run
+# out of double precision. Both are unrolled into the traced graph, so they are
+# also a compile-time cost -- measured in PLAN.md W11.
+_HALVINGS = 20
+_POLISH = 3
 
 def kirchhoff_theta(temperature, alpha, beta):
   """The Kirchhoff transform of a conductivity linear in temperature.
@@ -221,11 +228,11 @@ def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3, *, xp=np):
   solvent_heating = 12.0 * p["LAM"] / p["Re8"] * strain_rate**2
   return p["Br"] * (polymer_heating + solvent_heating)
 
-def _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale):
-  theta_var = Rvg_ratio * (P / (pvsat(Tw * T8) / pressure_scale) - 1.0)
+def _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale, *, xp=np):
+  theta_var = Rvg_ratio * (P / (pvsat(Tw * T8, xp=xp) / pressure_scale) - 1.0)
   return 1.0 / (1.0 + theta_var)
 
-def _T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale):
+def _T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale, *, xp=np):
   """Closed-form inverse of :func:`_kv_of_T`.
 
   `_kv_of_T` is strictly increasing in `Tw` -- `pvsat` is -- so it inverts, and
@@ -239,7 +246,7 @@ def _T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale):
   is precisely the admissible range: `kv` is a MASS FRACTION.
   """
   ps = P * kv * Rvg_ratio / (kv * Rvg_ratio + 1.0 - kv)
-  return 5200.0 / (T8 * np.log(1.17e11 / (pressure_scale * ps)))
+  return 5200.0 / (T8 * xp.log(1.17e11 / (pressure_scale * ps)))
 
 def _value(x):
   # The residual is evaluated in whichever arithmetic the caller brought: plain
@@ -247,7 +254,47 @@ def _value(x):
   # complex step. All three yield their real value this way.
   return getattr(x, "value", x).real
 
-def _bracketed_root(residual, *, bracket=(_KV_EPS, 1.0 - _KV_EPS)):
+def _traced_root(residual, bracket, xp, *, halvings=_HALVINGS, polish=_POLISH):
+  """The bracketed solve again, for a namespace that cannot branch on a value.
+
+  Under tracing there is no `brentq`: it wants concrete floats, and its control
+  flow is data-dependent besides. Bisection is the one bracketing method whose
+  iteration count does NOT depend on the values -- it is a fixed number of
+  halvings, so the traced program has a fixed shape -- and `xp.where` carries the
+  interval update without a Python branch. That is the whole reason this reads as
+  a plain unrolled loop and needs no `lax` primitive: `where` and `sign` are the
+  only namespace operations involved, so `_thermal` stays free of a jax import.
+
+  Bisection alone would need 52 halvings for a width-1 bracket, which is both
+  slow and a large graph. It only has to reach Newton's basin: `halvings` gets
+  the error to ~1e-6, then the polish steps converge quadratically because the
+  slope is recomputed each time rather than shared. That is the opposite trade
+  from `_bracketed_root`, and for the opposite reason -- there, Brent had already
+  converged and the steps existed only to carry a tangent, so a shared slope with
+  `1 - d**2` error was the cheaper way to get one.
+
+  Differentiating this gives the right answer for the same reason: the halvings
+  are comparisons and contribute no tangent, and the Newton steps supply the
+  implicit-function derivative from a residual that is differentiated exactly.
+  """
+  low, high = bracket
+  # A boolean rather than `xp.sign`, which returns 0 at an exact zero and would
+  # then match neither side. No `_value` either: this path runs only for a traced
+  # namespace, where the residual is already real.
+  below = residual(low) >= 0.0
+  for _ in range(halvings):
+    middle = 0.5 * (low + high)
+    left = (residual(middle) >= 0.0) == below
+    low = xp.where(left, middle, low)
+    high = xp.where(left, high, middle)
+  root = 0.5 * (low + high)
+  for _ in range(polish):
+    step = 1e-7 * root
+    slope = (residual(root + step) - residual(root - step)) / (2.0 * step)
+    root = root - residual(root) / slope
+  return root
+
+def _bracketed_root(residual, *, bracket=(_KV_EPS, 1.0 - _KV_EPS), xp=np):
   """Solve `residual(kv) = 0` on a bracket, then attach the exact tangent.
 
   Brent on the bracket -- bisection, secant and inverse quadratic interpolation
@@ -271,6 +318,7 @@ def _bracketed_root(residual, *, bracket=(_KV_EPS, 1.0 - _KV_EPS)):
   squares the error rather than merely shrinking it -- no step-size tuning and
   no wider stencil, both of which only move `d` around.
   """
+  if xp is not np: return _traced_root(residual, bracket, xp)
   low, high = bracket
   # `brentq` checks the endpoint signs itself, so checking them here first would
   # pay for two of the ~12 residual evaluations a wall solve costs to say
@@ -333,6 +381,8 @@ def _wall_theta_bw_full(
   grad_Tm,
   grad_Trans,
   grad_C,
+  *,
+  xp=np,
 ):
   """Wall energy balance with equilibrium phase change, solved on `kv in (0, 1)`.
 
@@ -370,15 +420,15 @@ def _wall_theta_bw_full(
   beta_m = kv_end_stale * beta_v + (1.0 - kv_end_stale) * beta_g
 
   def resid(kv):
-    Tw = _T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale)
+    Tw = _T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale, xp=xp)
     theta_bw = kirchhoff_theta(Tw, alpha_m, beta_m)
-    flux = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
-    flux = flux + grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
+    flux = grad_Tm[0] * Tw + xp.sum(grad_Tm[1:] * Tm_tail)
+    flux = flux + grad_Trans[0] * theta_bw + xp.sum(grad_Trans[1:] * theta_tail)
     denominator = (kv * Rva_diff + Rg_star) * Tw * (1.0 - kv)
-    return denominator * flux + P * (grad_C[0] * kv + np.sum(grad_C[1:] * kv_tail))
+    return denominator * flux + P * (grad_C[0] * kv + xp.sum(grad_C[1:] * kv_tail))
 
-  kv = _bracketed_root(resid)
-  return kirchhoff_theta(_T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale), alpha_m, beta_m)
+  kv = _bracketed_root(resid, xp=xp)
+  return kirchhoff_theta(_T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale, xp=xp), alpha_m, beta_m)
 
 def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, *, xp=np):
   # Returns the fields as well as the temperature: jax arrays are immutable, so
@@ -404,6 +454,7 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, *, xp=np):
       medium.grad_Tm,
       medium.grad_Trans,
       medium.grad_C,
+      xp=xp,
     ))
   elif medium is not None:
     theta = at_set(theta, -1, _wall_theta_bw(theta[-2::-1], Tm[1:], p["alpha_g"], p["beta_g"], medium.grad_Tm, medium.grad_Trans, xp=xp))
@@ -412,7 +463,7 @@ def _apply_thermal_boundaries(theta, Tm, kv, P, p, medium, masstrans, *, xp=np):
     alpha_m = kv * p["alpha_v"] + (1.0 - kv) * p["alpha_g"]
     beta_m = kv * p["beta_v"] + (1.0 - kv) * p["beta_g"]
     temperature = kirchhoff_temperature(theta, alpha_m, beta_m, xp=xp)
-    kv = at_set(kv, -1, _kv_of_T(temperature[-1], P, p["T8"], p["Rv_star"] / p["Rg_star"], p["P8"]))
+    kv = at_set(kv, -1, _kv_of_T(temperature[-1], P, p["T8"], p["Rv_star"] / p["Rg_star"], p["P8"], xp=xp))
   else:
     temperature = kirchhoff_temperature(theta, p["alpha_g"], p["beta_g"], xp=xp)
   if Tm is not None: Tm = at_set(Tm, 0, temperature[-1])

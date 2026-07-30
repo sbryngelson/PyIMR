@@ -18,20 +18,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `cache-dependency-path` is not optional here. setup-python's pip cache
+      # keys on `**/requirements.txt` by default, and this project has none, so
+      # `cache: pip` alone was hashing nothing and every job re-downloaded the
+      # world -- jaxlib is ~100 MB of that.
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+          cache-dependency-path: pyproject.toml
 
-      # PyMC 6 requires Python >= 3.12 while this package supports 3.10, so the
-      # inference extra is installable on only part of the matrix. The 3.10 job
-      # therefore covers the core install -- which is what a user without the
-      # extra actually gets -- and tests/test_pymc_bridge.py skips there.
+      # PyMC 6 and jax both require Python >= 3.12 while this package supports
+      # 3.10, so those extras are installable on only part of the matrix. The
+      # 3.10 job therefore covers the core install -- which is what a user
+      # without the extras actually gets -- and test_pymc_bridge.py and
+      # test_backend_jax.py skip there.
+      #
+      # Leaving jax off the 3.10 job is deliberate rather than incidental. The
+      # extra says `jax>=0.4`, and current jax requires 3.12, so pip would not
+      # fail there -- it would resolve some years-old release and exercise a code
+      # path nobody runs. Skipping is the honest outcome; the scoping note in
+      # tests/test_backend_jax.py keeps the refusal assertions running anyway.
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          extra=$([ "${{ matrix.python-version }}" = "3.10" ] && echo "test" || echo "test,inference")
+          extra=$([ "${{ matrix.python-version }}" = "3.10" ] && echo "test" || echo "test,inference,jax")
           python -m pip install -e ".[$extra]"
+
+      # The XLA compilation cache `imr_fast._jax._enable_compilation_cache`
+      # configures. Measured on tests/test_backend_jax.py with a scratch cache
+      # directory: 64.0 s cold against 29.7 s warm, because the module compiles a
+      # distinct program per configuration and there are 34 of them. Tracing is
+      # Python and is paid either way; this is the other half.
+      #
+      # A stale entry cannot be wrong, only missed: XLA keys entries by the hash
+      # of the HLO itself, so changed source simply does not hit. That is why the
+      # key carries the commit and the restore falls back to any earlier one --
+      # each run starts from the newest cache and saves its own.
+      - name: Cache XLA compilations
+        if: matrix.python-version != '3.10'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/imr_fast/jax
+          key: xla-${{ matrix.python-version }}-${{ github.sha }}
+          restore-keys: xla-${{ matrix.python-version }}-
 
       # -rA prints one line per test, so a failure names itself in the log
       # instead of requiring a search for which check moved.

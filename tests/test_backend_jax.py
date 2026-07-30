@@ -19,9 +19,11 @@ import imr_fast.sensitivity
 from imr_fast import _jax
 from _validation_support import NHKV, R0, REQ, oldroyd_b, zener
 
-# Scoped to the cross-backend test rather than the module: the refusals below
-# need no jax at all -- `_jax.unsupported_reason` imports only numpy -- and CI
-# has no jax, so a module-level skip would drop the coverage that runs there.
+# Scoped to the cross-backend tests rather than the module: the refusals below
+# need no jax at all -- `_jax.unsupported_reason` imports only numpy -- and the
+# 3.10 CI job has none, because jax requires 3.12 while this package supports
+# 3.10. A module-level skip would drop the refusal coverage on exactly the job
+# that stands in for a core install.
 _HAS_JAX = all(importlib.util.find_spec(name) is not None for name in ("jax", "diffrax"))
 requires_jax = pytest.mark.skipif(not _HAS_JAX, reason="jax and diffrax are optional; not installed")
 

@@ -188,6 +188,17 @@ SCALE_PATHS = {
   "material.stiffening": 4,
 }
 
+# The configuration scalars `params` already takes positionally, so tracing them
+# needs no structure rebuilt around a tracer -- which is exactly why the material
+# scales needed `SCALE_PATHS` and these do not. `params`' only `np.` call is
+# `sqrt(P8/rho)` on concrete physics values, so it is traceable as it stands.
+#
+# `physics.*` and `initial.*` are NOT here. They are dataclass fields, so tracing
+# one means constructing the dataclass from a tracer, and `__post_init__` validates
+# with `np.isfinite`. The remaining nondifferentiable config fields are discrete or
+# choose the discretisation; `_dual._NONDIFFERENTIABLE_FIELDS` lists them.
+CONFIG_PATHS = ("R0", "Req", "T8", "pA", "omega", "TW", "DT")
+
 def sensitivities_jax(problem, times, paths):
   """`(outputs, tangents)` for the mechanical path, both from one `jacfwd`.
 
@@ -203,29 +214,42 @@ def sensitivities_jax(problem, times, paths):
   are None for a mechanical configuration, on both backends.
   """
   jax, jnp, diffrax = _jax()
-  from ._prepare import _material_scales, params
+  from ._prepare import _material_scales, initial_state_vector, medium_with_parameters, params
   from ._rhs import _rhs, _rhs_args
   from ._stress import _stress
   from ._thermal import _apply_thermal_boundaries
 
   config = problem.config
-  unknown = [path for path in paths if path not in SCALE_PATHS]
-  if unknown: raise ValueError(f"jax sensitivities cover the material scales {sorted(SCALE_PATHS)}; got {unknown}")
+  covered = set(SCALE_PATHS) | set(CONFIG_PATHS)
+  unknown = [path for path in paths if path not in covered]
+  if unknown: raise ValueError(f"jax sensitivities cover {sorted(covered)}; got {unknown}")
   base = np.asarray(_material_scales(config.material), dtype=float)
-  slots = [SCALE_PATHS[path] for path in paths]
+  # ONE traced vector in the caller's order, whichever group each path belongs to:
+  # `jacfwd` differentiates with respect to a single input, and the tangent columns
+  # have to come back in the order the caller asked for.
+  traced_base = np.asarray([base[SCALE_PATHS[path]] if path in SCALE_PATHS else getattr(config, path) for path in paths], dtype=float)
   layout = problem.layout
   has_stress = layout.stress.stop > layout.stress.start
-  initial = jnp.asarray(np.asarray(problem.initial_state, dtype=float))
   grid_s = np.asarray(times, dtype=float)
+  collapse_state = None if problem.collapse_stats is None else np.asarray(problem.collapse_stats.stress_state, dtype=float)
 
-  def outputs(values):
+  def outputs(traced):
+    # Scales override `params`' `scales=` argument; config scalars ARE its
+    # positional arguments. Two destinations, one traced vector.
     scales = jnp.asarray(base)
-    for slot, value in zip(slots, values, strict=True): scales = scales.at[slot].set(value)
+    scalars = {path: getattr(config, path) for path in CONFIG_PATHS}
+    for index, path in enumerate(paths):
+      if path in SCALE_PATHS: scales = scales.at[SCALE_PATHS[path]].set(traced[index])
+      else: scalars[path] = traced[index]
     p = params(
-      config.R0, config.Req, config.material, config.vapor, config.T8, config.pA, config.omega, config.TW,
-      config.DT, config.mn, config.wave_type, config.bubtherm, config.masstrans, config.physics,
+      scalars["R0"], scalars["Req"], config.material, config.vapor, scalars["T8"], scalars["pA"], scalars["omega"],
+      scalars["TW"], scalars["DT"], config.mn, config.wave_type, config.bubtherm, config.masstrans, config.physics,
       xp=jnp, scales=tuple(scales),
     )
+    # Rebuilt from `p`, not reused from `prepare`. `Pb`, `kv0` and `Uc` all come
+    # from `p`, so with R0, Req or T8 traced the STARTING state carries a tangent
+    # and a concrete `problem.initial_state` would contribute exactly zero.
+    initial = initial_state_vector(config, layout, p, collapse_state, xp=jnp)
     # The prepared thermal operators pass through as constants, and that is
     # correct rather than convenient: the medium's flux weights are built from
     # `chi`, `iota`, `Fom` and `L_heat_star`, and its grid powers from `Lt` --
@@ -234,7 +258,10 @@ def sensitivities_jax(problem, times, paths):
     # is rebuilt from tracers above. Checked against the scipy tangents for
     # bubtherm, medtherm and masstrans rather than argued from the parameter
     # list alone.
-    args = _rhs_args(problem, p)
+    # Rebuilt once and used everywhere: `_rhs` through `args`, and the temperature
+    # outputs below, which run the same wall closure.
+    medium = medium_with_parameters(problem.medium, p, xp=jnp)
+    args = _rhs_args(problem, p, medium=medium)
     grid = jnp.asarray(grid_s) / p["t0"]
     solution = diffrax.diffeqsolve(
       diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), diffrax.Tsit5(),
@@ -258,12 +285,16 @@ def sensitivities_jax(problem, times, paths):
     else:
       pressure = states[:, layout.pressure]
     stress = _stress(config.material, p, radius, velocity, stress_state, problem.instantaneous_material, False, xp=jnp)[0]
+    # `scalars["R0"]`, not `config.R0`: the dimensional outputs scale by it, so
+    # with R0 among the parameters the concrete field would drop that term from
+    # its own tangent -- a wrong derivative for the one output named after it.
+    length = scalars["R0"]
     derived = jnp.stack(
-      [radius, radius * config.R0, velocity * config.R0 / p["t0"], pressure * p["P8"], stress * p["P8"]], axis=1
+      [radius, radius * length, velocity * length / p["t0"], pressure * p["P8"], stress * p["P8"]], axis=1
     )
-    return (states, derived, *_thermal_fields(states, p, problem, jnp, _apply_thermal_boundaries))
+    return (states, derived, *_thermal_fields(states, p, problem, medium, jnp, _apply_thermal_boundaries, scalars["T8"]))
 
-  values = jnp.asarray(base[slots])
+  values = jnp.asarray(traced_base)
 
   def required(item):
     return np.asarray(jax.block_until_ready(item), dtype=float)
@@ -279,7 +310,7 @@ def sensitivities_jax(problem, times, paths):
 
   return plain(outputs(values)), plain(jax.jacfwd(outputs)(values))
 
-def _thermal_fields(states, p, problem, jnp, apply_boundaries):
+def _thermal_fields(states, p, problem, medium, jnp, apply_boundaries, reference_temperature):
   """`(bubble_temperature, medium_temperature, vapor_fraction)`, or three Nones.
 
   The same three `_thermal_outputs` builds on the numpy side, and they have to be
@@ -300,11 +331,15 @@ def _thermal_fields(states, p, problem, jnp, apply_boundaries):
     Tm = state[layout.medium_thermal] if layout.medium_thermal is not None else None
     kv = state[layout.vapor_fraction] if layout.vapor_fraction is not None else None
     _, Tm, kv, temperature, _ = apply_boundaries(
-      theta, Tm, kv, state[layout.pressure], p, problem.medium, config.masstrans, xp=jnp
+      theta, Tm, kv, state[layout.pressure], p, medium, config.masstrans, xp=jnp
     )
     return temperature, Tm, kv
 
   import jax  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
 
   temperature, Tm, kv = jax.vmap(at_one_time)(states)
-  return config.T8 * temperature, None if Tm is None else config.T8 * Tm, kv
+  # `reference_temperature`, not `config.T8`. Both outputs are a RATIO times that
+  # scale, so with T8 among the parameters the concrete field drops the product
+  # rule's other term -- measured as a 1.11 relative error on the bubble
+  # temperature tangent, the same mistake `derived` made with `config.R0`.
+  return reference_temperature * temperature, None if Tm is None else reference_temperature * Tm, kv

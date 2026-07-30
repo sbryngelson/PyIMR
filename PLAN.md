@@ -1674,12 +1674,63 @@ last knot.
 kept rather than deleted: its shape is what makes a future restriction a named
 refusal at construction instead of a tracer error three frames inside diffrax.
 
-What still blocks stage 5 is one thing: non-scale parameters (`R0`, `Req`, `T8`,
-...) in the traced sensitivities. `params` already takes all seven of them as
-plain positional scalars and its only `np.` call is on concrete physics values, so
-the work is the INITIAL STATE, which depends on traced `R0`, `Req` and `T8`
-through `Pb`, `kv0` and the temperature ratios -- plus `derived`, which scales by
-`config.R0` directly.
+### Configuration scalars as traced parameters
+
+`CONFIG_PATHS` -- `R0`, `Req`, `T8`, `pA`, `omega`, `TW`, `DT` -- needed no
+`SCALE_PATHS`-style indirection: `params` already takes all seven positionally, and
+its only `np.` call is `sqrt(P8/rho)` on concrete physics values. `physics.*` and
+`initial.*` stay out, because tracing one means constructing a dataclass from a
+tracer and `__post_init__` validates with `np.isfinite` -- the same wall the
+material scales hit.
+
+What they did need was FOUR places that were reading a concrete field where a
+traced value belonged. Each showed up as one wrong output with the rest right,
+which is what located them:
+
+| site | symptom |
+|---|---|
+| `derived` scaled by `config.R0` | wrong tangent for the output named after it |
+| `_thermal_fields` scaled by `config.T8` | 1.11 relative error, temperatures only |
+| `initial_state_vector` not rebuilt | `Pb`, `kv0`, `Uc` contribute zero to the start |
+| medium wall weights not rebuilt | see below |
+
+The medium is the subtle one, and the earlier claim in this plan that it needs no
+jax counterpart to `_dual_medium` was **too strong**. It holds for the five
+material scales. It does not hold for `R0` or `T8`, because the weights are built
+from `chi = T8*K8/(P8*R0*Uc)`.
+
+Why only `T8` showed it: **`_wall_theta_bw` is invariant to a common scaling of the
+weights.** Multiply `chi` by any factor and `b`, `c` and `k` all scale with it,
+which cancels out of `s = (-b + sqrt(b*b - 2*alpha*c*k))/c`. `R0` enters only
+through `chi`, so a constant medium gave it a correct tangent by accident. `iota`
+multiplies `grad_Tm` alone, so `T8` is not a common factor and it plateaued at
+1.30e-02 however tightly either backend integrated.
+
+Then rebuilding the medium for `_rhs` but not for `_thermal_fields` -- which runs
+the same wall closure -- left the two temperature tangents at 5.75e-04, again
+tolerance-independent, while all five state tangents converged. `_rhs_args` now
+takes `medium` as a REQUIRED keyword so a second consumer cannot silently use the
+prepared one.
+
+**Convergence is what separated missing terms from integrator error throughout**,
+and a finite difference of the forward solve is what settled which backend was
+wrong when both were plausible: at the 5.75e-04 stage scipy sat 1.9e-09 from the
+difference and jax 5.75e-04, so the defect was mine.
+
+Agreement after all four fixes, worst field per case: 2.3e-06 mechanical R0,
+5.2e-07 Req, 1.2e-06 pA, 2.1e-07 T8-with-vapour, 3.2e-05 coupled R0, 1.1e-04
+coupled Req, 1.2e-05 coupled T8, 7.9e-07 mass-transfer R0 -- all converging.
+
+`initial_state_vector` and `medium_with_parameters` are shared with `prepare`
+rather than reimplemented, on the `_rhs_args` precedent from the thermal work: the
+duplicated argument list there is exactly how the thermal slots came to be zeroed
+without anyone noticing. Verified bit-identical across the refactor on 14 cases --
+every forcing, collapse initialisation, mass transfer, and both tangent routes.
+
+Removing `_pinf`'s `if ee == 0.0` early-out was part of this: `ee` scales with
+`pA`, so that was a Python branch on a traced value. Its own comment had asserted
+`ee` was configuration, which stopped being true. No compensating arithmetic was
+needed because every arm is already proportional to `ee`.
 
 ### A measurement error worth recording
 

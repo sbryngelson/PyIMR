@@ -246,15 +246,26 @@ def test_jax_sensitivities_refuse_what_they_do_not_cover():
   would make the backend field mean one thing for trajectories and another for
   their derivatives.
 
-  `bubtherm=1` used to be refused here too. It is covered now -- see
-  test_jax_thermal_tangents_match_the_scipy_sensitivity_path -- so what is left is
-  the parameter set: only the five material scales can be traced, because a
-  material cannot be built from a tracer at all.
+  Both earlier entries are gone: `bubtherm=1` is covered by
+  test_jax_thermal_tangents_match_the_scipy_sensitivity_path, and `R0` by
+  test_jax_config_scalar_tangents_match_the_scipy_sensitivity_path.
+
+  What is left is the boundary that has an actual reason behind it. `physics.*` and
+  `initial.*` are dataclass fields, so tracing one means constructing the dataclass
+  from a tracer -- and `__post_init__` validates with `np.isfinite`, which converts
+  it. The scipy route differentiates them; this one refuses them by name rather
+  than falling back, which would make `backend="jax"` mean one thing for
+  trajectories and another for their derivatives.
   """
   times = np.linspace(0.0, 20e-6, 40)
   mechanical = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax"))
-  with pytest.raises(NotImplementedError, match="material scales"):
-    imr_fast.sensitivity.solve_with_sensitivities(mechanical, times, ("R0",))
+  for path in ("physics.far_field_pressure_pa", "initial.wall_velocity_m_s"):
+    with pytest.raises(NotImplementedError, match="jax sensitivities cover"):
+      imr_fast.sensitivity.solve_with_sensitivities(mechanical, times, (path,))
+  # And the scipy route does support them, so this is a backend gap rather than a
+  # package-wide one -- which is what makes the refusal worth naming.
+  scipy_side = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV))
+  assert imr_fast.sensitivity.solve_with_sensitivities(scipy_side, times, ("physics.far_field_pressure_pa",)) is not None
 
 
 @requires_jax
@@ -458,3 +469,90 @@ def test_sampled_forcing_matches_scipy(label, times, options, measured):
   worst, typical = float(np.nanmax(np.abs(reference - computed))), float(np.nanmedian(np.abs(reference - computed)))
   measured(f"jax vs scipy sampled forcing {label}", f"max={worst:.2e} median={typical:.2e}")
   assert worst < _MAX_BOUND and typical < _MEDIAN_BOUND
+
+
+# Configuration scalars as traced parameters. These needed no `SCALE_PATHS`-style
+# indirection -- `params` already takes all seven positionally, and its only `np.`
+# call is `sqrt(P8/rho)` on concrete physics values. What they did need was three
+# things that had been reading concrete config fields where a traced value belonged,
+# each of which showed up as one wrong output and the rest right:
+#
+#   `derived` scaled by `config.R0`; `_thermal_fields` by `config.T8` (1.11 error);
+#   and `initial_state_vector` was not rebuilt at all, so `Pb`, `kv0` and `Uc`
+#   contributed zero to the starting state's tangent.
+#
+# Plus the medium's wall weights, which are built from `chi = T8*K8/(P8*R0*Uc)`.
+# Those are subtle: `_wall_theta_bw` is invariant to a COMMON scaling of the
+# weights, so `R0` -- which enters only through `chi` -- had a correct tangent from
+# a constant medium, while `T8` did not because `iota` multiplies `grad_Tm` alone.
+_CONFIG_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float]] = [
+  ("mechanical R0", dict(radial=2), ("R0",), 1e-05),
+  ("mechanical Req", dict(radial=2), ("Req",), 1e-05),
+  ("mechanical pA", dict(radial=2, wave_type=1, pA=5e4, TW=5e-6, DT=2e-5), ("pA",), 1e-05),
+  ("mechanical T8 w/ vapor", dict(radial=2, vapor=1), ("T8",), 1e-05),
+  ("coupled R0", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("R0",), 1e-04),
+  ("coupled Req", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("Req",), 5e-04),
+  ("coupled T8", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("T8",), 1e-04),
+  ("coupled G and R0", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("material.shear_modulus_pa", "R0"), 1e-04),
+  ("mass transfer R0", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("R0",), 1e-04),
+]
+
+@requires_jax
+@pytest.mark.parametrize("label,options,paths,bound", _CONFIG_TANGENT_CASES, ids=[c[0] for c in _CONFIG_TANGENT_CASES])
+def test_jax_config_scalar_tangents_match_the_scipy_sensitivity_path(label, options, paths, bound, measured):
+  """`R0`, `Req`, `T8` and `pA`, mixed with a material scale in one of the cases so
+  the two groups' ordering in the traced vector is exercised rather than assumed.
+
+  The `T8 w/ vapor` case carries `vapor=1` on purpose. Without vapour, `Pv = 0 *
+  pvsat(T8)` and `T8` has no effect on a mechanical solve at all, so both backends
+  return exactly zero and the comparison passes without testing anything.
+  """
+  times = np.linspace(0.0, 15e-6, 60)
+  reference = imr_fast.sensitivity.solve_with_sensitivities(
+    imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, **options)), times, paths
+  )
+  computed = imr_fast.sensitivity.solve_with_sensitivities(
+    imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, backend="jax", **options)), times, paths
+  )
+
+  worst = {}
+  for field in _ALL_TANGENT_FIELDS:
+    expected, actual = getattr(reference, field), getattr(computed, field)
+    assert (expected is None) == (actual is None), f"{field} is None on only one backend"
+    if expected is None: continue
+    expected = np.asarray(expected)
+    scale = float(np.max(np.abs(expected)))
+    assert scale > 0.0, f"{field} tangent is identically zero -- this case tests nothing"
+    worst[field] = float(np.max(np.abs(expected - np.asarray(actual)))) / scale
+  measured(f"jax config tangents {label}", "  ".join(f"{f.split('_')[0]}={w:.1e}" for f, w in worst.items()))
+  assert max(worst.values()) < bound, worst
+
+@requires_jax
+def test_the_traced_medium_is_rebuilt_for_every_consumer(measured):
+  """A regression test for a defect that only `T8` exposed, and only in two of
+  seven outputs.
+
+  The medium's wall weights carry `T8`. Rebuilding them for `_rhs` but leaving
+  `_thermal_fields` on the prepared ones left the two temperature output tangents
+  5.7e-04 wrong -- tolerance-independent -- while all five state tangents
+  converged. Convergence is what separates a missing term from integrator error,
+  so that is what is asserted: an eight-order fall over six orders of tolerance.
+  """
+  times = np.linspace(0.0, 15e-6, 60)
+  options: dict[str, Any] = dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd")
+  errors = []
+  for tolerance in (1e-7, 1e-10, 1e-12):
+    reference = imr_fast.sensitivity.solve_with_sensitivities(
+      imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, rtol=tolerance, atol=tolerance, **options)),
+      times, ("T8",),
+    )
+    computed = imr_fast.sensitivity.solve_with_sensitivities(
+      imr_fast.prepare(
+        imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, rtol=tolerance, atol=tolerance, backend="jax", **options)
+      ),
+      times, ("T8",),
+    )
+    expected = np.asarray(reference.bubble_temperature_k)
+    errors.append(float(np.max(np.abs(expected - np.asarray(computed.bubble_temperature_k)))) / float(np.max(np.abs(expected))))
+  measured("jax T8 temperature tangent convergence", " -> ".join(f"{e:.1e}" for e in errors))
+  assert errors[-1] < errors[0] / 1e4, f"the T8 temperature tangent did not converge: {errors}"

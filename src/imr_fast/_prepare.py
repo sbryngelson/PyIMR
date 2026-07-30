@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+import copy
 from types import MappingProxyType
 
 import numpy as np
@@ -43,6 +44,7 @@ from ._materials import (
   _stress_state_count,
 )
 from ._rhs import _rhs
+from ._autodiff import at_set
 from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, mixture_kirchhoff, pvsat
 from .thermal_fd import finite_diff_mat
 from .thermal_spectral import chebyshev_diff_mat
@@ -101,7 +103,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   Ca = P8_value / G if concrete[0] > 0 else xp.inf
   Re8 = P8_value * R0 / (mu * Uc) if concrete[1] > 0 else xp.inf
   We = P8_value * R0 / (2 * surface_tension)
-  Pv = vapor * pvsat(T8)
+  Pv = vapor * pvsat(T8, xp=xp)
   P0_exp = 3 if bubtherm else 3 * kappa
   P0 = (P8_value + 2 * surface_tension / Req - Pv) * (Req / R0) ** P0_exp
   Pv_star = Pv / P8_value
@@ -280,6 +282,69 @@ def _prepare_distributed_jacobian(config, layout):
 
 def _thermal_state(temperature_ratio, alpha, beta): return kirchhoff_theta(temperature_ratio, alpha, beta)
 
+def medium_with_parameters(medium, p, *, xp=np):
+  """The medium's parameter-dependent wall weights, rebuilt for a new `p`.
+
+  `grad_Tm`, `grad_Trans` and `grad_C` are each a stencil times a scalar built
+  from `chi`, `iota`, `Fom` and `L_heat_star`. The stencils are pure grid geometry
+  and are reused; the scalars are not, and `chi = T8*K8/(P8*R0*Uc)` in particular
+  carries `T8` and `R0`.
+
+  Needed because `_wall_theta_bw` is invariant to a COMMON scaling of the weights
+  -- multiply `chi` by any factor and its quadratic gives the same root -- so a
+  constant medium happens to produce the right tangent for `R0`, which enters only
+  through `chi`. `iota` multiplies `grad_Tm` alone, so `T8` is not a common factor
+  and a constant medium plateaus at 1.30e-02 however tightly either backend
+  integrates. Convergence separates the two cases; the invariance is why only one
+  of them showed up.
+
+  `_dual.py`'s `_dual_medium` is the Dual-path counterpart. It additionally
+  rebuilds the `yT` powers, because that path can differentiate
+  `physics.medium_grid_length` and the traced one cannot.
+  """
+  if medium is None: return None
+  updated = copy.copy(medium)
+  bubble, med = xp.asarray(medium.bubble_wall_stencil), xp.asarray(medium.medium_wall_stencil)
+  for name, value in (
+    ("grad_Tm", 2.0 * p["chi"] * p["iota"] * med),
+    ("grad_Trans", p["chi"] * bubble),
+    ("grad_C", p["Fom"] * p["L_heat_star"] * bubble),
+  ):
+    object.__setattr__(updated, name, value)
+  return updated
+
+def initial_state_vector(config, layout, p, collapse_state, *, xp=np):
+  """The state the solve starts from, in whichever arithmetic `p` is built in.
+
+  One definition, because the traced sensitivity path needs it too and a second
+  copy would drift. It has to be rebuilt from tracers rather than reused from
+  `prepare`: `Pb`, `kv0` and `Uc` all come from `p`, so with `R0`, `Req` or `T8`
+  among the differentiated parameters the STARTING state carries a tangent, and a
+  concrete `problem.initial_state` would silently contribute zero.
+
+  Validation stays in `prepare`. This assembles, so it can run under a trace where
+  raising on a value is not available anyway.
+  """
+  initial = config.initial
+  state = xp.zeros(layout.size)
+  state = at_set(state, 0, 1.0)
+  state = at_set(state, 1, initial.wall_velocity_m_s / p["Uc"])
+  if collapse_state is not None:
+    state = at_set(state, layout.stress, xp.asarray(collapse_state))
+  elif initial.stress_state is not None:
+    state = at_set(state, layout.stress, xp.asarray(initial.stress_state))
+  if not config.bubtherm: return state
+  state = at_set(state, layout.pressure, p["Pb"])
+  vapor_fraction = p["kv0"] if initial.vapor_mass_fraction is None else initial.vapor_mass_fraction
+  if config.masstrans: state = at_set(state, layout.vapor_fraction, vapor_fraction)
+  temperature_ratio = 1.0 if initial.bubble_temperature_k is None else initial.bubble_temperature_k / config.T8
+  alpha, beta = mixture_kirchhoff(vapor_fraction, p, config.masstrans)
+  state = at_set(state, layout.bubble_thermal, _thermal_state(temperature_ratio, alpha, beta))
+  if config.medtherm:
+    ratio = 1.0 if initial.medium_temperature_k is None else initial.medium_temperature_k / config.T8
+    state = at_set(state, layout.medium_thermal, ratio)
+  return state
+
 def _collapse_zener_rhs(state, p):
   radius, velocity, stress = state
   equilibrium = p["req"]
@@ -406,24 +471,18 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
   initial = config.initial
   if initial.internal_pressure_pa is not None: p["Pb"] = initial.internal_pressure_pa / p["P8"]
   layout = StateLayout.from_config(config)
-  initial_state = np.zeros(layout.size)
-  initial_state[0] = 1.0
-  initial_state[1] = initial.wall_velocity_m_s / p["Uc"]
   if initial.bubble_temperature_k is not None and not config.bubtherm: raise ValueError("initial bubble temperature requires bubtherm=1")
   if initial.medium_temperature_k is not None and not config.medtherm: raise ValueError("initial medium temperature requires medtherm=1")
   if initial.vapor_mass_fraction is not None and not config.masstrans: raise ValueError("initial vapor mass fraction requires masstrans=1")
   stress_width = layout.stress.stop - layout.stress.start
   if initial.stress_state is not None and len(initial.stress_state) != stress_width:
     raise ValueError(f"initial stress_state requires exactly {stress_width} values")
-  if collapse_state is not None:
-    initial_state[layout.stress] = collapse_state
-  elif initial.stress_state is not None: initial_state[layout.stress] = initial.stress_state
+  initial_state = initial_state_vector(config, layout, p, collapse_state)
   bubble_grid = None
   bubble_D1 = None
   bubble_D2 = None
   medium = None
   if config.bubtherm:
-    initial_state[layout.pressure] = p["Pb"]
     spectral = config.thermal == "spectral"
     _diff = chebyshev_diff_mat if spectral else finite_diff_mat
     bubble_y = chebyshev_nodes(config.Nt, 0) if spectral else np.linspace(0.0, 1.0, config.Nt)
@@ -431,14 +490,7 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
     bubble_grid = _freeze_array(bubble_y)
     bubble_D1 = _freeze_array(bubble_first)
     bubble_D2 = _freeze_array(_diff(config.Nt, 2, 0))
-    vapor_fraction = p["kv0"] if initial.vapor_mass_fraction is None else initial.vapor_mass_fraction
-    if config.masstrans: initial_state[layout.vapor_fraction] = vapor_fraction
-    temperature_ratio = 1.0 if initial.bubble_temperature_k is None else initial.bubble_temperature_k / config.T8
-    alpha, beta = mixture_kirchhoff(vapor_fraction, p, config.masstrans)
-    initial_state[layout.bubble_thermal] = _thermal_state(temperature_ratio, alpha, beta)
     if config.medtherm:
-      medium_temperature_ratio = 1.0 if initial.medium_temperature_k is None else initial.medium_temperature_k / config.T8
-      initial_state[layout.medium_thermal] = medium_temperature_ratio
       Nm = config.Mt - 1
       deltaYm = -2.0 / Nm
       # linspace, not `1 + arange(Mt) * deltaYm`: the accumulated form misses

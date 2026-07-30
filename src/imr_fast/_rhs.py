@@ -52,14 +52,19 @@ def _sampled_pressure(tn, forcing, *, xp=np):
 def _pinf(tn, p, forcing=None, *, xp=np):
   if forcing is not None: return _sampled_pressure(tn, forcing, xp=xp)
   wt, ee, om, tw, dt, mn = (p["wave_type"], p["ee"], p["om"], p["tw"], p["dt"], p["mn"])
-  # `wave_type` and `ee` are configuration and stay Python branches. The WINDOWS
-  # are not: they test `tn`, the integration time, which a tracer supplies, so
-  # they become `where`. Same values on numpy -- verified bit-identical -- but
-  # both arms are now evaluated, which is why the histotripsy cosine is clamped
-  # rather than guarded. Outside its window `c` would otherwise go negative and
-  # `c ** (mn - 1)` produce a nan that `where` would then select against, and a
-  # nan selected against still poisons a gradient.
-  if ee == 0.0: return 0.0, 0.0
+  # `wave_type` is configuration and stays a Python branch. The WINDOWS are not:
+  # they test `tn`, the integration time, which a tracer supplies, so they become
+  # `where`. Same values on numpy -- verified bit-identical -- but both arms are
+  # now evaluated, which is why the histotripsy cosine is clamped rather than
+  # guarded. Outside its window `c` would otherwise go negative and `c ** (mn - 1)`
+  # produce a nan that `where` would then select against, and a nan selected
+  # against still poisons a gradient.
+  #
+  # `ee` is not configuration either, any more: it scales with `pA`, which the
+  # traced sensitivity path differentiates. The `if ee == 0.0` early-out this used
+  # to carry was a Python branch on that value. Removing it costs one branch on an
+  # unforced solve and needs no compensating arithmetic, because every arm below is
+  # already proportional to `ee` -- verified bit-identical on all four arithmetics.
   if wt == 0:  # constant offset impulse
     return ee, 0.0
   if wt == 1:  # Gaussian
@@ -77,8 +82,16 @@ def _pinf(tn, p, forcing=None, *, xp=np):
 
 def _nZ(material): return _stress_state_count(material)
 
-def _rhs_args(problem, p):
+def _rhs_args(problem, p, *, medium):
   """The positional arguments `_rhs` takes, for a prepared problem.
+
+  `medium` is required rather than read off `problem`, and that is deliberate. Its
+  wall weights are built from `chi`, `iota`, `Fom` and `L_heat_star`, so the traced
+  sensitivity path has to substitute a rebuilt one -- and every other consumer of
+  those weights has to substitute the SAME one. Passing it silently defaulted is
+  how `_thermal_fields` came to use the prepared medium while `_rhs` used the
+  rebuilt one, which left the temperature output tangents 5.7e-04 wrong against a
+  finite difference while every state tangent converged.
 
   One definition, because there were two and they had drifted. The forward path
   built the full tuple; `_jax.sensitivities_jax` built its own with every thermal
@@ -92,7 +105,7 @@ def _rhs_args(problem, p):
   config = problem.config
   return (
     p, config.material, config.radial, config.bubtherm, problem.bubble_D1, problem.bubble_D2, problem.bubble_grid,
-    config.medtherm, problem.medium, config.masstrans, problem.forcing, problem.instantaneous_material,
+    config.medtherm, medium, config.masstrans, problem.forcing, problem.instantaneous_material,
     problem.distributed_stress,
   )
 

@@ -14,7 +14,7 @@ from ._materials import _stress_state_count
 from ._stress import _distributed_stress, _stress
 from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
 
-__all__ = ["_nZ", "_pinf", "_radius_floor_event", "_rhs", "_sampled_pressure"]
+__all__ = ["_nZ", "_pinf", "_radius_floor_event", "_rhs", "_rhs_args", "_sampled_pressure"]
 
 def _sampled_pressure(tn, forcing):
   time_value = primal(tn)
@@ -55,6 +55,25 @@ def _pinf(tn, p, forcing=None, *, xp=np):
   raise ValueError(f"wave_type={wt} not supported")
 
 def _nZ(material): return _stress_state_count(material)
+
+def _rhs_args(problem, p):
+  """The positional arguments `_rhs` takes, for a prepared problem.
+
+  One definition, because there were two and they had drifted. The forward path
+  built the full tuple; `_jax.sensitivities_jax` built its own with every thermal
+  slot zeroed, which silently made the jax tangents mechanical-only and is what
+  the `bubtherm=1` refusal in `sensitivity.py` was standing in front of.
+
+  `p` is passed rather than read off `problem` because the traced sensitivity path
+  rebuilds it from tracers -- that is the whole point there -- while the forward
+  path uses `problem.parameters` unchanged.
+  """
+  config = problem.config
+  return (
+    p, config.material, config.radial, config.bubtherm, problem.bubble_D1, problem.bubble_D2, problem.bubble_grid,
+    config.medtherm, problem.medium, config.masstrans, problem.forcing, problem.instantaneous_material,
+    problem.distributed_stress,
+  )
 
 def _rhs(
   tn,

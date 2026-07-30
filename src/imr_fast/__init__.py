@@ -212,6 +212,7 @@ from ._rhs import (  # noqa: F401
   _pinf,
   _radius_floor_event,
   _rhs,
+  _rhs_args,
   _sampled_pressure,
 )
 
@@ -280,21 +281,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
   time_s = _validate_inputs(tv, config)
   p = problem.parameters
   tn = time_s / p["t0"]
-  args = (
-    p,
-    config.material,
-    config.radial,
-    config.bubtherm,
-    problem.bubble_D1,
-    problem.bubble_D2,
-    problem.bubble_grid,
-    config.medtherm,
-    problem.medium,
-    config.masstrans,
-    problem.forcing,
-    problem.instantaneous_material,
-    problem.distributed_stress,
-  )
+  args = _rhs_args(problem, p)
   states, stats = _integrate(
     _rhs, tn, problem.initial_state, args=args, event=_radius_floor_event, sparsity=problem.jacobian_sparsity,
     rtol=config.rtol, atol=config.atol, failure="IMR integration failed", backend=config.backend,

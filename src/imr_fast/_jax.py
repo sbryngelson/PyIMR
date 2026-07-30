@@ -22,12 +22,13 @@ from __future__ import annotations
 
 import os
 import pathlib
+from dataclasses import dataclass
 
 import numpy as np
 
 from ._config import SimulationError, SolverStats
 
-__all__ = ["SCALE_PATHS", "available", "integrate_jax", "sensitivities_jax", "unsupported_reason"]
+__all__ = ["SCALE_PATHS", "TracedOutputs", "available", "integrate_jax", "sensitivities_jax", "unsupported_reason"]
 
 _MISSING = "backend='jax' requires jax and diffrax: pip install 'imr-fast[jax]'"
 
@@ -152,6 +153,28 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   if not success: raise SimulationError(f"{failure}: {message}", stats)
   return states, stats
 
+# `derived`'s column order, which `sensitivity._jax_sensitivities` unpacks.
+_DERIVED_ORDER = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
+
+@dataclass(frozen=True, slots=True)
+class TracedOutputs:
+  """What `sensitivities_jax` differentiates, returned once as values and once as
+  tangents.
+
+  A structure rather than a flat tuple, and that is not cosmetic: this was ten
+  positional values by the end, callers reached in with `*_, tangent`, and the
+  moment the thermal fields were appended that silently started picking up the
+  vapour tangent -- None for a mechanical configuration. Naming the fields also
+  lets the three optional ones BE optional to a type checker while the other two
+  are not, which a dict of arrays cannot express.
+  """
+
+  states: np.ndarray
+  derived: np.ndarray
+  bubble_temperature: np.ndarray | None
+  medium_temperature: np.ndarray | None
+  vapor_fraction: np.ndarray | None
+
 # The five scales `_material_scales` returns, by the parameter path that names
 # each. Structure stays concrete and only these are traced -- a material cannot
 # be built from a traced value at all, because `__post_init__` validates with
@@ -174,14 +197,15 @@ def sensitivities_jax(problem, times, paths):
   `_output_duals` and `_compiled_mechanical_outputs` exist to do exactly this by
   hand.
 
-  Returns `(states, derived, state_tangent, derived_tangent)`. `derived` is
-  ordered `radius_ratio, radius_m, wall_velocity_m_s, internal_pressure_pa,
-  stress_integral_pa`; the tangents carry a trailing parameter axis.
+  Returns `(values, tangents)`, both `TracedOutputs`. `derived` is ordered
+  `_DERIVED_ORDER`; tangents carry a trailing parameter axis. The thermal fields
+  are None for a mechanical configuration, on both backends.
   """
   jax, jnp, diffrax = _jax()
   from ._prepare import _material_scales, params
-  from ._rhs import _rhs
+  from ._rhs import _rhs, _rhs_args
   from ._stress import _stress
+  from ._thermal import _apply_thermal_boundaries
 
   config = problem.config
   unknown = [path for path in paths if path not in SCALE_PATHS]
@@ -201,8 +225,15 @@ def sensitivities_jax(problem, times, paths):
       config.DT, config.mn, config.wave_type, config.bubtherm, config.masstrans, config.physics,
       xp=jnp, scales=tuple(scales),
     )
-    args = (p, config.material, config.radial, 0, None, None, None, 0, None, 0, problem.forcing,
-            problem.instantaneous_material, None)
+    # The prepared thermal operators pass through as constants, and that is
+    # correct rather than convenient: the medium's flux weights are built from
+    # `chi`, `iota`, `Fom` and `L_heat_star`, and its grid powers from `Lt` --
+    # all thermal or geometric, none of them derived from the five material
+    # scales this traces. `Br` does carry viscosity, but it lives in `p`, which
+    # is rebuilt from tracers above. Checked against the scipy tangents for
+    # bubtherm, medtherm and masstrans rather than argued from the parameter
+    # list alone.
+    args = _rhs_args(problem, p)
     grid = jnp.asarray(grid_s) / p["t0"]
     solution = diffrax.diffeqsolve(
       diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), diffrax.Tsit5(),
@@ -215,13 +246,64 @@ def sensitivities_jax(problem, times, paths):
     stress_state = states[:, layout.stress].T if has_stress else None
     # Same closed forms `_build_result` uses, vectorised over time rather than
     # looped -- verified equal to the loop at 0 and 3.5e-18 for NHKV and Zener.
-    pressure = (p["Pb"] - p["Pv"]) * radius ** (-3.0 * p["kappa"]) + p["Pv"]
+    #
+    # Including its BRANCH. The polytropic form holds only while the internal
+    # pressure is algebraic in the radius; with `bubtherm=1` it is a state
+    # variable instead, and using the closed form there left every thermal
+    # pressure tangent 8.0e-01 wrong while radius, velocity and stress agreed to
+    # 1e-07 -- a discrepancy in one output only, which is what pointed here.
+    if layout.pressure is None:
+      pressure = (p["Pb"] - p["Pv"]) * radius ** (-3.0 * p["kappa"]) + p["Pv"]
+    else:
+      pressure = states[:, layout.pressure]
     stress = _stress(config.material, p, radius, velocity, stress_state, problem.instantaneous_material, False, xp=jnp)[0]
     derived = jnp.stack(
       [radius, radius * config.R0, velocity * config.R0 / p["t0"], pressure * p["P8"], stress * p["P8"]], axis=1
     )
-    return states, derived
+    return (states, derived, *_thermal_fields(states, p, problem, jnp, _apply_thermal_boundaries))
 
   values = jnp.asarray(base[slots])
-  primal, tangent = outputs(values), jax.jacfwd(outputs)(values)
-  return tuple(np.asarray(jax.block_until_ready(item), dtype=float) for pair in (primal, tangent) for item in pair)
+
+  def required(item):
+    return np.asarray(jax.block_until_ready(item), dtype=float)
+
+  def optional(item):
+    return None if item is None else required(item)
+
+  def plain(group):
+    # Unpacked by name rather than splatted, so the two always-present fields
+    # stay non-optional to a type checker.
+    states, derived, bubble, medium, vapor = group
+    return TracedOutputs(required(states), required(derived), optional(bubble), optional(medium), optional(vapor))
+
+  return plain(outputs(values)), plain(jax.jacfwd(outputs)(values))
+
+def _thermal_fields(states, p, problem, jnp, apply_boundaries):
+  """`(bubble_temperature, medium_temperature, vapor_fraction)`, or three Nones.
+
+  The same three `_thermal_outputs` builds on the numpy side, and they have to be
+  built the same way: the wall values are not in the state vector -- the closure
+  supplies them -- so reading the raw slices would report the interior with a
+  stale wall node.
+
+  `vmap` rather than the numpy path's per-timestep Python loop. That loop would
+  unroll into the traced graph once per output time, and with mass transfer each
+  copy carries the bracketed solve's 29 residual evaluations, so a 60-point
+  request would trace ~1700 of them. Mapping over the time axis traces one.
+  """
+  config, layout = problem.config, problem.layout
+  if not config.bubtherm: return None, None, None
+
+  def at_one_time(state):
+    theta = state[layout.bubble_thermal]
+    Tm = state[layout.medium_thermal] if layout.medium_thermal is not None else None
+    kv = state[layout.vapor_fraction] if layout.vapor_fraction is not None else None
+    _, Tm, kv, temperature, _ = apply_boundaries(
+      theta, Tm, kv, state[layout.pressure], p, problem.medium, config.masstrans, xp=jnp
+    )
+    return temperature, Tm, kv
+
+  import jax  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
+
+  temperature, Tm, kv = jax.vmap(at_one_time)(states)
+  return config.T8 * temperature, None if Tm is None else config.T8 * Tm, kv

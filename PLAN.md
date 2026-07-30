@@ -1574,6 +1574,84 @@ still cover only the mechanical path -- `sensitivities_jax` builds its `args` wi
 the thermal slots zeroed -- and refuse thermal configurations by name, which is
 unchanged and separate from this.
 
+### Thermal forward sensitivities on the jax backend
+
+The `bubtherm=1` refusal in `sensitivity._jax_sensitivities` was standing in front
+of a duplicated argument list, not a missing capability. `sensitivities_jax` built
+its own `_rhs` positional tuple with every thermal slot zeroed -- `bubtherm=0`,
+`medtherm=0`, `masstrans=0`, `medium=None` -- so the traced program was mechanical
+whatever the configuration said. `_rhs_args` is now one definition, shared with
+the forward path in `_integrate_prepared`.
+
+**The prepared thermal operators pass through as constants, and that is correct
+rather than convenient.** The medium's flux weights are built from `chi`, `iota`,
+`Fom` and `L_heat_star`, and its grid powers from `Lt` -- all thermal or
+geometric, none derived from the five material scales this traces. `Br` does carry
+viscosity, but it lives in `p`, which is rebuilt from tracers. So no jax
+counterpart to `_dual_medium` is needed. Checked against the scipy tangents rather
+than argued from the parameter list alone.
+
+Two real defects surfaced once the thermal cases could run at all:
+
+**The pressure output used the wrong branch.** `outputs` computed the internal
+pressure from the polytropic closed form, which holds only while it is algebraic
+in the radius. With `bubtherm=1` it is a state variable. Every thermal pressure
+tangent was 8.0e-01 wrong while radius, velocity and stress agreed to 1e-07 --
+one output wrong and the rest right is what pointed at the closed form rather
+than at the tangent machinery.
+
+**The three thermal output tangents were hardcoded to None.** Worse than a
+refusal: `backend="jax"` returned a `SensitivityResult` whose thermal tangents
+were silently absent while the scipy one filled them in, which is the exact
+asymmetry `_jax_sensitivities`' own docstring argues against. They are built with
+`jax.vmap` over the time axis. The numpy path's per-timestep Python loop would
+unroll one wall closure per output time into the graph, and with mass transfer
+each copy carries the bracketed solve's 29 residual evaluations -- ~1700 traced
+for a 60-point request against one for the mapped form.
+
+Agreement with the scipy sensitivity path, worst field per case, default
+tolerances:
+
+| case | worst field | rel |
+|---|---|---|
+| mechanical | internal_pressure_pa | 3.3e-07 |
+| bubtherm fd | bubble_temperature_k | 2.1e-06 |
+| bubtherm spectral | bubble_temperature_k | 8.6e-06 |
+| coupled fd | bubble_temperature_k | 1.8e-06 |
+| coupled spectral | medium_temperature_k | 6.1e-05 |
+| coupled+mass fd | internal_pressure_pa | 8.6e-07 |
+
+The spectral medium temperature is the one case outside the 1e-05 bound the other
+tangent tests use, and it is INTEGRATOR error rather than a discrepancy. Tightening
+both integrators together: 1.2e-01 at 1e-07, 1.6e-03 at 1e-09, 5.3e-07 at 1e-11,
+7.7e-10 at 1e-13 -- eight orders over six of tolerance, so the two backends compute
+the same tangent. Bounds are therefore per case at ~5x measured, on the precedent
+argued in `test_validation_trajectories`, with the convergence asserted separately
+as the property-level claim.
+
+`sensitivities_jax` now returns a mapping rather than a flat tuple. It returned
+ten positional values by the end, and callers reached in with `*_, tangent`, which
+silently picked up the vapour tangent -- None for a mechanical config -- the moment
+the thermal fields were appended.
+
+### Collapse shooting was never a jax blocker
+
+Listed as one for most of W11, and it is not. Collapse shooting is a
+`prepare`-time computation -- `solve_ivp` with a terminal maximum-radius event, a
+bracket-expansion loop, and a `brentq` over the two -- and a traced program never
+sees any of it. It produces `problem.initial_state`, a concrete array, and the
+traced solve starts from that like any other. The three parts that would be hard
+to trace all happen before tracing begins.
+
+Measured rather than reasoned: Zener with `collapse=CollapseInitialization()`
+agrees between backends at 1.58e-06, and now has a test saying so. Differentiating
+THROUGH the shooting is still out, but that needs `R0` and `Req` as traced
+parameters -- a `SCALE_PATHS` limitation, filed below, not a collapse one.
+
+What still blocks stage 5, then, is two things rather than three:
+`sampled_forcing` on the forward path, and non-scale parameters (`R0`, `Req`,
+`T8`, ...) in the traced sensitivities.
+
 ### A measurement error worth recording
 
 Four hypotheses were tested against a sweep that rebuilt only `R`, `Rd` and `P`

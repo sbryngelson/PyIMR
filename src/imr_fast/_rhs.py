@@ -16,20 +16,41 @@ from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_diss
 
 __all__ = ["_nZ", "_pinf", "_radius_floor_event", "_rhs", "_rhs_args", "_sampled_pressure"]
 
-def _sampled_pressure(tn, forcing):
+def _sampled_pressure(tn, forcing, *, xp=np):
+  """The PCHIP forcing history, without a Python branch on the integration time.
+
+  Three things here were data-dependent on `tn`, which a tracer supplies: the
+  out-of-range test, the knot search, and the index into the coefficient rows.
+  None of them needed a new algorithm.
+
+  `searchsorted` exists in both namespaces and takes a traced needle. The index it
+  returns is then clamped rather than compared, and the coefficients are read
+  through `xp` because a tracer cannot index a numpy array at all.
+
+  The range test becomes a 0/1 MASK carried by an ordinary multiply, not an
+  `xp.where` over the results. `where` is not a ufunc, so `np.where` on a `Dual`
+  would return an object array rather than a `Dual` and quietly break the tangent
+  path -- whereas the mask itself is built from plain floats in every arithmetic,
+  and the polymorphic multiply is what applies it. Both arms are evaluated, on the
+  same argument as `_pinf`'s windows: a cubic at a clamped interval stays finite,
+  so nothing poisons a gradient.
+  """
   time_value = primal(tn)
   knot_values = primal_array(forcing.knots)
-  if time_value < knot_values[0] or time_value > knot_values[-1]: return 0.0, 0.0
-  interval = np.searchsorted(knot_values, time_value, side="right") - 1
-  interval = min(interval, knot_values.size - 2)
-  offset = tn - forcing.knots[interval]
-  c0, c1, c2, c3 = forcing.coefficients[:, interval]
+  interval = xp.clip(xp.searchsorted(xp.asarray(knot_values), time_value, side="right") - 1, 0, knot_values.size - 2)
+  # The offset keeps the ORIGINAL knots, not the primal copy above: `knots` is the
+  # sampled time divided by `t0`, so it carries a tangent whenever `t0` does. The
+  # search needs only values; the arithmetic needs the derivative.
+  offset = tn - xp.asarray(forcing.knots)[interval]
+  coefficients = xp.asarray(forcing.coefficients)
+  c0, c1, c2, c3 = (coefficients[row][interval] for row in range(4))
   pressure = ((c0 * offset + c1) * offset + c2) * offset + c3
   pressure_rate = (3.0 * c0 * offset + 2.0 * c1) * offset + c2
-  return pressure, pressure_rate
+  inside = xp.where((time_value >= knot_values[0]) & (time_value <= knot_values[-1]), 1.0, 0.0)
+  return pressure * inside, pressure_rate * inside
 
 def _pinf(tn, p, forcing=None, *, xp=np):
-  if forcing is not None: return _sampled_pressure(tn, forcing)
+  if forcing is not None: return _sampled_pressure(tn, forcing, xp=xp)
   wt, ee, om, tw, dt, mn = (p["wave_type"], p["ee"], p["om"], p["tw"], p["dt"], p["mn"])
   # `wave_type` and `ee` are configuration and stay Python branches. The WINDOWS
   # are not: they test `tn`, the integration time, which a tracer supplies, so

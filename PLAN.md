@@ -1648,9 +1648,38 @@ agrees between backends at 1.58e-06, and now has a test saying so. Differentiati
 THROUGH the shooting is still out, but that needs `R0` and `Req` as traced
 parameters -- a `SCALE_PATHS` limitation, filed below, not a collapse one.
 
-What still blocks stage 5, then, is two things rather than three:
-`sampled_forcing` on the forward path, and non-scale parameters (`R0`, `Req`,
-`T8`, ...) in the traced sensitivities.
+### Sampled forcing: `unsupported_reason` is now empty
+
+Three data-dependent uses of `tn`, none of which needed a new algorithm.
+`searchsorted` exists in both namespaces and takes a traced needle; the index it
+returns is clamped rather than compared; and the coefficient rows are read through
+`xp`, because a tracer cannot index a numpy array at all.
+
+The out-of-range early return became a multiplicative 0/1 MASK rather than an
+`xp.where` over the results, and that choice is load-bearing: `where` is not a
+ufunc, so `np.where` on a `Dual` returns an object array and would have broken the
+tangent path silently. The mask is built from plain floats in every arithmetic and
+the polymorphic multiply applies it. Verified bit-identical across the change on
+the numpy trajectory (both inside and past the last knot) AND on the Dual tangent.
+
+numpy's `complex128` supports ordering comparisons on the real part, so the
+complex-step path takes the same code unchanged -- checked, because a `>=` that
+raises for `complex` would have been a silent regression on the one route the
+bit-identity harness does not cover by default.
+
+Measured against scipy: 8.2e-06 mechanical, 9.8e-08 coupled fd, 6.1e-06 past the
+last knot.
+
+`unsupported_reason` now returns None for every configuration. The function is
+kept rather than deleted: its shape is what makes a future restriction a named
+refusal at construction instead of a tracer error three frames inside diffrax.
+
+What still blocks stage 5 is one thing: non-scale parameters (`R0`, `Req`, `T8`,
+...) in the traced sensitivities. `params` already takes all seven of them as
+plain positional scalars and its only `np.` call is on concrete physics values, so
+the work is the INITIAL STATE, which depends on traced `R0`, `Req` and `T8`
+through `Pb`, `kv0` and the temperature ratios -- plus `derived`, which scales by
+`config.R0` directly.
 
 ### A measurement error worth recording
 

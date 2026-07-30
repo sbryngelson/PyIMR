@@ -143,7 +143,7 @@ def test_wall_temperature_satisfies_its_own_boundary_condition(scale):
   theta_tail = scale * np.arange(1.0, grad_Trans.size)
   Tm_tail = 1.0 + scale * np.arange(1.0, grad_Tm.size)
 
-  theta_bw = _thermal._wall_theta_bw(0.0, theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans)
+  theta_bw = _thermal._wall_theta_bw(theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans)
 
   # Reconstructed through the shared inverse, so a mis-derived quadratic here
   # cannot be masked by re-deriving the temperature the same wrong way (#75).
@@ -226,3 +226,84 @@ def test_the_transform_derivative_is_the_conductivity_the_rhs_uses(measured):
   conductivity = alpha * temperature + beta
   measured("d(theta)/dT vs K*(T)", f"{slope:.9f} vs {conductivity:.9f}")
   assert abs(slope - conductivity) < 1e-9
+
+
+# The wall closure with mass transfer. `kv` is a MASS FRACTION, so `(0, 1)` is
+# not a convenience bound -- it is the physics, and `_kv_of_T` reaches 1 exactly
+# where `pvsat(Tw) = P`. That coincidence is why the residual as shipped carried
+# a pole at the edge of its own admissible range, and why iterating from the
+# previous call's answer could walk through it: measured 26 of 1480 wall solves
+# returning mass fractions as far out as +179 and -603, all at deepest collapse.
+# See #111 and the `_wall_theta_bw_full` docstring.
+
+
+def test_wall_vapor_fraction_inverts_in_closed_form():
+  """`_T_of_kv` is what turns admissibility into a constant bracket, so it has to
+  be the exact inverse of `_kv_of_T` across the whole range -- including near
+  `kv = 1`, where `Tw` approaches saturation and the old residual had its pole."""
+  P, T8, ratio, scale = 1.4, 298.15, 461.0 / 287.0, 101325.0
+  fractions = np.concatenate([np.geomspace(1e-10, 1e-3, 40), np.linspace(1e-3, 1.0 - 1e-12, 400)])
+  recovered = _thermal._kv_of_T(_thermal._T_of_kv(fractions, P, T8, ratio, scale), P, T8, ratio, scale)
+  assert float(np.max(np.abs(recovered - fractions))) < 1e-12
+
+
+def test_every_wall_solve_returns_a_physical_mass_fraction():
+  """The property the bracket buys, asserted over a full collapse rather than at
+  a sampled state: no wall solve may return a mass fraction outside `(0, 1)`.
+
+  This covers rejected trial steps too, which is where the excursions were. They
+  never reached the accepted trajectory -- it moves by 1.4e-12 across this fix --
+  but a rejected step's garbage root is one accuracy test away from being kept,
+  and warm-starting from it is what made the right-hand side depend on the
+  integrator's step history instead of on the state alone.
+  """
+  solves = []
+  original = _thermal._bracketed_root
+
+  def record(residual, **options):
+    root = original(residual, **options)
+    solves.append(float(root))
+    return root
+
+  _thermal._bracketed_root = record
+  try:
+    config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd")
+    imr_fast.simulate(np.linspace(0.0, 25e-6, 200), config)
+  finally:
+    _thermal._bracketed_root = original
+  fractions = np.array(solves)
+  assert fractions.size > 500, f"only {fractions.size} wall solves -- is masstrans still reaching the closure?"
+  outside = int(np.sum((fractions <= 0.0) | (fractions >= 1.0)))
+  assert outside == 0, f"{outside} of {fractions.size} wall solves left the physical range, worst {fractions.min():.3g} to {fractions.max():.3g}"
+
+
+def test_the_wall_residual_has_one_root_on_the_bracket():
+  """Uniqueness is what lets the bracket stand in for a branch choice. If the
+  pole-free residual ever grew a second sign change on `(0, 1)`, bracketing
+  would silently pick whichever end Brent walked toward first."""
+  captured = []
+  original = _thermal._bracketed_root
+
+  def record(residual, **options):
+    captured.append(residual)
+    return original(residual, **options)
+
+  _thermal._bracketed_root = record
+  try:
+    config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd")
+    imr_fast.simulate(np.linspace(0.0, 25e-6, 60), config)
+  finally:
+    _thermal._bracketed_root = original
+  grid = np.linspace(1e-13, 1.0 - 1e-13, 401)
+  for residual in captured[::37]:
+    values = np.array([float(residual(point)) for point in grid])
+    assert np.all(np.isfinite(values)), "residual is not finite across the bracket"
+    changes = int(np.sum(np.signbit(values[:-1]) != np.signbit(values[1:])))
+    assert changes == 1, f"{changes} sign changes on the bracket, expected exactly 1"
+
+
+def test_a_residual_with_no_admissible_root_says_so():
+  """The raise is the alternative to returning a mass fraction outside `(0, 1)`,
+  so it has to name what it looked for. `brentq`'s own message does not."""
+  with pytest.raises(RuntimeError, match=r"no admissible wall vapour fraction.*residual"):
+    _thermal._bracketed_root(lambda kv: 1.0 + kv)

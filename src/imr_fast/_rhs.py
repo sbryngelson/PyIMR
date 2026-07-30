@@ -69,7 +69,6 @@ def _rhs(
   medtherm=0,
   mt=None,
   masstrans=0,
-  wall_state=None,
   forcing=None,
   instantaneous_material=None,
   distributed_stress=None,
@@ -98,7 +97,7 @@ def _rhs(
     if masstrans:
       kv = y[idx : idx + Nt].copy()
       idx += Nt
-    theta, Tm, kv, T, alpha_m = _apply_thermal_boundaries(theta, Tm, kv, P, p, mt, masstrans, wall_state, xp=xp)
+    theta, Tm, kv, T, alpha_m = _apply_thermal_boundaries(theta, Tm, kv, P, p, mt, masstrans, xp=xp)
     Zstart = idx
   else:
     P = (p["Pb"] - Pv) * R ** (-3 * kappa) + Pv  # f_imr_fd.m:412

@@ -1449,6 +1449,75 @@ needs a good one. Both are real changes; neither is a namespace fix.
 Reverted again rather than shipped, because a backend that silently loses
 accuracy through the collapse is worse than one that refuses the configuration.
 
+### Mass transfer, resolved: the closure was solved outside its physical domain
+
+The literature settled it. Barajas & Johnsen -- the source of IMRv2's
+mass-transfer model -- close the wall with equilibrium phase change,
+`rho_w C_w = pvsat(Tw)/(Rv Tw)`, and solve the resulting algebraic condition
+"using an algorithm based on a combination of bisection, secant, and inverse
+quadratic interpolation". That is Brent's method: a **bracketing** solve. The
+warm-started plain secant IMRv2 uses, and this package inherited, is a deviation
+from the reference method, and the deviation is what all the trouble above was.
+
+Two facts make the bracket obvious once looked for. `kv` is a **mass fraction**,
+so `(0, 1)` is physics rather than convenience. And `_kv_of_T` reaches 1 exactly
+where `pvsat(Tw) = P` -- so the residual's `1/(1 - kv)` **pole sat precisely on
+the edge of its own admissible range**, and iterating from a guess walked through
+it. Measured over a 25 us NHKV collapse: 26 of 1480 wall solves returned mass
+fractions outside `(0, 1)`, as far out as +179 and -603, every one of them in the
+last 2% of the solve.
+
+The fix is two changes, both forced by the above:
+
+- **Solve for `kv`, not `theta_bw` or `Tw`.** `_T_of_kv` inverts the equilibrium
+  condition in closed form, so admissibility becomes a bracket -- and a
+  *constant* one, the same for every state. In `Tw` the interval is `(0, Tsat(P))`
+  and has to be recomputed per state.
+- **Multiply through by the denominator.** `D = (kv*Rva_diff + Rg_star)*Tw*(1 - kv)`
+  is strictly positive inside the bracket, so clearing it removes the pole while
+  preserving every root, and the product extends continuously to both endpoints.
+
+Measured on the same 1480 solves: exactly one sign change each, finite
+throughout, roots in `[0.472, 0.804]`. One root on the bracket means **no branch
+has to be chosen**, which is what finally makes the closure a function of state
+alone.
+
+What that bought, beyond correctness:
+
+| | before | after |
+|---|---|---|
+| wall solves outside `(0, 1)` | 26 of 1480 | **0** |
+| complex-step vs `Dual`, coupled+mass | 1e-13 | **5.2e-15** |
+| `errstate` suppressions in the package | 1 | **0** |
+| masstrans+medtherm solve | 314 ms | 511 ms |
+
+`_WallState`, `_secant_root`, the four-rung fallback ladder and the package's
+last floating-point suppression are all deleted -- the warm start was the only
+thing that needed any of them. Removing it also cleared 12 baselined pyright
+errors in `_rhs.py`.
+
+**The accepted trajectory does not move**: 1.4e-12 relative over 2000 samples,
+and the pinned references are unchanged at printed precision. The excursions were
+on trial steps the integrator later *rejected*, so they never reached the
+solution -- which corrects the prediction made when this was authorised, that
+the deep-collapse trajectory would move and `ref_masstrans_medtherm.csv` would
+have to be rebaselined. It does not. IMRv2's trajectory is fine here; what was
+broken is the closure's robustness and its purity. A rejected step's garbage root
+is one accuracy test away from being kept, and warm-starting from it is what made
+the right-hand side depend on the integrator's step history rather than on `(t, y)`.
+
+The cost is real and is the bracket's, not the algorithm's: brentq needs ~10
+residual evaluations from a width-1 bracket against the warm-started secant's
+~4. Measured and rejected as levers -- `brenth`/`toms748`/`ridder` (all slower or
+equal), loosening `xtol` from 1e-15 to 1e-4 (10%), and narrowing the bracket
+around the state's own `kv[-1]` (a poor hint: median gap 0.144, inside +/-0.1
+only 16.7% of the time).
+
+Mass transfer is still refused on jax, but for a mechanical reason now --
+`brentq` wants concrete floats -- rather than because the closure tracked a
+branch through history. A traced bisection on the same constant bracket is the
+remaining work, and it is a namespace-level change.
+
 ### A measurement error worth recording
 
 Four hypotheses were tested against a sweep that rebuilt only `R`, `Rd` and `P`

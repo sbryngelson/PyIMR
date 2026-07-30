@@ -209,11 +209,18 @@ def test_standalone_validation_scripts_still_run(script):
   assert done.returncode == 0, done.stdout[-2000:] + done.stderr[-2000:]
 
 
-# The one place in the package allowed to suppress a floating-point error, and
-# it is a nested function on purpose: a secant iterate can leave the Kirchhoff
-# transform's range, and the resulting nan is what tells the root-finder to back
-# off. The ladder around it, and the solver's own arithmetic, stay honest.
-ERRSTATE_ALLOWED = {"_thermal._wall_theta_bw_full.resid"}
+# Empty, and that is the assertion: nowhere in the package suppresses a
+# floating-point error.
+#
+# The last entry here was `_thermal._wall_theta_bw_full.resid`, which needed one
+# because it iterated the wall solve from a guess -- an iterate could leave the
+# Kirchhoff transform's range, and the resulting nan was what told the
+# root-finder to back off. #111 replaced that with a bracketed solve on the
+# vapour fraction's own physical range, where the residual is finite throughout
+# by construction, so there is nothing left to suppress. A suppression is a
+# claim that some invalid intermediate is expected; removing the last one means
+# no such claim is outstanding.
+ERRSTATE_ALLOWED: set[str] = set()
 
 
 def _own_nodes(node):

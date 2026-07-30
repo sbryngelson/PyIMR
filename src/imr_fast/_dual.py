@@ -158,7 +158,7 @@ def _dual_parameters(config):
   if config.initial.internal_pressure_pa is not None: parameters["Pb"] = config.initial.internal_pressure_pa / parameters["P8"]
   return parameters
 
-def _rhs_physical(time_s, packed, *, problem, config, parameters, medium, wall_state, forcing, width):
+def _rhs_physical(time_s, packed, *, problem, config, parameters, medium, forcing, width):
   state_width = problem.layout.size
   matrix = packed.reshape(state_width, width + 1)
   state = np.empty(state_width, dtype=object)
@@ -178,7 +178,6 @@ def _rhs_physical(time_s, packed, *, problem, config, parameters, medium, wall_s
     config.medtherm,
     medium,
     config.masstrans,
-    wall_state,
     forcing,
     problem.instantaneous_material,
     problem.distributed_stress,
@@ -214,7 +213,6 @@ def _collapse_initial_tangents(problem, config, width):
   initial[1, 0] = problem.collapse_stats.initial_velocity_nondimensional
   initial[1, -1] = 1.0
   upstream_zener = isinstance(material, _solver.Zener)
-  wall_state = _solver._WallState()
 
   def tangent_rhs(time, packed):
     matrix = packed.reshape(2 + state_width, direction_width + 1)
@@ -228,7 +226,6 @@ def _collapse_initial_tangents(problem, config, width):
         parameters,
         material,
         problem.config.radial,
-        wall_state=wall_state,
         instantaneous_material=problem.instantaneous_material,
         distributed_stress=problem.distributed_stress,
       )

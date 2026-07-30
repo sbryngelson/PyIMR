@@ -1969,6 +1969,65 @@ Checked before proposing the removal, by forcing every configuration in
 deviations essentially unchanged -- collapse Zener 1.46e-03 against scipy's 1.47e-03,
 coupled NHKV 7.15e-05 against 7.04e-05, masstrans 2.89e-04 against 2.90e-04.
 
+### Why the non-jax backend stays, after three attempts to remove it
+
+Every capability gate is cleared -- all 28 differentiable paths, the collapse
+shooting tangent, sampled forcing -- and the deletion was written three times and
+reverted three times. Each attempt was stopped by something only measurement found,
+and the third is a hard blocker rather than a cost.
+
+**Attempt 1 was stopped by a silently wrong tangent.** The traced path received the
+collapse stress state as a constant, so its tangent was zero -- relative 1.00, wrong
+outright rather than imprecise. Caught by running the existing validation suite rather
+than only the new tests.
+
+**Attempt 2 was stopped by the cache key.** `sensitivities_jax` keyed on
+`id(problem)`, and `inference` prepares per evaluation, so MCMC would have paid 2.5 s
+a step against 45 ms. Fixed since -- content keying, plus `at=` for the varying
+parameters -- and that fix is what took MCMC to 11.0 ms and BOED to 77 ms.
+
+**Attempt 3 was stopped by stiffness, and this one does not have a workaround.**
+Removing the scipy forward solver breaks grid refinement outright. The bubble thermal
+PDE's stiffness scales like `Nt**2`, so an explicit solver's step count does too:
+
+| bubtherm grid | Tsit5 steps | |
+|---|---:|---|
+| Nt = Mt = 10 | 6,196 | fine |
+| Nt = Mt = 20 | 110,572 | fine, 1.6 s |
+| Nt = Mt = 40 | > 1,000,000 | **fails** |
+
+`test_thermal_grid_convergence` refines to Nt = 40 and passes on LSODA, which switches
+to implicit. Tsit5 cannot. The implicit option was already tried and rejected on
+compile time -- see "IMEX: tried, and the blocker is compile time" above -- so the
+prerequisite for stage 5b is a stiff TRACED solver with acceptable compile time, not
+more test rewriting.
+
+**And the two removals are coupled, which was not obvious.** Deleting the numpy
+sensitivity route forces the likelihood and its gradient onto the traced path. Leave
+the forward solve on scipy and the pair is mixed: their consistency check degrades from
+5e-08 to 1.7e-04, so the gradient becomes the derivative of a slightly different
+function than the log-likelihood it ships with -- the exact failure
+`evaluate_with_jacobian` exists to prevent. So it is one decision, and stiffness gates
+it.
+
+#### What a finite-difference reference can and cannot do
+
+Worth recording, because it was tried and it nearly worked. A central difference of the
+forward solve resolves 5.6e-09 to 3.6e-06 across fifteen tangent cases, which is two to
+four orders below every defect this suite has caught. It is adequate for missing terms,
+which is what the defects were.
+
+Two cases were not straightforward and both misled at first:
+
+- **Collapse** read 2.8e-02 and was STEP-INDEPENDENT -- so not differencing error at
+  all, but the integrators' own error at the default tolerance, which the Zener collapse
+  amplifies. At rtol 1e-12 it is 1.15e-06.
+- **Sampled forcing** was INVERTED: 4.6e-04 at a 1e-03 step, 1.6e-02 at 1e-05, 2.6e+00
+  at 1e-07. The forcing is a piecewise cubic, so a smaller step shrinks the signal but
+  not the error from knots crossing evaluation points. Usable at 1.8e-04 -- a 170x
+  margin against the 3.1e-02 defect it has to catch, against roughly 10^4 elsewhere.
+  That is the one place a difference is close to unable to do the job.
+
 ### A measurement error worth recording
 
 Four hypotheses were tested against a sweep that rebuilt only `R`, `Rd` and `P`

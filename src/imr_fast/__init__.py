@@ -284,7 +284,7 @@ def _integrate_prepared(problem: PreparedProblem, tv):
   args = _rhs_args(problem, p, medium=problem.medium)
   states, stats = _integrate(
     _rhs, tn, problem.initial_state, args=args, event=_radius_floor_event, sparsity=problem.jacobian_sparsity,
-    rtol=config.rtol, atol=config.atol, failure="IMR integration failed", backend=config.backend,
+    rtol=config.rtol, atol=config.atol, failure="IMR integration failed", backend=config.backend, config=config,
     max_step=None if config.max_step_s is None else config.max_step_s / p["t0"],
   )
   return time_s, states, stats

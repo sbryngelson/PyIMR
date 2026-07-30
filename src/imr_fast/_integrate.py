@@ -31,7 +31,7 @@ from ._stress import _MaterialDomainError
 
 __all__ = ["integrate"]
 
-def integrate(rhs, times, initial, *, args, event, sparsity, rtol, atol, failure, label="", max_step=None, backend="scipy"):
+def integrate(rhs, times, initial, *, args, event, sparsity, rtol, atol, failure, label="", max_step=None, backend="scipy", config=None):
   """Run `rhs` over `times`, returning `(states, stats)` and raising on failure.
 
   `states` is scipy's `solution.y` orientation -- one row per state variable, one
@@ -47,7 +47,8 @@ def integrate(rhs, times, initial, *, args, event, sparsity, rtol, atol, failure
 
     key = (id(args[0]), len(times), float(times[0]), float(times[-1]), np.shape(initial), rtol, atol, label)
     return integrate_jax(
-      rhs, times, initial, args=args, rtol=rtol, atol=atol, failure=failure, label=label, max_step=max_step, cache_key=key
+      rhs, times, initial, args=args, rtol=rtol, atol=atol, failure=failure, label=label, max_step=max_step,
+      cache_key=key, config=config
     )
   method = "BDF" if sparsity is not None else "LSODA"
   options = {"jac_sparsity": sparsity} if sparsity is not None else {}

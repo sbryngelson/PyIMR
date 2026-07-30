@@ -350,7 +350,13 @@ def test_jax_thermal_tangents_converge_to_the_scipy_ones(measured):
     scale = max(float(np.max(np.abs(expected))), 1e-30)
     errors.append(float(np.max(np.abs(expected - np.asarray(computed.medium_temperature_k)))) / scale)
   measured("jax thermal tangent convergence", " -> ".join(f"{e:.1e}" for e in errors))
-  assert errors[-1] < errors[0] / 1e4, f"medium temperature tangent did not converge: {errors}"
+  # Monotone descent plus a bound on where it ARRIVES, not a fixed ratio between the
+  # ends. A ratio rewards a solver whose loose-tolerance answer is bad: Tsit5 ran
+  # 1.2e-01 -> 1.6e-03 -> 5.3e-07 and passed a 1e4 ratio, while Kvaerno5 runs
+  # 4.3e-04 -> 7.5e-06 -> 5.8e-08 -- better at every tolerance, including the last --
+  # and fails it, purely for starting closer.
+  assert all(later < earlier for earlier, later in zip(errors, errors[1:], strict=False)), f"not monotone: {errors}"
+  assert errors[-1] < 1e-06, f"medium temperature tangent did not converge: {errors}"
 
 
 def test_collapse_initialization_needs_nothing_from_this_backend(measured):

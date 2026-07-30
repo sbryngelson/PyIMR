@@ -1997,10 +1997,25 @@ PDE's stiffness scales like `Nt**2`, so an explicit solver's step count does too
 | Nt = Mt = 40 | > 1,000,000 | **fails** |
 
 `test_thermal_grid_convergence` refines to Nt = 40 and passes on LSODA, which switches
-to implicit. Tsit5 cannot. The implicit option was already tried and rejected on
-compile time -- see "IMEX: tried, and the blocker is compile time" above -- so the
-prerequisite for stage 5b is a stiff TRACED solver with acceptable compile time, not
-more test rewriting.
+to implicit. Tsit5 cannot.
+
+**That blocker is now removed, and the earlier IMEX note does not generalise.** "IMEX:
+tried, and the blocker is compile time" was about KenCarp. `Kvaerno5` with an
+`optimistix.Newton` root finder behaves nothing like it -- at Nt = 40 it COMPILES
+FASTER than Tsit5, 3.5 s against 44.8 s, because Tsit5's cost there is the unrolled
+step budget it cannot meet:
+
+| Nt = Mt | Tsit5 | Kvaerno5 |
+|---|---|---|
+| 10 | 6,196 steps, 51 ms | 882 steps, 141 ms |
+| 20 | 110,572 steps, 774 ms | 927 steps, 382 ms |
+| 40 | > 1,000,000, FAILS | 968 steps, 558 ms |
+
+Forward-mode composes with it: `jacfwd` through `ForwardMode` works because optimistix
+differentiates the Newton solve by the implicit function theorem rather than unrolling
+it. At Nt = 40 Tsit5 needs 44.8 s to compile, 42.5 s to run, and returns a tangent that
+is 1.00 wrong because the solve never finished; Kvaerno5 needs 3.5 s and 796 ms and is
+right.
 
 **And the two removals are coupled, which was not obvious.** Deleting the numpy
 sensitivity route forces the likelihood and its gradient onto the traced path. Leave
@@ -2009,6 +2024,33 @@ the forward solve on scipy and the pair is mixed: their consistency check degrad
 function than the log-likelihood it ships with -- the exact failure
 `evaluate_with_jacobian` exists to prevent. So it is one decision, and stiffness gates
 it.
+
+#### The dividing line is the GRID, not the physics
+
+Nearly mis-drawn. Two measurements disagreed about whether Nt = 40 fails, and the
+difference was neither the grid size nor the time span but `thermal`, which defaults to
+`"spectral"`. Chebyshev nodes cluster at the boundaries, so the diffusion operator's
+spectral radius grows like `Nt**4` where the finite-difference grid's grows like
+`Nt**2`. Steps over 25 us:
+
+| case | Nt | explicit | implicit | |
+|---|---|---|---|---|
+| bubtherm spectral | 11 | 9,083 | 884 | Tsit5 faster on the clock |
+| bubtherm spectral | 25 | 279,694 | 930 | Kvaerno5 5x faster |
+| bubtherm spectral | 41 | > 1e6 | 965 | Tsit5 exhausts max_steps |
+| coupled spectral | 11 | 7,922 | 778 | Kvaerno5 1.7x faster |
+| coupled spectral | 25 | 244,552 | 861 | Kvaerno5 12x faster |
+| bubtherm fd | 41 | 11,953 | 826 | Tsit5 4x faster |
+
+So the rule is `bubtherm and thermal == "spectral"` -> implicit, and the
+finite-difference grids stay explicit at every size measured. An implicit step costs
+roughly ten explicit ones on systems this size, which is the whole reason the rule is
+not simply "thermal -> implicit".
+
+The Newton tolerance is stated rather than defaulted, and it is NOT what limits the
+tangent: tightening it from 1e-8 to 1e-13 left the sensitivity agreement at 2.26e-04,
+2.52e-04, 2.30e-04 while runtime grew 2.6x. That number is integration error at the
+configured `rtol`, the same as everywhere else here.
 
 #### What a finite-difference reference can and cannot do
 

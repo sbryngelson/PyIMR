@@ -16,8 +16,24 @@ before anything touches a dtype.
 mechanical problem against 6.9e+16 for coupled spectral, with median equal to
 worst in every case: stiffness belongs to the configuration, not to a phase of
 the solve. scipy already relies on this, picking BDF when a Jacobian sparsity
-pattern is present and LSODA otherwise. The mechanical path this backend accepts
-is the non-stiff one, so it takes an explicit solver.
+pattern is present and LSODA otherwise.
+
+The dividing line here is `thermal="spectral"`, and it is the grid rather than the
+physics. Chebyshev nodes cluster at the boundaries, so the diffusion operator's
+spectral radius grows like `Nt**4` where the finite-difference grid's grows like
+`Nt**2`. Measured over 25 us, explicit against implicit, in steps:
+
+    bubtherm spectral  Nt=11    9,083 vs   884       Tsit5 faster on the clock
+    bubtherm spectral  Nt=25  279,694 vs   930       Kvaerno5 5x faster
+    bubtherm spectral  Nt=41  >1e6    vs   965       Tsit5 EXHAUSTS max_steps
+    coupled  spectral  Nt=11    7,922 vs   778       Kvaerno5 1.7x faster
+    coupled  spectral  Nt=25  244,552 vs   861       Kvaerno5 12x faster
+    bubtherm fd        Nt=41   11,953 vs   826       Tsit5 4x faster
+
+Kvaerno5's count is flat in `Nt`; Tsit5's is not, and `test_thermal_grid_convergence`
+refines to `Nt = 40` on the default grid, which is spectral. An implicit step costs
+roughly ten explicit ones on systems this size, which is why the finite-difference
+grids stay explicit and why the spectral ones do not.
 """
 
 from __future__ import annotations
@@ -35,6 +51,22 @@ from ._config import InitialState, PhysicalParameters, SimulationError, SolverSt
 from ._materials import Zener
 
 __all__ = ["CONFIG_PATHS", "INITIAL_PATHS", "PHYSICS_PATHS", "SCALE_PATHS", "TracedOutputs", "integrate_jax", "sensitivities_jax"]
+
+def _solver_for(config, diffrax):
+  """The solver this configuration wants, and why.
+
+  Implicit for spectral thermal grids, explicit otherwise -- see the module note. The
+  root finder is an explicit `optimistix.Newton` rather than the default so the
+  tolerance is stated: it does not limit the tangent, checked by tightening it to
+  1e-13 and watching the sensitivity agreement not move (2.26e-04, 2.52e-04, 2.30e-04)
+  while the runtime grew 2.6x. What that number reflects is integration error at the
+  configured `rtol`, exactly as it does for the explicit solver.
+  """
+  if config.bubtherm and config.thermal == "spectral":
+    import optimistix  # pyright: ignore[reportMissingImports]
+
+    return diffrax.Kvaerno5(root_finder=optimistix.Newton(rtol=1e-8, atol=1e-8)), "kvaerno5"
+  return diffrax.Tsit5(), "tsit5"
 
 def _jax():
   # No try/except around these. They are declared dependencies now, so an
@@ -122,7 +154,7 @@ def _cached(key, build):
     hit = _COMPILED[key] = build()
   return hit
 
-def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", max_step=None, cache_key=None):
+def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", max_step=None, cache_key=None, config=None):
   """Run `rhs` through diffrax, returning `(times, states, stats)`.
 
   `states` comes back in scipy's `solution.y` orientation -- one row per state,
@@ -131,10 +163,12 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   jax, jnp, diffrax = _jax()
   from time import perf_counter
 
+  solver, solver_name = (diffrax.Tsit5(), "tsit5") if config is None else _solver_for(config, diffrax)
+
   def build():
     def solve(grid, start):
       return diffrax.diffeqsolve(
-        diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *args, xp=jnp))), diffrax.Tsit5(),
+        diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *args, xp=jnp))), solver,
         t0=grid[0], t1=grid[-1], dt0=None, y0=start,
         stepsize_controller=diffrax.PIDController(rtol=rtol, atol=atol, dtmax=max_step),
         saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, throw=False,
@@ -148,7 +182,7 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
     solution = compiled(jnp.asarray(np.asarray(times, dtype=float)), jnp.asarray(np.asarray(initial, dtype=float)))
   except Exception as error:  # noqa: BLE001 - any solver failure is one failure
     elapsed = perf_counter() - started
-    stats = SolverStats(backend=f"jax-tsit5{label}", success=False, message=str(error), nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
+    stats = SolverStats(backend=f"jax-{solver_name}{label}", success=False, message=str(error), nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
     raise SimulationError(f"{failure}: {error}", stats) from error
 
   elapsed = perf_counter() - started
@@ -162,7 +196,7 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   success = finite and ok
   message = "The solver successfully reached the end of the integration interval." if ok else str(solution.result)
   if ok and not finite: message = f"{message}; solution contains non-finite states"
-  stats = SolverStats(backend=f"jax-tsit5{label}", success=success, message=message, nfev=steps, njev=0, nlu=0, elapsed_s=elapsed)
+  stats = SolverStats(backend=f"jax-{solver_name}{label}", success=success, message=message, nfev=steps, njev=0, nlu=0, elapsed_s=elapsed)
   if not success: raise SimulationError(f"{failure}: {message}", stats)
   return states, stats
 
@@ -442,7 +476,7 @@ def sensitivities_jax(problem, times, paths, at=None):
     args = (*args[:10], forcing_with_parameters(problem.forcing, p, forcing_reference, xp=jnp), *args[11:])
     grid = grid_s / p["t0"]
     solution = diffrax.diffeqsolve(
-      diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), diffrax.Tsit5(),
+      diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), _solver_for(config, diffrax)[0],
       t0=grid[0], t1=grid[-1], dt0=None, y0=start,
       stepsize_controller=diffrax.PIDController(rtol=config.rtol, atol=config.atol),
       saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, adjoint=diffrax.ForwardMode(),

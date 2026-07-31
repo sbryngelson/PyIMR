@@ -102,12 +102,12 @@ jobs:
       # `-n auto`: the cost is numerical integration, which divides across processes.
       # Coverage on one matrix entry only -- three identical reports add nothing.
       - name: Tests and numerical validation
-        run: python -m pytest -rA -n auto -m "$PYTEST_MARKERS"
+        run: python -m pytest -rA -n auto --dist loadfile -m "$PYTEST_MARKERS"
         if: matrix.python-version != '3.12'
 
       - name: Tests and numerical validation (with coverage)
         if: matrix.python-version == '3.12'
-        run: python -m pytest -rA -n auto -m "$PYTEST_MARKERS" --cov --cov-report=xml
+        run: python -m pytest -rA -n auto --dist loadfile -m "$PYTEST_MARKERS" --cov --cov-report=xml
 
       # Must not fail the build: a coverage service being down is not a defect here.
       - name: Upload coverage to Codecov

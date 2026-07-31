@@ -56,8 +56,34 @@ jobs:
 
       # -rA prints one line per test, so a failure names itself in the log
       # instead of requiring a search for which check moved.
+      #
+      # `-n auto` because the suite's cost is numerical integration rather than
+      # import or compile time, so it divides across processes. The GitHub runner
+      # has two cores, so this is worth about a factor of two here -- not the
+      # order of magnitude it gives on a workstation.
+      #
+      # Coverage is measured on ONE matrix entry. It costs real time under
+      # tracing, and three identical reports would tell us nothing the first
+      # does while paying for it three times.
       - name: Tests and numerical validation
-        run: python -m pytest -rA
+        run: python -m pytest -rA -n auto
+        if: matrix.python-version != '3.12'
+
+      - name: Tests and numerical validation (with coverage)
+        if: matrix.python-version == '3.12'
+        run: python -m pytest -rA -n auto --cov --cov-report=xml
+
+      # Tokenless upload works for public repositories but is rate-limited and
+      # occasionally flaky; CODECOV_TOKEN removes both problems when set. The
+      # upload must not fail the build -- a coverage service being down is not a
+      # defect in this package.
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false
 
       # `ruff format` is deliberately NOT run. It explodes `if x: return y`
       # into three lines and mandates blank lines between definitions, which

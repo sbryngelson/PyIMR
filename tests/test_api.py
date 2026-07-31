@@ -69,7 +69,13 @@ def test_sampled_constant_forcing_matches_analytic_forcing():
   analytic = simulate(times, base_config(pA=4e4))
   sampled = simulate(times, base_config(sampled_forcing=SampledForcing(time_s=(times[0], times[-1]), pressure_pa=(4e4, 4e4))))
 
-  np.testing.assert_array_equal(sampled.radius_ratio, analytic.radius_ratio)
+  # To rounding, not bit for bit. The two paths compute the same pressure by different
+  # expressions -- a constant against a cubic evaluated through its knots -- so they
+  # differ in the last bit, and the adaptive stepping propagates that into 17 of the 30
+  # samples. Exact equality held while scipy's steps happened to absorb it; 2.5e-16 is
+  # the difference now, which is one ulp and not a behavioural one.
+  deviation = float(np.nanmax(np.abs(np.asarray(sampled.radius_ratio) - np.asarray(analytic.radius_ratio))))
+  assert deviation < 1e-14, f"a constant sampled forcing should match the analytic one; differs by {deviation:.2e}"
 
 
 def test_configurable_physics_and_initial_conditions_are_dimensional():

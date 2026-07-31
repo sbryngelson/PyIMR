@@ -311,11 +311,10 @@ def test_batched_design_information_matches_the_per_draw_loop(measured):
   entries it reduces. The EIG is what a design is ranked by, so that is the number
   the bound is set on.
   """
-  # backend="jax" on purpose: `jacobians` loops the untraced route otherwise, and the
-  # comparison would be the loop against itself. Measured 2.0e-16 that way, which
-  # looks like a perfect result and tests nothing.
+  # `_fisher` and `jacobians` share one implementation now, so this compares batching
+  # alone -- the per-draw loop against the vmapped program.
   inference = imr_design.design_inference(
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), backend="jax"),
+    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)),
     _TIMES, _NOISE, _PARAMETERS,
   )
   draws = 32
@@ -338,7 +337,7 @@ def test_batched_jacobians_agree_with_the_single_draw_call():
   """`jacobians` skips the per-draw `config_from_unit` and `prepare` that `jacobian`
   performs, on the grounds that a draw varies only the traced parameters. This is
   what licenses that: the two agree where both run through the same backend."""
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), backend="jax")
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
   inference = imr_design.design_inference(config, _TIMES, _NOISE, _PARAMETERS)
   points = np.random.default_rng(1).random((5, len(_PARAMETERS)))
   looped = np.stack([inference.jacobian(unit) for unit in points])

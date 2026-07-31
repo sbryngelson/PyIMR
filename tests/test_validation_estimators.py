@@ -106,7 +106,14 @@ def multi_observable():
   """Radius on one grid, wall velocity on a coarser one -- deliberately not the
   same times, so the union-grid path is exercised."""
   times = np.linspace(0.0, 4e-5, 50)
-  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
+  # Tightened past the default so the gradient check below measures the GRADIENT. At
+  # the default rtol=1e-8 the analytic and differenced gradients sit 3.0e-05 apart and
+  # that gap is step-independent -- unmoved from a 1e-04 step down to 1e-07 -- so it is
+  # not the differencing. It is the integrator: the same comparison reads 2.98e-05,
+  # 1.41e-07 and 2.24e-09 at rtol 1e-08, 1e-10 and 1e-12. The tangent differentiates the
+  # continuous solution while the difference differences an adaptively stepped one, and
+  # the two agree only to the accuracy the steps were taken at.
+  config = imr_fast.SimulationConfig(R0, REQ, NHKV, rtol=1e-10, atol=1e-12)
   truth = imr_fast.simulate(times, config)
   rng = np.random.default_rng(3)
   radius = RadiusObservation(times, np.asarray(truth.radius_m) + rng.normal(0.0, 5e-7, times.size), 5e-7)
@@ -197,7 +204,8 @@ _TAU = 3e-6
 @pytest.fixture(scope="module")
 def correlated():
   times = np.linspace(2e-6, 4e-5, 40)
-  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
+  # Tightened for the gradient check, for the reason given on `multi_observable`.
+  config = imr_fast.SimulationConfig(R0, REQ, NHKV, rtol=1e-10, atol=1e-12)
   truth = np.asarray(imr_fast.simulate(times, config).radius_m)
   observed = truth + np.random.default_rng(5).normal(0.0, 5e-7, times.size)
   parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
@@ -243,8 +251,10 @@ def test_vanishing_correlation_time_reduces_to_independent_noise(correlated):
   """The limit that must hold exactly, not approximately: at tau -> 0 the
   covariance is diagonal and the two code paths have to agree bit for bit."""
   times, observed, independent, _ = correlated
-  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
-  tiny = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=1e-15), independent.parameters)
+  # The fixture's own config, not a fresh one. A second `SimulationConfig(R0, REQ, NHKV)`
+  # here silently stopped matching when the fixture tightened its tolerances, and a
+  # bit-for-bit assertion then fails for a reason that has nothing to do with tau.
+  tiny = prepare_inference(independent.config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=1e-15), independent.parameters)
   unit = np.array([0.42, 0.37])
   assert tiny.evaluate(unit).log_likelihood == independent.evaluate(unit).log_likelihood
 

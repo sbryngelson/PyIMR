@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 
 import imr_fast
-from imr_fast import sensitivity
+from imr_fast._prepare import medium_with_parameters
 
 _NHKV = imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)
 
@@ -48,20 +48,19 @@ def test_prepared_and_dual_wall_stencils_agree(label, options, backend):
   """The forward solve's wall-flux weights and the sensitivity path's rebuild of
   them must be the same numbers.
 
-  The sensitivity path has to rebuild these because they carry `Dual` parameter
-  dependence, but their stencils are pure grid geometry and must come from the
+  The traced path has to rebuild these because they carry parameter dependence through
+  `chi = T8*K8/(P8*R0*Uc)`, but their stencils are pure grid geometry and must come from the
   prepared problem rather than be assumed. Costs no ODE solve, so it runs in
   the fast suite.
   """
   config = imr_fast.SimulationConfig(R0=225e-6, Req=37.5e-6, material=_NHKV, thermal=backend, **options)
   problem = imr_fast.prepare(config)
-  normalized, values, scales = sensitivity._normalize_parameters(config, ["material.shear_modulus_pa"])
-  dual_config = sensitivity._dual_config(config, normalized, values, scales)
-  dual = sensitivity._dual_medium(problem, sensitivity._dual_parameters(dual_config))
+  rebuilt_medium = medium_with_parameters(problem.medium, problem.parameters)
+  assert rebuilt_medium is not None
 
   for name in ("grad_Tm", "grad_Trans", "grad_C"):
     prepared = np.asarray(getattr(problem.medium, name), dtype=float)
-    rebuilt = np.array([float(getattr(entry, "value", entry)) for entry in getattr(dual, name)])
+    rebuilt = np.asarray(getattr(rebuilt_medium, name), dtype=float)
     assert prepared.shape == rebuilt.shape, (
       f"{backend}/{label}: {name} has {prepared.shape} in the forward solve and {rebuilt.shape} in the sensitivity path"
     )

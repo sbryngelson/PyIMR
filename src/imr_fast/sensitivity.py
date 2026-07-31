@@ -3,28 +3,113 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import partial
+from numbers import Real
 
 import numpy as np
-from scipy.sparse import lil_matrix
 
-from . import _complex
 import imr_fast as _solver
-from ._integrate import integrate as _integrate
-from ._stress import _stress
-from ._autodiff import Dual
-from ._dual import (
-  SensitivityParameter,
-  _dual_config,
-  _dual_forcing,
-  _dual_medium,
-  _dual_parameters,
-  _initial_matrix,
-  _normalize_parameters,
-  _rhs_physical,
-)
 
 __all__ = ["SensitivityParameter", "SensitivityResult", "simulate_with_sensitivities", "solve_with_sensitivities"]
+
+# Moved here when W11 stage 5 deleted `_dual.py`. The parameter vocabulary -- what a
+# differentiable path may name, and how it resolves -- is this module's business and
+# lived there only because the `Dual` route consumed it.
+
+@dataclass(frozen=True, slots=True)
+class SensitivityParameter:
+  """One differentiable configuration field.
+
+  ``path`` uses dataclass field notation, for example ``"R0"``,
+  ``"material.shear_modulus_pa"``, or
+  ``"physics.polytropic_exponent"``. ``scale`` is the dimensional parameter
+  perturbation represented by a unit tangent; it affects integrator scaling,
+  not the returned dimensional derivative.
+  """
+
+  path: str
+  scale: float | None = None
+
+  def __post_init__(self):
+    if not isinstance(self.path, str) or not self.path: raise ValueError("sensitivity parameter path must be a non-empty string")
+    if self.scale is not None and (not np.isfinite(self.scale) or self.scale <= 0.0):
+      raise ValueError("sensitivity parameter scale must be finite and positive")
+
+_MECHANICAL_PARAMETER_KEYS = (
+  "Pv",
+  "kappa",
+  "Pb",
+  "req",
+  "Ca",
+  "Re8",
+  "De",
+  "LAM",
+  "alphax",
+  "P8",
+  "t0",
+  "viscosity_scale",
+  "Cstar",
+  "iWe",
+  "tait_gamma",
+  "tait_sam",
+  "tait_no",
+  "tait_exponent",
+  "hugoniot_slope",
+  "nog",
+  "mie_reference",
+  "ee",
+  "om",
+  "tw",
+  "dt",
+  "mn",
+  "wave_type",
+)
+
+_NONDIFFERENTIABLE_FIELDS = {
+  "radial",
+  "vapor",
+  "wave_type",
+  "bubtherm",
+  "Nt",
+  "medtherm",
+  "Mt",
+  "masstrans",
+  "quadrature_points",
+  "points",
+  "extent",
+  "rtol",
+  "atol",
+  "collapse",
+}
+
+def _path_parts(path):
+  parts = path.split(".")
+  if any(not part.isidentifier() for part in parts): raise ValueError(f"invalid sensitivity parameter path: {path!r}")
+  return parts
+
+def _path_value(root, parts, full_path):
+  value = root
+  for part in parts:
+    if not hasattr(value, part): raise ValueError(f"unknown sensitivity parameter path: {full_path!r}")
+    value = getattr(value, part)
+  return value
+
+def _normalize_parameters(config, parameters):
+  normalized = tuple(parameter if isinstance(parameter, SensitivityParameter) else SensitivityParameter(parameter) for parameter in parameters)
+  if not normalized: raise ValueError("at least one sensitivity parameter is required")
+  paths = [parameter.path for parameter in normalized]
+  if len(set(paths)) != len(paths): raise ValueError("sensitivity parameter paths must be unique")
+  values = []
+  scales = []
+  for parameter in normalized:
+    parts = _path_parts(parameter.path)
+    if any(part in _NONDIFFERENTIABLE_FIELDS for part in parts): raise ValueError(f"{parameter.path!r} is discrete or controls solver preparation")
+    value = _path_value(config, parts, parameter.path)
+    if not isinstance(value, Real) or not np.isfinite(float(value)): raise ValueError(f"{parameter.path!r} must identify one finite scalar field")
+    scale = parameter.scale
+    if scale is None: scale = abs(float(value)) if value != 0.0 else 1.0
+    values.append(float(value))
+    scales.append(float(scale))
+  return normalized, values, np.asarray(scales)
 
 @dataclass(frozen=True, slots=True)
 class SensitivityResult:
@@ -42,21 +127,6 @@ class SensitivityResult:
   medium_temperature_k: np.ndarray | None = None
   vapor_mass_fraction: np.ndarray | None = None
 
-def _augmented_sparsity(base_sparsity, width):
-  if base_sparsity is None: return None
-  components = width + 1
-  size = base_sparsity.shape[0]
-  pattern = lil_matrix((size * components, size * components), dtype=bool)
-  rows, columns = base_sparsity.nonzero()
-  for row, column in zip(rows, columns, strict=True):
-    base_row = row * components
-    base_column = column * components
-    pattern[base_row, base_column] = True
-    for direction in range(1, components):
-      pattern[base_row + direction, base_column] = True
-      pattern[base_row + direction, base_column + direction] = True
-  return pattern.tocsr()
-
 def _readonly(values):
   result = np.asarray(values, dtype=float)
   result.setflags(write=False)
@@ -66,54 +136,6 @@ def _readonly_optional(values):
   # The three thermal tangents are absent for a mechanical config on either
   # backend, so both result assemblies need this and neither should spell it out.
   return None if values is None else _readonly(values)
-
-def _output_duals(problem, config, parameters, states, width):
-  count = states.shape[0]
-  radius_ratio = np.empty((count, width))
-  radius_m = np.empty_like(radius_ratio)
-  velocity = np.empty_like(radius_ratio)
-  pressure = np.empty_like(radius_ratio)
-  stress = np.empty_like(radius_ratio)
-  bubble_temperature = np.empty((count, config.Nt, width)) if config.bubtherm else None
-  medium_temperature = np.empty((count, config.Mt, width)) if config.medtherm else None
-  vapor_fraction = np.empty((count, config.Nt, width)) if config.masstrans else None
-  dual_medium = _dual_medium(problem, parameters)
-  for time_index, row in enumerate(states):
-    dual_state = np.array([Dual(row[index, 0], row[index, 1:]) for index in range(row.shape[0])], dtype=object)
-    radius = dual_state[0]
-    wall_velocity = dual_state[1]
-    pressure_value = (
-      dual_state[problem.layout.pressure]
-      if config.bubtherm
-      else ((parameters["Pb"] - parameters["Pv"]) * radius ** (-3.0 * parameters["kappa"]) + parameters["Pv"])
-    )
-    stress_state = dual_state[problem.layout.stress] if problem.layout.stress.stop > problem.layout.stress.start else None
-    if problem.distributed_stress is None:
-      stress_value = _stress(config.material, parameters, radius, wall_velocity, stress_state, problem.instantaneous_material, False)[0]
-    else:
-      stress_value = _solver._distributed_stress_integral(problem.distributed_stress, parameters, radius, wall_velocity, stress_state)
-    output = (radius, config.R0 * radius, parameters["Uc"] * wall_velocity, parameters["P8"] * pressure_value, parameters["P8"] * stress_value)
-    targets = (radius_ratio, radius_m, velocity, pressure, stress)
-    for target, value in zip(targets, output, strict=True):
-      target[time_index] = value.tangent if isinstance(value, Dual) else np.zeros(width)
-    if config.bubtherm:
-      theta = dual_state[problem.layout.bubble_thermal].copy()
-      medium_state = dual_state[problem.layout.medium_thermal].copy() if config.medtherm else None
-      vapor_state = dual_state[problem.layout.vapor_fraction].copy() if config.masstrans else None
-      *_, temperature, _ = _solver._apply_thermal_boundaries(
-        theta, medium_state, vapor_state, pressure_value, parameters, dual_medium, config.masstrans
-      )
-      bubble_temperature[time_index] = _tangent_values(config.T8 * temperature, width)
-      if medium_temperature is not None: medium_temperature[time_index] = _tangent_values(config.T8 * medium_state, width)
-      if vapor_fraction is not None: vapor_fraction[time_index] = _tangent_values(vapor_state, width)
-  return (radius_ratio, radius_m, velocity, pressure, stress, bubble_temperature, medium_temperature, vapor_fraction)
-
-def _tangent_values(values, width):
-  array = np.asarray(values, dtype=object)
-  result = np.zeros(array.shape + (width,))
-  for index, value in np.ndenumerate(array):
-    if isinstance(value, Dual): result[index] = value.tangent
-  return result
 
 def _jax_sensitivities(problem, time_s, normalized):
   """`SensitivityResult` from one `jacfwd`, for the jax backend.
@@ -156,71 +178,17 @@ def _jax_sensitivities(problem, time_s, normalized):
   )
 
 def solve_with_sensitivities(problem, tv, parameters):
-  """Solve one prepared problem and all requested forward sensitivities."""
+  """Solve one prepared problem and all requested forward sensitivities.
+
+  One route, because W11 stage 5 left one differentiable implementation. Three things
+  had to be true first, and each was a separate blocker: the collapse shooting had to be
+  differentiable, the compiled program had to be cached on content rather than identity,
+  and the spectral thermal grids had to have a stiff solver. See PLAN.md W11.
+  """
   if not isinstance(problem, _solver.PreparedProblem): raise TypeError("problem must be a PreparedProblem")
-  config = problem.config
-  time_s = _solver._validate_inputs(tv, config)
-  normalized, values, scales = _normalize_parameters(config, parameters)
-  if config.backend == "jax": return _jax_sensitivities(problem, time_s, normalized)
-  dual_config = _dual_config(config, normalized, values, scales)
-  dual_parameters = _dual_parameters(dual_config)
-  dual_medium = _dual_medium(problem, dual_parameters)
-  dual_forcing = _dual_forcing(dual_config, dual_parameters)
-  width = len(normalized)
-  initial = _initial_matrix(problem, dual_config, dual_parameters, width)
-  # Two routes, not three. The third was a numba mirror of the mechanical
-  # right-hand side in `_mechanical.py`: 611 lines that duplicated `_rhs` and had
-  # to be kept in step with it, for 1.9-3.0x over complex step on the one
-  # configuration set that complex step already covered. `backend="jax"` is 3-10x
-  # faster than the mirror ever was, so it was the slow path AND the duplicate.
-  # See PLAN.md W11 stage 5.
-  if _complex.complex_step_supported(problem):
-    # Same packed layout, ~7-46x faster on the thermal path (#44).
-    rhs = partial(
-      _complex.rhs_complex,
-      problem=problem,
-      prepared=_complex.directions(dual_config, dual_parameters, dual_medium, dual_forcing, width),
-      width=width,
-    )
-  else:
-    rhs = partial(
-      _rhs_physical,
-      problem=problem,
-      config=dual_config,
-      parameters=dual_parameters,
-      medium=dual_medium,
-      forcing=dual_forcing,
-      width=width,
-    )
-
-  def radius_floor(_time, packed): return packed[0] - 1e-8
-
-  radius_floor.terminal = True
-  radius_floor.direction = -1
-  states, stats = _integrate(
-    rhs, time_s, initial.ravel(), args=(), event=radius_floor,
-    sparsity=_augmented_sparsity(problem.jacobian_sparsity, width),
-    rtol=config.rtol, atol=config.atol, failure="IMR sensitivity integration failed", label="-forward",
-  )
-  packed = states.T.reshape(time_s.size, problem.layout.size, width + 1)
-  base_states = packed[:, :, 0]
-  simulation = _solver._build_result(problem, time_s, base_states.T, stats)
-  normalized_state = packed[:, :, 1:] / scales
-  outputs = _output_duals(problem, dual_config, dual_parameters, packed, width)
-  outputs = tuple(None if output is None else output / scales for output in outputs)
-  return SensitivityResult(
-    simulation=simulation,
-    parameters=normalized,
-    state=_readonly(normalized_state),
-    radius_ratio=_readonly(outputs[0]),
-    radius_m=_readonly(outputs[1]),
-    wall_velocity_m_s=_readonly(outputs[2]),
-    internal_pressure_pa=_readonly(outputs[3]),
-    stress_integral_pa=_readonly(outputs[4]),
-    bubble_temperature_k=_readonly_optional(outputs[5]),
-    medium_temperature_k=_readonly_optional(outputs[6]),
-    vapor_mass_fraction=_readonly_optional(outputs[7]),
-  )
+  time_s = _solver._validate_inputs(tv, problem.config)
+  normalized, _values, _scales = _normalize_parameters(problem.config, parameters)
+  return _jax_sensitivities(problem, time_s, normalized)
 
 def simulate_with_sensitivities(tv, config, parameters):
   """Prepare and solve a configuration with forward sensitivities."""

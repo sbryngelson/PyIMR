@@ -141,23 +141,25 @@ def _far_field_singular_index(xi) -> int:
     raise ValueError(f"medium grid singularity must be the far-field node alone: xi + 1 == 0 at {singular.tolist()} of {values.size} nodes")
   return int(singular[0])
 
-def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3):
+def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3, *, xp=np):
   strain_rate = Rd / R * iyT3
-  heating = np.zeros_like(yT)
+  heating = xp.zeros_like(yT)
   if material.elastic is not None:
     # yT and yT3 are +inf at the far-field node, so R*yT/reference_radius is
     # inf/inf there -- a nan that the next line overwrote with 1.0. Compute the
     # interior and set the wall value directly; unstretched is what inf/inf was
     # standing in for. #35.
-    reference_radius = np.cbrt(np.maximum(R**3 * (yT3[:-1] - 1.0) + p["req"] ** 3, 1e-30))
-    stretch = np.ones_like(yT)
-    stretch[:-1] = R * yT[:-1] / reference_radius
-    integrand = _elastic_integrand(material.elastic, stretch, p["P8"])
+    reference_radius = xp.cbrt(xp.maximum(R**3 * (yT3[:-1] - 1.0) + p["req"] ** 3, 1e-30))
+    # `at_set` rather than slice assignment, because a jax array is immutable and the
+    # wall entry has to be written without mutating: the same reason the thermal fields
+    # go through it. See `_autodiff.at_set`.
+    stretch = at_set(xp.ones_like(yT), slice(None, -1), R * yT[:-1] / reference_radius)
+    integrand = _elastic_integrand(material.elastic, stretch, p["P8"], xp=xp)
     stress_difference = 0.5 * integrand * stretch * (stretch**3 - 1.0)
     heating -= 2.0 * strain_rate * stress_difference
   if material.viscous is not None:
-    shear_rate = 2.0 * np.sqrt(3.0) * abs(strain_rate) / p["t0"]
-    viscosity, _ = _viscosity_and_tangent(material.viscous, shear_rate)
+    shear_rate = 2.0 * xp.sqrt(3.0) * abs(strain_rate) / p["t0"]
+    viscosity, _ = _viscosity_and_tangent(material.viscous, shear_rate, xp=xp)
     heating += 12.0 * viscosity / p["viscosity_scale"] * strain_rate**2
   return p["Br"] * heating
 
@@ -196,7 +198,7 @@ def _dissipation(material, p, R, Rd, yT, yT2, yT3, iyT3, iyT4, iyT6, *, xp=np):
     xp.zeros_like(yT), inner,
     12.0 * (Br / Re8) * (Rd / R) ** 2 * iyT6[inner] + 2.0 * Br / Ca * iyT3[inner] * (Rd / R) * (yT2[inner] * ix2 - iyT4[inner] * x4),
   )
-  if isinstance(material, InstantaneousMaterial): return _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3)
+  if isinstance(material, InstantaneousMaterial): return _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3, xp=xp)
   if isinstance(material, NoStress): return xp.zeros_like(yT)
   if isinstance(material, QuadraticKelvinVoigt):
     stiffening = at_set(xp.ones_like(yT), inner, 1.0 + ax * (x4 * iyT4[inner] + 2.0 * yT2[inner] * ix2 - 3.0))

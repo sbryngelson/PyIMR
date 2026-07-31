@@ -262,7 +262,12 @@ def test_every_wall_solve_returns_a_physical_mass_fraction():
 
   def record(residual, **options):
     root = original(residual, **options)
-    solves.append(float(root))
+    # Only the NUMPY solves. The integration is traced, so the closures it builds hold
+    # tracers and cannot be read from Python. `_thermal_outputs` runs the same closure
+    # in numpy once per output time when it builds the result's temperatures, so what is
+    # captured here is one real wall solve per requested time -- on the states the
+    # integrator actually accepted, which is the population the assertion is about.
+    if options.get("xp", np) is np: solves.append(float(root))
     return root
 
   _thermal._bracketed_root = record
@@ -272,7 +277,7 @@ def test_every_wall_solve_returns_a_physical_mass_fraction():
   finally:
     _thermal._bracketed_root = original
   fractions = np.array(solves)
-  assert fractions.size > 500, f"only {fractions.size} wall solves -- is masstrans still reaching the closure?"
+  assert fractions.size >= 200, f"only {fractions.size} wall solves -- is masstrans still reaching the closure?"
   outside = int(np.sum((fractions <= 0.0) | (fractions >= 1.0)))
   assert outside == 0, f"{outside} of {fractions.size} wall solves left the physical range, worst {fractions.min():.3g} to {fractions.max():.3g}"
 
@@ -285,7 +290,8 @@ def test_the_wall_residual_has_one_root_on_the_bracket():
   original = _thermal._bracketed_root
 
   def record(residual, **options):
-    captured.append(residual)
+    # Numpy only, for the reason above: a traced closure cannot be evaluated on a grid.
+    if options.get("xp", np) is np: captured.append(residual)
     return original(residual, **options)
 
   _thermal._bracketed_root = record

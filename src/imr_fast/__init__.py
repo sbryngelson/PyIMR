@@ -25,6 +25,8 @@ replicate its quirks on purpose, and which correct it, is in docs/upstream.md.
 from __future__ import annotations
 
 
+from dataclasses import replace
+
 import numpy as np
 
 from ._autodiff import primal, primal_array  # noqa: F401
@@ -210,14 +212,11 @@ from ._prepare import (  # noqa: F401
 from ._rhs import (  # noqa: F401
   _nZ,
   _pinf,
-  _radius_floor_event,
   _rhs,
   _rhs_args,
   _sampled_pressure,
 )
 
-_radius_floor_event.terminal = True
-_radius_floor_event.direction = -1
 
 def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
   config = problem.config
@@ -283,15 +282,28 @@ def _integrate_prepared(problem: PreparedProblem, tv):
   tn = time_s / p["t0"]
   args = _rhs_args(problem, p, medium=problem.medium)
   states, stats = _integrate(
-    _rhs, tn, problem.initial_state, args=args, event=_radius_floor_event, sparsity=problem.jacobian_sparsity,
-    rtol=config.rtol, atol=config.atol, failure="IMR integration failed", backend=config.backend, config=config,
+    _rhs, tn, problem.initial_state, args=args,
+    rtol=config.rtol, atol=config.atol, failure="IMR integration failed", config=config,
     max_step=None if config.max_step_s is None else config.max_step_s / p["t0"],
   )
   return time_s, states, stats
 
 def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
   time_s, states, stats = _integrate_prepared(problem, tv)
-  return _build_result(problem, time_s, states, stats)
+  # A material leaving its admissible domain -- Gent lock-up, a non-positive elastic
+  # stretch, a viscosity that stopped being one -- is a SOLVER failure to a caller, and
+  # `_MaterialDomainError` is private. `integrate_jax` already converts the ones raised
+  # while the solve runs; this converts the ones raised while the outputs are built.
+  #
+  # That second class exists because the traced path carries no value guards: the checks
+  # in `_stress` are all `if xp is np`, since a tracer has no value to test. So a locked
+  # material now integrates to completion and is caught here, on the numpy pass that
+  # rebuilds the stress integral -- which reached the caller as a raw private exception
+  # rather than the documented one until this wrapped it.
+  try:
+    return _build_result(problem, time_s, states, stats)
+  except _MaterialDomainError as error:
+    raise SimulationError(f"IMR integration failed: {error}", replace(stats, success=False, message=str(error))) from error
 
 def simulate(tv, config: SimulationConfig) -> SimulationResult:
   """Run one simulation and return immutable physical histories."""

@@ -50,7 +50,7 @@ class _MaterialDomainError(RuntimeError):
 
 _OGDEN_SERIES_LIMIT = 1e-3
 
-def _ogden_ratio(u, exponent):
+def _ogden_ratio(u, exponent, *, xp=np):
   # (1 - u**exponent) / (1 - u), continued analytically through u = 1.
   #
   # The singularity is removable -- the limit is `exponent` -- but the quotient loses all precision near it, so switch
@@ -58,24 +58,38 @@ def _ogden_ratio(u, exponent):
   # perturbation directly would either fail or discard the derivative, which is the trap recorded at _mechanical.py's
   # complex-step note.
   offset = u - 1.0
-  near = np.abs(primal_array(offset)) < _OGDEN_SERIES_LIMIT
+  # `primal_array` where there are values to read, the tracer itself where there are
+  # not. Under a trace the value IS the tracer and there is no `Dual` to strip.
+  near = xp.abs(offset if xp is not np else primal_array(offset)) < _OGDEN_SERIES_LIMIT
   series = exponent * (
     1.0
     + (exponent - 1.0) / 2.0 * offset
     + (exponent - 1.0) * (exponent - 2.0) / 6.0 * offset**2
     + (exponent - 1.0) * (exponent - 2.0) * (exponent - 3.0) / 24.0 * offset**3
   )
-  if np.ndim(near) == 0: return series if near else (1.0 - u**exponent) / (1.0 - u)
-  # Evaluate the quotient only where it is well conditioned; a plain np.where
+  # The scalar shortcut branches on the predicate, so it stays on the numpy path where
+  # the predicate has a value. Tracing takes the `where` form, which is what it would
+  # have to do anyway.
+  if xp is np and np.ndim(near) == 0: return series if near else (1.0 - u**exponent) / (1.0 - u)
+  # Evaluate the quotient only where it is well conditioned; a plain `where`
   # would still divide by (1 - u) at u == 1 and raise or produce a NaN that
-  # then propagates through the Dual tangent.
-  safe = np.where(near, 1.0 + 2.0 * _OGDEN_SERIES_LIMIT, u)
-  return np.where(near, series, (1.0 - safe**exponent) / (1.0 - safe))
+  # then propagates through the tangent.
+  safe = xp.where(near, 1.0 + 2.0 * _OGDEN_SERIES_LIMIT, u)
+  return xp.where(near, series, (1.0 - safe**exponent) / (1.0 - safe))
 
-def _elastic_integrand(model, stretch, pressure_scale):
-  stretch = np.asarray(stretch)
-  stretch_values = primal_array(stretch)
-  if np.any(stretch_values <= 0.0): raise _MaterialDomainError("elastic stretch became non-positive")
+def _elastic_integrand(model, stretch, pressure_scale, *, xp=np):
+  stretch = xp.asarray(stretch)
+  # The domain guard reads VALUES, so it only runs where there are values. Under a
+  # trace there is nothing to read and nothing to raise with: a traced solve cannot
+  # branch on a state it has not computed yet. diffrax reports the resulting non-finite
+  # solve through `RESULTS` instead, which `integrate_jax` turns into the same
+  # `SimulationError` this raise fed.
+  #
+  # This is where instantaneous materials failed once the scipy backend went. They had
+  # never been traced -- `unsupported_reason` did not refuse them and no coverage case
+  # used one -- so the numpy-only guard sat unreached behind the other backend.
+  if xp is np:
+    if np.any(primal_array(stretch) <= 0.0): raise _MaterialDomainError("elastic stretch became non-positive")
   invariant_offset = stretch**-4 + 2.0 * stretch**2 - 3.0
   geometric_factor = (stretch**3 + 1.0) / stretch**5
   if isinstance(model, Ogden):
@@ -94,7 +108,7 @@ def _elastic_integrand(model, stretch, pressure_scale):
     u = stretch**3
     total = 0.0
     for modulus, exponent in zip(model.shear_moduli_pa, model.exponents, strict=True):
-      total = total + modulus * stretch ** (-2.0 * exponent) * _ogden_ratio(u, exponent)
+      total = total + modulus * stretch ** (-2.0 * exponent) * _ogden_ratio(u, exponent, xp=xp)
     result = -2.0 / (stretch * pressure_scale) * total
   elif isinstance(model, NeoHookean):
     coefficient = model.shear_modulus_pa / pressure_scale
@@ -105,10 +119,13 @@ def _elastic_integrand(model, stretch, pressure_scale):
     if isinstance(model, Yeoh):
       coefficient = 2.0 * (model.c1_pa + 2.0 * model.c2_pa * invariant_offset + 3.0 * model.c3_pa * invariant_offset**2) / pressure_scale
     elif isinstance(model, Fung):
-      coefficient = model.shear_modulus_pa / pressure_scale * np.exp(model.stiffening * invariant_offset)
+      coefficient = model.shear_modulus_pa / pressure_scale * xp.exp(model.stiffening * invariant_offset)
     elif isinstance(model, Gent):
       remaining_extension = 1.0 - invariant_offset / model.extensibility
-      if np.any(primal_array(remaining_extension) <= 0.0):
+      # Lock-up is a value the trace does not have. A traced solve that reaches it
+      # produces non-finite states, which diffrax reports through `RESULTS` and
+      # `integrate_jax` turns into the same `SimulationError` this raise feeds.
+      if xp is np and np.any(primal_array(remaining_extension) <= 0.0):
         maximum = float(np.max(primal_array(invariant_offset)))
         raise _MaterialDomainError(f"Gent lock-up: I1 - 3 reached {maximum:.6g}, limit is {primal(model.extensibility):.6g}")
       coefficient = model.shear_modulus_pa / pressure_scale / remaining_extension
@@ -118,7 +135,7 @@ def _elastic_integrand(model, stretch, pressure_scale):
       series = sum((order + 1) * coefficient * invariant**order / model.chain_segments**order for order, coefficient in enumerate(coefficients))
       coefficient = 2.0 * model.shear_modulus_pa / pressure_scale * series
     result = -2.0 * coefficient * geometric_factor
-  if not np.all(np.isfinite(primal_array(result))): raise _MaterialDomainError("elastic stress became non-finite")
+  if xp is np and not np.all(np.isfinite(primal_array(result))): raise _MaterialDomainError("elastic stress became non-finite")
   return result
 
 _PE_SERIES_LIMIT = 1e-4
@@ -145,13 +162,13 @@ def _powell_eyring_terms(u, modified):
   arc = np.arcsinh(u)
   return arc / u, (u / np.sqrt(1.0 + u**2) - arc) / u
 
-def _viscosity_and_tangent(model, shear_rate):
-  shear_rate = np.asarray(shear_rate)
+def _viscosity_and_tangent(model, shear_rate, *, xp=np):
+  shear_rate = xp.asarray(shear_rate)
   if isinstance(model, Newtonian):
-    viscosity = np.full_like(shear_rate, model.viscosity_pa_s)
+    viscosity = xp.full_like(shear_rate, model.viscosity_pa_s)
     tangent = viscosity
   elif isinstance(model, PowerLaw):
-    effective_rate = np.sqrt(shear_rate**2 + model.regularization_rate_per_s**2)
+    effective_rate = xp.sqrt(shear_rate**2 + model.regularization_rate_per_s**2)
     viscosity = model.consistency_pa_s_n * effective_rate ** (model.exponent - 1.0)
     tangent = viscosity + (model.consistency_pa_s_n * (model.exponent - 1.0) * shear_rate**2 * effective_rate ** (model.exponent - 3.0))
   elif isinstance(model, CarreauYasuda):
@@ -163,8 +180,8 @@ def _viscosity_and_tangent(model, shear_rate):
   elif isinstance(model, (PowellEyring, ModifiedPowellEyring)):
     modified = isinstance(model, ModifiedPowellEyring)
     difference = model.zero_shear_viscosity_pa_s - model.infinite_shear_viscosity_pa_s
-    scaled = np.absolute(model.time_constant_s * shear_rate)
-    if shear_rate.dtype == object:
+    scaled = xp.absolute(model.time_constant_s * shear_rate)
+    if xp is np and shear_rate.dtype == object:
       factor = np.empty_like(shear_rate)
       slope = np.empty_like(shear_rate)
       for index, value in np.ndenumerate(scaled):
@@ -190,10 +207,10 @@ def _viscosity_and_tangent(model, shear_rate):
       exponent = model.exponent
       regularization = model.regularization_rate_per_s
     scaled = shear_rate / regularization
-    if shear_rate.dtype == object:
+    if xp is np and shear_rate.dtype == object:
       yield_viscosity = np.empty_like(shear_rate)
       for index, rate in np.ndenumerate(shear_rate):
-        yield_viscosity[index] = -yield_stress * np.expm1(-scaled[index]) / rate if primal(rate) > 0.0 else yield_stress / regularization
+        yield_viscosity[index] = -yield_stress * xp.expm1(-scaled[index]) / rate if primal(rate) > 0.0 else yield_stress / regularization
     else:
       # np.where evaluates BOTH arms, so dividing by `shear_rate` computed a
       # 0/0 at every zero-rate node and then discarded it -- the suppression was
@@ -202,23 +219,27 @@ def _viscosity_and_tangent(model, shear_rate):
       # selects exactly the same values. The object-dtype branch above already
       # did this the honest way, per element (#35).
       positive = shear_rate > 0.0
-      denominator = np.where(positive, shear_rate, 1.0)
-      yield_viscosity = np.where(positive, -yield_stress * np.expm1(-scaled) / denominator, yield_stress / regularization)
-    effective_rate = np.sqrt(shear_rate**2 + regularization**2)
+      denominator = xp.where(positive, shear_rate, 1.0)
+      yield_viscosity = xp.where(positive, -yield_stress * xp.expm1(-scaled) / denominator, yield_stress / regularization)
+    effective_rate = xp.sqrt(shear_rate**2 + regularization**2)
     power_viscosity = consistency * effective_rate ** (exponent - 1.0)
     viscosity = yield_viscosity + power_viscosity
     tangent = (
-      yield_stress / regularization * np.exp(-scaled)
+      yield_stress / regularization * xp.exp(-scaled)
       + power_viscosity
       + consistency * (exponent - 1.0) * shear_rate**2 * effective_rate ** (exponent - 3.0)
     )
-  viscosity_values = primal_array(viscosity)
-  tangent_values = primal_array(tangent)
-  if not np.all(np.isfinite(viscosity_values)) or not np.all(np.isfinite(tangent_values)) or np.any(viscosity_values < 0.0):
-    raise _MaterialDomainError("generalized viscosity became invalid")
+  # Values again, so numpy only. A traced solve that produces an invalid viscosity
+  # produces non-finite states, which diffrax reports through `RESULTS` and
+  # `integrate_jax` raises as the same `SimulationError` this feeds.
+  if xp is np:
+    viscosity_values = primal_array(viscosity)
+    tangent_values = primal_array(tangent)
+    if not np.all(np.isfinite(viscosity_values)) or not np.all(np.isfinite(tangent_values)) or np.any(viscosity_values < 0.0):
+      raise _MaterialDomainError("generalized viscosity became invalid")
   return viscosity, tangent
 
-def _instantaneous_stress(material, prepared, p, R, Rd, need_rate):
+def _instantaneous_stress(material, prepared, p, R, Rd, need_rate, *, xp=np):
   stress_integral = 0.0
   explicit_rate = 0.0
   acceleration_coefficient = 0.0
@@ -226,23 +247,23 @@ def _instantaneous_stress(material, prepared, p, R, Rd, need_rate):
     wall_stretch = R / p["req"]
     half_interval = 0.5 * (wall_stretch - 1.0)
     stretch = 1.0 + half_interval * (prepared.interval_nodes + 1.0)
-    integrand = _elastic_integrand(material.elastic, stretch, p["P8"])
-    stress_integral += half_interval * np.dot(prepared.interval_weights, integrand)
+    integrand = _elastic_integrand(material.elastic, stretch, p["P8"], xp=xp)
+    stress_integral += half_interval * xp.dot(prepared.interval_weights, integrand)
     if need_rate:
-      wall_integrand = _elastic_integrand(material.elastic, wall_stretch, p["P8"])
+      wall_integrand = _elastic_integrand(material.elastic, wall_stretch, p["P8"], xp=xp)
       if isinstance(wall_integrand, np.ndarray): wall_integrand = wall_integrand.item()
       explicit_rate += wall_integrand * Rd / p["req"]
   if material.viscous is not None:
     quadrature_radius = 0.5 * (prepared.interval_nodes + 1.0)
     quadrature_weights = 0.5 * prepared.interval_weights
     strain_rate = Rd / R
-    shear_rate = 2.0 * np.sqrt(3.0) * abs(strain_rate) / p["t0"] * quadrature_radius**3
-    viscosity, tangent = _viscosity_and_tangent(material.viscous, shear_rate)
+    shear_rate = 2.0 * xp.sqrt(3.0) * abs(strain_rate) / p["t0"] * quadrature_radius**3
+    viscosity, tangent = _viscosity_and_tangent(material.viscous, shear_rate, xp=xp)
     weighted_radius = quadrature_radius**2 * quadrature_weights
-    viscosity_integral = np.dot(weighted_radius, viscosity)
+    viscosity_integral = xp.dot(weighted_radius, viscosity)
     stress_integral += -12.0 * strain_rate * viscosity_integral / p["viscosity_scale"]
     if need_rate:
-      stress_tangent = -12.0 / p["viscosity_scale"] * np.dot(weighted_radius, tangent)
+      stress_tangent = -12.0 / p["viscosity_scale"] * xp.dot(weighted_radius, tangent)
       explicit_rate -= stress_tangent * strain_rate**2
       acceleration_coefficient -= stress_tangent
   return stress_integral, explicit_rate, None, acceleration_coefficient
@@ -288,7 +309,7 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
     S = (Z1 + Z2) / R**3 - 4 * LAM / Re8 * Rd / R
     Sdot = (Z1d + Z2d) / R**3 - 3 * Rd / R**4 * (Z1 + Z2) + 4 * LAM / Re8 * Rd**2 / R**2
     return S, Sdot, xp.array([Z1d, Z2d]), 4.0 * LAM / Re8
-  if isinstance(material, InstantaneousMaterial): return _instantaneous_stress(material, instantaneous, p, R, Rd, need_rate)
+  if isinstance(material, InstantaneousMaterial): return _instantaneous_stress(material, instantaneous, p, R, Rd, need_rate, xp=xp)
   raise TypeError(f"material={material!r} is not an analytic material")
 
 def _distributed_stress(material, prepared, p, R, Rd, state, need_rate, *, xp=np):

@@ -188,6 +188,20 @@ def sample_smc(inference, draws=1000, chains=4, **kwargs):
   posterior that looks unimodal is not evidence of a missed mode either way.
   """
   pymc, _, _ = _pymc()
+  # `cores=1` unless the caller insists, because PyMC's SMC FORKS its workers and jax
+  # is not fork-safe. It runs hundreds of threads, and forking a multithreaded process
+  # leaves the child holding locks owned by threads that do not exist in it -- the
+  # workers deadlock on a futex while the parent waits on their pipe, forever. It is
+  # not a slow run; it never returns. This only began to bite when W11 stage 5 left one
+  # backend, because until then the workers evaluated the likelihood on numpy and never
+  # touched jax.
+  #
+  # The parallelism is worth less than it looks. SMC's mutation kernel is Metropolis, so
+  # it is the one path here that calls no `dlogp` and gains nothing from tracing -- but
+  # its likelihood still runs traced, at ~2 ms against numpy's 30-70 ms. Cores buy 2-4x;
+  # tracing bought 15-35x per evaluation. Measured on 32 draws over 2 chains: 8.5 s
+  # serial against 9.5 s for the forked numpy path it replaces, to the same evidence.
+  kwargs.setdefault("cores", 1)
   with build_model(inference):
     return pymc.sample_smc(draws=draws, chains=chains, **kwargs)
 

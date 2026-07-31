@@ -8,3 +8,8 @@ build/
 dist/
 *.egg-info/
 site/
+
+# Coverage artefacts (uploaded from CI, never committed)
+.coverage
+.coverage.*
+coverage.xml

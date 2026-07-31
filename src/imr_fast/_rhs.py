@@ -14,7 +14,7 @@ from ._materials import _stress_state_count
 from ._stress import _distributed_stress, _stress
 from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
 
-__all__ = ["_nZ", "_pinf", "_radius_floor_event", "_rhs", "_rhs_args", "_sampled_pressure"]
+__all__ = ["_nZ", "_pinf", "_rhs", "_rhs_args", "_sampled_pressure"]
 
 def _sampled_pressure(tn, forcing, *, xp=np):
   """The PCHIP forcing history, without a Python branch on the integration time.
@@ -311,5 +311,3 @@ def _rhs(
     cursor += kvdot.size
   if dZ is not None: out = at_set(out, slice(cursor, cursor + dZ.size), dZ)
   return out
-
-def _radius_floor_event(_tn, y, *_args): return y[0] - 1e-8

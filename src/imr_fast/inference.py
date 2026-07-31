@@ -300,14 +300,6 @@ class PreparedInference:
       parts.append(_whiten(predicted - item.values, item, factor))
     return np.concatenate(parts)
 
-  def _stack_jacobian(self, result, unit):
-    chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
-    parts = []
-    for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
-      tangent = np.asarray(getattr(result, item.field))[index]
-      parts.append(_whiten(tangent, item, factor) * chain)
-    return np.concatenate(parts, axis=0)
-
   @property
   def observation_size(self):
     """Total number of observed values, across every field."""
@@ -330,14 +322,8 @@ class PreparedInference:
     config = self.config_from_unit(unit_parameters)
     return self._stack_residual(imr_fast.simulate(self._grid, config))
 
-  def _jacobian_untraced(self, unit):
-    config = self.config_from_unit(unit)
-    result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
-    return self._stack_jacobian(result, unit)
-
   def jacobian(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
-    if self.config.backend != "jax": return self._jacobian_untraced(unit)
     return self.jacobians(np.atleast_2d(unit))[0]
 
   def _traced_fields(self, points):
@@ -393,15 +379,9 @@ class PreparedInference:
     same points to 6e-13 relative on the same backend, which is the check that
     licenses skipping the per-draw `config_from_unit`.
 
-    Dispatched on `config.backend` rather than always traced. Switching a likelihood's
-    integrator CHANGES THE MODEL -- observations generated on one backend do not match
-    the other's prediction to machine precision, measured at 4.8e-03 in whitened units
-    -- so which integrator computes the posterior stays the caller's declared choice.
     """
     points = np.atleast_2d(np.asarray(unit_points, dtype=float))
     for point in points: self._validate_unit_parameters(point)
-    if self.config.backend != "jax":
-      return np.array([self._jacobian_untraced(point) for point in points])
     _values, tangents = self._traced_fields(points)
     stacked = []
     for draw, point in enumerate(points):
@@ -429,10 +409,6 @@ class PreparedInference:
     5e-08, against 2.5e-06 for the split pair checked the same way.
     """
     unit = self._validate_unit_parameters(unit_parameters)
-    if self.config.backend != "jax":
-      config = self.config_from_unit(unit)
-      result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
-      return self._evaluation(unit, self._stack_residual(result.simulation), result.simulation.stats), self._stack_jacobian(result, unit)
     # Both halves out of ONE traced program, and out of one integration, which is what
     # this method existed for before it was traced: a sampler wants the gradient to be
     # the derivative of the log-likelihood it accompanies, not of a separately
@@ -463,15 +439,17 @@ class PreparedInference:
     unit = self._validate_unit_parameters(unit_parameters)
     missing = sorted({item.field for item in self._observations} - set(_TIME_DERIVATIVE_OF))
     if missing: raise NotImplementedError(f"no time derivative available for {missing}; only {sorted(_TIME_DERIVATIVE_OF)} are supported")
-    config = self.config_from_unit(unit)
-    result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
+    _values, tangents = self._traced_fields(np.atleast_2d(unit))
     chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
+    fields = {name: array[0] for name, array in tangents.items()}
     parts = []
     for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
-      tangent = np.asarray(getattr(result, _TIME_DERIVATIVE_OF[item.field]))[index]
+      tangent = fields[_TIME_DERIVATIVE_OF[item.field]][index]
+      # `wall_velocity_m_s` is dimensional and `radius_ratio` is not, so the derivative
+      # of the ratio needs the length scale removed.
       if item.field == "radius_ratio": tangent = tangent / self.config.R0
       parts.append(_whiten(tangent, item, factor) * chain)
-    return self._stack_jacobian(result, unit), np.concatenate(parts, axis=0)
+    return self._stacked("tangent", fields, chain), np.concatenate(parts, axis=0)
 
   def jacobian_time_derivative(self, unit_parameters):
     """Just the `d/dt` half; see :meth:`jacobian_with_time_derivative`."""

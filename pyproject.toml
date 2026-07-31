@@ -39,6 +39,11 @@ test = [
     # version would make the baseline drift for reasons unrelated to the code.
     "pyright==1.1.411",
     "pytest>=8",
+    "pytest-cov>=6",
+    # The suite is dominated by numerical integration, not by import time, and
+    # xdist splits it across processes. On the two-core CI runner that is worth
+    # roughly a factor of two; locally it is much more.
+    "pytest-xdist>=3.6",
     "ruff>=0.15",
 ]
 
@@ -58,6 +63,24 @@ exclude = ["build", "dist", ".venv", "**/__pycache__"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["--strict-config", "--strict-markers"]
+
+[tool.coverage.run]
+# `branch` because the package's behaviour is mostly selected by configuration
+# flags -- `bubtherm`, `masstrans`, `wave_type`, the EoS branch -- and line
+# coverage reports a fully-covered `if` whose false arm nothing ever takes.
+branch = true
+source = ["imr_fast"]
+# xdist runs one process per worker; without this the workers overwrite each
+# other's data file and the report describes whichever finished last.
+parallel = true
+
+[tool.coverage.report]
+exclude_also = [
+    # Import-time guards for the optional inference stack. Exercised only by the
+    # absence of a dependency, which the CI install always provides.
+    "raise ImportError",
+    "if TYPE_CHECKING:",
+]
 
 [tool.ruff]
 line-length = 150

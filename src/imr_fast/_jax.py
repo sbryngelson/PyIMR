@@ -61,6 +61,14 @@ def _solver_for(config, diffrax):
   1e-13 and watching the sensitivity agreement not move (2.26e-04, 2.52e-04, 2.30e-04)
   while the runtime grew 2.6x. What that number reflects is integration error at the
   configured `rtol`, exactly as it does for the explicit solver.
+
+  The constant does not need to track `config.rtol`, which is worth recording because
+  it looks like it should. `test_validation_thermal` integrates at rtol=1e-11 to push
+  temporal error below spatial error, and a 1e-8 inner solve might be expected to
+  become the error floor there. Measured on the spectral collapse minimum, it does not:
+  Nt=25 reads 0.025949716108 / ...107 / ...107 and Nt=60 reads 0.025949668195 / ...197
+  at root-finder tolerances of 1e-09, 1e-10 and 1e-11. Twelve digits, unmoved. What
+  tightening does buy is cost -- Nt=60 goes from 6.6 s to 17.7 s between 1e-08 and 1e-10.
   """
   if config.bubtherm and config.thermal == "spectral":
     import optimistix  # pyright: ignore[reportMissingImports]
@@ -110,7 +118,7 @@ def _enable_compilation_cache(jax):
 # entry. Bounded, because a design sweep that varies the time grid would
 # otherwise grow one entry per distinct length forever.
 _COMPILED: dict = {}
-_COMPILED_LIMIT = 32
+_COMPILED_LIMIT = 192
 
 def _content_key(value):
   """A hashable summary of everything a traced closure can read.
@@ -148,10 +156,22 @@ def _content_key(value):
   return (type(value).__name__, repr(value))
 
 def _cached(key, build):
+  """Least-recently-used, because the eviction that was here cleared the WHOLE cache.
+
+  With a 32-entry limit that was pathological rather than merely wasteful: any workload
+  touching more than 32 configurations threw away all 32 and started cold, repeatedly.
+  The test suite is exactly that workload -- this module alone compiles 34 distinct
+  programs -- so it never retained anything, and neither would a design sweep or an
+  ensemble, which are the cases the cache exists for.
+
+  A dict preserves insertion order, so `move_to_end` by reinsertion makes the first key
+  the least recently used and eviction drops one entry instead of all of them.
+  """
   hit = _COMPILED.get(key)
   if hit is None:
-    if len(_COMPILED) >= _COMPILED_LIMIT: _COMPILED.clear()
-    hit = _COMPILED[key] = build()
+    if len(_COMPILED) >= _COMPILED_LIMIT: del _COMPILED[next(iter(_COMPILED))]
+    return _COMPILED.setdefault(key, build())
+  _COMPILED[key] = _COMPILED.pop(key)
   return hit
 
 def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", max_step=None, cache_key=None, config=None):

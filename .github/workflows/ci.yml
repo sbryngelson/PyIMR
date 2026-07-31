@@ -111,9 +111,23 @@ jobs:
           files: coverage.xml
           fail_ci_if_error: false
 
-      - name: Report XLA cache growth
+      # Bound the archive before `actions/cache` saves it. XLA's key includes host
+      # CPU features, so a run landing on different runner hardware hits NOTHING it
+      # restored and writes a whole new generation on top -- measured at 456 entries
+      # in, 912 out. Left alone that ratchets up every time the hardware differs.
+      #
+      # Dropping the oldest half when over the cap keeps the newest generation, which
+      # is the one a matching runner will hit, and cannot grow without limit.
+      - name: Bound and report the XLA cache
         if: always()
-        run: find "$IMR_FAST_JAX_CACHE" -type f 2>/dev/null | wc -l | xargs echo "entries after tests:"
+        run: |
+          count=$(find "$IMR_FAST_JAX_CACHE" -type f 2>/dev/null | wc -l)
+          echo "entries after tests: $count"
+          if [ "$count" -gt 700 ]; then
+            find "$IMR_FAST_JAX_CACHE" -type f -printf '%T@ %p\n' | sort -n | head -n $((count / 2)) | cut -d' ' -f2- | xargs -r rm -f
+            echo "over cap, pruned oldest half -> $(find "$IMR_FAST_JAX_CACHE" -type f | wc -l) entries"
+          fi
+          du -sh "$IMR_FAST_JAX_CACHE" 2>/dev/null || true
 
       # `ruff format` is deliberately NOT run. It explodes `if x: return y`
       # into three lines and mandates blank lines between definitions, which

@@ -1,8 +1,18 @@
 name: CI
 
 on:
+  # `push` on every branch made a branch with an open PR run the whole matrix
+  # TWICE, once per event. Restricting it to master keeps master's caches, which
+  # are the ones every branch can restore from.
   push:
+    branches: [master]
   pull_request:
+
+# A new push supersedes the run it interrupted; nothing is learned by finishing
+# the old one. Not applied to master, whose caches later runs depend on.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 permissions:
   contents: read
@@ -14,6 +24,13 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
+
+    # Set the cache location EXPLICITLY rather than letting the package derive
+    # `~/.cache/imr_fast/jax` from `XDG_CACHE_HOME`. If a runner image ever sets
+    # that variable the derived path moves, the `actions/cache` path stops
+    # matching, and caching silently does nothing while still appearing green.
+    env:
+      IMR_FAST_JAX_CACHE: ${{ github.workspace }}/.xla-cache
 
     steps:
       - uses: actions/checkout@v4
@@ -37,22 +54,35 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[test,inference]"
 
+      # The jaxlib version belongs in the cache key. XLA entries are keyed
+      # internally by HLO hash, so a jaxlib upgrade cannot return a wrong entry --
+      # but every old entry would be restored, never hit, and written back, so the
+      # archive grows without ever paying off. Scoping the lineage to the version
+      # keeps restores relevant and lets the stale generation age out.
+      - name: Resolve jaxlib version
+        id: jaxlib
+        run: python -c "import jaxlib, os; print(f'version={jaxlib.__version__}', file=open(os.environ['GITHUB_OUTPUT'], 'a'))"
+
       # The XLA compilation cache `imr_fast._jax._enable_compilation_cache`
-      # configures. Measured on tests/test_backend_jax.py with a scratch cache
-      # directory: 64.0 s cold against 29.7 s warm, because the module compiles a
-      # distinct program per configuration and there are 34 of them. Tracing is
-      # Python and is paid either way; this is the other half.
+      # configures. Measured 64.0 s cold against 29.7 s warm on
+      # tests/test_backend_jax.py; tracing is Python and paid either way.
       #
-      # A stale entry cannot be wrong, only missed: XLA keys entries by the hash
-      # of the HLO itself, so changed source simply does not hit. That is why the
-      # key carries the commit and the restore falls back to any earlier one --
-      # each run starts from the newest cache and saves its own.
+      # A stale entry cannot be wrong, only missed, so the key carries the commit
+      # and the restore falls back to the newest run on the same jaxlib.
       - name: Cache XLA compilations
         uses: actions/cache@v4
         with:
-          path: ~/.cache/imr_fast/jax
-          key: xla-${{ matrix.python-version }}-${{ github.sha }}
-          restore-keys: xla-${{ matrix.python-version }}-
+          path: ${{ github.workspace }}/.xla-cache
+          key: xla-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-${{ github.sha }}
+          restore-keys: xla-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-
+
+      # Proof the cache is doing its job, rather than an assumption that it is. A
+      # silent miss looks exactly like a slow runner in the timings.
+      - name: Report XLA cache state
+        run: |
+          echo "restored: ${{ steps.jaxlib.outputs.version }} / python ${{ matrix.python-version }}"
+          find "$IMR_FAST_JAX_CACHE" -type f 2>/dev/null | wc -l | xargs echo "entries before tests:"
+          du -sh "$IMR_FAST_JAX_CACHE" 2>/dev/null || echo "cold: no cache directory yet"
 
       # -rA prints one line per test, so a failure names itself in the log
       # instead of requiring a search for which check moved.
@@ -75,6 +105,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
           fail_ci_if_error: false
+
+      - name: Report XLA cache growth
+        if: always()
+        run: find "$IMR_FAST_JAX_CACHE" -type f 2>/dev/null | wc -l | xargs echo "entries after tests:"
 
       # `ruff format` is deliberately NOT run. It explodes `if x: return y`
       # into three lines and mandates blank lines between definitions, which

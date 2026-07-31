@@ -13,3 +13,6 @@ site/
 .coverage
 .coverage.*
 coverage.xml
+
+# Explicit XLA compilation cache location used by CI
+.xla-cache/

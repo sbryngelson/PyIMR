@@ -111,7 +111,6 @@ from ._config import (  # noqa: F401
   _freeze_array,
   _readonly_float_array,
   _readonly_optional,
-  _solve_stats,
   _validate_inputs,
 )
 
@@ -199,7 +198,6 @@ from ._prepare import (  # noqa: F401
   _collapse_memory_state,
   _collapse_zener_rhs,
   _material_scales,
-  _prepare_distributed_jacobian,
   _prepare_distributed_stress,
   _prepare_forcing,
   _prepare_instantaneous_material,

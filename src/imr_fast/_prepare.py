@@ -15,7 +15,6 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.interpolate import PchipInterpolator
 from scipy.optimize import brentq
-from scipy.sparse import lil_matrix
 
 from ._config import (
   CollapseStats,
@@ -55,7 +54,6 @@ __all__ = [
   "_collapse_memory_state",
   "_collapse_zener_rhs",
   "_material_scales",
-  "_prepare_distributed_jacobian",
   "_prepare_distributed_stress",
   "_prepare_forcing",
   "_prepare_instantaneous_material",
@@ -252,42 +250,6 @@ def _prepare_distributed_stress(material):
     reference_radius_cubed=_freeze_array(reference_radius**3),
     weights=None if geometric is None else _freeze_array(geometric * reference_radius**2),
   )
-
-def _prepare_distributed_jacobian(config, layout):
-  if not _is_distributed_stress(config.material): return None
-  if not (config.medtherm or config.masstrans): return None
-  size = layout.size
-  stress_start = layout.stress.start
-  points = config.material.points
-  pattern = lil_matrix((size, size), dtype=bool)
-  pattern[:stress_start, :stress_start] = True
-  pattern[stress_start:, :2] = True
-  # The radial acceleration depends on the stress integral, a weighted sum over
-  # every stress state, and the thermal dissipation reads them too. Omitting
-  # this block declares those derivatives zero, so BDF's Newton iteration works
-  # from a Jacobian missing the entire stress-to-state coupling. Finite
-  # difference tolerated it; Chebyshev collocation is stiffer and the solve
-  # failed outright with "required step size is less than spacing between
-  # numbers". See #47.
-  #
-  # This is not cheap: a dense row over the stress columns means no two of them
-  # can share a finite-difference group, so the column count goes 21 -> 501 for
-  # points=240 and a coupled solve costs about 1.45x. Correctness first; a
-  # cheaper structure would have to exploit that S is a single scalar
-  # contraction, which jac_sparsity cannot express.
-  pattern[:stress_start, stress_start:] = True
-  for index in range(points):
-    radial = stress_start + index
-    hoop = radial + points
-    pattern[radial, radial] = True
-    pattern[radial, hoop] = True
-    pattern[hoop, radial] = True
-    pattern[hoop, hoop] = True
-  sparse_pattern = pattern.tocsr()
-  sparse_pattern.data.setflags(write=False)
-  sparse_pattern.indices.setflags(write=False)
-  sparse_pattern.indptr.setflags(write=False)
-  return sparse_pattern
 
 def _thermal_state(temperature_ratio, alpha, beta): return kirchhoff_theta(temperature_ratio, alpha, beta)
 
@@ -603,6 +565,5 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
     forcing=_prepare_forcing(config, p),
     instantaneous_material=instantaneous_material,
     distributed_stress=distributed_stress,
-    jacobian_sparsity=_prepare_distributed_jacobian(config, layout),
     collapse_stats=collapse_stats,
   )

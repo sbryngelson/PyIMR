@@ -186,10 +186,10 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   # large grids where Newton stalls. `sensitivities_jax` keeps the default.
   solver, solver_name = (diffrax.Tsit5(), "tsit5") if config is None else _solver_for(config, diffrax, differentiating=False)
 
-  def build():
+  def program(chosen):
     def solve(grid, start):
       return diffrax.diffeqsolve(
-        diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *args, xp=jnp))), solver,
+        diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *args, xp=jnp))), chosen,
         t0=grid[0], t1=grid[-1], dt0=None, y0=start,
         stepsize_controller=diffrax.PIDController(rtol=rtol, atol=atol, dtmax=max_step),
         saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, throw=False,
@@ -197,28 +197,50 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
 
     return jax.jit(solve)
 
-  compiled = _cached(cache_key, build) if cache_key is not None else build()
-  started = perf_counter()
-  try:
-    solution = compiled(jnp.asarray(np.asarray(times, dtype=float)), jnp.asarray(np.asarray(initial, dtype=float)))
-  except Exception as error:  # noqa: BLE001 - any solver failure is one failure
-    elapsed = perf_counter() - started
-    stats = SolverStats(backend=f"jax-{solver_name}{label}", success=False, message=str(error), nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
-    raise SimulationError(f"{failure}: {error}", stats) from error
+  grid_values = jnp.asarray(np.asarray(times, dtype=float))
+  start_values = jnp.asarray(np.asarray(initial, dtype=float))
 
-  elapsed = perf_counter() - started
-  states = np.asarray(jax.block_until_ready(solution.ys), dtype=float).T
-  steps = int(solution.stats.get("num_steps", 0))
-  finite = bool(np.all(np.isfinite(states)))
-  # diffrax reports its own outcome; `throw=False` keeps it out of the traceback
-  # so it can be reported the same way scipy's is. RESULTS compares by identity
-  # rather than by its repr, which is an opaque `RESULTS<>` for every member.
-  ok = bool(solution.result == diffrax.RESULTS.successful)
-  success = finite and ok
-  message = "The solver successfully reached the end of the integration interval." if ok else str(solution.result)
-  if ok and not finite: message = f"{message}; solution contains non-finite states"
-  stats = SolverStats(backend=f"jax-{solver_name}{label}", success=success, message=message, nfev=steps, njev=0, nlu=0, elapsed_s=elapsed)
-  if not success: raise SimulationError(f"{failure}: {message}", stats)
+  def run(chosen, name, key):
+    compiled = _cached(key, lambda: program(chosen)) if key is not None else program(chosen)
+    started = perf_counter()
+    try:
+      solution = compiled(grid_values, start_values)
+    except Exception as error:  # noqa: BLE001 - any solver failure is one failure
+      elapsed = perf_counter() - started
+      stats = SolverStats(backend=f"jax-{name}{label}", success=False, message=str(error), nfev=0, njev=0, nlu=0, elapsed_s=elapsed)
+      raise SimulationError(f"{failure}: {error}", stats) from error
+    elapsed = perf_counter() - started
+    states = np.asarray(jax.block_until_ready(solution.ys), dtype=float).T
+    # diffrax reports its own outcome; `throw=False` keeps it out of the traceback
+    # so it can be reported the same way scipy's is. RESULTS compares by identity
+    # rather than by its repr, which is an opaque `RESULTS<>` for every member.
+    ok = bool(solution.result == diffrax.RESULTS.successful)
+    finite = bool(np.all(np.isfinite(states)))
+    message = "The solver successfully reached the end of the integration interval." if ok else str(solution.result)
+    if ok and not finite: message = f"{message}; solution contains non-finite states"
+    stats = SolverStats(
+      backend=f"jax-{name}{label}", success=ok and finite, message=message,
+      nfev=int(solution.stats.get("num_steps", 0)), njev=0, nlu=0, elapsed_s=elapsed,
+    )
+    return states, stats, solution.result
+
+  states, stats, result = run(solver, solver_name, cache_key)
+
+  # Exhausting the step budget is retried once at higher order, which is what replaces
+  # the stiffness switching LSODA did (#119). The diagnosis in that issue was wrong:
+  # the case that motivated it -- an almost empty Rayleigh cavity at rtol=1e-11 -- is
+  # not stiff, and the implicit solver fails it after 97 s. `Dopri8` solves it in 1.2 s.
+  # It is order, not stiffness: a fifth-order method cannot reach 1e-11 in the steps it
+  # is given, and an eighth-order one can.
+  #
+  # A retry rather than a tolerance threshold, because the threshold would be a guess
+  # and this cannot cost anything on the happy path -- it fires only where the
+  # alternative is a hard failure. Dopri8 is NOT the default: it is measured slower on
+  # every thermal case (182 ms against 150 ms coupled), and faster only on mechanical.
+  if not stats.success and result == diffrax.RESULTS.max_steps_reached and solver_name == "tsit5":
+    states, stats, _ = run(diffrax.Dopri8(), "dopri8", None if cache_key is None else (*cache_key, "dopri8"))
+
+  if not stats.success: raise SimulationError(f"{failure}: {stats.message}", stats)
   return states, stats
 
 class _Overridden:

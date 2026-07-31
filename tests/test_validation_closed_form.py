@@ -32,6 +32,7 @@ those, a Keller-Miksis branch that silently fell back to Rayleigh-Plesset, or a
 conduction term that was inert, would score perfectly.
 """
 
+from dataclasses import replace
 import functools
 from typing import Any
 
@@ -72,15 +73,33 @@ def test_collapse_time_converges_to_rayleigh(measured):
   the analytic value as the cavity empties. Monotonicity is asserted as well as
   the endpoint: a solver that happened to sit near 0.9147 without converging
   toward it would pass a single-tolerance check."""
-  # Req/R0 = 0.02 dropped: it exhausts the million-step budget (see #119), and cost the
-  # assertions nothing -- convergence stops resolving by 0.05, where the error is the
-  # output grid's argmin quantization rather than the solver's.
-  ratios = (1.0 / 6.0, 0.1, 0.05)
+  ratios = (1.0 / 6.0, 0.1, 0.05, 0.02)
   errors = [abs(_collapse_time(ratio) - _ANALYTIC) / _ANALYTIC for ratio in ratios]
 
   measured("Rayleigh t_c", f"analytic={_ANALYTIC * 1e6:.4f}us  rel={' -> '.join(f'{e:.1e}' for e in errors)}")
   assert errors[0] > errors[1] > errors[2], "collapse time must converge as the gas content vanishes"
   assert errors[-1] < max(4.0 * _RESOLUTION, 1e-5), "did not reach the analytic value within grid resolution"
+
+
+def test_the_step_budget_failure_is_retried_at_higher_order(measured):
+  """The retry that replaces LSODA's switching, asserted on the case that needed it.
+
+  Req/R0 = 0.02 at rtol=1e-11 exhausts Tsit5's million steps. It is NOT stiff -- the
+  implicit solver fails it after 97 s -- so the retry is higher ORDER, not implicit,
+  and the backend label is what proves which solver produced the answer rather than
+  leaving it inferred from the fact that a number came back.
+  """
+  config = imr_fast.SimulationConfig(
+    R0=_R0, Req=_R0 * 0.02, material=imr_fast.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13
+  )
+  result = imr_fast.simulate(np.linspace(0.0, _WINDOW, 2001), config)
+  measured("step-budget retry", f"backend={result.stats.backend}")
+  assert "dopri8" in result.stats.backend, f"expected the higher-order retry, got {result.stats.backend}"
+  assert result.stats.success
+
+  # And the retry stays out of the way: an ordinary case is answered by Tsit5.
+  easy = imr_fast.simulate(np.linspace(0.0, _WINDOW, 2001), replace(config, Req=_R0 / 6.0))
+  assert "tsit5" in easy.stats.backend, f"the retry fired where it was not needed: {easy.stats.backend}"
 
 
 def test_gas_content_lengthens_the_collapse(measured):

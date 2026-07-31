@@ -8,3 +8,11 @@ build/
 dist/
 *.egg-info/
 site/
+
+# Coverage artefacts (uploaded from CI, never committed)
+.coverage
+.coverage.*
+coverage.xml
+
+# Explicit XLA compilation cache location used by CI
+.xla-cache/

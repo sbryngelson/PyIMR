@@ -8,10 +8,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from imr_fast import _complex
 import imr_fast
-from imr_fast import sensitivity
-from imr_fast._dual import _dual_config, _dual_forcing, _dual_medium, _dual_parameters, _initial_matrix, _normalize_parameters, _rhs_physical
 from _validation_support import NHKV, R0, REQ
 
 SECTION = "3. Unified forward sensitivities"
@@ -89,101 +86,14 @@ def test_collapse_shooting_tangent(measured):
   assert error < 1e-5
   assert residual < 2e-8
 
-
-_COMPLEX_CASES = (
-  ("bubtherm fd", dict(bubtherm=1, Nt=7, thermal="fd")),
-  ("bubtherm spectral", dict(bubtherm=1, Nt=7, thermal="spectral")),
-  ("coupled fd", dict(bubtherm=1, medtherm=1, Nt=7, Mt=7, thermal="fd")),
-  ("coupled spectral", dict(bubtherm=1, medtherm=1, Nt=7, Mt=7, thermal="spectral")),
-)
-_MASSTRANS = dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=7, Mt=7, thermal="fd")
-
-
-def _dual_and_complex_rhs(problem, names):
-  """Both augmented RHS closures for the same problem, built as the solver does."""
-  config = problem.config
-  normalized, values, scales = _normalize_parameters(config, names)
-  dual_config = _dual_config(config, normalized, values, scales)
-  parameters = _dual_parameters(dual_config)
-  medium = _dual_medium(problem, parameters)
-  forcing = _dual_forcing(dual_config, parameters)
-  width = len(normalized)
-  packed = _initial_matrix(problem, dual_config, parameters, width).ravel()
-  dual = _rhs_physical(
-    0.0,
-    packed,
-    problem=problem,
-    config=dual_config,
-    parameters=parameters,
-    medium=medium,
-    forcing=forcing,
-    width=width,
-  )
-  fast = _complex.rhs_complex(
-    0.0,
-    packed,
-    problem=problem,
-    prepared=_complex.directions(dual_config, parameters, medium, forcing, width),
-    width=width,
-  )
-  return np.asarray(dual, dtype=float), np.asarray(fast, dtype=float)
-
-
-@pytest.mark.parametrize(
-  "label,options", [*[(c[0], c[1]) for c in _COMPLEX_CASES], ("coupled+mass", _MASSTRANS)], ids=[*[c[0] for c in _COMPLEX_CASES], "coupled+mass"]
-)
-def test_complex_rhs_matches_dual_rhs(label, options, measured):
-  """Compare the two augmented RHS closures directly, not through an integration.
-
-  This is where a mistake would live -- the complex conversion of the parameter,
-  medium and forcing structures -- and one evaluation costs milliseconds. The
-  end-to-end check below cannot cover `masstrans` at all: its `Dual` reference
-  needs minutes even over a 5e-7 s window, because the cost is the stiff initial
-  transient rather than the output window, and this repo's CI runs every marker.
-  Testing the RHS instead of the trajectory keeps the coverage and drops the bill.
-  """
-  problem = imr_fast.prepare(imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), **options))
-  dual, fast = _dual_and_complex_rhs(problem, ["material.shear_modulus_pa", "R0"])
-
-  error = float(np.max(np.abs(dual - fast))) / max(float(np.max(np.abs(dual))), 1e-30)
-  measured(f"complex vs dual RHS, {label}", f"rel={error:.2e}")
-  assert error < 1e-9
-
-
-@pytest.mark.parametrize("label,options", _COMPLEX_CASES, ids=[c[0] for c in _COMPLEX_CASES])
-def test_complex_step_matches_dual_tangents(label, options, measured, monkeypatch):
-  """The thermal path now carries tangents in the imaginary part rather than in
-  `Dual` (#44). The two routes share `_rhs`, so they must agree to solver
-  tolerance -- this is the only thing standing between a 6-25x speedup and
-  silently wrong derivatives.
-
-  A finite difference would not do: it is orders of magnitude less accurate than
-  either route, so it cannot distinguish them. `Dual` is the exact reference.
-  """
-  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), **options)
-  problem = imr_fast.prepare(config)
-  times = np.linspace(0.0, 4e-6, 6)
-  names = ["material.shear_modulus_pa", "R0"]
-
-  monkeypatch.setattr(_complex, "complex_step_supported", lambda _problem: False)
-  assert not _complex.complex_step_supported(problem), "the Dual route was not actually selected"
-  reference = sensitivity.solve_with_sensitivities(problem, times, names)
-  monkeypatch.undo()
-  assert _complex.complex_step_supported(problem), "the complex route was not actually selected"
-  fast = sensitivity.solve_with_sensitivities(problem, times, names)
-
-  exact = np.asarray(reference.radius_m, dtype=float)
-  error = float(np.max(np.abs(exact - np.asarray(fast.radius_m, dtype=float)))) / max(float(np.max(np.abs(exact))), 1e-30)
-  measured(f"complex vs dual, {label}", f"rel={error:.2e}")
-  assert error < 1e-6
-
-
-def test_distributed_materials_stay_on_the_dual_route():
-  """`_distributed_dissipation` reaches np.cbrt and np.interp, which reject
-  complex input, and its np.maximum clamp is not analytic. The gate is what
-  keeps that from being discovered at runtime."""
-  distributed = imr_fast.prepare(imr_fast.SimulationConfig(R0, REQ, imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), bubtherm=1, Nt=7))
-  assert not _complex.complex_step_supported(distributed)
-  assert _complex.complex_step_supported(
-    imr_fast.prepare(imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), bubtherm=1, Nt=7))
-  )
+# W11 stage 5 deleted both routes this section compared. Complex step and the `Dual`
+# fallback were two augmented closures over one `_rhs`, and three tests kept them
+# agreeing: an RHS-level comparison, an end-to-end tangent comparison, and a gate
+# asserting distributed materials stayed off the complex path because `np.cbrt` and
+# `np.interp` reject complex input.
+#
+# `_rhs` is traced now and there is no second closure. The replacement is weaker, and it
+# is recorded where it is felt: tests/test_backend_jax.py checks every tangent against a
+# central difference, which resolves 1e-09 to 1e-04 rather than 1e-13. The tests above --
+# material, thermal-output and collapse tangents against differences of their own -- were
+# always the independent ones and are unchanged.

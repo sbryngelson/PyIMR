@@ -294,3 +294,65 @@ def test_gain_matches_an_exact_posterior(measured):
   error = abs(gain - _EXACT_GAIN_AT_COLLAPSE)
   measured("EIG vs exact posterior", f"{gain:.4f} vs {_EXACT_GAIN_AT_COLLAPSE:.4f}, abs={error:.3f} nats")
   assert error < 0.05, f"EIG {gain:.4f} against an exact quadrature posterior of {_EXACT_GAIN_AT_COLLAPSE:.4f}"
+
+
+# Batched design information. Scoring a design is `draws` sensitivity solves that
+# differ only in the values of the inference parameters -- which the traced path
+# takes as an argument -- so the graph is shared and `vmap` maps over the points
+# rather than the loop re-tracing per draw.
+
+
+def test_batched_design_information_matches_the_per_draw_loop(measured):
+  """The whole point of batching is that it changes cost and not the answer.
+
+  Compared against `_fisher` per draw, which is the numpy route, so the difference
+  here is cross-backend rather than batching: the Fisher entries land at 1e-04 while
+  the EIG lands at 5e-07, because a log-determinant is far less sensitive than the
+  entries it reduces. The EIG is what a design is ranked by, so that is the number
+  the bound is set on.
+  """
+  # `_fisher` and `jacobians` share one implementation now, so this compares batching
+  # alone -- the per-draw loop against the vmapped program.
+  inference = imr_design.design_inference(
+    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)),
+    _TIMES, _NOISE, _PARAMETERS,
+  )
+  draws = 32
+  points = np.random.default_rng(0).random((draws, len(_PARAMETERS)))
+  looped = np.array([imr_design._fisher(inference, unit) for unit in points])
+  batched, requested, failures = imr_design.design_information(inference, draws=draws, seed=0, batched=True)
+  assert (requested, failures) == (draws, 0)
+  assert batched.shape == looped.shape
+  fisher = float(np.max(np.abs(looped - batched))) / float(np.max(np.abs(looped)))
+  looped_gain = imr_design.expected_information_gain(inference, draws=draws, seed=0, information=(looped, draws, 0))
+  batched_gain = imr_design.expected_information_gain(inference, draws=draws, seed=0, information=(batched, requested, failures))
+  gain = abs(looped_gain.expected_information_gain - batched_gain.expected_information_gain) / abs(looped_gain.expected_information_gain)
+  measured("batched vs looped design information", f"fisher={fisher:.1e} eig={gain:.1e}")
+  # Same backend on both sides, so this is batching alone and the bound is tight.
+  assert fisher < 1e-9, fisher
+  assert gain < 1e-11, gain
+
+
+def test_batched_jacobians_agree_with_the_single_draw_call():
+  """`jacobians` skips the per-draw `config_from_unit` and `prepare` that `jacobian`
+  performs, on the grounds that a draw varies only the traced parameters. This is
+  what licenses that: the two agree where both run through the same backend."""
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  inference = imr_design.design_inference(config, _TIMES, _NOISE, _PARAMETERS)
+  points = np.random.default_rng(1).random((5, len(_PARAMETERS)))
+  looped = np.stack([inference.jacobian(unit) for unit in points])
+  batched = inference.jacobians(points)
+  assert batched.shape == looped.shape
+  assert float(np.max(np.abs(looped - batched))) / float(np.max(np.abs(looped))) < 1e-8
+
+
+def test_batching_refuses_to_pretend_it_can_count_failures():
+  """`batched=True` is opt-in because a single traced program fails as a WHOLE. Rather
+  than accept `max_failure_fraction` and silently ignore it -- which would report a
+  gain as conditional on draws it never checked -- the combination is refused."""
+  inference = imr_design.design_inference(
+    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)),
+    _TIMES, _NOISE, _PARAMETERS,
+  )
+  with pytest.raises(ValueError, match="cannot honour max_failure_fraction"):
+    imr_design.design_information(inference, draws=4, seed=0, batched=True, max_failure_fraction=0.5)

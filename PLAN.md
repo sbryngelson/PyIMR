@@ -1776,10 +1776,299 @@ Resolved by making jax mandatory. That drops Python 3.10 and 3.11 -- jax require
 3.12 -- and puts ~100 MB of jaxlib in a core install. Both are real costs and were
 confirmed rather than assumed.
 
-One capability gap remains before `_dual.py` and `_complex.py` can go: the traced
-path refuses `physics.*` and `initial.*` sensitivity parameters, which the scipy
-route differentiates. Deleting the scipy route without covering them would remove
-capability, not duplication.
+#### Stage 5a: jax is mandatory, and `_mechanical.py` is gone
+
+jax and diffrax are core dependencies. `requires-python` goes to 3.12 because jax
+requires it, so **Python 3.10 and 3.11 support is dropped** -- a breaking change,
+confirmed rather than assumed, and the reason the optional-jax design existed at
+all.
+
+What that removed, beyond the file:
+
+| deleted | lines |
+|---|---:|
+| `_mechanical.py` | 611 |
+| `_rhs_mechanical_compiled` + `_compiled_mechanical_outputs` + `_prepared_arrays` | ~85 |
+| the numba route's two consistency tests | ~180 |
+| `available()`, `unsupported_reason()`, `_MISSING`, the import guard | ~50 |
+| `requires_jax` scaffolding and the two "nothing is refused" tests | ~55 |
+
+`_mechanical.py` had no configuration to itself. `use_compiled_mechanical` fired
+for `not bubtherm and forcing is None`, and every such configuration is also
+complex-step-supported -- so it was an accelerator for a route that already
+existed, at 45 ms against complex step's 87-105 ms. `backend="jax"` does the same
+work in 5-11 ms. It was the duplicate AND the slow path.
+
+Deleting it also deleted the test that existed because it could drift.
+`test_rhs_consistency.py` opened by saying "every physics law is implemented twice
+... nothing else asserts that the two agree", and three of four physics changes
+during the parity work had introduced a bug in the second copy. That file is now 74
+lines covering the one duplication that remains: `_dual_medium`'s rebuild of the
+wall stencils.
+
+`unsupported_reason` went with it. It had been reduced to `return None` for every
+configuration, and a function that refuses nothing plus a test asserting it refuses
+nothing is not a safety net.
+
+#### Stage 5b: the parameter gap closes, and one blocker remains
+
+`physics.*` and `initial.*` are traced now. Not by passing them beside the
+structure as `scales` does -- `params` reads twenty-five `physics` fields at
+scattered sites and `initial_state_vector` five off `initial`, so an override
+argument would have put the same lookup in thirty places. `_jax._Overridden`
+substitutes at ATTRIBUTE ACCESS instead: a read-only wrapper whose `__getattr__`
+returns the traced value for overridden names and delegates the rest. No read site
+changed.
+
+Two `xp` leaks fell out of it. `Uc = np.sqrt(P8/density)` breaks once `P8` is
+traced, and `params` called `_mu_of_A`/`_mie_F` at their `xp=np` defaults while
+`Cstar` carried a tracer.
+
+`mn` was also missing from `CONFIG_PATHS`, and was found by **enumerating** the
+scalar fields of the config, `physics`, `initial` and the material, keeping the ones
+the scipy route accepts, and diffing against what the traced path covers -- not by
+reading the code. That check is now a test, because the enumeration is the only
+thing that makes "the traced path covers everything" an assertion rather than a
+belief. It reports **0 of 28 paths refused**.
+
+Its tangent converges: `dR/dmn` agrees at 8.7e-05 at rtol 1e-08 and 1.1e-07 at
+1e-11. The first attempt measured identically zero, because the histotripsy window
+is `DT +/- pi/omega` = [2e-05, 4e-05] and the sampled span stopped at 2e-05 -- a
+test that would have passed while testing nothing.
+
+#### Differentiating through the collapse shooting
+
+The last blocker, and it needed neither a differentiable event nor a differentiable
+root-find. Both were the wrong framing. Two implicit conditions define the answer,
+and both can be applied AFTER a fixed-endpoint solve:
+
+    v(T) = 0        the precursor is at a maximum
+    R(T) - 1 = 0    that maximum is the observed one
+
+`prepare` already locates `(v0, T)` concretely by shooting in numpy, so the traced
+flow integrates to that FIXED `T` -- no event to differentiate. Then, writing `y'`
+for the right-hand side at the endpoint:
+
+    dT/dq  = -(dv/dq) / y'[1]
+    dm/dq  =  dm/dq|_T + y'[2:] * dT/dq
+    dv0/dq = -(dR/dq) / (dR/dv0)
+
+and `dR/dq` needs no `dT` term at all, because the velocity is zero at the maximum.
+That is what decouples a 2x2 implicit system into two scalar divisions, and it is the
+same arrangement the deleted `Dual` route used -- the algorithm was already the right
+one, only its implementation was tied to `Dual`.
+
+`CollapseStats` gained `maximum_time_nondimensional` to carry `T`. The result is
+returned as a value plus a CONSTANT Jacobian and applied inside the trace as a linear
+surrogate: exact in value at the point, exact in first derivative, which is all a
+tangent is.
+
+| | |
+|---|---:|
+| starting memory tangent vs scipy | 1.7e-10 to 2.8e-08 |
+| radius tangent convergence | 3.7e-02 -> 2.3e-04 -> 7.8e-07 |
+| memory tangent convergence | 6.4e-09 -> 3.5e-10 -> 9.4e-12 |
+
+The loose default-tolerance figure is integrator error amplified by the Zener
+collapse, so the test asserts convergence rather than a single bound.
+
+#### Stage 5b: the deletion is blocked on the CACHE KEY, not on capability
+
+Every capability gap is closed -- all 28 parameter paths, and the collapse tangent
+above -- and the deletion was written, run, and reverted anyway.
+
+`sensitivities_jax` caches its compiled `jacfwd` on `id(problem)`. `inference.py`
+calls `simulate_with_sensitivities`, which is `prepare(config).solve_with_sensitivities(...)`,
+so it builds a FRESH `PreparedProblem` on every likelihood, gradient and EIG
+evaluation -- lines 331, 355 and 376. The key therefore never hits, and each
+evaluation pays a full retrace:
+
+| | per sensitivity solve |
+|---|---:|
+| numpy route (complex step) | 45-100 ms |
+| traced, same problem reused | 5-11 ms |
+| traced, fresh problem each call | **~2500 ms** |
+
+That is a 25-50x regression on the workload this package exists for, and it is
+what made the suite go from 4:30 to over 7 minutes at 38%. Measured, not inferred:
+four problems differing only in `R0` took 2019, 2445, 2536 and 2635 ms.
+
+The cause is that `id(problem)` keys on OBJECT IDENTITY where the traced program
+depends only on structure. Two configurations differing in `R0` produce the same
+graph with different constants -- so the constants belong in the arguments, not the
+closure. Fixing it means keying on shape (layout, material type, flags, grid sizes,
+paths, grid length) and passing every non-differentiated scalar as a traced
+argument, including the ones reached through `physics`, `initial` and the collapse
+surrogate. That is real work with real room to bake in the wrong thing, and it is
+the actual remaining gate on stage 5b.
+
+Kept from the attempt: the collapse tangent, the parameter coverage, and
+`CollapseStats.maximum_time_nondimensional`. Reverted: the deletion and the
+always-traced routing.
+
+### The cache key, and how it kept lying about jax
+
+`_COMPILED` keyed on `id(problem)`. Both entry points that matter prepare per call --
+`simulate(times, config)`, and `inference` on every likelihood evaluation -- so the
+cache never hit where it counted, and a fresh but IDENTICAL configuration paid a
+full retrace: 2500 ms against 1.3 ms.
+
+It produced three wrong measurements in this work before being found, twice making
+jax look slower than it is. Once as "jax sensitivities are 24x slower than the numba
+mirror", which nearly argued stage 5 backwards. Once as "the forward backend is 0.08x
+to 0.64x", i.e. jax slower on everything, when prepare-once gives 1.3x to 10.3x.
+And once inside the first `jacobians`, which called `prepare` itself and so
+reproduced the very fault it existed to fix.
+
+Keyed on CONTENT now -- a recursive hash of everything the traced closure can read.
+The faster repair, a structural key plus promoting the varying constants to
+arguments, was rejected on risk: the closure reads the prepared arrays, the untraced
+scalars, `physics`, `initial` and the collapse surrogate, and any one left behind
+would silently reuse the first problem's value for the second. Content hashing cannot
+do that -- differ anywhere and you get a different program. It costs microseconds
+against a millisecond solve, and the eager collapse integration is cached on the same
+key.
+
+### Bayesian optimal design, and the MCMC path
+
+"The MCMC path falls out for free" was **wrong**. MCMC varies the parameters every
+step, so each configuration is genuinely different content and misses legitimately.
+What it needed was the parameters as ARGUMENTS, which is the same `at=` mechanism
+BOED needed:
+
+| | scipy | jax |
+|---|---:|---:|
+| MCMC step, `evaluate_with_jacobian` | 70.8 ms | **11.0 ms** |
+| BOED, 64 draws | 6.31 s | **77 ms** |
+
+BOED's draws differ only in the values of the inference parameters, so one `prepare`
+serves all of them and `vmap` maps over the points. Batched matches sequential to
+6e-13, and the EIG to 2e-16 on the same backend.
+
+`batched=True` is opt-in, and refuses `max_failure_fraction` rather than accepting it
+and ignoring it: one traced program fails as a whole, so per-draw failure accounting
+has nothing to attribute to.
+
+**Switching the likelihood's integrator changes the model.** Routing `evaluate`
+unconditionally through the traced path broke four estimator tests, one asserting the
+residual is exactly zero at the truth -- a legitimate property, since observations
+generated on one backend do not match the other's prediction to machine precision
+(4.8e-03 whitened). The mixed state was worse than either: with `evaluate` on scipy
+and the gradient traced, the two are derivatives of different functions and their
+consistency check fell from 5e-08 to 1.7e-04. So the pair dispatches on
+`config.backend`, together.
+
+That dispatch then made the new batching test vacuous -- with no backend declared it
+compared the loop against itself and reported a flattering 2.0e-16. Pointed at
+`backend="jax"` it reads 8.9e-15 and tests batching.
+
+### The pinned bands hold on a jax forward backend
+
+Checked before proposing the removal, by forcing every configuration in
+`test_validation_trajectories.py` onto `backend="jax"`: **38 passed**, with the
+deviations essentially unchanged -- collapse Zener 1.46e-03 against scipy's 1.47e-03,
+coupled NHKV 7.15e-05 against 7.04e-05, masstrans 2.89e-04 against 2.90e-04.
+
+### Why the non-jax backend stays, after three attempts to remove it
+
+Every capability gate is cleared -- all 28 differentiable paths, the collapse
+shooting tangent, sampled forcing -- and the deletion was written three times and
+reverted three times. Each attempt was stopped by something only measurement found,
+and the third is a hard blocker rather than a cost.
+
+**Attempt 1 was stopped by a silently wrong tangent.** The traced path received the
+collapse stress state as a constant, so its tangent was zero -- relative 1.00, wrong
+outright rather than imprecise. Caught by running the existing validation suite rather
+than only the new tests.
+
+**Attempt 2 was stopped by the cache key.** `sensitivities_jax` keyed on
+`id(problem)`, and `inference` prepares per evaluation, so MCMC would have paid 2.5 s
+a step against 45 ms. Fixed since -- content keying, plus `at=` for the varying
+parameters -- and that fix is what took MCMC to 11.0 ms and BOED to 77 ms.
+
+**Attempt 3 was stopped by stiffness, and this one does not have a workaround.**
+Removing the scipy forward solver breaks grid refinement outright. The bubble thermal
+PDE's stiffness scales like `Nt**2`, so an explicit solver's step count does too:
+
+| bubtherm grid | Tsit5 steps | |
+|---|---:|---|
+| Nt = Mt = 10 | 6,196 | fine |
+| Nt = Mt = 20 | 110,572 | fine, 1.6 s |
+| Nt = Mt = 40 | > 1,000,000 | **fails** |
+
+`test_thermal_grid_convergence` refines to Nt = 40 and passes on LSODA, which switches
+to implicit. Tsit5 cannot.
+
+**That blocker is now removed, and the earlier IMEX note does not generalise.** "IMEX:
+tried, and the blocker is compile time" was about KenCarp. `Kvaerno5` with an
+`optimistix.Newton` root finder behaves nothing like it -- at Nt = 40 it COMPILES
+FASTER than Tsit5, 3.5 s against 44.8 s, because Tsit5's cost there is the unrolled
+step budget it cannot meet:
+
+| Nt = Mt | Tsit5 | Kvaerno5 |
+|---|---|---|
+| 10 | 6,196 steps, 51 ms | 882 steps, 141 ms |
+| 20 | 110,572 steps, 774 ms | 927 steps, 382 ms |
+| 40 | > 1,000,000, FAILS | 968 steps, 558 ms |
+
+Forward-mode composes with it: `jacfwd` through `ForwardMode` works because optimistix
+differentiates the Newton solve by the implicit function theorem rather than unrolling
+it. At Nt = 40 Tsit5 needs 44.8 s to compile, 42.5 s to run, and returns a tangent that
+is 1.00 wrong because the solve never finished; Kvaerno5 needs 3.5 s and 796 ms and is
+right.
+
+**And the two removals are coupled, which was not obvious.** Deleting the numpy
+sensitivity route forces the likelihood and its gradient onto the traced path. Leave
+the forward solve on scipy and the pair is mixed: their consistency check degrades from
+5e-08 to 1.7e-04, so the gradient becomes the derivative of a slightly different
+function than the log-likelihood it ships with -- the exact failure
+`evaluate_with_jacobian` exists to prevent. So it is one decision, and stiffness gates
+it.
+
+#### The dividing line is the GRID, not the physics
+
+Nearly mis-drawn. Two measurements disagreed about whether Nt = 40 fails, and the
+difference was neither the grid size nor the time span but `thermal`, which defaults to
+`"spectral"`. Chebyshev nodes cluster at the boundaries, so the diffusion operator's
+spectral radius grows like `Nt**4` where the finite-difference grid's grows like
+`Nt**2`. Steps over 25 us:
+
+| case | Nt | explicit | implicit | |
+|---|---|---|---|---|
+| bubtherm spectral | 11 | 9,083 | 884 | Tsit5 faster on the clock |
+| bubtherm spectral | 25 | 279,694 | 930 | Kvaerno5 5x faster |
+| bubtherm spectral | 41 | > 1e6 | 965 | Tsit5 exhausts max_steps |
+| coupled spectral | 11 | 7,922 | 778 | Kvaerno5 1.7x faster |
+| coupled spectral | 25 | 244,552 | 861 | Kvaerno5 12x faster |
+| bubtherm fd | 41 | 11,953 | 826 | Tsit5 4x faster |
+
+So the rule is `bubtherm and thermal == "spectral"` -> implicit, and the
+finite-difference grids stay explicit at every size measured. An implicit step costs
+roughly ten explicit ones on systems this size, which is the whole reason the rule is
+not simply "thermal -> implicit".
+
+The Newton tolerance is stated rather than defaulted, and it is NOT what limits the
+tangent: tightening it from 1e-8 to 1e-13 left the sensitivity agreement at 2.26e-04,
+2.52e-04, 2.30e-04 while runtime grew 2.6x. That number is integration error at the
+configured `rtol`, the same as everywhere else here.
+
+#### What a finite-difference reference can and cannot do
+
+Worth recording, because it was tried and it nearly worked. A central difference of the
+forward solve resolves 5.6e-09 to 3.6e-06 across fifteen tangent cases, which is two to
+four orders below every defect this suite has caught. It is adequate for missing terms,
+which is what the defects were.
+
+Two cases were not straightforward and both misled at first:
+
+- **Collapse** read 2.8e-02 and was STEP-INDEPENDENT -- so not differencing error at
+  all, but the integrators' own error at the default tolerance, which the Zener collapse
+  amplifies. At rtol 1e-12 it is 1.15e-06.
+- **Sampled forcing** was INVERTED: 4.6e-04 at a 1e-03 step, 1.6e-02 at 1e-05, 2.6e+00
+  at 1e-07. The forcing is a piecewise cubic, so a smaller step shrinks the signal but
+  not the error from knots crossing evaluation points. Usable at 1.8e-04 -- a 170x
+  margin against the 3.1e-02 defect it has to catch, against roughly 10^4 elsewhere.
+  That is the one place a difference is close to unable to do the job.
 
 ### A measurement error worth recording
 

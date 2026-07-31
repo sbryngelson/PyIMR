@@ -124,6 +124,38 @@ def test_analytic_stress_rate_matches_centered_difference(label, material, measu
   assert error < 2e-7
 
 
+@pytest.mark.parametrize("label,material", _RATE_MATERIALS, ids=[c[0] for c in _RATE_MATERIALS])
+def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material, measured):
+  """Every material must evaluate under `jnp` as well as `np`, and agree.
+
+  Every other check here goes through `_instantaneous_values`, which evaluates in
+  numpy and never integrates -- so nothing asked whether a material could be traced,
+  and Powell-Eyring could not. No ODE, so all twelve are cheap to cover.
+  """
+  # `_jax._jax()` enables x64; a bare `import jax.numpy` leaves float32 and every
+  # material then agrees only to ~1e-08.
+  from imr_fast import _jax  # noqa: PLC0415
+  from imr_fast._stress import _instantaneous_stress  # noqa: PLC0415
+
+  _, jnp, _ = _jax._jax()
+
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material)
+  problem = imr_fast.prepare(config)
+  radius, velocity = 0.5, -0.3
+  reference = _instantaneous_stress(material, problem.instantaneous_material, problem.parameters, radius, velocity, True, xp=np)
+  traced = _instantaneous_stress(
+    material, problem.instantaneous_material, problem.parameters, jnp.asarray(radius), jnp.asarray(velocity), True, xp=jnp
+  )
+  # A material leaves slots it does not populate as `None`, and the namespaces must
+  # agree on which -- part of the property.
+  assert [value is None for value in reference] == [value is None for value in traced], f"{label}: namespaces disagree on which terms exist"
+  pairs = [(float(a), float(b)) for a, b in zip(reference, traced, strict=True) if a is not None and b is not None]
+  worst = max(abs(a - b) / max(1.0, abs(a)) for a, b in pairs)
+  measured(f"namespace agreement {label}", f"rel={worst:.2e}")
+  assert all(np.isfinite(b) for _, b in pairs), f"{label}: traced evaluation is not finite"
+  assert worst < 1e-12, f"{label}: {worst:.3e}"
+
+
 @pytest.mark.parametrize("stretch", (0.4, 0.9, 1.0, 1.0005, 1.3, 2.5))
 def test_ogden_matches_neo_hookean_through_the_series_switch(stretch, measured):
   """Ogden's (1 - u**a)/(1 - u) factor is 0/0 at u = 1 and is covered by a

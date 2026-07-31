@@ -7,8 +7,11 @@ name = "imr-fast"
 version = "0.3.0"
 description = "Fast, validated solvers for inertial microcavitation rheometry"
 readme = "README.md"
-requires-python = ">=3.10"
+# 3.12 because jax requires it, and jax is not optional. See PLAN.md W11 stage 5.
+requires-python = ">=3.12"
 dependencies = [
+    "diffrax>=0.6",
+    "jax>=0.4",
     "numba>=0.63",
     "numpy>=2.0",
     "scipy>=1.11",
@@ -20,18 +23,7 @@ dependencies = [
 # is the only module that needs it, and it imports lazily so the rest of the package works
 # without it. See #25.
 inference = [
-    # PyMC 6 requires Python >= 3.12, above this package's own floor of 3.10.
-    # Left unguarded by a marker on purpose: a marker would make the extra a
-    # silent no-op on 3.10, whereas the bare requirement makes pip report the
-    # actual constraint.
     "pymc>=6",
-]
-# The jax backend (PLAN.md W11). Optional for the same reason `inference` is:
-# a core install stays numpy/scipy/numba, and `imr_fast._jax` defers its import
-# so nothing pays for jax unless `backend="jax"` is asked for.
-jax = [
-    "jax>=0.4",
-    "diffrax>=0.6",
 ]
 # Documentation is generated rather than written: #8 stripped docstrings from
 # internals and kept them on everything named in `__all__`, so "everything
@@ -47,6 +39,8 @@ test = [
     # version would make the baseline drift for reasons unrelated to the code.
     "pyright==1.1.411",
     "pytest>=8",
+    "pytest-cov>=6",
+    "pytest-xdist>=3.6",
     "ruff>=0.15",
 ]
 
@@ -66,6 +60,21 @@ exclude = ["build", "dist", ".venv", "**/__pycache__"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["--strict-config", "--strict-markers"]
+
+[tool.coverage.run]
+# Branch coverage: behaviour is selected by configuration flags, so a fully-covered
+# `if` whose false arm never runs is the gap worth seeing.
+branch = true
+source = ["imr_fast"]
+# xdist runs one process per worker, which would otherwise overwrite one data file.
+parallel = true
+
+[tool.coverage.report]
+exclude_also = [
+    # Reached only by a missing dependency, which the CI install always provides.
+    "raise ImportError",
+    "if TYPE_CHECKING:",
+]
 
 [tool.ruff]
 line-length = 150

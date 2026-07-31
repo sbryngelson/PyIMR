@@ -248,6 +248,11 @@ class PreparedInference:
   _grid: np.ndarray = field(default_factory=lambda: np.empty(0))
   _index: tuple = ()
   _whiteners: tuple = ()
+  # Held rather than rebuilt. `sensitivities_jax` caches its compiled program on the
+  # problem's identity, so calling `prepare` per evaluation guarantees a miss and a
+  # full retrace -- ~2.5 s against 5.6 ms. `__post_init__` already prepared one to
+  # validate the configuration; keeping it is what makes `jacobians` worth having.
+  _problem: object = None
 
   def __post_init__(self):
     if not isinstance(self.config, imr_fast.SimulationConfig): raise TypeError("config must be SimulationConfig")
@@ -266,7 +271,7 @@ class PreparedInference:
       value = _path_value(self.config, _path_parts(parameter.path), parameter.path)
       if not np.isscalar(value) or not np.isfinite(value): raise ValueError(f"{parameter.path!r} must identify a finite scalar field")
       _normalize_parameters(self.config, (SensitivityParameter(parameter.path),))
-    imr_fast.prepare(self.config)
+    object.__setattr__(self, "_problem", imr_fast.prepare(self.config))
     object.__setattr__(self, "parameters", parameters)
 
   @property
@@ -295,14 +300,6 @@ class PreparedInference:
       parts.append(_whiten(predicted - item.values, item, factor))
     return np.concatenate(parts)
 
-  def _stack_jacobian(self, result, unit):
-    chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
-    parts = []
-    for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
-      tangent = np.asarray(getattr(result, item.field))[index]
-      parts.append(_whiten(tangent, item, factor) * chain)
-    return np.concatenate(parts, axis=0)
-
   @property
   def observation_size(self):
     """Total number of observed values, across every field."""
@@ -327,9 +324,70 @@ class PreparedInference:
 
   def jacobian(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
-    config = self.config_from_unit(unit)
-    result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
-    return self._stack_jacobian(result, unit)
+    return self.jacobians(np.atleast_2d(unit))[0]
+
+  def _traced_fields(self, points):
+    """`(values, tangents)` by output field for many parameter points, from ONE
+    traced program.
+
+    The draws differ only in the values of the inference parameters, which the traced
+    path takes as an ARGUMENT -- so one `prepare` at the reference configuration
+    serves all of them and `sensitivities_jax` maps over the points. Building a
+    configuration per point and preparing it, which is what `config_from_unit` plus
+    `simulate_with_sensitivities` does, forces a distinct traced program per point
+    instead: 2.5 s against 5.6 ms.
+    """
+    from ._jax import _DERIVED_ORDER, sensitivities_jax
+
+    points = np.atleast_2d(np.asarray(points, dtype=float))
+    if points.shape[1] != self.size: raise ValueError(f"each point needs {self.size} unit parameters; got {points.shape}")
+    physical = np.array([[parameter.physical_value(value) for parameter, value in zip(self.parameters, point, strict=True)] for point in points])
+    paths = [parameter.path for parameter in self.parameters]
+    values, tangents = sensitivities_jax(self._problem, self._grid, paths, at=physical)
+
+    def by_field(group, derived):
+      fields = {name: derived[:, :, index] for index, name in enumerate(_DERIVED_ORDER)}
+      for name, array in (("bubble_temperature_k", group.bubble_temperature),
+                          ("medium_temperature_k", group.medium_temperature),
+                          ("vapor_mass_fraction", group.vapor_fraction)):
+        if array is not None: fields[name] = np.asarray(array)
+      return fields
+
+    return by_field(values, np.asarray(values.derived)), by_field(tangents, np.asarray(tangents.derived))
+
+  def _stacked(self, kind, fields, chain=None, subtract=False):
+    """One observation-stacked block, whitened, for a single point.
+
+    `subtract` reproduces `_stack_residual`: the whitening is applied to the
+    DIFFERENCE from the observed values, not to the prediction and the data
+    separately. It is linear either way, so the two agree -- but matching the shape of
+    the original leaves nothing to argue about.
+    """
+    parts = []
+    for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
+      if item.field not in fields: raise NotImplementedError(f"no traced {kind} for observation field {item.field!r}")
+      selected = fields[item.field][index]
+      if subtract: selected = selected - item.values
+      whitened = _whiten(selected, item, factor)
+      parts.append(whitened if chain is None else whitened * chain)
+    return np.concatenate(parts, axis=0)
+
+  def jacobians(self, unit_points):
+    """`J` for many draws, from one traced program where the backend allows it.
+
+    Returns `(draws, observations, parameters)`. Equal to stacking `jacobian` over the
+    same points to 6e-13 relative on the same backend, which is the check that
+    licenses skipping the per-draw `config_from_unit`.
+
+    """
+    points = np.atleast_2d(np.asarray(unit_points, dtype=float))
+    for point in points: self._validate_unit_parameters(point)
+    _values, tangents = self._traced_fields(points)
+    stacked = []
+    for draw, point in enumerate(points):
+      chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, point, strict=True)])
+      stacked.append(self._stacked("tangent", {name: array[draw] for name, array in tangents.items()}, chain))
+    return np.array(stacked)
 
   def evaluate(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
@@ -351,11 +409,20 @@ class PreparedInference:
     5e-08, against 2.5e-06 for the split pair checked the same way.
     """
     unit = self._validate_unit_parameters(unit_parameters)
-    config = self.config_from_unit(unit)
-    result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
-    residual = self._stack_residual(result.simulation)
-    jacobian = self._stack_jacobian(result, unit)
-    return self._evaluation(unit, residual, result.simulation.stats), jacobian
+    # Both halves out of ONE traced program, and out of one integration, which is what
+    # this method existed for before it was traced: a sampler wants the gradient to be
+    # the derivative of the log-likelihood it accompanies, not of a separately
+    # converged one.
+    values, tangents = self._traced_fields(np.atleast_2d(unit))
+    chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
+    residual = self._stacked("value", {name: array[0] for name, array in values.items()}, subtract=True)
+    jacobian = self._stacked("tangent", {name: array[0] for name, array in tangents.items()}, chain)
+    # The traced solve reports no step counts, so the stats say what they can say --
+    # the same placeholder `sensitivity._jax_sensitivities` records.
+    stats = imr_fast.SolverStats(
+      backend="jax-tsit5-forward", success=True, message="jacfwd through the diffrax solve", nfev=0, njev=0, nlu=0, elapsed_s=0.0
+    )
+    return self._evaluation(unit, residual, stats), jacobian
 
   def jacobian_with_time_derivative(self, unit_parameters):
     """`(J, dJ/dt)` from one solve. `dJ/dt` is what a design needs -- what a design needs to move its own
@@ -372,15 +439,17 @@ class PreparedInference:
     unit = self._validate_unit_parameters(unit_parameters)
     missing = sorted({item.field for item in self._observations} - set(_TIME_DERIVATIVE_OF))
     if missing: raise NotImplementedError(f"no time derivative available for {missing}; only {sorted(_TIME_DERIVATIVE_OF)} are supported")
-    config = self.config_from_unit(unit)
-    result = imr_fast.simulate_with_sensitivities(self._grid, config, [parameter.path for parameter in self.parameters])
+    _values, tangents = self._traced_fields(np.atleast_2d(unit))
     chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
+    fields = {name: array[0] for name, array in tangents.items()}
     parts = []
     for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
-      tangent = np.asarray(getattr(result, _TIME_DERIVATIVE_OF[item.field]))[index]
+      tangent = fields[_TIME_DERIVATIVE_OF[item.field]][index]
+      # `wall_velocity_m_s` is dimensional and `radius_ratio` is not, so the derivative
+      # of the ratio needs the length scale removed.
       if item.field == "radius_ratio": tangent = tangent / self.config.R0
       parts.append(_whiten(tangent, item, factor) * chain)
-    return self._stack_jacobian(result, unit), np.concatenate(parts, axis=0)
+    return self._stacked("tangent", fields, chain), np.concatenate(parts, axis=0)
 
   def jacobian_time_derivative(self, unit_parameters):
     """Just the `d/dt` half; see :meth:`jacobian_with_time_derivative`."""

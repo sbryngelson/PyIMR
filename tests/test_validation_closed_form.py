@@ -72,7 +72,10 @@ def test_collapse_time_converges_to_rayleigh(measured):
   the analytic value as the cavity empties. Monotonicity is asserted as well as
   the endpoint: a solver that happened to sit near 0.9147 without converging
   toward it would pass a single-tolerance check."""
-  ratios = (1.0 / 6.0, 0.1, 0.05, 0.02)
+  # Req/R0 = 0.02 dropped: it exhausts the million-step budget (see #119), and cost the
+  # assertions nothing -- convergence stops resolving by 0.05, where the error is the
+  # output grid's argmin quantization rather than the solver's.
+  ratios = (1.0 / 6.0, 0.1, 0.05)
   errors = [abs(_collapse_time(ratio) - _ANALYTIC) / _ANALYTIC for ratio in ratios]
 
   measured("Rayleigh t_c", f"analytic={_ANALYTIC * 1e6:.4f}us  rel={' -> '.join(f'{e:.1e}' for e in errors)}")

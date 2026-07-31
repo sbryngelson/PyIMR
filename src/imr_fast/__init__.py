@@ -25,9 +25,10 @@ replicate its quirks on purpose, and which correct it, is in docs/upstream.md.
 from __future__ import annotations
 
 
+from dataclasses import replace
+
 import numpy as np
 
-from ._autodiff import primal, primal_array  # noqa: F401
 
 __all__ = [
   "ArrudaBoyce",
@@ -110,7 +111,6 @@ from ._config import (  # noqa: F401
   _freeze_array,
   _readonly_float_array,
   _readonly_optional,
-  _solve_stats,
   _validate_inputs,
 )
 
@@ -198,7 +198,6 @@ from ._prepare import (  # noqa: F401
   _collapse_memory_state,
   _collapse_zener_rhs,
   _material_scales,
-  _prepare_distributed_jacobian,
   _prepare_distributed_stress,
   _prepare_forcing,
   _prepare_instantaneous_material,
@@ -210,14 +209,11 @@ from ._prepare import (  # noqa: F401
 from ._rhs import (  # noqa: F401
   _nZ,
   _pinf,
-  _radius_floor_event,
   _rhs,
   _rhs_args,
   _sampled_pressure,
 )
 
-_radius_floor_event.terminal = True
-_radius_floor_event.direction = -1
 
 def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
   config = problem.config
@@ -283,15 +279,21 @@ def _integrate_prepared(problem: PreparedProblem, tv):
   tn = time_s / p["t0"]
   args = _rhs_args(problem, p, medium=problem.medium)
   states, stats = _integrate(
-    _rhs, tn, problem.initial_state, args=args, event=_radius_floor_event, sparsity=problem.jacobian_sparsity,
-    rtol=config.rtol, atol=config.atol, failure="IMR integration failed", backend=config.backend,
+    _rhs, tn, problem.initial_state, args=args,
+    rtol=config.rtol, atol=config.atol, failure="IMR integration failed", config=config,
     max_step=None if config.max_step_s is None else config.max_step_s / p["t0"],
   )
   return time_s, states, stats
 
 def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
   time_s, states, stats = _integrate_prepared(problem, tv)
-  return _build_result(problem, time_s, states, stats)
+  # The traced path carries no value guards, so a material leaving its domain is caught
+  # on the numpy output pass rather than during the solve. `_MaterialDomainError` is
+  # private; callers get the documented `SimulationError` either way.
+  try:
+    return _build_result(problem, time_s, states, stats)
+  except _MaterialDomainError as error:
+    raise SimulationError(f"IMR integration failed: {error}", replace(stats, success=False, message=str(error))) from error
 
 def simulate(tv, config: SimulationConfig) -> SimulationResult:
   """Run one simulation and return immutable physical histories."""

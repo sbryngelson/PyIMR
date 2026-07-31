@@ -15,7 +15,6 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.interpolate import PchipInterpolator
 from scipy.optimize import brentq
-from scipy.sparse import lil_matrix
 
 from ._config import (
   CollapseStats,
@@ -44,7 +43,8 @@ from ._materials import (
   _stress_state_count,
 )
 from ._rhs import _rhs
-from ._autodiff import at_set
+import imr_fast as _solver
+from ._arrays import at_set
 from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, mixture_kirchhoff, pvsat
 from .thermal_fd import finite_diff_mat
 from .thermal_spectral import chebyshev_diff_mat
@@ -54,7 +54,6 @@ __all__ = [
   "_collapse_memory_state",
   "_collapse_zener_rhs",
   "_material_scales",
-  "_prepare_distributed_jacobian",
   "_prepare_distributed_stress",
   "_prepare_forcing",
   "_prepare_instantaneous_material",
@@ -93,7 +92,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   density = physics.medium_density_kg_m3
   surface_tension = physics.surface_tension_n_m
   kappa = physics.polytropic_exponent
-  Uc = np.sqrt(P8_value / density)
+  Uc = xp.sqrt(P8_value / density)
   t0 = R0 / Uc
   concrete = _material_scales(material)
   G, mu, lam1, lam2, alphax = concrete if scales is None else scales
@@ -155,7 +154,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   tait_no = (physics.tait_exponent - 1.0) / physics.tait_exponent
   Cstar = physics.sound_speed_m_s / Uc
   nog = (physics.tait_exponent - 1.0) / 2.0
-  mie_reference = _mie_F(_mu_of_A(1.0 / Cstar**2, physics.hugoniot_slope, nog), physics.hugoniot_slope, nog)
+  mie_reference = _mie_F(_mu_of_A(1.0 / Cstar**2, physics.hugoniot_slope, nog, xp=xp), physics.hugoniot_slope, nog, xp=xp)
   return dict(
     t0=t0,
     Uc=Uc,
@@ -252,42 +251,6 @@ def _prepare_distributed_stress(material):
     weights=None if geometric is None else _freeze_array(geometric * reference_radius**2),
   )
 
-def _prepare_distributed_jacobian(config, layout):
-  if not _is_distributed_stress(config.material): return None
-  if not (config.medtherm or config.masstrans): return None
-  size = layout.size
-  stress_start = layout.stress.start
-  points = config.material.points
-  pattern = lil_matrix((size, size), dtype=bool)
-  pattern[:stress_start, :stress_start] = True
-  pattern[stress_start:, :2] = True
-  # The radial acceleration depends on the stress integral, a weighted sum over
-  # every stress state, and the thermal dissipation reads them too. Omitting
-  # this block declares those derivatives zero, so BDF's Newton iteration works
-  # from a Jacobian missing the entire stress-to-state coupling. Finite
-  # difference tolerated it; Chebyshev collocation is stiffer and the solve
-  # failed outright with "required step size is less than spacing between
-  # numbers". See #47.
-  #
-  # This is not cheap: a dense row over the stress columns means no two of them
-  # can share a finite-difference group, so the column count goes 21 -> 501 for
-  # points=240 and a coupled solve costs about 1.45x. Correctness first; a
-  # cheaper structure would have to exploit that S is a single scalar
-  # contraction, which jac_sparsity cannot express.
-  pattern[:stress_start, stress_start:] = True
-  for index in range(points):
-    radial = stress_start + index
-    hoop = radial + points
-    pattern[radial, radial] = True
-    pattern[radial, hoop] = True
-    pattern[hoop, radial] = True
-    pattern[hoop, hoop] = True
-  sparse_pattern = pattern.tocsr()
-  sparse_pattern.data.setflags(write=False)
-  sparse_pattern.indices.setflags(write=False)
-  sparse_pattern.indptr.setflags(write=False)
-  return sparse_pattern
-
 def _thermal_state(temperature_ratio, alpha, beta): return kirchhoff_theta(temperature_ratio, alpha, beta)
 
 def medium_with_parameters(medium, p, *, xp=np):
@@ -321,7 +284,32 @@ def medium_with_parameters(medium, p, *, xp=np):
     object.__setattr__(updated, name, value)
   return updated
 
-def initial_state_vector(config, layout, p, collapse_state, *, xp=np):
+def forcing_with_parameters(forcing, p, reference, *, xp=np):
+  """A prepared sampled forcing, rescaled for a new `p`.
+
+  `_prepare_forcing` divides the knots by `t0` and the cubic coefficients by
+  `P8`, with each coefficient row also carrying `t0**degree`. Both `t0 = R0/Uc` and
+  `P8` are parameters, so a forcing history passed through as a CONSTANT loses those
+  terms from its tangent -- measured at 3.1e-02 for `R0` and 6.1e-02 for
+  `physics.far_field_pressure_pa`, tolerance-independent, against the numpy route.
+
+  Rescaled from the prepared values rather than from the raw `SampledForcing`,
+  because that keeps `PreparedForcing` as it is: `reference` carries the concrete
+  `(t0, P8)` the preparation used, so undoing and redoing the scaling is exact.
+  `sensitivity._dual_forcing` is the counterpart that rebuilt it from the raw
+  history instead.
+  """
+  if forcing is None: return None
+  t0_reference, pressure_reference = reference
+  knots = xp.asarray(forcing.knots) * (t0_reference / p["t0"])
+  prepared = xp.asarray(forcing.coefficients)
+  rows = [
+    prepared[row] * ((pressure_reference / t0_reference**degree) * (p["t0"] ** degree / p["P8"]))
+    for row, degree in enumerate((3, 2, 1, 0))
+  ]
+  return _solver.PreparedForcing(knots=knots, coefficients=xp.stack(rows) if hasattr(xp, "stack") else np.array(rows))
+
+def initial_state_vector(config, layout, p, collapse_state, *, xp=np, initial=None):
   """The state the solve starts from, in whichever arithmetic `p` is built in.
 
   One definition, because the traced sensitivity path needs it too and a second
@@ -333,7 +321,7 @@ def initial_state_vector(config, layout, p, collapse_state, *, xp=np):
   Validation stays in `prepare`. This assembles, so it can run under a trace where
   raising on a value is not available anyway.
   """
-  initial = config.initial
+  initial = config.initial if initial is None else initial
   state = xp.zeros(layout.size)
   state = at_set(state, 0, 1.0)
   state = at_set(state, 1, initial.wall_velocity_m_s / p["Uc"])
@@ -421,12 +409,12 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
     if not solution.success: raise SimulationError(f"collapse precursor integration failed: {solution.message}")
     if solution.t_events[0].size == 0:
       raise SimulationError(f"collapse precursor did not reach a maximum radius within t={settings.maximum_time_nondimensional:g}")
-    return solution.y_events[0][-1]
+    return solution.y_events[0][-1], float(solution.t_events[0][-1])
 
   def residual(initial_velocity):
     nonlocal shooting_evaluations
     shooting_evaluations += 1
-    return integrate(initial_velocity)[0] - 1.0
+    return integrate(initial_velocity)[0][0] - 1.0
 
   lower_velocity = max(settings.initial_velocity_guess * 1e-8, np.finfo(float).eps)
   lower_residual = residual(lower_velocity)
@@ -443,10 +431,11 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
   initial_velocity = brentq(
     residual, lower_velocity, upper_velocity, xtol=settings.radius_tolerance, rtol=max(settings.radius_tolerance, 4.0 * np.finfo(float).eps)
   )
-  maximum_state = integrate(initial_velocity)
+  maximum_state, maximum_time = integrate(initial_velocity)
   memory_state = _freeze_array(maximum_state[2:])
   stats = CollapseStats(
     initial_velocity_nondimensional=float(initial_velocity),
+    maximum_time_nondimensional=maximum_time,
     maximum_radius_ratio=float(maximum_state[0]),
     shooting_evaluations=shooting_evaluations,
     integration_evaluations=integration_evaluations,
@@ -576,6 +565,5 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
     forcing=_prepare_forcing(config, p),
     instantaneous_material=instantaneous_material,
     distributed_stress=distributed_stress,
-    jacobian_sparsity=_prepare_distributed_jacobian(config, layout),
     collapse_stats=collapse_stats,
   )

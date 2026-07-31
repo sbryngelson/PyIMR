@@ -67,13 +67,18 @@ jobs:
       # configures. Measured 64.0 s cold against 29.7 s warm on
       # tests/test_backend_jax.py; tracing is Python and paid either way.
       #
-      # A stale entry cannot be wrong, only missed, so the key carries the commit
-      # and the restore falls back to the newest run on the same jaxlib.
+      # Keyed on the SOURCE that determines the programs, not on the commit. At
+      # ~326 MB per job a commit-keyed cache wrote ~900 MB per push, so the 10 GB
+      # repository budget churned every ten commits and evicted the pip caches
+      # alongside. Hashing src/ and tests/ means a docs or workflow commit reuses
+      # the entry outright, while anything that can change an HLO rotates it.
+      #
+      # A stale entry cannot be wrong, only missed: XLA keys entries by HLO hash.
       - name: Cache XLA compilations
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.xla-cache
-          key: xla-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-${{ github.sha }}
+          key: xla-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-${{ hashFiles('src/**/*.py', 'tests/**/*.py') }}
           restore-keys: xla-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-
 
       # Proof the cache is doing its job, rather than an assumption that it is. A

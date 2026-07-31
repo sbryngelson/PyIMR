@@ -38,6 +38,7 @@ jobs:
       IMR_FAST_JAX_CACHE: ${{ github.workspace }}/.xla-cache
       # Everything on the nightly and on demand; the fast set per push.
       PYTEST_MARKERS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'slow or not slow' || 'not slow' }}
+      COVERAGE: ${{ matrix.python-version == '3.12' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
 
     steps:
       - uses: actions/checkout@v4
@@ -101,17 +102,20 @@ jobs:
       #
       # `-n auto`: the cost is numerical integration, which divides across processes.
       # Coverage on one matrix entry only -- three identical reports add nothing.
+      # Coverage costs about 160 s under tracing -- measured 405 s against 244 s on
+      # the same cache state -- so it runs on the nightly rather than per push. It is
+      # informational and never blocks, so the delay costs nothing a push depends on.
       - name: Tests and numerical validation
+        if: env.COVERAGE != 'true'
         run: python -m pytest -rA -n auto --dist loadfile -m "$PYTEST_MARKERS"
-        if: matrix.python-version != '3.12'
 
       - name: Tests and numerical validation (with coverage)
-        if: matrix.python-version == '3.12'
+        if: env.COVERAGE == 'true'
         run: python -m pytest -rA -n auto --dist loadfile -m "$PYTEST_MARKERS" --cov --cov-report=xml
 
       # Must not fail the build: a coverage service being down is not a defect here.
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.12'
+        if: env.COVERAGE == 'true'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

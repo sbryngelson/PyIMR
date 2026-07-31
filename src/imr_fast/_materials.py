@@ -1,8 +1,4 @@
-"""Typed, dimensional material models.
-
-Value objects only: every class here is a frozen dataclass that validates its
-own parameters. No solver state, no numerics.
-"""
+"""Typed, dimensional material models."""
 
 from __future__ import annotations
 
@@ -44,12 +40,6 @@ __all__ = [
 ]
 
 def _checked(**rules):
-  """Attach a `__post_init__` applying one validator per named field.
-
-  Thirteen of these classes existed only to call `_finite_positive` on each
-  field in turn. Applied UNDER `@dataclass` -- decorators run bottom-up, so the
-  generated method is in place before the dataclass machinery looks for it.
-  """
   def decorate(cls):
     def __post_init__(self):
       for name, check in rules.items(): check(name, getattr(self, name))
@@ -181,15 +171,7 @@ class ArrudaBoyce:
 
 @dataclass(frozen=True, slots=True)
 class Ogden:
-  """Multi-term Ogden, W = sum_p (mu_p / alpha_p) (l1^a_p + l2^a_p + l3^a_p - 3).
-
-  Unlike the other laws here, Ogden is a function of the principal stretches
-  rather than of I1 alone, so it is not expressible as a coefficient times the
-  shared geometric factor. Exponents may be negative or fractional; only
-  alpha_p = 0 is excluded, where the term is undefined.
-
-  A single term with alpha = 2 reduces exactly to NeoHookean(mu).
-  """
+  """Multi-term Ogden, W = sum_p (mu_p / alpha_p) (l1^a_p + l2^a_p + l3^a_p - 3)."""
 
   shear_moduli_pa: tuple[float, ...]
   exponents: tuple[float, ...]
@@ -200,8 +182,6 @@ class Ogden:
     if not moduli or len(moduli) != len(exponents): raise ValueError("Ogden requires equal, non-empty shear_moduli_pa and exponents")
     if not np.all(np.isfinite(moduli)): raise ValueError("Ogden shear_moduli_pa must be finite")
     if not np.all(np.isfinite(exponents)) or any(value == 0.0 for value in exponents): raise ValueError("Ogden exponents must be finite and non-zero")
-    # The consistency requirement is on the small-strain shear modulus,
-    # sum(mu_p alpha_p) / 2 = mu, which must be positive for a stable solid.
     if sum(m * a for m, a in zip(moduli, exponents, strict=True)) <= 0.0:
       raise ValueError("Ogden requires sum(shear_moduli_pa * exponents) > 0 for a positive shear modulus")
     object.__setattr__(self, "shear_moduli_pa", moduli)
@@ -233,11 +213,7 @@ class CarreauYasuda:
 @dataclass(frozen=True, slots=True)
 @_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative)
 class PowellEyring:
-  """eta_inf + (eta_0 - eta_inf) * asinh(lambda*gdot)/(lambda*gdot).
-
-  IMRv2's f_viscosity.m uses sinh rather than asinh, which is
-  shear-thickening and diverges exponentially. This is the standard law.
-  """
+  """eta_inf + (eta_0 - eta_inf) * asinh(lambda*gdot)/(lambda*gdot)."""
 
   zero_shear_viscosity_pa_s: float
   infinite_shear_viscosity_pa_s: float
@@ -246,11 +222,7 @@ class PowellEyring:
 @dataclass(frozen=True, slots=True)
 @_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative)
 class ModifiedPowellEyring:
-  """eta_inf + (eta_0 - eta_inf) * log1p(lambda*gdot)/(lambda*gdot).
-
-  IMRv2 generalizes the denominator to (lambda*gdot)^nc, which has no
-  finite zero-shear limit unless nc == 1. This uses the well-posed form.
-  """
+  """eta_inf + (eta_0 - eta_inf) * log1p(lambda*gdot)/(lambda*gdot)."""
 
   zero_shear_viscosity_pa_s: float
   infinite_shear_viscosity_pa_s: float

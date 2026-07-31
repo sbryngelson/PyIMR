@@ -69,11 +69,6 @@ def test_sampled_constant_forcing_matches_analytic_forcing():
   analytic = simulate(times, base_config(pA=4e4))
   sampled = simulate(times, base_config(sampled_forcing=SampledForcing(time_s=(times[0], times[-1]), pressure_pa=(4e4, 4e4))))
 
-  # To rounding, not bit for bit. The two paths compute the same pressure by different
-  # expressions -- a constant against a cubic evaluated through its knots -- so they
-  # differ in the last bit, and the adaptive stepping propagates that into 17 of the 30
-  # samples. Exact equality held while scipy's steps happened to absorb it; 2.5e-16 is
-  # the difference now, which is one ulp and not a behavioural one.
   deviation = float(np.nanmax(np.abs(np.asarray(sampled.radius_ratio) - np.asarray(analytic.radius_ratio))))
   assert deviation < 1e-14, f"a constant sampled forcing should match the analytic one; differs by {deviation:.2e}"
 
@@ -129,9 +124,6 @@ def test_structured_api_requires_config():
 
 
 PUBLIC_MODULES = ("imr_fast", "imr_fast.sensitivity", "imr_fast.inference", "imr_fast.data", "imr_fast.design", "imr_fast.pymc_op")
-# Was a hand-maintained set of 18 top-level names, edited once per new module.
-# Inside a package every owned `__module__` starts with the package name, so
-# the list is structural now (#61).
 PACKAGE = "imr_fast"
 
 
@@ -215,22 +207,10 @@ def test_standalone_validation_scripts_still_run(script):
   assert done.returncode == 0, done.stdout[-2000:] + done.stderr[-2000:]
 
 
-# Empty, and that is the assertion: nowhere in the package suppresses a
-# floating-point error.
-#
-# The last entry here was `_thermal._wall_theta_bw_full.resid`, which needed one
-# because it iterated the wall solve from a guess -- an iterate could leave the
-# Kirchhoff transform's range, and the resulting nan was what told the
-# root-finder to back off. #111 replaced that with a bracketed solve on the
-# vapour fraction's own physical range, where the residual is finite throughout
-# by construction, so there is nothing left to suppress. A suppression is a
-# claim that some invalid intermediate is expected; removing the last one means
-# no such claim is outstanding.
 ERRSTATE_ALLOWED: set[str] = set()
 
 
 def _own_nodes(node):
-  """`node`'s own body, excluding any function nested inside it."""
   for child in ast.iter_child_nodes(node):
     if not isinstance(child, ast.FunctionDef):
       yield child
@@ -247,17 +227,7 @@ def _errstate_sites(node, prefix):
 
 
 def test_floating_point_suppression_stays_where_it_was_argued_for():
-  """#35's own miscount is the argument for checking this structurally.
-
-  That issue surveyed four modules by hand, revised the tally twice, and still
-  missed `_stress` entirely -- so the count was wrong in both directions for the
-  issue's whole life. A behavioural guard cannot help: an inner `np.errstate`
-  overrides an outer one, so a solve run under `errstate(all="raise")` passes
-  whether or not a suppression is there. Both problems are structural.
-
-  Naming the *innermost* function makes a widened scope a visible diff, not
-  just a re-added one.
-  """
+  """#35's own miscount is the argument for checking this structurally."""
   root = Path(str(importlib.import_module(PACKAGE).__file__)).resolve().parent
   found = {site for path in sorted(root.glob("*.py")) for site in _errstate_sites(ast.parse(path.read_text()), path.stem)}
   assert found == ERRSTATE_ALLOWED, f"floating-point suppression moved: {found ^ ERRSTATE_ALLOWED}; see #35"

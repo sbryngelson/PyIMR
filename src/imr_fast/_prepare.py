@@ -1,8 +1,4 @@
-"""Problem preparation: nondimensionalisation, grids, and the collapse precursor.
-
-Turns a SimulationConfig into an immutable PreparedProblem. Everything constant
-across repeated solves is hoisted here.
-"""
+"""Problem preparation: nondimensionalisation, grids, and the collapse precursor."""
 
 from __future__ import annotations
 
@@ -82,11 +78,6 @@ def _material_scales(material):
   return modulus, viscosity, relaxation, retardation, stiffening
 
 def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0, masstrans=0, physics=None, *, xp=np, scales=None):
-  # `scales` overrides `(G, mu, lam1, lam2, alphax)` with values that may be
-  # traced, while `material` stays concrete. A material cannot be CONSTRUCTED
-  # from a traced value -- `__post_init__` calls `np.isfinite`, which converts a
-  # tracer -- so the differentiated quantity has to arrive beside the material
-  # rather than inside it. See PLAN.md W11 stage 3.
   physics = PhysicalParameters() if physics is None else physics
   P8_value = physics.far_field_pressure_pa
   density = physics.medium_density_kg_m3
@@ -96,15 +87,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   t0 = R0 / Uc
   concrete = _material_scales(material)
   G, mu, lam1, lam2, alphax = concrete if scales is None else scales
-  # Whether a material HAS a relaxation time is a property of its type --
-  # `_material_scales` returns 0.0 for the ones that do not -- so the guard below
-  # reads the concrete scales while the values it guards may be traced. Branching
-  # on `lam1` itself worked under `jacfwd`, which keeps primals concrete, and fails
-  # under `jit`, which does not.
   relaxing = concrete[2] > 0.0
-  # The degenerate tests read the CONCRETE material on purpose. Whether a
-  # material has elasticity at all is structural, and cannot change under
-  # differentiation of its modulus.
   Ca = P8_value / G if concrete[0] > 0 else xp.inf
   Re8 = P8_value * R0 / (mu * Uc) if concrete[1] > 0 else xp.inf
   We = P8_value * R0 / (2 * surface_tension)
@@ -113,8 +96,6 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   P0 = (P8_value + 2 * surface_tension / Req - Pv) * (Req / R0) ** P0_exp
   Pv_star = Pv / P8_value
   Pb = P0 / P8_value + Pv_star
-  # thermal groups (f_call_params.m); cheap, computed unconditionally so
-  # bubtherm=1 needs no separate params() path
   K8 = 0.5 * (
     physics.gas_conductivity_slope * T8 + physics.gas_conductivity_offset + physics.vapor_conductivity_slope * T8 + physics.vapor_conductivity_offset
   )
@@ -123,18 +104,10 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   beta_g = physics.gas_conductivity_offset / K8
   alpha_v = physics.vapor_conductivity_slope * T8 / K8
   beta_v = physics.vapor_conductivity_offset / K8
-  # medium (liquid) thermal groups, f_call_params.m -- Dm=Km/(rho*Cp) is the
-  # standard liquid thermal-diffusivity formula (confirmed from source, not
-  # assumed); needed only when medtherm=1 but cheap to compute unconditionally
   Dm = physics.medium_conductivity_w_m_k / (density * physics.medium_specific_heat_j_kg_k)
   Foh = Dm / (Uc * R0)
   iota = physics.medium_conductivity_w_m_k / (K8 * physics.medium_grid_length)
   Br = Uc**2 / (physics.medium_specific_heat_j_kg_k * T8)
-  # mass-transfer / vapor-species groups (f_call_params.m). kv0 (the initial/
-  # reference vapor mass fraction) is only physically meaningful for vapor=1
-  # (Pv_star>0) -- confirmed from source: with Pv_star=0 the mass-ratio
-  # formula below is a 0/0-type limit that IEEE arithmetic resolves to
-  # kv0=0, matching the dry-gas (bubtherm-only) case exactly.
   Rv = physics.universal_gas_constant_j_mol_k / physics.vapor_molar_mass_kg_mol
   Rg = physics.universal_gas_constant_j_mol_k / physics.gas_molar_mass_kg_mol
   Rnondim = P8_value / (density * T8)
@@ -143,11 +116,6 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   Fom = physics.mass_diffusivity_m2_s / (Uc * R0)
   L_heat_star = physics.latent_heat_j_kg / Uc**2
   if masstrans and vapor == 0: raise ValueError("masstrans=1 requires vapor=1 (kv0's formula is only physically meaningful with Pv_star>0)")
-  # Branched on `vapor`, not on `Pv_star > 0`. The two agree -- `pvsat` is an
-  # exponential, so `Pv_star` is positive exactly when `vapor` is nonzero -- but
-  # `Pv_star` carries `T8`, which the traced sensitivity path differentiates, and a
-  # jit-traced value cannot be branched on at all. `vapor` is discrete
-  # configuration and stays concrete in every arithmetic.
   kv0 = 1.0 / (1.0 + (Rv_star / Rg_star) * (Pb / Pv_star - 1.0)) if vapor else 0.0
   tait_gamma = physics.tait_pressure_pa / P8_value
   tait_sam = 1.0 + tait_gamma
@@ -216,25 +184,7 @@ def _prepare_instantaneous_material(material):
   return PreparedInstantaneousMaterial(interval_nodes=_freeze_array(nodes), interval_weights=_freeze_array(weights))
 
 def _prepare_distributed_stress(material):
-  """Lagrangian grid for the distributed stress, plus its quadrature weights.
-
-  Material points sit at ``r(u)**3 = r_ref(u)**3 + R**3 - 1`` with
-  ``r_ref(u) = 1 + (extent - 1) * u**4``, so advection is exact and the only
-  spatial approximation is the quadrature for
-
-      I = int_R^inf 2 * (t_rr - t_hh) / r dr .
-
-  Mapping to ``u`` and using ``3 r**2 dr = 3 r_ref**2 dr_ref`` gives
-
-      I = int_0^1 [2 dt / r**3] * r_ref**2 * 4 (extent - 1) u**3 du ,
-
-  whose bracketed factor is the only time-dependent part. The remaining
-  geometric factor is constant, so it is folded into fixed weights here and
-  the integral becomes a plain dot product. Gauss-Legendre nodes in ``u``
-  converge far faster than the uniform-``u`` trapezoid rule, and because the
-  weights do not move, the integral's time derivative is exact rather than a
-  discrete difference.
-  """
+  """Lagrangian grid for the distributed stress, plus its quadrature weights."""
   if not _is_distributed_stress(material): return None
   span = material.extent - 1.0
   if material.quadrature == "gauss":
@@ -254,25 +204,7 @@ def _prepare_distributed_stress(material):
 def _thermal_state(temperature_ratio, alpha, beta): return kirchhoff_theta(temperature_ratio, alpha, beta)
 
 def medium_with_parameters(medium, p, *, xp=np):
-  """The medium's parameter-dependent wall weights, rebuilt for a new `p`.
-
-  `grad_Tm`, `grad_Trans` and `grad_C` are each a stencil times a scalar built
-  from `chi`, `iota`, `Fom` and `L_heat_star`. The stencils are pure grid geometry
-  and are reused; the scalars are not, and `chi = T8*K8/(P8*R0*Uc)` in particular
-  carries `T8` and `R0`.
-
-  Needed because `_wall_theta_bw` is invariant to a COMMON scaling of the weights
-  -- multiply `chi` by any factor and its quadratic gives the same root -- so a
-  constant medium happens to produce the right tangent for `R0`, which enters only
-  through `chi`. `iota` multiplies `grad_Tm` alone, so `T8` is not a common factor
-  and a constant medium plateaus at 1.30e-02 however tightly either backend
-  integrates. Convergence separates the two cases; the invariance is why only one
-  of them showed up.
-
-  `_dual.py`'s `_dual_medium` is the Dual-path counterpart. It additionally
-  rebuilds the `yT` powers, because that path can differentiate
-  `physics.medium_grid_length` and the traced one cannot.
-  """
+  """The medium's parameter-dependent wall weights, rebuilt for a new `p`."""
   if medium is None: return None
   updated = copy.copy(medium)
   bubble, med = xp.asarray(medium.bubble_wall_stencil), xp.asarray(medium.medium_wall_stencil)
@@ -285,20 +217,7 @@ def medium_with_parameters(medium, p, *, xp=np):
   return updated
 
 def forcing_with_parameters(forcing, p, reference, *, xp=np):
-  """A prepared sampled forcing, rescaled for a new `p`.
-
-  `_prepare_forcing` divides the knots by `t0` and the cubic coefficients by
-  `P8`, with each coefficient row also carrying `t0**degree`. Both `t0 = R0/Uc` and
-  `P8` are parameters, so a forcing history passed through as a CONSTANT loses those
-  terms from its tangent -- measured at 3.1e-02 for `R0` and 6.1e-02 for
-  `physics.far_field_pressure_pa`, tolerance-independent, against the numpy route.
-
-  Rescaled from the prepared values rather than from the raw `SampledForcing`,
-  because that keeps `PreparedForcing` as it is: `reference` carries the concrete
-  `(t0, P8)` the preparation used, so undoing and redoing the scaling is exact.
-  `sensitivity._dual_forcing` is the counterpart that rebuilt it from the raw
-  history instead.
-  """
+  """A prepared sampled forcing, rescaled for a new `p`."""
   if forcing is None: return None
   t0_reference, pressure_reference = reference
   knots = xp.asarray(forcing.knots) * (t0_reference / p["t0"])
@@ -310,17 +229,7 @@ def forcing_with_parameters(forcing, p, reference, *, xp=np):
   return _solver.PreparedForcing(knots=knots, coefficients=xp.stack(rows) if hasattr(xp, "stack") else np.array(rows))
 
 def initial_state_vector(config, layout, p, collapse_state, *, xp=np, initial=None):
-  """The state the solve starts from, in whichever arithmetic `p` is built in.
-
-  One definition, because the traced sensitivity path needs it too and a second
-  copy would drift. It has to be rebuilt from tracers rather than reused from
-  `prepare`: `Pb`, `kv0` and `Uc` all come from `p`, so with `R0`, `Req` or `T8`
-  among the differentiated parameters the STARTING state carries a tangent, and a
-  concrete `problem.initial_state` would silently contribute zero.
-
-  Validation stays in `prepare`. This assembles, so it can run under a trace where
-  raising on a value is not available anyway.
-  """
+  """The state the solve starts from, in whichever arithmetic `p` is built in."""
   initial = config.initial if initial is None else initial
   state = xp.zeros(layout.size)
   state = at_set(state, 0, 1.0)
@@ -365,7 +274,6 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
   settings = config.collapse
   if settings is None: return None, None
   precursor = params(config.R0, config.Req, config.material, config.vapor, config.T8, physics=config.physics, bubtherm=1, masstrans=config.masstrans)
-  # The upstream precursor is a geometric-volume pressure law, P ~ R^-3.
   precursor["kappa"] = 1.0
   state_width = _stress_state_count(config.material)
   equilibrium_radius = precursor["req"]
@@ -391,10 +299,7 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
 
     def zener_precursor_rhs(_time, state): return _collapse_zener_rhs(state, precursor)
 
-    # Both are what `solve_ivp` wants -- a sequence of derivatives -- but not the
     # same static type: `_rhs` returns a list on the mechanical path and an array
-    # on the distributed one, where the Zener precursor returns a fixed tuple.
-    # Selected rather than reassigned, so neither becomes the other's declaration.
     collapse_rhs: Callable[..., Any] = zener_precursor_rhs if upstream_zener else production_rhs
     solution = solve_ivp(
       collapse_rhs,
@@ -490,21 +395,7 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
     if config.medtherm:
       Nm = config.Mt - 1
       deltaYm = -2.0 / Nm
-      # linspace, not `1 + arange(Mt) * deltaYm`: the accumulated form misses
-      # -1 by one ulp for 20 of the 398 sizes in [3, 400] -- Mt = 50 among them
-      # -- and the far-field check below then rejects a perfectly ordinary
-      # grid. linspace pins both endpoints exactly. The interiors agree to
-      # 2.2e-16, so no trajectory moves.
       xi = chebyshev_nodes(config.Mt, 1) if spectral else np.linspace(1.0, -1.0, config.Mt)
-      # xi = -1 exactly at the far-field node, so 2 / (xi + 1) is a genuine
-      # singularity of the grid map rather than an accident, and its limits are
-      # exact: yT -> inf, and the inverse powers -> 0. Fill them deliberately
-      # instead of suppressing the divide and trusting IEEE to land there.
-      #
-      # The assumption worth checking is not that a division by zero happens --
-      # it is WHERE. If a future grid put an interior node at xi = -1, or moved
-      # the far-field node off it, the old suppressed form produced inf in the
-      # wrong place and stayed silent.
       _far_field_singular_index(xi)
       stretched = np.empty_like(xi)
       stretched[:-1] = 2.0 / (xi[:-1] + 1.0)
@@ -512,10 +403,6 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
       yT = (stretched - 1.0) * p["Lt"] + 1.0
       yT2, yT3 = yT**2, yT**3
       iyT3, iyT4, iyT6 = yT**-3, yT**-4, yT**-6
-      # Boundary flux weights, stored full length so the wall closure is a
-      # plain dot product and does not assume a three-point uniform stencil.
-      # For the finite-difference grids the tail is zero, so this is exactly
-      # the old [-1.5, 2, -0.5] stencil written out.
       coeff = np.array([-1.5, 2.0, -0.5])
       deltaY = 1.0 / (config.Nt - 1)
       medium_first = _diff(config.Mt, 1, 1)
@@ -525,8 +412,6 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         padded[: values.size] = values
         return padded
 
-      # One definition of the wall stencils, used both here and by the
-      # sensitivity path's Dual rebuild in sensitivity._dual_medium.
       bubble_wall_stencil = bubble_first[-1, ::-1] if spectral else _pad(-coeff / deltaY, config.Nt)
       medium_wall_stencil = medium_first[0] if spectral else _pad(coeff / deltaYm, config.Mt)
       medium = MediumOperators(
@@ -539,10 +424,6 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
         iyT6=_freeze_array(iyT6),
         D1=_freeze_array(medium_first),
         D2=_freeze_array(_diff(config.Mt, 2, 1)),
-        # Left exactly as written before bubble_wall_stencil / medium_wall_stencil
-        # existed. Factoring the parameters out of these products reassociates
-        # the arithmetic and moves forward trajectories by a few ulp, and a fix
-        # to the sensitivity path should not touch the forward solve at all.
         grad_Tm=_freeze_array(
           2 * p["chi"] * p["iota"] * medium_first[0] if spectral else _pad(2 * p["chi"] * p["iota"] / deltaYm * coeff, config.Mt)
         ),

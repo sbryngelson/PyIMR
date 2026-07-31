@@ -73,10 +73,6 @@ class InferenceParameter:
     return value * np.log(self.upper / self.lower)
 
 def _validate_observation(time_s, values, deviation, *, minimum, value_label, deviation_label):
-  # Shared shape/finiteness/ordering checks for an observed series, returning the three as float arrays with a scalar
-  # deviation broadcast to match. `RadiusObservation` and `FieldObservation` had six of these checks each, written
-  # twice -- and had already drifted: the radius form folded `deviation > 0` into its finiteness check, so a sigma of
-  # exactly 0.0 was rejected with "observations and deviations must be finite", which is not true of 0.0.
   time = np.asarray(time_s, dtype=float)
   observed = np.asarray(values, dtype=float)
   spread = np.asarray(deviation, dtype=float)
@@ -110,31 +106,12 @@ class RadiusObservation:
     object.__setattr__(self, "radius_m", _readonly(radius))
     object.__setattr__(self, "standard_deviation_m", _readonly(deviation))
 
-# Every trace the sensitivity solve already returns tangents for, and whose
-# shape is one value per observation time. `bubble_temperature_k` and
-# `medium_temperature_k` are fields over their grids -- shape (times, nodes) --
-# so observing them needs a node selection and is deliberately out of scope
-# here.
-# d/dt of an observable, where the solver already returns the tangent of that
-# derivative. `radius_m`'s time derivative IS the wall velocity, so the tangent
-# needed to differentiate a design with respect to WHEN it looks is already
-# computed. The others would need the RHS differentiated as well.
 _TIME_DERIVATIVE_OF = {"radius_m": "wall_velocity_m_s", "radius_ratio": "wall_velocity_m_s"}
 OBSERVABLE_FIELDS = ("radius_m", "radius_ratio", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
 
 @dataclass(frozen=True, slots=True)
 class FieldObservation:
-  """Observations of any scalar trace the solver produces.
-
-  A single `simulate_with_sensitivities` call already returns exact tangents for
-  all of `OBSERVABLE_FIELDS`; the likelihood used to read one of them and
-  discard the rest. So observing wall velocity or internal pressure alongside
-  radius costs nothing beyond the arithmetic -- which is what makes "what to
-  measure" usable as a design variable rather than a modelling choice.
-
-  Observations may sit on different time grids. The solve runs once on the union
-  of them.
-  """
+  """Observations of any scalar trace the solver produces."""
 
   field: str
   time_s: np.ndarray
@@ -158,15 +135,6 @@ class FieldObservation:
     object.__setattr__(self, "standard_deviation", _readonly(deviation))
 
 def _whitening_factor(item):
-  # Lower Cholesky factor of the noise covariance, or None when it is diagonal.
-  #
-  # With `Sigma = L L^T`, the whitened residual `L^-1 (y - m)` and Jacobian `L^-1 dm/dtheta` mean exactly what the
-  # independent-noise versions meant, so everything downstream -- the `-r @ J` gradient, `J^T J` as the Fisher
-  # information, EIG -- is unchanged. Correlated noise is a change of one division into one triangular solve.
-  #
-  # The kernel is exponential, `exp(-|t_i - t_j| / tau)`. Radii recovered by edge detection are correlated over
-  # roughly a frame or two, and an exponential is the one-parameter model of that; it is also positive definite for
-  # any tau, so the factorisation cannot fail on a user's choice.
   if item.correlation_time_s is None: return None
   deviation = np.asarray(item.standard_deviation)
   lag = np.abs(item.time_s[:, None] - item.time_s[None, :])
@@ -180,16 +148,11 @@ def _whiten(values, item, factor):
   return solve_triangular(factor, values, lower=True)
 
 def _log_determinant(item, factor):
-  # `log det(2 pi Sigma)` for one observation.
   count = item.time_s.size
   if factor is None: return float(np.sum(np.log(2.0 * np.pi * np.asarray(item.standard_deviation) ** 2)))
   return float(count * np.log(2.0 * np.pi) + 2.0 * np.sum(np.log(np.diag(factor))))
 
 def _as_field_observations(observation):
-  # Normalise one observation, or several, into a tuple of `FieldObservation`.
-  #
-  # `RadiusObservation` is kept rather than deprecated: it carries the positivity check that only makes sense for a
-  # radius, and it is the overwhelmingly common case.
   items = observation if isinstance(observation, (tuple, list)) else (observation,)
   if not items: raise ValueError("at least one observation is required")
   normalized = []
@@ -248,10 +211,6 @@ class PreparedInference:
   _grid: np.ndarray = field(default_factory=lambda: np.empty(0))
   _index: tuple = ()
   _whiteners: tuple = ()
-  # Held rather than rebuilt. `sensitivities_jax` caches its compiled program on the
-  # problem's identity, so calling `prepare` per evaluation guarantees a miss and a
-  # full retrace -- ~2.5 s against 5.6 ms. `__post_init__` already prepared one to
-  # validate the configuration; keeping it is what makes `jacobians` worth having.
   _problem: object = None
 
   def __post_init__(self):
@@ -306,10 +265,6 @@ class PreparedInference:
     return sum(item.time_s.size for item in self._observations)
 
   def _evaluation(self, unit, residual, stats):
-    # The Gaussian log-likelihood and the value object around it, in one place.
-    # `_normalization` carries `sum(log(2*pi*sigma**2))`, or `log det(2*pi*Sigma)`
-    # when the noise is correlated -- a constant the posterior never sees but the
-    # marginal likelihood does, so it is worth having exactly one copy of.
     return LikelihoodEvaluation(
       unit_parameters=_readonly(unit),
       physical_parameters=_readonly(self.physical_parameters(unit)),
@@ -327,16 +282,6 @@ class PreparedInference:
     return self.jacobians(np.atleast_2d(unit))[0]
 
   def _traced_fields(self, points):
-    """`(values, tangents)` by output field for many parameter points, from ONE
-    traced program.
-
-    The draws differ only in the values of the inference parameters, which the traced
-    path takes as an ARGUMENT -- so one `prepare` at the reference configuration
-    serves all of them and `sensitivities_jax` maps over the points. Building a
-    configuration per point and preparing it, which is what `config_from_unit` plus
-    `simulate_with_sensitivities` does, forces a distinct traced program per point
-    instead: 2.5 s against 5.6 ms.
-    """
     from ._jax import _DERIVED_ORDER, sensitivities_jax
 
     points = np.atleast_2d(np.asarray(points, dtype=float))
@@ -356,13 +301,6 @@ class PreparedInference:
     return by_field(values, np.asarray(values.derived)), by_field(tangents, np.asarray(tangents.derived))
 
   def _stacked(self, kind, fields, chain=None, subtract=False):
-    """One observation-stacked block, whitened, for a single point.
-
-    `subtract` reproduces `_stack_residual`: the whitening is applied to the
-    DIFFERENCE from the observed values, not to the prediction and the data
-    separately. It is linear either way, so the two agree -- but matching the shape of
-    the original leaves nothing to argue about.
-    """
     parts = []
     for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
       if item.field not in fields: raise NotImplementedError(f"no traced {kind} for observation field {item.field!r}")
@@ -373,13 +311,7 @@ class PreparedInference:
     return np.concatenate(parts, axis=0)
 
   def jacobians(self, unit_points):
-    """`J` for many draws, from one traced program where the backend allows it.
-
-    Returns `(draws, observations, parameters)`. Equal to stacking `jacobian` over the
-    same points to 6e-13 relative on the same backend, which is the check that
-    licenses skipping the per-draw `config_from_unit`.
-
-    """
+    """`J` for many draws, from one traced program where the backend allows it."""
     points = np.atleast_2d(np.asarray(unit_points, dtype=float))
     for point in points: self._validate_unit_parameters(point)
     _values, tangents = self._traced_fields(points)
@@ -396,46 +328,19 @@ class PreparedInference:
     return self._evaluation(unit, self._stack_residual(result), result.stats)
 
   def evaluate_with_jacobian(self, unit_parameters):
-    """Likelihood and Jacobian from a single sensitivity solve.
-
-    `evaluate` and `jacobian` each integrate; run separately they cost two
-    solves and, more subtly, return values converged independently to the same
-    tolerance -- so the gradient is the derivative of a slightly different
-    function than the log-likelihood it accompanies. A sampler wants both from
-    one integration.
-
-    Measured on the mechanical path: 1.6x cheaper than the pair, and the
-    gradient agrees with a central difference of *this* log-likelihood to
-    5e-08, against 2.5e-06 for the split pair checked the same way.
-    """
+    """Likelihood and Jacobian from a single sensitivity solve."""
     unit = self._validate_unit_parameters(unit_parameters)
-    # Both halves out of ONE traced program, and out of one integration, which is what
-    # this method existed for before it was traced: a sampler wants the gradient to be
-    # the derivative of the log-likelihood it accompanies, not of a separately
-    # converged one.
     values, tangents = self._traced_fields(np.atleast_2d(unit))
     chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
     residual = self._stacked("value", {name: array[0] for name, array in values.items()}, subtract=True)
     jacobian = self._stacked("tangent", {name: array[0] for name, array in tangents.items()}, chain)
-    # The traced solve reports no step counts, so the stats say what they can say --
-    # the same placeholder `sensitivity._jax_sensitivities` records.
     stats = imr_fast.SolverStats(
       backend="jax-tsit5-forward", success=True, message="jacfwd through the diffrax solve", nfev=0, njev=0, nlu=0, elapsed_s=0.0
     )
     return self._evaluation(unit, residual, stats), jacobian
 
   def jacobian_with_time_derivative(self, unit_parameters):
-    """`(J, dJ/dt)` from one solve. `dJ/dt` is what a design needs -- what a design needs to move its own
-    observation times.
-
-    Scoring a time grid needs `J`; *optimising* one needs `dJ/dt`, and for a
-    radius observation that is the wall-velocity tangent, which the same solve
-    already returns. No extra integration.
-
-    Fields whose time derivative is not itself an observable raise, rather than
-    silently returning the wrong thing -- getting `dP/dt` would mean
-    differentiating the right-hand side, which is a larger change.
-    """
+    """`(J, dJ/dt)` from one solve. `dJ/dt` is what a design needs -- what a design needs to move its own"""
     unit = self._validate_unit_parameters(unit_parameters)
     missing = sorted({item.field for item in self._observations} - set(_TIME_DERIVATIVE_OF))
     if missing: raise NotImplementedError(f"no time derivative available for {missing}; only {sorted(_TIME_DERIVATIVE_OF)} are supported")
@@ -445,8 +350,6 @@ class PreparedInference:
     parts = []
     for item, index, factor in zip(self._observations, self._index, self._whiteners, strict=True):
       tangent = fields[_TIME_DERIVATIVE_OF[item.field]][index]
-      # `wall_velocity_m_s` is dimensional and `radius_ratio` is not, so the derivative
-      # of the ratio needs the length scale removed.
       if item.field == "radius_ratio": tangent = tangent / self.config.R0
       parts.append(_whiten(tangent, item, factor) * chain)
     return self._stacked("tangent", fields, chain), np.concatenate(parts, axis=0)
@@ -456,35 +359,7 @@ class PreparedInference:
     return self.jacobian_with_time_derivative(unit_parameters)[1]
 
   def curvature_ratio(self, unit_parameters, step=1e-5):
-    """`||sum_k r_k H^k|| / ||J^T J||` -- the size of what Gauss-Newton drops.
-
-    The exact Hessian of the Gaussian log-likelihood is
-
-        -d2L = J^T J + sum_k r_k H^k,     H^k = d2 r_k / dtheta2
-
-    and `J^T J` alone is the Gauss-Newton approximation used throughout this
-    package. **For expected information gain that is not an approximation at
-    all**: EIG needs the Fisher information `E[-d2L]`, and a correctly specified
-    model has `E[r_k] = 0`, so the dropped term has zero expectation. `design.py`
-    never sees data, so the term cannot enter there.
-
-    It does matter for the *observed* information -- a Laplace posterior at real
-    data -- and it is a misspecification diagnostic, which is the more useful
-    reading. Measured on synthetic data:
-
-        correct model, at the truth            3.4e-04
-        correct model, 30% off in G            6.1e-03
-        correct model, 30% off in both         7.5e-01
-        Zener data fitted with NHKV            2.8e-01
-
-    A large value away from the optimum is expected. A large value *at* a fit is
-    evidence the model cannot represent the data.
-
-    `H` is taken by central difference of the exact Jacobian, so this costs `2p`
-    sensitivity solves and no second-order machinery. That is the whole reason
-    it exists in this form: knowing when Gauss-Newton is inadequate is cheap,
-    while fixing it would mean second-order sensitivities.
-    """
+    """`||sum_k r_k H^k|| / ||J^T J||` -- the size of what Gauss-Newton drops."""
     unit = self._validate_unit_parameters(unit_parameters)
     residual = np.asarray(self.evaluate(unit).residual)
     jacobian = np.asarray(self.jacobian(unit))

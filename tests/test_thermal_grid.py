@@ -1,12 +1,4 @@
-"""The medium grid's far-field singularity, and the invariant that was
-previously only asserted in a comment.
-
-`xi = -1` exactly at the far-field node makes `2 / (xi + 1)` infinite. That is a
-property of the grid map, not an accident, and the limits are exact: `yT -> inf`
-with its inverse powers `-> 0`. What was never checked is *where* the
-singularity is. A suppressed `np.errstate` produces `inf` wherever a node
-happens to land on `-1` and says nothing. See issue #35.
-"""
+"""The medium grid's far-field singularity, and the invariant that was"""
 
 import numpy as np
 import pytest
@@ -39,9 +31,7 @@ def test_far_field_singularity_is_the_last_node_alone(backend, mt):
 @pytest.mark.parametrize("backend", ("fd", "spectral"))
 @pytest.mark.parametrize("mt", (5, 9, 25))
 def test_far_field_limits_are_exact(backend, mt):
-  """`yT` diverges only at the wall, and the inverse powers are exactly zero
-  there -- not merely small, since they are consumed by a dot product whose
-  last weight is not always zero."""
+  """`yT` diverges only at the wall, and the inverse powers are exactly zero"""
   medium = _medium(backend, mt)
   values = {name: np.asarray(getattr(medium, name)) for name in _FIELDS}
   for name in ("yT", "yT2", "yT3"):
@@ -55,22 +45,13 @@ def test_far_field_limits_are_exact(backend, mt):
 @pytest.mark.parametrize("backend", ("fd", "spectral"))
 @pytest.mark.parametrize("mt", (5, 9, 25))
 def test_preparation_raises_no_floating_point_errors(backend, mt):
-  """The point of #35. The grid is now built without suppressing anything, so
-  under errstate(all="raise") preparation must complete: any divide or invalid
-  here is a real event rather than expected noise.
-
-  This is what a comment cannot do. The previous form suppressed the divide
-  unconditionally, so a genuine new one would have been indistinguishable from
-  the expected one.
-  """
+  """The point of #35. The grid is now built without suppressing anything, so"""
   with np.errstate(all="raise"):
     _medium(backend, mt)
 
 
 def test_guard_rejects_a_moved_singularity():
-  """The guard has to be exercised directly: no public configuration can
-  produce a bad grid, so a test that only builds real grids would pass with the
-  guard deleted."""
+  """The guard has to be exercised directly: no public configuration can"""
   good = np.array([1.0, 0.5, 0.0, -0.5, -1.0])
   assert _far_field_singular_index(good) == 4
 
@@ -86,9 +67,6 @@ _DISSIPATION_CASES = (
   ("instantaneous", imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 250.0), viscous=imr_fast.Newtonian(0.1))),
   ("distributed", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12)),
   ("closed form", NHKV),
-  # QuadraticKelvinVoigt reaches a distinct branch of _dissipation that no other
-  # test exercised: every pinned qKV case runs without medtherm. Slicing that
-  # branch to the interior broke its shapes and nothing caught it.
   ("quadratic kelvin-voigt", imr_fast.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)),
   ("no stress", imr_fast.NoStress()),
 )
@@ -97,33 +75,13 @@ _DISSIPATION_CASES = (
 @pytest.mark.parametrize("backend", ("fd", "spectral"))
 @pytest.mark.parametrize("label,material", _DISSIPATION_CASES, ids=[c[0] for c in _DISSIPATION_CASES])
 def test_medium_dissipation_needs_no_suppression(label, material, backend):
-  """The dissipation paths read yT, which is +inf at the wall, and used to
-  suppress divide/invalid wholesale (#35).
-
-  `_instantaneous_dissipation` formed inf/inf and overwrote the nan on the next
-  line; that value is now set directly. `_distributed_dissipation`'s suppression
-  turned out to be vestigial. Neither can regress silently while this runs the
-  real solve with those errors raised.
-  """
+  """The dissipation paths read yT, which is +inf at the wall, and used to"""
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material, bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=9, thermal=backend)
-  # Underflow excluded deliberately: it fires inside SciPy's BDF `nextafter`,
-  # is unrelated to this code, and NumPy ignores it by default.
   with np.errstate(divide="raise", invalid="raise", over="raise"):
-    # 4 us, not 20: this only has to reach the dissipation code, and the
-    # distributed+spectral combination is where the corrected Jacobian sparsity
-    # is most expensive (#47). A longer window buys no coverage.
     imr_fast.simulate(np.linspace(0.0, 4e-6, 20), config)
 
 
-# The structural counterpart to the behavioural test above -- an inner
-# `np.errstate` overrides an outer one, so a solve under `errstate(all="raise")`
-# cannot see a suppression return -- is now package-wide rather than a
-# two-function check here: `test_api.test_floating_point_suppression_stays_where
-# _it_was_argued_for`. Scoping it to this module is what let #35 miss a site.
-
-
 def _prepared_wall_inputs(Mt=9):
-  """Real stencils and coefficients, so the signs are the physical ones."""
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
   problem = imr_fast.prepare(config)
   medium = problem.medium
@@ -134,19 +92,13 @@ def _prepared_wall_inputs(Mt=9):
 
 @pytest.mark.parametrize("scale", (0.0, 1e-3, 0.05, -0.02))
 def test_wall_temperature_satisfies_its_own_boundary_condition(scale):
-  """`_wall_theta_bw` solves the flux match in closed form (#57), so what needs
-  guarding is the algebra and the branch choice, not convergence. This passes on
-  the secant too, by construction -- it is not the #57 regression test below,
-  but the thing that catches a mis-derived quadratic or the wrong root.
-  """
+  """`_wall_theta_bw` solves the flux match in closed form (#57), so what needs"""
   alpha_g, beta_g, grad_Tm, grad_Trans = _prepared_wall_inputs()
   theta_tail = scale * np.arange(1.0, grad_Trans.size)
   Tm_tail = 1.0 + scale * np.arange(1.0, grad_Tm.size)
 
   theta_bw = _thermal._wall_theta_bw(theta_tail, Tm_tail, alpha_g, beta_g, grad_Tm, grad_Trans)
 
-  # Reconstructed through the shared inverse, so a mis-derived quadratic here
-  # cannot be masked by re-deriving the temperature the same wrong way (#75).
   Tw = _thermal.kirchhoff_temperature(theta_bw, alpha_g, beta_g)
   residual = grad_Tm[0] * Tw + np.sum(grad_Tm[1:] * Tm_tail)
   residual += grad_Trans[0] * theta_bw + np.sum(grad_Trans[1:] * theta_tail)
@@ -156,11 +108,7 @@ def test_wall_temperature_satisfies_its_own_boundary_condition(scale):
 
 @pytest.mark.parametrize("ratio", (0.1, 0.3, 0.5))
 def test_coupled_solve_survives_awkward_retardation_ratios(ratio):
-  """These retardation ratios aborted the integration outright (#57): the secant
-  failed on roughly one call in 4000, which is all it takes. Failure alternated
-  with a smoothly varying parameter -- 0.2 and 0.4 worked -- so no single value
-  is the regression test; the point is that the sensitivity to it is gone.
-  """
+  """These retardation ratios aborted the integration outright (#57): the secant"""
   relaxation = 2.0 * R0 / np.sqrt(101325 / 1064)
   config = imr_fast.SimulationConfig(
     R0=R0, Req=REQ, material=imr_fast.OldroydB(0.1, relaxation, ratio * relaxation), bubtherm=1, medtherm=1, Nt=9, Mt=9, thermal="fd"
@@ -171,24 +119,12 @@ def test_coupled_solve_survives_awkward_retardation_ratios(ratio):
   assert np.all(np.isfinite(result.medium_temperature_k))
 
 
-# Mt values whose medium grid missed xi = -1 by one ulp under the accumulated
-# `1 + arange(Mt) * deltaYm` construction, so `_far_field_singular_index`
-# rejected them and an ordinary `medtherm=1, Mt=50` run raised outright. 20 of
-# the 398 sizes in [3, 400] were affected; these are the first few.
 _ULP_HOSTILE_MT = (50, 99, 104, 108, 162, 188, 197, 198, 207, 215, 238, 240, 250, 254, 323, 348, 375, 390, 393, 395)
 
 
 @pytest.mark.parametrize("Mt", _ULP_HOSTILE_MT)
 def test_medium_grid_lands_on_the_far_field_node_exactly(Mt):
-  """The far-field check is only meaningful if the grid can satisfy it. A
-  scheme that is correct for 95% of grid sizes and raises on the rest is a
-  construction bug, not a validated invariant.
-
-  The grid is read from `prepare`, not rebuilt here. An earlier version
-  recomputed `np.linspace(1, -1, Mt)` locally, which meant reverting the #65 fix
-  left it green -- it exercised the checker and never the constructor it exists
-  to guard.
-  """
+  """The far-field check is only meaningful if the grid can satisfy it. A"""
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
   medium = imr_fast.prepare(config).medium
   assert medium is not None
@@ -206,14 +142,7 @@ def test_medium_solves_run_at_ulp_hostile_sizes(Mt):
 @pytest.mark.parametrize("alpha", (0.05, 0.3, 0.5761, 1.1, 2.0))
 @pytest.mark.parametrize("beta", (0.02, 0.4263, 1.0))
 def test_kirchhoff_transform_round_trips(alpha, beta):
-  """`theta` exists to satisfy `d(theta)/dT = alpha*T + beta`. Everything else in
-  the thermal path is a consequence, so the transform and its inverse must agree
-  for ANY coefficients -- not only the pair the defaults happen to produce.
-
-  The shipped forms agreed only when `alpha + beta == 1`, which holds for air
-  and water vapour to 0.24% by coincidence and fails badly for other gases
-  (round-trip error 0.84 in T/T8 for argon-like coefficients). See #75.
-  """
+  """`theta` exists to satisfy `d(theta)/dT = alpha*T + beta`. Everything else in"""
   temperature = np.linspace(0.2, 20.0, 2000)
   recovered = _thermal.kirchhoff_temperature(_thermal.kirchhoff_theta(temperature, alpha, beta), alpha, beta)
   assert float(np.nanmax(np.abs(recovered - temperature))) < 1e-13
@@ -228,19 +157,8 @@ def test_the_transform_derivative_is_the_conductivity_the_rhs_uses(measured):
   assert abs(slope - conductivity) < 1e-9
 
 
-# The wall closure with mass transfer. `kv` is a MASS FRACTION, so `(0, 1)` is
-# not a convenience bound -- it is the physics, and `_kv_of_T` reaches 1 exactly
-# where `pvsat(Tw) = P`. That coincidence is why the residual as shipped carried
-# a pole at the edge of its own admissible range, and why iterating from the
-# previous call's answer could walk through it: measured 26 of 1480 wall solves
-# returning mass fractions as far out as +179 and -603, all at deepest collapse.
-# See #111 and the `_wall_theta_bw_full` docstring.
-
-
 def test_wall_vapor_fraction_inverts_in_closed_form():
-  """`_T_of_kv` is what turns admissibility into a constant bracket, so it has to
-  be the exact inverse of `_kv_of_T` across the whole range -- including near
-  `kv = 1`, where `Tw` approaches saturation and the old residual had its pole."""
+  """`_T_of_kv` is what turns admissibility into a constant bracket, so it has to"""
   P, T8, ratio, scale = 1.4, 298.15, 461.0 / 287.0, 101325.0
   fractions = np.concatenate([np.geomspace(1e-10, 1e-3, 40), np.linspace(1e-3, 1.0 - 1e-12, 400)])
   recovered = _thermal._kv_of_T(_thermal._T_of_kv(fractions, P, T8, ratio, scale), P, T8, ratio, scale)
@@ -248,25 +166,12 @@ def test_wall_vapor_fraction_inverts_in_closed_form():
 
 
 def test_every_wall_solve_returns_a_physical_mass_fraction():
-  """The property the bracket buys, asserted over a full collapse rather than at
-  a sampled state: no wall solve may return a mass fraction outside `(0, 1)`.
-
-  This covers rejected trial steps too, which is where the excursions were. They
-  never reached the accepted trajectory -- it moves by 1.4e-12 across this fix --
-  but a rejected step's garbage root is one accuracy test away from being kept,
-  and warm-starting from it is what made the right-hand side depend on the
-  integrator's step history instead of on the state alone.
-  """
+  """The property the bracket buys, asserted over a full collapse rather than at"""
   solves = []
   original = _thermal._bracketed_root
 
   def record(residual, **options):
     root = original(residual, **options)
-    # Only the NUMPY solves. The integration is traced, so the closures it builds hold
-    # tracers and cannot be read from Python. `_thermal_outputs` runs the same closure
-    # in numpy once per output time when it builds the result's temperatures, so what is
-    # captured here is one real wall solve per requested time -- on the states the
-    # integrator actually accepted, which is the population the assertion is about.
     if options.get("xp", np) is np: solves.append(float(root))
     return root
 
@@ -283,14 +188,11 @@ def test_every_wall_solve_returns_a_physical_mass_fraction():
 
 
 def test_the_wall_residual_has_one_root_on_the_bracket():
-  """Uniqueness is what lets the bracket stand in for a branch choice. If the
-  pole-free residual ever grew a second sign change on `(0, 1)`, bracketing
-  would silently pick whichever end Brent walked toward first."""
+  """Uniqueness is what lets the bracket stand in for a branch choice. If the"""
   captured = []
   original = _thermal._bracketed_root
 
   def record(residual, **options):
-    # Numpy only, for the reason above: a traced closure cannot be evaluated on a grid.
     if options.get("xp", np) is np: captured.append(residual)
     return original(residual, **options)
 
@@ -309,7 +211,6 @@ def test_the_wall_residual_has_one_root_on_the_bracket():
 
 
 def test_a_residual_with_no_admissible_root_says_so():
-  """The raise is the alternative to returning a mass fraction outside `(0, 1)`,
-  so it has to name what it looked for. `brentq`'s own message does not."""
+  """The raise is the alternative to returning a mass fraction outside `(0, 1)`,"""
   with pytest.raises(RuntimeError, match=r"no admissible wall vapour fraction.*residual"):
     _thermal._bracketed_root(lambda kv: 1.0 + kv)

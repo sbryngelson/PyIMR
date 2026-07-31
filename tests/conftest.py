@@ -1,14 +1,4 @@
-"""Harness for the numerical validation suite.
-
-The script this replaced printed a table of measured values rather than
-pass/fail alone, which is the useful part of its output: a deviation that is
-still passing but has moved an order of magnitude is worth seeing. Green
-checkmarks lose that. The `measured` fixture keeps it -- tests record their
-numbers, and the table is printed in the terminal summary, grouped by the
-section each module declares.
-
-See issue #32.
-"""
+"""Harness for the numerical validation suite."""
 
 import pytest
 
@@ -21,11 +11,7 @@ def pytest_configure(config):
 
 @pytest.fixture
 def measured(request):
-  """Record a measured value for the end-of-run table.
-
-  `measured(label, "max|dR|=1.2e-05")` -- the caller formats the value, because
-  the useful precision and units differ per check.
-  """
+  """Record a measured value for the end-of-run table."""
   section = getattr(request.module, "SECTION", request.module.__name__)
 
   def record(label, text):

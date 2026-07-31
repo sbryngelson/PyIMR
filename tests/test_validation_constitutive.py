@@ -1,8 +1,4 @@
-"""Constitutive suite: closed-form equivalence, reduction limits, analytic
-stress rates, and the nonlinear-memory limits.
-
-Numerical content unchanged from `run_validation.py`; see issue #32.
-"""
+"""Constitutive suite: closed-form equivalence, reduction limits, analytic"""
 
 from typing import Any
 
@@ -15,8 +11,6 @@ from _validation_support import NHKV, R0, REQ, T0, deviation, oldroyd_b, referen
 
 SECTION = "2. Constitutive suite"
 
-# Tight tolerances: the closed-form and composable paths must agree to solver
-# noise, not to physical accuracy.
 _EQUIVALENCE = dict(rtol=1e-10, atol=1e-12)
 _TRAJECTORY_TOLERANCE = 1e-7
 
@@ -53,11 +47,7 @@ _ELASTIC_REDUCTIONS = [
   ("Fung", imr_fast.Fung(2500.0, 0.0), 1e-12),
   ("Gent", imr_fast.Gent(2500.0, 1e9), 1e-8),
   ("Arruda-Boyce", imr_fast.ArrudaBoyce(2500.0, 1e9), 1e-8),
-  # Ogden is exact rather than asymptotic in its limit: one term at alpha = 2
-  # IS neo-Hookean, so it is held to the same 1e-12 as Mooney-Rivlin and Yeoh.
   ("Ogden one term", imr_fast.Ogden((2500.0,), (2.0,)), 1e-12),
-  # Two terms summing to the same small-strain modulus is not the same law, so
-  # it must NOT reduce -- covered by test_ogden_multi_term_is_distinct below.
 ]
 
 
@@ -110,9 +100,7 @@ _RATE_MATERIALS = [
 
 @pytest.mark.parametrize("label,material", _RATE_MATERIALS, ids=[c[0] for c in _RATE_MATERIALS])
 def test_analytic_stress_rate_matches_centered_difference(label, material, measured):
-  """The solver evaluates stress rates analytically, including the viscosity
-  tangent -- no finite difference inside the radial dynamics. This is what
-  checks that derivation."""
+  """The solver evaluates stress rates analytically, including the viscosity"""
   radius, velocity, acceleration, step = 0.5, -0.3, 0.2, 1e-6
   _, rate, _, coefficient = _instantaneous_values(material, radius, velocity)
   ahead = _instantaneous_values(material, radius + step * velocity, velocity + step * acceleration, False)[0]
@@ -126,14 +114,7 @@ def test_analytic_stress_rate_matches_centered_difference(label, material, measu
 
 @pytest.mark.parametrize("label,material", _RATE_MATERIALS, ids=[c[0] for c in _RATE_MATERIALS])
 def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material, measured):
-  """Every material must evaluate under `jnp` as well as `np`, and agree.
-
-  Every other check here goes through `_instantaneous_values`, which evaluates in
-  numpy and never integrates -- so nothing asked whether a material could be traced,
-  and Powell-Eyring could not. No ODE, so all twelve are cheap to cover.
-  """
-  # `_jax._jax()` enables x64; a bare `import jax.numpy` leaves float32 and every
-  # material then agrees only to ~1e-08.
+  """Every material must evaluate under `jnp` as well as `np`, and agree."""
   from imr_fast import _jax  # noqa: PLC0415
   from imr_fast._stress import _instantaneous_stress  # noqa: PLC0415
 
@@ -146,8 +127,6 @@ def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material,
   traced = _instantaneous_stress(
     material, problem.instantaneous_material, problem.parameters, jnp.asarray(radius), jnp.asarray(velocity), True, xp=jnp
   )
-  # A material leaves slots it does not populate as `None`, and the namespaces must
-  # agree on which -- part of the property.
   assert [value is None for value in reference] == [value is None for value in traced], f"{label}: namespaces disagree on which terms exist"
   pairs = [(float(a), float(b)) for a, b in zip(reference, traced, strict=True) if a is not None and b is not None]
   worst = max(abs(a - b) / max(1.0, abs(a)) for a, b in pairs)
@@ -158,9 +137,7 @@ def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material,
 
 @pytest.mark.parametrize("stretch", (0.4, 0.9, 1.0, 1.0005, 1.3, 2.5))
 def test_ogden_matches_neo_hookean_through_the_series_switch(stretch, measured):
-  """Ogden's (1 - u**a)/(1 - u) factor is 0/0 at u = 1 and is covered by a
-  binomial series nearby. Check the seam, not just the smooth regions -- a wrong
-  series or a mis-set switch threshold shows up only within it."""
+  """Ogden's (1 - u**a)/(1 - u) factor is 0/0 at u = 1 and is covered by a"""
   reference = imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0))
   ogden = imr_fast.InstantaneousMaterial(elastic=imr_fast.Ogden((2500.0,), (2.0,)))
   expected = _instantaneous_values(reference, radius=stretch)[0]
@@ -171,9 +148,7 @@ def test_ogden_matches_neo_hookean_through_the_series_switch(stretch, measured):
 
 
 def test_ogden_multi_term_is_distinct(measured):
-  """A reduction limit alone would pass for an implementation that ignored all
-  but the first term. Terms with a fractional and a negative exponent must move
-  the stress away from neo-Hookean."""
+  """A reduction limit alone would pass for an implementation that ignored all"""
   reference = imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0))
   multi = imr_fast.InstantaneousMaterial(elastic=imr_fast.Ogden((1800.0, 600.0, -300.0), (1.3, 4.0, -2.0)))
   expected = _instantaneous_values(reference, radius=0.6)[0]
@@ -188,7 +163,6 @@ def test_gent_lockup_becomes_a_solver_failure():
     solve_radius(reference_times()[:3], imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 5.0)))
 
 
-# Section 2b. Nonlinear memory (Giesekus / PTT) reduction limits.
 _DE, _LAM = 2.0, 0.2
 _MEMORY_TIMES = np.linspace(0, 1.2e-4, 300)
 _RELAXATION = _DE * T0
@@ -220,22 +194,7 @@ def test_zero_nonlinearity_reproduces_ucm_keller_miksis(measured):
 
 
 def test_zero_nonlinearity_reproduces_ucm_coupled(measured):
-  """With `medtherm` the two do NOT reduce to each other at fixed De, and the
-  original form of this test asserted that they did (#47).
-
-  They take different medium-heating paths: `_dissipation` carries the polymer
-  at its quasi-steady value, `_distributed_dissipation` carries its actual
-  stress. So the gap is physics, not discretisation -- it GROWS with Mt
-  (2.0e-03, 2.7e-03, 7.2e-03 at Mt = 9, 17, 33), which is why the old fixed
-  tolerance passed at Mt=9 and failed by Mt=33. Resolution was never the
-  variable. What is true is that the gap vanishes as De -> 0, so that is what
-  gets asserted.
-  """
-  # `thermal="fd"` pinned deliberately: the claim is about the two constitutive
-  # paths, which share whatever thermal scheme is in use, so the discretisation
-  # is not a variable here. Pinning keeps the test independent of the default
-  # (#26) -- and this case is by far the most expensive in the suite, so
-  # inheriting a stiffer operator costs minutes for no added coverage.
+  """With `medtherm` the two do NOT reduce to each other at fixed De, and the"""
   options: dict[str, Any] = dict(bubtherm=1, medtherm=1, vapor=1, masstrans=1, Nt=9, Mt=9, thermal="fd")
 
   def gap(relaxation):
@@ -258,8 +217,7 @@ def test_zero_nonlinearity_reproduces_ucm_coupled(measured):
   ids=["giesekus", "linear-ptt"],
 )
 def test_nonlinear_parameter_produces_distinct_physics(label, model, ucm_trajectory, measured):
-  """A reduction limit alone would pass for a model that ignores its own
-  nonlinear parameter. This is the other half."""
+  """A reduction limit alone would pass for a model that ignores its own"""
   worst = deviation(solve_radius(_MEMORY_TIMES, model), ucm_trajectory)
   measured(f"{label} parameter=0.2 vs UCM", f"max|dR|={worst:.2e}")
   assert worst > 0.05
@@ -269,15 +227,7 @@ def test_nonlinear_parameter_produces_distinct_physics(label, model, ucm_traject
   ("label", "viscous"), (("Bingham", imr_fast.Bingham(100.0, 0.1)), ("Herschel-Bulkley", imr_fast.HerschelBulkley(100.0, 0.1, 0.8)))
 )
 def test_yield_stress_needs_no_suppression(label, viscous, measured):
-  """The yield-stress regularisation used `np.where` around a divide by the
-  shear rate, wrapped in `np.errstate` (#35). `np.where` evaluates BOTH arms, so
-  the 0/0 at every zero-rate node was computed and then discarded -- the
-  suppression hid a value nothing used.
-
-  The rate passes through zero at every rebound, so a real solve reaches it.
-  Underflow is excluded deliberately: it fires inside SciPy and NumPy ignores it
-  by default.
-  """
+  """The yield-stress regularisation used `np.where` around a divide by the"""
   material = imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0), viscous=viscous)
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material)
   with np.errstate(divide="raise", invalid="raise", over="raise"):

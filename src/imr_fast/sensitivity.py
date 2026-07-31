@@ -135,6 +135,7 @@ def _jax_sensitivities(problem, time_s, normalized):
     raise NotImplementedError(f"jax sensitivities cover {sorted(covered)}; got {unknown}")
 
   values, tangents = sensitivities_jax(problem, time_s, paths)
+  assert tangents is not None  # noqa: S101 - only `values_only=True` returns None, and this asks for tangents
   derived_tangent = tangents.derived
   stats = _solver.SolverStats(
     backend="jax-tsit5-forward", success=True, message="jacfwd through the diffrax solve",

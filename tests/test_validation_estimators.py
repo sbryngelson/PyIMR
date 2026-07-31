@@ -281,3 +281,26 @@ def test_watching_longer_recovers_the_shear_modulus(measured):
   short, long = _shear_modulus_error(50, 1.7), _shear_modulus_error(50, 10)
   measured("sd(G)/G at De=50", f"1.7 T0: {short / 2500:.2f}x -> 10 T0: {long / 2500:.2f}x")
   assert long < short / 5.0, "a longer window must recover the shear modulus"
+
+
+def test_batched_evaluation_matches_the_per_point_route(measured):
+  """`evaluate_batch` runs ONE traced program over the stack; it must agree with the
+  per-point forward solve it replaces.
+
+  Worth asserting because the two routes are genuinely different solves -- the batch
+  goes through the traced program with a `ForwardMode` adjoint, the per-point route
+  through `simulate` -- so agreement is a claim, not a tautology. The batch is ~800x
+  cheaper per point, which is what makes a posterior scan affordable (#129).
+  """
+  times = np.linspace(1e-6, 4e-5, 40)
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV)
+  observed = np.asarray(imr_fast.simulate(times, config).radius_m) + np.random.default_rng(7).normal(0.0, 5e-7, times.size)
+  parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
+  inference = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7), parameters)
+
+  points = np.random.default_rng(4).uniform(0.1, 0.9, size=(5, 2))
+  batched = inference.evaluate_batch(points)
+  worst = max(abs(item.log_likelihood - inference.evaluate(point).log_likelihood) for item, point in zip(batched, points, strict=True))
+  measured("batched vs per-point logL", f"max |d|={worst:.1e}")
+  assert len(batched) == len(points)
+  assert worst < 1e-6, worst

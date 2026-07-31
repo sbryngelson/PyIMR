@@ -226,7 +226,7 @@ _INITIAL_FIELDS = tuple(f.name for f in dataclasses.fields(InitialState) if f.na
 PHYSICS_PATHS = tuple(f"physics.{name}" for name in _PHYSICS_FIELDS)
 INITIAL_PATHS = tuple(f"initial.{name}" for name in _INITIAL_FIELDS)
 
-def sensitivities_jax(problem, times, paths, at=None):
+def sensitivities_jax(problem, times, paths, at=None, values_only=False):
   """`(outputs, tangents)` for the mechanical path, both from one `jacfwd`."""
   jax, jnp, diffrax = _jax()
   from ._prepare import _material_scales, forcing_with_parameters, initial_state_vector, medium_with_parameters, params
@@ -314,6 +314,9 @@ def sensitivities_jax(problem, times, paths, at=None):
     states, derived, bubble, medium, vapor = group
     return TracedOutputs(required(states), required(derived), optional(bubble), optional(medium), optional(vapor))
 
+  # `jax.jit` traces lazily, so leaving `tangent_fn` uncalled skips the whole `jacfwd`
+  # rather than merely discarding it.
+  if values_only: return plain(primal_fn(values, grid)), None
   return plain(primal_fn(values, grid)), plain(tangent_fn(values, grid))
 
 def _thermal_fields(states, p, problem, medium, jnp, apply_boundaries, reference_temperature):

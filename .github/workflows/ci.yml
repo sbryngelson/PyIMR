@@ -36,6 +36,17 @@ jobs:
     # matching, and caching silently does nothing while still appearing green.
     env:
       IMR_FAST_JAX_CACHE: ${{ github.workspace }}/.xla-cache
+      # PROVISIONAL. XLA compiles for the host CPU, which is why a job landing on
+      # different runner hardware restores entries it cannot use -- measured 448 in,
+      # 887 out, and 352 s against 140 s on a hit. Capping the ISA should make the
+      # compilations portable and the hits reliable.
+      #
+      # Verified locally: the flag is accepted and repeated runs produce identical
+      # cache keys, and it costs 3.6% of throughput (19.4 s against 20.1 s on
+      # test_validation_trajectories). NOT verified locally: that keys agree across
+      # DIFFERENT CPUs, which is the entire point. CI hit rates settle it -- if they
+      # do not improve, drop this.
+      XLA_FLAGS: --xla_cpu_max_isa=AVX2
       # Everything on the nightly and on demand; the fast set per push.
       PYTEST_MARKERS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'slow or not slow' || 'not slow' }}
       COVERAGE: ${{ matrix.python-version == '3.12' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
@@ -86,8 +97,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.xla-cache
-          key: xla-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-${{ hashFiles('src/**/*.py', 'tests/**/*.py') }}
-          restore-keys: xla-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-
+          key: xla-avx2-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-${{ hashFiles('src/**/*.py', 'tests/**/*.py') }}
+          restore-keys: xla-avx2-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-
 
       # Proof the cache is doing its job, rather than an assumption that it is. A
       # silent miss looks exactly like a slow runner in the timings.

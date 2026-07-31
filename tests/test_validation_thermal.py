@@ -81,12 +81,12 @@ def _collapse_metrics(nt, backend):
   return minimum, time
 
 
-# Nt=200 and Nt=300 spectral, the old reference, are not runnable: the explicit solver
-# exhausts its step budget from about Nt=60 and the implicit one is O(Nt^3). See #120.
-# The reference below is the finest feasible resolution.
-_REFERENCE_NT = 60
+# Nt=200 is reachable again: `_solver_for` gives the forward solve a Jacobian-reusing
+# root finder above `_CHORD_ABOVE`, which runs it in 52.6 s where Newton did not finish.
+_REFERENCE_NT = 200
 _SPECTRAL_NT = 25
 _FINITE_NT = 100
+_FLOOR_NT = 150
 
 
 @pytest.mark.slow
@@ -109,14 +109,26 @@ def test_spectral_beats_fine_finite_difference_on_timing(measured):
 
 
 @pytest.mark.slow
-def test_the_spectral_error_is_at_the_measurement_floor(measured):
-  """A WEAKER claim than the convergence-rate checks it replaces, which needed
-  Nt >= 200 (see #121). At feasible Nt the spread is ~1e-06 and non-monotone, so it
-  measures the collapse-minimum fit and the integrator rather than the discretization.
-  What survives: by Nt=25 spectral is converged to within the floor.
-  """
+def test_spectral_keeps_converging(measured):
+  """Spectral must keep converging -- there is no floor. The overall improvement is
+  asserted rather than a strict chain: near the reference's own accuracy the individual
+  steps are not monotone, and requiring monotonicity is a flaky test, not a stronger
+  one."""
   reference, _ = _collapse_metrics(_REFERENCE_NT, "spectral")
   coarse, _ = _collapse_metrics(_SPECTRAL_NT, "spectral")
-  floor = abs(_collapse_metrics(40, "spectral")[0] - reference)
-  measured("spectral floor", f"|Nt=40 - Nt={_REFERENCE_NT}|={floor:.2e}  vs error at Nt={_SPECTRAL_NT} {abs(coarse - reference):.2e}")
-  assert abs(coarse - reference) <= floor
+  fine, _ = _collapse_metrics(_FINITE_NT, "spectral")
+  measured(f"spectral {_SPECTRAL_NT} -> {_FINITE_NT}", f"{abs(coarse - reference) / abs(fine - reference):.1f}x (no floor)")
+  assert abs(fine - reference) < abs(coarse - reference) / 4.0
+
+
+@pytest.mark.slow
+def test_convergence_is_measured_above_the_reference_floor(measured):
+  """The ratio above means nothing unless it is measured above the reference's own
+  uncertainty, so that is reported alongside it. The floor is the difference between the
+  two finest grids available; leaving it out is what let this read as a solver result for
+  as long as it did."""
+  reference, _ = _collapse_metrics(_REFERENCE_NT, "spectral")
+  fine, _ = _collapse_metrics(_FINITE_NT, "spectral")
+  floor = abs(_collapse_metrics(_FLOOR_NT, "spectral")[0] - reference)
+  measured(f"reference floor |Nt={_FLOOR_NT} - Nt={_REFERENCE_NT}|", f"{floor:.2e}  vs error at Nt={_FINITE_NT} {abs(fine - reference):.2e}")
+  assert abs(fine - reference) > floor

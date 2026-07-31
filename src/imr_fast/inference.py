@@ -281,24 +281,35 @@ class PreparedInference:
     unit = self._validate_unit_parameters(unit_parameters)
     return self.jacobians(np.atleast_2d(unit))[0]
 
-  def _traced_fields(self, points):
-    from ._jax import _DERIVED_ORDER, sensitivities_jax
+  def _traced_at(self, points, values_only):
+    from ._jax import sensitivities_jax
 
     points = np.atleast_2d(np.asarray(points, dtype=float))
     if points.shape[1] != self.size: raise ValueError(f"each point needs {self.size} unit parameters; got {points.shape}")
     physical = np.array([[parameter.physical_value(value) for parameter, value in zip(self.parameters, point, strict=True)] for point in points])
     paths = [parameter.path for parameter in self.parameters]
-    values, tangents = sensitivities_jax(self._problem, self._grid, paths, at=physical)
+    return sensitivities_jax(self._problem, self._grid, paths, at=physical, values_only=values_only)
 
-    def by_field(group, derived):
-      fields = {name: derived[:, :, index] for index, name in enumerate(_DERIVED_ORDER)}
-      for name, array in (("bubble_temperature_k", group.bubble_temperature),
-                          ("medium_temperature_k", group.medium_temperature),
-                          ("vapor_mass_fraction", group.vapor_fraction)):
-        if array is not None: fields[name] = np.asarray(array)
-      return fields
+  @staticmethod
+  def _by_field(group):
+    from ._jax import _DERIVED_ORDER
 
-    return by_field(values, np.asarray(values.derived)), by_field(tangents, np.asarray(tangents.derived))
+    derived = np.asarray(group.derived)
+    fields = {name: derived[:, :, index] for index, name in enumerate(_DERIVED_ORDER)}
+    for name, array in (("bubble_temperature_k", group.bubble_temperature),
+                        ("medium_temperature_k", group.medium_temperature),
+                        ("vapor_mass_fraction", group.vapor_fraction)):
+      if array is not None: fields[name] = np.asarray(array)
+    return fields
+
+  def _traced_values(self, points):
+    values, _ = self._traced_at(points, True)
+    return self._by_field(values)
+
+  def _traced_fields(self, points):
+    values, tangents = self._traced_at(points, False)
+    assert tangents is not None  # noqa: S101 - values_only=False always returns both
+    return self._by_field(values), self._by_field(tangents)
 
   def _stacked(self, kind, fields, chain=None, subtract=False):
     parts = []
@@ -376,9 +387,22 @@ class PreparedInference:
   def evaluate_batch(self, unit_parameters, workers=1):
     points = self._validate_batch(unit_parameters)
     if not isinstance(workers, Integral) or workers < 1: raise ValueError("workers must be a positive integer")
-    if workers == 1: return tuple(self.evaluate(point) for point in points)
+    # One traced program over the stack, not one per point. Every point is a distinct
+    # configuration, so the per-point route missed the compile cache every time and
+    # retraced: 1053 ms against 6.9 ms batched (#129).
+    if workers == 1: return self._evaluate_batched(points)
     with ProcessPoolExecutor(max_workers=workers) as executor:
       return tuple(executor.map(_evaluate_worker, repeat(self), points))
+
+  def _evaluate_batched(self, points):
+    values = self._traced_values(points)
+    stats = imr_fast.SolverStats(
+      backend="jax-batched", success=True, message="one traced program over the batch", nfev=0, njev=0, nlu=0, elapsed_s=0.0
+    )
+    return tuple(
+      self._evaluation(point, self._stacked("value", {n: a[k] for n, a in values.items()}, subtract=True), stats)
+      for k, point in enumerate(points)
+    )
 
   def fit_multistart(self, starts, *, seed=0, max_evaluations=200, workers=1):
     if not isinstance(starts, Integral) or starts < 1: raise ValueError("starts must be a positive integer")

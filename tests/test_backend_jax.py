@@ -138,7 +138,9 @@ def test_traced_sensitivities_are_compiled_once(measured):
   assert len(after_one) == 1, f"expected one cache entry, got {sorted(after_one)}"
   assert list(_jax._COMPILED) == list(after_one), "a second identical call retraced instead of reusing"
   assert _jax._COMPILED[next(iter(after_one))] is after_one[next(iter(after_one))]
-  assert np.array_equal(first[1].derived, second[1].derived), "cached call returned a different tangent"
+  first_tangent, second_tangent = first[1], second[1]
+  assert first_tangent is not None and second_tangent is not None
+  assert np.array_equal(first_tangent.derived, second_tangent.derived), "cached call returned a different tangent"
 
 def test_params_branches_only_on_concrete_configuration():
   """Two guards inside `params` tested values that the traced path differentiates."""

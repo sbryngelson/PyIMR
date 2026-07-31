@@ -137,27 +137,35 @@ def _elastic_integrand(model, stretch, pressure_scale, *, xp=np):
 
 _PE_SERIES_LIMIT = 1e-4
 
-def _powell_eyring_terms(u, modified):
+def _powell_eyring_terms(u, modified, *, xp=np):
+  """`(f, s)`: the shape factor `F(u)` and the slope term `u F'(u)`, both at `u`.
+
+  One namespace-polymorphic form, where this used to dispatch on
+  `isinstance(u, np.ndarray)` and fall through to a SCALAR branch otherwise. A jax
+  array is not an `np.ndarray`, so every traced solve took that branch and died on
+  `if u < _PE_SERIES_LIMIT` -- a comparison on a tracer. `PowellEyring` and
+  `ModifiedPowellEyring` therefore did not run at all on the only path this package
+  still has; the array form was reached solely by the numpy pass that rebuilds outputs.
+
+  Nothing was asserting it, and nothing could: the scalar lines were unreachable
+  without crashing first, which is why coverage showed them cold. See #35.
+  """
   if modified:
     series = (1.0 - u / 2.0 + u**2 / 3.0, -u / 2.0 + 2.0 * u**2 / 3.0)
   else:
     series = (1.0 - u**2 / 6.0 + 3.0 * u**4 / 40.0, -(u**2) / 3.0 + 3.0 * u**4 / 10.0)
-  if isinstance(u, np.ndarray) and u.dtype != object:
-    safe = np.maximum(u, _PE_SERIES_LIMIT)
-    if modified:
-      exact_f = np.log1p(safe) / safe
-      exact_s = (safe / (1.0 + safe) - np.log1p(safe)) / safe
-    else:
-      exact_f = np.arcsinh(safe) / safe
-      exact_s = (safe / np.sqrt(1.0 + safe**2) - np.arcsinh(safe)) / safe
-    small = u < _PE_SERIES_LIMIT
-    return np.where(small, series[0], exact_f), np.where(small, series[1], exact_s)
-  if u < _PE_SERIES_LIMIT: return series
+  # `where` evaluates BOTH arms, so the exact form is given an argument bounded away
+  # from zero. Its own arm is discarded wherever the series is selected; without the
+  # floor it would divide by zero there and poison the tangent with a nan.
+  safe = xp.maximum(u, _PE_SERIES_LIMIT)
   if modified:
-    logged = np.log1p(u)
-    return logged / u, (u / (1.0 + u) - logged) / u
-  arc = np.arcsinh(u)
-  return arc / u, (u / np.sqrt(1.0 + u**2) - arc) / u
+    exact_f = xp.log1p(safe) / safe
+    exact_s = (safe / (1.0 + safe) - xp.log1p(safe)) / safe
+  else:
+    exact_f = xp.arcsinh(safe) / safe
+    exact_s = (safe / xp.sqrt(1.0 + safe**2) - xp.arcsinh(safe)) / safe
+  small = u < _PE_SERIES_LIMIT
+  return xp.where(small, series[0], exact_f), xp.where(small, series[1], exact_s)
 
 def _viscosity_and_tangent(model, shear_rate, *, xp=np):
   shear_rate = xp.asarray(shear_rate)
@@ -178,13 +186,10 @@ def _viscosity_and_tangent(model, shear_rate, *, xp=np):
     modified = isinstance(model, ModifiedPowellEyring)
     difference = model.zero_shear_viscosity_pa_s - model.infinite_shear_viscosity_pa_s
     scaled = xp.absolute(model.time_constant_s * shear_rate)
-    if xp is np and shear_rate.dtype == object:
-      factor = np.empty_like(shear_rate)
-      slope = np.empty_like(shear_rate)
-      for index, value in np.ndenumerate(scaled):
-        factor[index], slope[index] = _powell_eyring_terms(value, modified)
-    else:
-      factor, slope = _powell_eyring_terms(scaled, modified)
+    # The per-element object-dtype loop that stood here went with `Dual`, the only
+    # thing that ever made a numpy array hold objects. It was also the sole caller
+    # that passed a scalar, which is what kept the broken scalar branch alive.
+    factor, slope = _powell_eyring_terms(scaled, modified, xp=xp)
     viscosity = model.infinite_shear_viscosity_pa_s + difference * factor
     tangent = viscosity + difference * slope
   elif isinstance(model, Cross):

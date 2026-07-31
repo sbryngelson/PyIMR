@@ -124,6 +124,48 @@ def test_analytic_stress_rate_matches_centered_difference(label, material, measu
   assert error < 2e-7
 
 
+@pytest.mark.parametrize("label,material", _RATE_MATERIALS, ids=[c[0] for c in _RATE_MATERIALS])
+def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material, measured):
+  """Every material above must evaluate under `jnp` as well as `np`, and agree.
+
+  Nothing asserted this, and the gap was not academic: `PowellEyring` and
+  `ModifiedPowellEyring` did not run AT ALL on the traced path, which is the only path
+  this package still has. `_powell_eyring_terms` dispatched on
+  `isinstance(u, np.ndarray)`, false for a jax array, and fell through to a scalar
+  branch whose first statement compares a tracer -- so any solve raised. Two public
+  models were unusable and the suite was green.
+
+  It stayed green because every check above reaches the material through
+  `_instantaneous_values`, which evaluates in numpy and never integrates. This one asks
+  the question the solver asks. It is cheap deliberately -- no ODE, just the constitutive
+  evaluation in both namespaces -- so it can cover all twelve.
+  """
+  # `_jax._jax()` rather than a bare `import jax.numpy`: it is what enables x64. Without
+  # it this runs in float32 and every material agrees only to ~1e-08, which reads as a
+  # namespace discrepancy and is really the dtype.
+  from imr_fast import _jax  # noqa: PLC0415
+  from imr_fast._stress import _instantaneous_stress  # noqa: PLC0415
+
+  _, jnp, _ = _jax._jax()
+
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material)
+  problem = imr_fast.prepare(config)
+  radius, velocity = 0.5, -0.3
+  reference = _instantaneous_stress(material, problem.instantaneous_material, problem.parameters, radius, velocity, True, xp=np)
+  traced = _instantaneous_stress(
+    material, problem.instantaneous_material, problem.parameters, jnp.asarray(radius), jnp.asarray(velocity), True, xp=jnp
+  )
+  # `None` in a slot the material does not populate -- a purely viscous model has no
+  # elastic acceleration coefficient. The two namespaces must agree on WHICH slots
+  # those are, which is itself part of the property.
+  assert [value is None for value in reference] == [value is None for value in traced], f"{label}: namespaces disagree on which terms exist"
+  pairs = [(a, b) for a, b in zip(reference, traced, strict=True) if a is not None]
+  worst = max(abs(float(a) - float(b)) / max(1.0, abs(float(a))) for a, b in pairs)
+  measured(f"namespace agreement {label}", f"rel={worst:.2e}")
+  assert all(np.isfinite(float(b)) for _, b in pairs), f"{label}: traced evaluation is not finite"
+  assert worst < 1e-12, f"{label}: {worst:.3e}"
+
+
 @pytest.mark.parametrize("stretch", (0.4, 0.9, 1.0, 1.0005, 1.3, 2.5))
 def test_ogden_matches_neo_hookean_through_the_series_switch(stretch, measured):
   """Ogden's (1 - u**a)/(1 - u) factor is 0/0 at u = 1 and is covered by a

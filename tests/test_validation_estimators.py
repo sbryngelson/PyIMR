@@ -238,3 +238,46 @@ def test_correlated_noise_carries_less_information(correlated, measured):
   tight = expected_information_gain(linked, draws=6).expected_information_gain
   measured("EIG independent vs correlated", f"{loose:.3f} -> {tight:.3f} nats")
   assert tight < loose
+
+
+def _shear_modulus_error(deborah, window_t0):
+  """Cramer-Rao sd(G) at the truth, from the exact Jacobian."""
+  from imr_fast.design import _fisher
+
+  from _validation_support import T0
+
+  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.Zener(2500.0, 0.1, deborah * T0, 0.2 * deborah * T0))
+  times = np.linspace(1e-6, window_t0 * T0, 60)
+  observed = np.asarray(imr_fast.simulate(times, config).radius_m)
+  parameters = (InferenceParameter("material.shear_modulus_pa", 500.0, 8000.0), InferenceParameter("material.viscosity_pa_s", 0.01, 0.5))
+  inference = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7), parameters)
+  fisher = _fisher(inference, np.array([(2500.0 - 500.0) / 7500.0, (0.1 - 0.01) / 0.49]))
+  return float(np.sqrt(np.linalg.inv(fisher)[0, 0]) * 7500.0)
+
+
+def test_a_slowly_relaxing_material_hides_its_shear_modulus(measured):
+  """G stops being identifiable as the relaxation time outgrows the observation window.
+
+  The design module's whole job is to say what an experiment can teach, and this is the
+  case where the answer is "not much". A grid scan of the likelihood gets this wrong --
+  at long windows the surface is too sharp to resolve and the apparent maximum lands
+  8000 log units below the truth -- so the Fisher information is the instrument, and
+  asserting it here is what keeps that distinction from being rediscovered.
+  """
+  errors = [_shear_modulus_error(de, 1.7) for de in (2, 10, 50)]
+  measured("sd(G)/G vs De at 1.7 T0", "  ".join(f"De={de}:{e / 2500:.2f}x" for de, e in zip((2, 10, 50), errors, strict=True)))
+  assert errors[0] < errors[1] < errors[2], "G must get harder to identify as the material relaxes more slowly"
+  assert errors[0] / 2500.0 < 0.1, "a fast-relaxing material should pin G"
+  assert errors[-1] / 2500.0 > 0.4, "a slowly-relaxing one should not"
+
+
+def test_watching_longer_recovers_the_shear_modulus(measured):
+  """And the converse, which is the actionable half: it is the WINDOW, not the material.
+
+  At De=50 the relaxation time is about 30x the short window, so the experiment ends
+  before the material relaxes. Extending it restores G, which is a design
+  recommendation rather than a limitation to document.
+  """
+  short, long = _shear_modulus_error(50, 1.7), _shear_modulus_error(50, 10)
+  measured("sd(G)/G at De=50", f"1.7 T0: {short / 2500:.2f}x -> 10 T0: {long / 2500:.2f}x")
+  assert long < short / 5.0, "a longer window must recover the shear modulus"

@@ -287,16 +287,9 @@ def _integrate_prepared(problem: PreparedProblem, tv):
 
 def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
   time_s, states, stats = _integrate_prepared(problem, tv)
-  # A material leaving its admissible domain -- Gent lock-up, a non-positive elastic
-  # stretch, a viscosity that stopped being one -- is a SOLVER failure to a caller, and
-  # `_MaterialDomainError` is private. `integrate_jax` already converts the ones raised
-  # while the solve runs; this converts the ones raised while the outputs are built.
-  #
-  # That second class exists because the traced path carries no value guards: the checks
-  # in `_stress` are all `if xp is np`, since a tracer has no value to test. So a locked
-  # material now integrates to completion and is caught here, on the numpy pass that
-  # rebuilds the stress integral -- which reached the caller as a raw private exception
-  # rather than the documented one until this wrapped it.
+  # The traced path carries no value guards, so a material leaving its domain is caught
+  # on the numpy output pass rather than during the solve. `_MaterialDomainError` is
+  # private; callers get the documented `SimulationError` either way.
   try:
     return _build_result(problem, time_s, states, stats)
   except _MaterialDomainError as error:

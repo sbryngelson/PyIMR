@@ -72,17 +72,9 @@ def test_collapse_time_converges_to_rayleigh(measured):
   the analytic value as the cavity empties. Monotonicity is asserted as well as
   the endpoint: a solver that happened to sit near 0.9147 without converging
   toward it would pass a single-tolerance check."""
-  # Req/R0 = 0.02 was the last point and is dropped. It exhausts the million-step
-  # budget: an almost empty cavity collapses with R -> 0 and |dR/dt| unbounded, and the
-  # explicit solver the mechanical path uses cannot cross that at rtol=1e-11. The scipy
-  # route reached it because LSODA switched to a stiff method there; nothing in the
-  # traced path does, and this is the one place in the suite where that shows.
-  #
-  # It cost the assertions nothing, which is why dropping it is the answer rather than
-  # raising the budget. The measured errors are 5.8e-04, 5.8e-05, 7.5e-06 and 7.5e-06 at
-  # ratios 1/6, 0.1, 0.05 and 0.03: convergence has already stopped resolving by 0.05,
-  # because 7.5e-06 IS the argmin quantization of the output grid, not a solver error.
-  # A fifth point below the floor cannot show convergence that the floor has hidden.
+  # Req/R0 = 0.02 dropped: it exhausts the million-step budget (see #119), and cost the
+  # assertions nothing -- convergence stops resolving by 0.05, where the error is the
+  # output grid's argmin quantization rather than the solver's.
   ratios = (1.0 / 6.0, 0.1, 0.05)
   errors = [abs(_collapse_time(ratio) - _ANALYTIC) / _ANALYTIC for ratio in ratios]
 

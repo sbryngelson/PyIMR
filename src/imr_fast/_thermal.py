@@ -210,9 +210,6 @@ def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3, *, xp=np):
   stress_difference = state[:points] - state[points:]
   spatial_radius = R * yT
   reference_radius = xp.cbrt(xp.maximum(spatial_radius**3 - R**3 + 1.0, 1.0))
-  # An object-dtype branch stood here, hand-interpolating element by element because
-  # `np.interp` cannot take a `Dual`. Nothing produces an object array now that `Dual`
-  # is gone, so both dtypes reach `interp` and one line replaces thirteen.
   sampled_difference = xp.interp(reference_radius, prepared.reference_radius, stress_difference, right=0.0)
   strain_rate = Rd / R * iyT3
   polymer_heating = -2.0 * strain_rate * sampled_difference

@@ -272,15 +272,9 @@ def test_the_traced_path_covers_every_differentiable_scalar_field():
 
   covered = set(_jax.SCALE_PATHS) | set(_jax.CONFIG_PATHS) | set(_jax.PHYSICS_PATHS) | set(_jax.INITIAL_PATHS)
 
-  # Acceptance is decided by `_normalize_parameters`, so that is what is called. This
-  # used to run a full solve per candidate -- 28 configurations, 28 distinct traces, and
-  # 30 s of the module's 89 -- to learn something no solve contributes to: whether the
-  # path names one finite scalar. The solve is what the fifteen tangent cases below
-  # exercise, and they do it against a reference.
-  #
-  # The direction that matters is unchanged and is the one that catches the bug: a path
-  # the front end ACCEPTS but the traced substitution does not know about would be
-  # silently ignored at runtime rather than refused.
+  # `_normalize_parameters` is what decides acceptance, so a solve per candidate buys
+  # nothing. The direction that catches the bug is unchanged: a path the front end
+  # accepts but the traced substitution does not know would be silently ignored.
   accepted = []
   for path in sorted(set(candidates)):
     try:

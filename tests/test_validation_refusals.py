@@ -1,19 +1,8 @@
 """What the package refuses, and the message it refuses with.
 
-These are the guards that tell a user what they got wrong. Every one was
-unexercised -- they are the bulk of what coverage reports as untested, and an
-error path nothing runs is an error path that can rot: a renamed field or a
-reordered check turns a precise message into an `AttributeError` from three
-frames deeper, and nothing notices.
-
-The messages are asserted, not just the exception types. A guard that fires with
-the wrong explanation has failed at the only job it has.
-
-Scope is deliberate. These are the refusals reachable by CONSTRUCTION -- a bad
-value, a wrong type, an incompatible combination. Failures that need a solver to
-diverge first (collapse shooting that cannot bracket, a viscosity that stops
-being one mid-solve) are not here; they need a constructed physical state rather
-than a constructed argument, and they belong with the physics they come from.
+Messages are asserted, not just exception types. Scope is the refusals reachable
+by construction; failures needing a solver to diverge first belong with the
+physics they come from.
 """
 
 import numpy as np
@@ -58,8 +47,6 @@ _CONFIG_REFUSALS = [
    lambda: _config(bubtherm=1, thermal="chebyshev")),
   ("max step", ValueError, "max_step_s must be finite and positive",
    lambda: _config(max_step_s=0.0)),
-  # The forcing is EITHER sampled or analytic. Setting both is ambiguous rather
-  # than additive, and silently preferring one would be the worst of the three.
   ("sampled plus analytic", ValueError, "sampled_forcing cannot be combined with analytic forcing",
    lambda: _config(sampled_forcing=_FORCING, wave_type=1, pA=1e4)),
   ("collapse needs memory", ValueError, "collapse initialization requires a material with memory",
@@ -82,11 +69,8 @@ def test_configuration_refusals(label, error, message, build):
 # --- materials ----------------------------------------------------------------
 
 _MATERIAL_REFUSALS = [
-  # Two spellings, and which one a model gets is a physical statement. Giesekus and
-  # LinearPTT carry a polymer mode whose viscosity is proportional to
-  # (relaxation - retardation), so equality would leave them with no polymer at all and
-  # is refused; Oldroyd-B degenerates gracefully there and allows it. Both are checked,
-  # because a model moved between the two groups changes what it accepts.
+  # Giesekus/LinearPTT carry a polymer mode proportional to (relaxation - retardation),
+  # so they refuse equality; Oldroyd-B degenerates gracefully and allows it.
   ("Oldroyd-B retardation greater", ValueError, "retardation_time_s must be no greater than relaxation_time_s",
    lambda: imr_fast.OldroydB(0.1, 2e-6, 3e-6)),
   ("Giesekus retardation equal", ValueError, "retardation_time_s must be less than relaxation_time_s",
@@ -97,9 +81,6 @@ _MATERIAL_REFUSALS = [
    lambda: imr_fast.Ogden((1000.0, 500.0), (2.0,))),
   ("Ogden zero exponent", ValueError, "Ogden exponents must be finite and non-zero",
    lambda: imr_fast.Ogden((1000.0,), (0.0,))),
-  # `object()` is the point -- these guards exist for callers who pass the wrong type,
-  # so the argument has to BE the wrong type. pyright is correct to object and is told
-  # so here rather than in the baseline, where it would look like a defect to fix.
   ("elastic type", TypeError, "elastic must be a supported elastic model",
    lambda: imr_fast.InstantaneousMaterial(elastic=object())),  # pyright: ignore[reportArgumentType]
   ("viscous type", TypeError, "viscous must be a supported viscous model",
@@ -202,15 +183,9 @@ def test_batch_evaluation_refuses_malformed_unit_parameters():
 
 
 def test_the_log_transform_is_geometric_and_its_derivative_is_exact(measured):
-  """`transform="log"` had no test at all -- `physical_value`'s log branch and the whole
-  of its `derivative` were uncovered, which is how a wrong chain rule would ship.
-
-  Two independent claims. The map must be geometric, so that the unit interval's
-  MIDPOINT lands on the geometric mean rather than the arithmetic one -- that is the
-  entire point of asking for a log parameter, and a linear map would still hit both
-  endpoints and pass a weaker check. And `derivative` must be the derivative, checked
-  against a central difference of `physical_value` rather than against the formula it
-  came from.
+  """Two claims: the map is geometric, so the unit midpoint lands on the geometric
+  mean (a linear map would still hit both endpoints); and `derivative` is checked
+  against a central difference rather than against the formula it came from.
   """
   from imr_fast.inference import InferenceParameter
 

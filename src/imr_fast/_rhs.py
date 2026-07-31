@@ -33,14 +33,9 @@ def _sampled_pressure(tn, forcing, *, xp=np):
   evaluated, on the same argument as `_pinf`'s windows: a cubic at a clamped
   interval stays finite, so nothing poisons a gradient.
   """
-  # One namespace call, where a `primal_array` under numpy and an `asarray` under
-  # tracing used to be spelled separately. The numpy arm existed to strip `Dual`
-  # tangents before the SEARCH, which needs values only; without `Dual` there is
-  # nothing to strip and the two arms are the same expression.
   knots = xp.asarray(forcing.knots)
   interval = xp.clip(xp.searchsorted(knots, tn, side="right") - 1, 0, knots.size - 2)
-  # `knots` carries a tangent wherever `t0` does -- it is the sampled time divided by
-  # `t0` -- so the offset is arithmetic on it, not on a stripped copy.
+  # `knots` carries a tangent wherever `t0` does, so the offset uses it directly.
   offset = tn - knots[interval]
   coefficients = xp.asarray(forcing.coefficients)
   c0, c1, c2, c3 = (coefficients[row][interval] for row in range(4))

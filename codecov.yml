@@ -1,11 +1,5 @@
-# Codecov is here to show which branches of the configuration space nothing
-# exercises -- the false arm of a `bubtherm` or `masstrans` guard is the kind of
-# gap this package actually has. It is NOT a gate: the numerical claims are made
-# by the validation suite, and a percentage cannot express them.
-#
-# `informational: true` on both targets is what makes that concrete. Codecov
-# reports the change and never marks the check failed, so a refactor that moves
-# a covered line does not block a pull request.
+# Informational only. The numerical claims are the validation suite's; a percentage
+# cannot express them, so coverage reports and never blocks.
 coverage:
   status:
     project:

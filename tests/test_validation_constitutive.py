@@ -126,23 +126,14 @@ def test_analytic_stress_rate_matches_centered_difference(label, material, measu
 
 @pytest.mark.parametrize("label,material", _RATE_MATERIALS, ids=[c[0] for c in _RATE_MATERIALS])
 def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material, measured):
-  """Every material above must evaluate under `jnp` as well as `np`, and agree.
+  """Every material must evaluate under `jnp` as well as `np`, and agree.
 
-  Nothing asserted this, and the gap was not academic: `PowellEyring` and
-  `ModifiedPowellEyring` did not run AT ALL on the traced path, which is the only path
-  this package still has. `_powell_eyring_terms` dispatched on
-  `isinstance(u, np.ndarray)`, false for a jax array, and fell through to a scalar
-  branch whose first statement compares a tracer -- so any solve raised. Two public
-  models were unusable and the suite was green.
-
-  It stayed green because every check above reaches the material through
-  `_instantaneous_values`, which evaluates in numpy and never integrates. This one asks
-  the question the solver asks. It is cheap deliberately -- no ODE, just the constitutive
-  evaluation in both namespaces -- so it can cover all twelve.
+  Every other check here goes through `_instantaneous_values`, which evaluates in
+  numpy and never integrates -- so nothing asked whether a material could be traced,
+  and Powell-Eyring could not. No ODE, so all twelve are cheap to cover.
   """
-  # `_jax._jax()` rather than a bare `import jax.numpy`: it is what enables x64. Without
-  # it this runs in float32 and every material agrees only to ~1e-08, which reads as a
-  # namespace discrepancy and is really the dtype.
+  # `_jax._jax()` enables x64; a bare `import jax.numpy` leaves float32 and every
+  # material then agrees only to ~1e-08.
   from imr_fast import _jax  # noqa: PLC0415
   from imr_fast._stress import _instantaneous_stress  # noqa: PLC0415
 
@@ -155,9 +146,8 @@ def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material,
   traced = _instantaneous_stress(
     material, problem.instantaneous_material, problem.parameters, jnp.asarray(radius), jnp.asarray(velocity), True, xp=jnp
   )
-  # `None` in a slot the material does not populate -- a purely viscous model has no
-  # elastic acceleration coefficient. The two namespaces must agree on WHICH slots
-  # those are, which is itself part of the property.
+  # A material leaves slots it does not populate as `None`, and the namespaces must
+  # agree on which -- part of the property.
   assert [value is None for value in reference] == [value is None for value in traced], f"{label}: namespaces disagree on which terms exist"
   pairs = [(float(a), float(b)) for a, b in zip(reference, traced, strict=True) if a is not None and b is not None]
   worst = max(abs(a - b) / max(1.0, abs(a)) for a, b in pairs)

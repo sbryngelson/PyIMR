@@ -138,25 +138,18 @@ def _elastic_integrand(model, stretch, pressure_scale, *, xp=np):
 _PE_SERIES_LIMIT = 1e-4
 
 def _powell_eyring_terms(u, modified, *, xp=np):
-  """`(f, s)`: the shape factor `F(u)` and the slope term `u F'(u)`, both at `u`.
+  """`(f, s)`: the shape factor `F(u)` and the slope term `u F'(u)`.
 
-  One namespace-polymorphic form, where this used to dispatch on
-  `isinstance(u, np.ndarray)` and fall through to a SCALAR branch otherwise. A jax
-  array is not an `np.ndarray`, so every traced solve took that branch and died on
-  `if u < _PE_SERIES_LIMIT` -- a comparison on a tracer. `PowellEyring` and
-  `ModifiedPowellEyring` therefore did not run at all on the only path this package
-  still has; the array form was reached solely by the numpy pass that rebuilds outputs.
-
-  Nothing was asserting it, and nothing could: the scalar lines were unreachable
-  without crashing first, which is why coverage showed them cold. See #35.
+  One namespace-polymorphic form. Dispatching on `isinstance(u, np.ndarray)` sent
+  every traced solve down a scalar branch that compares a tracer, so Powell-Eyring
+  did not run at all.
   """
   if modified:
     series = (1.0 - u / 2.0 + u**2 / 3.0, -u / 2.0 + 2.0 * u**2 / 3.0)
   else:
     series = (1.0 - u**2 / 6.0 + 3.0 * u**4 / 40.0, -(u**2) / 3.0 + 3.0 * u**4 / 10.0)
-  # `where` evaluates BOTH arms, so the exact form is given an argument bounded away
-  # from zero. Its own arm is discarded wherever the series is selected; without the
-  # floor it would divide by zero there and poison the tangent with a nan.
+  # `where` evaluates both arms, so the exact form needs an argument bounded away
+  # from zero or it divides by zero where the series is selected.
   safe = xp.maximum(u, _PE_SERIES_LIMIT)
   if modified:
     exact_f = xp.log1p(safe) / safe
@@ -186,9 +179,6 @@ def _viscosity_and_tangent(model, shear_rate, *, xp=np):
     modified = isinstance(model, ModifiedPowellEyring)
     difference = model.zero_shear_viscosity_pa_s - model.infinite_shear_viscosity_pa_s
     scaled = xp.absolute(model.time_constant_s * shear_rate)
-    # The per-element object-dtype loop that stood here went with `Dual`, the only
-    # thing that ever made a numpy array hold objects. It was also the sole caller
-    # that passed a scalar, which is what kept the broken scalar branch alive.
     factor, slope = _powell_eyring_terms(scaled, modified, xp=xp)
     viscosity = model.infinite_shear_viscosity_pa_s + difference * factor
     tangent = viscosity + difference * slope
@@ -209,14 +199,8 @@ def _viscosity_and_tangent(model, shear_rate, *, xp=np):
       exponent = model.exponent
       regularization = model.regularization_rate_per_s
     scaled = shear_rate / regularization
-    # np.where evaluates BOTH arms, so dividing by `shear_rate` computed a
-    # 0/0 at every zero-rate node and then discarded it -- the suppression was
-    # hiding a value nothing used. Substituting 1.0 in the denominator where
-    # the arm is not selected removes the divide instead of silencing it, and
-    # selects exactly the same values (#35).
-    #
-    # A per-element object-dtype branch did the same thing above this, for `Dual`
-    # arrays that `xp.where` could not handle. It went with `Dual`.
+    # Substituting 1.0 in the unselected denominator removes the 0/0 rather than
+    # silencing it, and selects the same values (#35).
     positive = shear_rate > 0.0
     denominator = xp.where(positive, shear_rate, 1.0)
     yield_viscosity = xp.where(positive, -yield_stress * xp.expm1(-scaled) / denominator, yield_stress / regularization)

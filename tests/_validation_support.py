@@ -82,17 +82,12 @@ def with_path(config, path, value):
 def difference_tangent(config, path, times, field="radius_ratio", relative_step=1e-5):
   """d(field)/d(path) by central difference of the forward solve.
 
-  The independent reference for a traced tangent, after W11 stage 5 left one
-  implementation. It resolves 1e-09 to 1e-04 depending on the case -- two or more orders
-  below every defect this suite has caught: 3.1e-02 for a sampled forcing missing `t0`,
-  1.3e-02 for a medium missing `T8`, 1.11 for a temperature scaled by a concrete `T8`,
-  0.80 for a polytropic pressure on a thermal path. It cannot distinguish two
-  already-correct routes at 1e-13, which is what the deleted `Dual` reference did; it
-  can distinguish a missing term, which is what the defects were.
+  The independent reference for a traced tangent. Resolves 1e-09 to 1e-04, well below
+  every defect this suite has caught, though it cannot separate two already-correct
+  routes.
 
-  The step is SIGNED -- `base * relative_step`, not `abs(base) * relative_step`. On a
-  negative base an unsigned divisor reads as a factor-two error in the tangent, which is
-  indistinguishable from a real defect until you look.
+  The step is SIGNED. On a negative base an unsigned divisor reads as a factor-two
+  error in the tangent, indistinguishable from a real defect.
   """
   parts = path.split(".")
   holder = config if len(parts) == 1 else getattr(config, parts[0])

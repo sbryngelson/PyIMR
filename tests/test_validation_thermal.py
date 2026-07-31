@@ -5,8 +5,8 @@ derivatives, so a spectral discretization buys something here. thermal_fd is
 cleanly second order (verified standalone in validate_thermal_fd.py); the
 Chebyshev operators are spectral.
 
-Marked slow: the convergence study solves at Nt up to 300 on an 8001-point
-output grid at tightened integrator tolerance.
+Marked slow: the convergence study solves on an 8001-point output grid at
+tightened integrator tolerance.
 
 Numerical content unchanged from `run_validation.py`; see issue #32.
 """
@@ -81,19 +81,9 @@ def _collapse_metrics(nt, backend):
   return minimum, time
 
 
-# Nt=200 and Nt=300 spectral, which these checks used as their reference, are not
-# runnable configurations. Chebyshev second-derivative operators have eigenvalues
-# growing like N^4, so the explicit solver exhausts its step budget from about Nt=60
-# ("maximum number of solver steps was reached"), and the implicit solver that replaces
-# it -- see `_jax._solver_for` -- pays a DENSE Newton solve per stage, which is O(Nt^3).
-# Between them there is no solver that reaches Nt=200: the module did not merely run
-# slowly, it did not terminate, and it is what put the suite over its budget.
-#
-# The resolutions below are measured to be feasible, and the reference is the finest
-# one that is (Nt=60, 6.6 s). What that costs in strength is stated in
-# `test_the_spectral_error_is_at_the_measurement_floor` rather than hidden: it is no
-# longer possible to measure a spectral convergence RATE here, because at every
-# feasible Nt the error is already at the floor of the measurement.
+# Nt=200 and Nt=300 spectral, the old reference, are not runnable: the explicit solver
+# exhausts its step budget from about Nt=60 and the implicit one is O(Nt^3). See #120.
+# The reference below is the finest feasible resolution.
 _REFERENCE_NT = 60
 _SPECTRAL_NT = 25
 _FINITE_NT = 100
@@ -120,22 +110,10 @@ def test_spectral_beats_fine_finite_difference_on_timing(measured):
 
 @pytest.mark.slow
 def test_the_spectral_error_is_at_the_measurement_floor(measured):
-  """What replaces the two convergence-rate checks, and it is a WEAKER claim.
-
-  Those asserted that spectral keeps converging with no floor (Nt=100 at least 4x
-  better than Nt=25) and that the ratio was measured above the reference's own
-  uncertainty (|Nt=300 - Nt=200|). Both needed Nt >= 200, which does not run.
-
-  At feasible resolutions the rate is not measurable, and that is the honest finding
-  rather than a threshold chosen to pass: the spread across Nt=25, 40, 60, 80 is about
-  1e-06 and NOT monotone -- 25 and 60 agree to 4.8e-08 while 40 sits 1.3e-06 from both
-  -- so differences between them measure the collapse-minimum fit and the integrator,
-  not the discretization. Tightening the implicit solver's root finder does not move it
-  (twelve digits unchanged from 1e-09 to 1e-11), so it is not the inner solve either.
-
-  The claim that survives is the one the package relies on: by Nt=25 spectral is
-  already converged to within the floor, which is why the shipped default is small.
-  The convergence RATE is the property now going unasserted.
+  """A WEAKER claim than the convergence-rate checks it replaces, which needed
+  Nt >= 200 (see #121). At feasible Nt the spread is ~1e-06 and non-monotone, so it
+  measures the collapse-minimum fit and the integrator rather than the discretization.
+  What survives: by Nt=25 spectral is converged to within the floor.
   """
   reference, _ = _collapse_metrics(_REFERENCE_NT, "spectral")
   coarse, _ = _collapse_metrics(_SPECTRAL_NT, "spectral")

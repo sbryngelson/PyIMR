@@ -7,6 +7,11 @@ on:
   push:
     branches: [master]
   pull_request:
+  # The convergence studies are 11 tests and 135 s of a 200 s suite, and they gate
+  # nothing a push can break in isolation. They run nightly instead, and on demand.
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
 
 # A new push supersedes the run it interrupted; nothing is learned by finishing
 # the old one. Not applied to master, whose caches later runs depend on.
@@ -31,6 +36,8 @@ jobs:
     # matching, and caching silently does nothing while still appearing green.
     env:
       IMR_FAST_JAX_CACHE: ${{ github.workspace }}/.xla-cache
+      # Everything on the nightly and on demand; the fast set per push.
+      PYTEST_MARKERS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'slow or not slow' || 'not slow' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -95,12 +102,12 @@ jobs:
       # `-n auto`: the cost is numerical integration, which divides across processes.
       # Coverage on one matrix entry only -- three identical reports add nothing.
       - name: Tests and numerical validation
-        run: python -m pytest -rA -n auto
+        run: python -m pytest -rA -n auto -m "$PYTEST_MARKERS"
         if: matrix.python-version != '3.12'
 
       - name: Tests and numerical validation (with coverage)
         if: matrix.python-version == '3.12'
-        run: python -m pytest -rA -n auto --cov --cov-report=xml
+        run: python -m pytest -rA -n auto -m "$PYTEST_MARKERS" --cov --cov-report=xml
 
       # Must not fail the build: a coverage service being down is not a defect here.
       - name: Upload coverage to Codecov

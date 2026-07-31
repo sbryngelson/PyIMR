@@ -52,17 +52,36 @@ from ._materials import Zener
 
 __all__ = ["CONFIG_PATHS", "INITIAL_PATHS", "PHYSICS_PATHS", "SCALE_PATHS", "TracedOutputs", "integrate_jax", "sensitivities_jax"]
 
-def _solver_for(config, diffrax):
+_CHORD_ABOVE = 80
+
+def _solver_for(config, diffrax, *, differentiating=True):
   """The solver this configuration wants, and why.
 
-  Implicit for spectral thermal grids, explicit otherwise -- see the module note. The
-  root finder is an explicit `optimistix.Newton` rather than the default so the
-  tolerance is stated. It does not limit the tangent, and it deliberately does NOT
-  track `config.rtol`: tightening it changes nothing measurable and costs 2.6x.
+  Implicit for spectral thermal grids, explicit otherwise -- see the module note.
+  Which root finder depends on the grid AND on whether a tangent is being taken,
+  because no single choice serves both (#120).
+
+  `Newton` refactorizes every iteration. It is the fastest below the threshold and
+  is the only one accurate enough to differentiate, but it degrades sharply above
+  it -- 9.4 s at Nt=80 against 48.3 s at Nt=100, a 5x cost for a 1.25x grid, which
+  is step rejection rather than factorization.
+
+  `VeryChord` reuses the Jacobian. That scales -- Nt=200 runs in 55.6 s where
+  Newton does not finish -- but the reused Jacobian is inexact and `ForwardMode`
+  inherits it: the spectral tangent reads 1.0e-03 against a 5e-05 bound. Tightening
+  it to 1e-10 fixes the tangent and costs 5x, which puts Nt=200 out of reach again.
+
+  Hence the split. It is safe because the root finder does not change the FORWARD
+  answer: where both run, the collapse minimum agrees to 5e-12 (0.025949716108
+  against ...103), four orders below the convergence signal being measured. Only
+  the tangent distinguishes them, so only the tangent constrains the choice.
   """
   if config.bubtherm and config.thermal == "spectral":
     import optimistix  # pyright: ignore[reportMissingImports]
 
+    nodes = config.Nt + (config.Mt if config.medtherm else 0)
+    if not differentiating and nodes > _CHORD_ABOVE:
+      return diffrax.Kvaerno5(root_finder=diffrax.VeryChord(rtol=1e-8, atol=1e-8)), "kvaerno5-chord"
     return diffrax.Kvaerno5(root_finder=optimistix.Newton(rtol=1e-8, atol=1e-8)), "kvaerno5"
   return diffrax.Tsit5(), "tsit5"
 
@@ -163,7 +182,9 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   jax, jnp, diffrax = _jax()
   from time import perf_counter
 
-  solver, solver_name = (diffrax.Tsit5(), "tsit5") if config is None else _solver_for(config, diffrax)
+  # The forward solve takes no tangent, so it may use the cheaper root finder on the
+  # large grids where Newton stalls. `sensitivities_jax` keeps the default.
+  solver, solver_name = (diffrax.Tsit5(), "tsit5") if config is None else _solver_for(config, diffrax, differentiating=False)
 
   def build():
     def solve(grid, start):

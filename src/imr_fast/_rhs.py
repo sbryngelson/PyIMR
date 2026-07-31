@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ._autodiff import at_set, primal, primal_array
+from ._arrays import at_set
 from ._materials import _stress_state_count
 from ._stress import _distributed_stress, _stress
 from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
@@ -28,29 +28,25 @@ def _sampled_pressure(tn, forcing, *, xp=np):
   through `xp` because a tracer cannot index a numpy array at all.
 
   The range test becomes a 0/1 MASK carried by an ordinary multiply, not an
-  `xp.where` over the results. `where` is not a ufunc, so `np.where` on a `Dual`
-  would return an object array rather than a `Dual` and quietly break the tangent
-  path -- whereas the mask itself is built from plain floats in every arithmetic,
-  and the polymorphic multiply is what applies it. Both arms are evaluated, on the
-  same argument as `_pinf`'s windows: a cubic at a clamped interval stays finite,
-  so nothing poisons a gradient.
+  `xp.where` over the results -- the mask is built from plain floats in every
+  arithmetic, and the polymorphic multiply is what applies it. Both arms are
+  evaluated, on the same argument as `_pinf`'s windows: a cubic at a clamped
+  interval stays finite, so nothing poisons a gradient.
   """
-  time_value = primal(tn)
-  # `primal_array` strips `Dual` tangents so the SEARCH runs on values, which is all
-  # it needs. Under tracing there is nothing to strip and nothing that can be: the
-  # tracer is the value, and forcing it to float64 raises. The arithmetic below still
-  # uses `forcing.knots` itself, so either way the tangent is kept where it matters.
-  knot_values = primal_array(forcing.knots) if xp is np else xp.asarray(forcing.knots)
-  interval = xp.clip(xp.searchsorted(xp.asarray(knot_values), time_value, side="right") - 1, 0, knot_values.size - 2)
-  # The offset keeps the ORIGINAL knots, not the primal copy above: `knots` is the
-  # sampled time divided by `t0`, so it carries a tangent whenever `t0` does. The
-  # search needs only values; the arithmetic needs the derivative.
-  offset = tn - xp.asarray(forcing.knots)[interval]
+  # One namespace call, where a `primal_array` under numpy and an `asarray` under
+  # tracing used to be spelled separately. The numpy arm existed to strip `Dual`
+  # tangents before the SEARCH, which needs values only; without `Dual` there is
+  # nothing to strip and the two arms are the same expression.
+  knots = xp.asarray(forcing.knots)
+  interval = xp.clip(xp.searchsorted(knots, tn, side="right") - 1, 0, knots.size - 2)
+  # `knots` carries a tangent wherever `t0` does -- it is the sampled time divided by
+  # `t0` -- so the offset is arithmetic on it, not on a stripped copy.
+  offset = tn - knots[interval]
   coefficients = xp.asarray(forcing.coefficients)
   c0, c1, c2, c3 = (coefficients[row][interval] for row in range(4))
   pressure = ((c0 * offset + c1) * offset + c2) * offset + c3
   pressure_rate = (3.0 * c0 * offset + 2.0 * c1) * offset + c2
-  inside = xp.where((time_value >= knot_values[0]) & (time_value <= knot_values[-1]), 1.0, 0.0)
+  inside = xp.where((tn >= knots[0]) & (tn <= knots[-1]), 1.0, 0.0)
   return pressure * inside, pressure_rate * inside
 
 def _pinf(tn, p, forcing=None, *, xp=np):

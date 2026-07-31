@@ -29,7 +29,6 @@ from dataclasses import replace
 
 import numpy as np
 
-from ._autodiff import primal, primal_array  # noqa: F401
 
 __all__ = [
   "ArrudaBoyce",

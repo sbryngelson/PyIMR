@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import brentq
 
-from ._autodiff import at_set, primal_array
+from ._arrays import at_set
 from ._materials import InstantaneousMaterial, NoStress, QuadraticKelvinVoigt
 from ._stress import _elastic_integrand, _viscosity_and_tangent
 
@@ -152,7 +152,7 @@ def _instantaneous_dissipation(material, p, R, Rd, yT, yT3, iyT3, *, xp=np):
     reference_radius = xp.cbrt(xp.maximum(R**3 * (yT3[:-1] - 1.0) + p["req"] ** 3, 1e-30))
     # `at_set` rather than slice assignment, because a jax array is immutable and the
     # wall entry has to be written without mutating: the same reason the thermal fields
-    # go through it. See `_autodiff.at_set`.
+    # go through it. See `_arrays.at_set`.
     stretch = at_set(xp.ones_like(yT), slice(None, -1), R * yT[:-1] / reference_radius)
     integrand = _elastic_integrand(material.elastic, stretch, p["P8"], xp=xp)
     stress_difference = 0.5 * integrand * stretch * (stretch**3 - 1.0)
@@ -210,21 +210,10 @@ def _distributed_dissipation(state, prepared, p, R, Rd, yT, iyT3, *, xp=np):
   stress_difference = state[:points] - state[points:]
   spatial_radius = R * yT
   reference_radius = xp.cbrt(xp.maximum(spatial_radius**3 - R**3 + 1.0, 1.0))
-  if reference_radius.dtype == object or stress_difference.dtype == object:
-    sampled_difference = np.empty_like(reference_radius)
-    reference_values = primal_array(reference_radius)
-    source_radius = prepared.reference_radius
-    for index, (radius, radius_value) in enumerate(zip(reference_radius, reference_values, strict=True)):
-      if radius_value <= source_radius[0]:
-        sampled_difference[index] = stress_difference[0]
-      elif radius_value >= source_radius[-1]:
-        sampled_difference[index] = 0.0
-      else:
-        left = np.searchsorted(source_radius, radius_value) - 1
-        fraction = (radius - source_radius[left]) / (source_radius[left + 1] - source_radius[left])
-        sampled_difference[index] = stress_difference[left] + fraction * (stress_difference[left + 1] - stress_difference[left])
-  else:
-    sampled_difference = xp.interp(reference_radius, prepared.reference_radius, stress_difference, right=0.0)
+  # An object-dtype branch stood here, hand-interpolating element by element because
+  # `np.interp` cannot take a `Dual`. Nothing produces an object array now that `Dual`
+  # is gone, so both dtypes reach `interp` and one line replaces thirteen.
+  sampled_difference = xp.interp(reference_radius, prepared.reference_radius, stress_difference, right=0.0)
   strain_rate = Rd / R * iyT3
   polymer_heating = -2.0 * strain_rate * sampled_difference
   solvent_heating = 12.0 * p["LAM"] / p["Re8"] * strain_rate**2

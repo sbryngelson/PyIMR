@@ -45,7 +45,7 @@ from ._materials import (
 )
 from ._rhs import _rhs
 import imr_fast as _solver
-from ._autodiff import at_set
+from ._arrays import at_set
 from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, mixture_kirchhoff, pvsat
 from .thermal_fd import finite_diff_mat
 from .thermal_spectral import chebyshev_diff_mat

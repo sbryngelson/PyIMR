@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from ._autodiff import primal, primal_array
 from ._materials import (
   Bingham,
   CarreauYasuda,
@@ -58,9 +57,7 @@ def _ogden_ratio(u, exponent, *, xp=np):
   # perturbation directly would either fail or discard the derivative, which is the trap recorded at _mechanical.py's
   # complex-step note.
   offset = u - 1.0
-  # `primal_array` where there are values to read, the tracer itself where there are
-  # not. Under a trace the value IS the tracer and there is no `Dual` to strip.
-  near = xp.abs(offset if xp is not np else primal_array(offset)) < _OGDEN_SERIES_LIMIT
+  near = xp.abs(offset) < _OGDEN_SERIES_LIMIT
   series = exponent * (
     1.0
     + (exponent - 1.0) / 2.0 * offset
@@ -89,7 +86,7 @@ def _elastic_integrand(model, stretch, pressure_scale, *, xp=np):
   # never been traced -- `unsupported_reason` did not refuse them and no coverage case
   # used one -- so the numpy-only guard sat unreached behind the other backend.
   if xp is np:
-    if np.any(primal_array(stretch) <= 0.0): raise _MaterialDomainError("elastic stretch became non-positive")
+    if np.any(stretch <= 0.0): raise _MaterialDomainError("elastic stretch became non-positive")
   invariant_offset = stretch**-4 + 2.0 * stretch**2 - 3.0
   geometric_factor = (stretch**3 + 1.0) / stretch**5
   if isinstance(model, Ogden):
@@ -125,9 +122,9 @@ def _elastic_integrand(model, stretch, pressure_scale, *, xp=np):
       # Lock-up is a value the trace does not have. A traced solve that reaches it
       # produces non-finite states, which diffrax reports through `RESULTS` and
       # `integrate_jax` turns into the same `SimulationError` this raise feeds.
-      if xp is np and np.any(primal_array(remaining_extension) <= 0.0):
-        maximum = float(np.max(primal_array(invariant_offset)))
-        raise _MaterialDomainError(f"Gent lock-up: I1 - 3 reached {maximum:.6g}, limit is {primal(model.extensibility):.6g}")
+      if xp is np and np.any(remaining_extension <= 0.0):
+        maximum = float(np.max(invariant_offset))
+        raise _MaterialDomainError(f"Gent lock-up: I1 - 3 reached {maximum:.6g}, limit is {float(model.extensibility):.6g}")
       coefficient = model.shear_modulus_pa / pressure_scale / remaining_extension
     else:
       invariant = invariant_offset + 3.0
@@ -135,7 +132,7 @@ def _elastic_integrand(model, stretch, pressure_scale, *, xp=np):
       series = sum((order + 1) * coefficient * invariant**order / model.chain_segments**order for order, coefficient in enumerate(coefficients))
       coefficient = 2.0 * model.shear_modulus_pa / pressure_scale * series
     result = -2.0 * coefficient * geometric_factor
-  if xp is np and not np.all(np.isfinite(primal_array(result))): raise _MaterialDomainError("elastic stress became non-finite")
+  if xp is np and not np.all(np.isfinite(result)): raise _MaterialDomainError("elastic stress became non-finite")
   return result
 
 _PE_SERIES_LIMIT = 1e-4
@@ -207,20 +204,17 @@ def _viscosity_and_tangent(model, shear_rate, *, xp=np):
       exponent = model.exponent
       regularization = model.regularization_rate_per_s
     scaled = shear_rate / regularization
-    if xp is np and shear_rate.dtype == object:
-      yield_viscosity = np.empty_like(shear_rate)
-      for index, rate in np.ndenumerate(shear_rate):
-        yield_viscosity[index] = -yield_stress * xp.expm1(-scaled[index]) / rate if primal(rate) > 0.0 else yield_stress / regularization
-    else:
-      # np.where evaluates BOTH arms, so dividing by `shear_rate` computed a
-      # 0/0 at every zero-rate node and then discarded it -- the suppression was
-      # hiding a value nothing used. Substituting 1.0 in the denominator where
-      # the arm is not selected removes the divide instead of silencing it, and
-      # selects exactly the same values. The object-dtype branch above already
-      # did this the honest way, per element (#35).
-      positive = shear_rate > 0.0
-      denominator = xp.where(positive, shear_rate, 1.0)
-      yield_viscosity = xp.where(positive, -yield_stress * xp.expm1(-scaled) / denominator, yield_stress / regularization)
+    # np.where evaluates BOTH arms, so dividing by `shear_rate` computed a
+    # 0/0 at every zero-rate node and then discarded it -- the suppression was
+    # hiding a value nothing used. Substituting 1.0 in the denominator where
+    # the arm is not selected removes the divide instead of silencing it, and
+    # selects exactly the same values (#35).
+    #
+    # A per-element object-dtype branch did the same thing above this, for `Dual`
+    # arrays that `xp.where` could not handle. It went with `Dual`.
+    positive = shear_rate > 0.0
+    denominator = xp.where(positive, shear_rate, 1.0)
+    yield_viscosity = xp.where(positive, -yield_stress * xp.expm1(-scaled) / denominator, yield_stress / regularization)
     effective_rate = xp.sqrt(shear_rate**2 + regularization**2)
     power_viscosity = consistency * effective_rate ** (exponent - 1.0)
     viscosity = yield_viscosity + power_viscosity
@@ -233,8 +227,7 @@ def _viscosity_and_tangent(model, shear_rate, *, xp=np):
   # produces non-finite states, which diffrax reports through `RESULTS` and
   # `integrate_jax` raises as the same `SimulationError` this feeds.
   if xp is np:
-    viscosity_values = primal_array(viscosity)
-    tangent_values = primal_array(tangent)
+    viscosity_values, tangent_values = viscosity, tangent
     if not np.all(np.isfinite(viscosity_values)) or not np.all(np.isfinite(tangent_values)) or np.any(viscosity_values < 0.0):
       raise _MaterialDomainError("generalized viscosity became invalid")
   return viscosity, tangent

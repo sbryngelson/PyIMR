@@ -89,15 +89,21 @@ jobs:
       # Keyed on the SOURCE that determines the programs, not on the commit. At
       # ~326 MB per job a commit-keyed cache wrote ~900 MB per push, so the 10 GB
       # repository budget churned every ten commits and evicted the pip caches
-      # alongside. Hashing src/ and tests/ means a docs or workflow commit reuses
-      # the entry outright, while anything that can change an HLO rotates it.
+      # alongside. Hashing src/ and tests/ means a docs commit reuses the entry
+      # outright, while anything that can change an HLO rotates it.
+      #
+      # This workflow is in the hash too, because it sets the cache POLICY. A key
+      # is write-once -- `actions/cache` skips the save when the key already
+      # exists -- so without this, changing the cap or the prune leaves the old
+      # archive frozen and the change cannot take effect until src happens to
+      # move. That is exactly what happened to the 700 -> 4000 cap fix.
       #
       # A stale entry cannot be wrong, only missed: XLA keys entries by HLO hash.
       - name: Cache XLA compilations
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.xla-cache
-          key: xla-avx2-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-${{ hashFiles('src/**/*.py', 'tests/**/*.py') }}
+          key: xla-avx2-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-${{ hashFiles('src/**/*.py', 'tests/**/*.py', '.github/workflows/ci.yml') }}
           restore-keys: xla-avx2-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-
 
       # Proof the cache is doing its job, rather than an assumption that it is. A

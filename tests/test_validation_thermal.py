@@ -1,15 +1,4 @@
-"""Thermal PDE discretization: finite difference vs Chebyshev collocation.
-
-Unlike the distributed stress, the thermal fields genuinely carry spatial
-derivatives, so a spectral discretization buys something here. thermal_fd is
-cleanly second order (verified standalone in validate_thermal_fd.py); the
-Chebyshev operators are spectral.
-
-Marked slow: the convergence study solves on an 8001-point output grid at
-tightened integrator tolerance.
-
-Numerical content unchanged from `run_validation.py`; see issue #32.
-"""
+"""Thermal PDE discretization: finite difference vs Chebyshev collocation."""
 
 import functools
 
@@ -23,29 +12,8 @@ from _validation_support import NHKV, R0, REQ
 
 SECTION = "2d. Thermal PDE discretization"
 
-# Measure collapse depth and timing on a grid fine enough to resolve the
-# minimum. A coarse output grid samples the sharp collapse at slightly
-# different phases as the solution shifts, which shows up as an apparent error
-# floor around 1e-4 that has nothing to do with the discretization. That
-# artifact is what an earlier version of this check mistook for a spectral
-# convergence plateau.
 _FINE_TIMES = np.linspace(0.0, 60e-6, 8001)
 
-# Resolving the output grid is necessary but not sufficient. At the default
-# rtol=1e-8/atol=1e-10 the collapse minimum is only reproducible to ~5e-07
-# regardless of Nt, so a spectral run at Nt=100 differs from one at Nt=200 by
-# the integrator's noise rather than by any discretization error. Measured:
-#
-#   Nt        100        150        200        300        400
-#   R/R0  ...582427  ...579289  ...577297  ...580435  ...580495   (default tol)
-#
-# -- non-monotone, spread 5.1e-07, which is exactly the size of the "error"
-# being attributed to Nt=100. The verdict then depends on which reference is
-# picked (3.5x against Nt=200, 7.7x against Nt=400) and on the SciPy version.
-#
-# Tightening the time tolerance pushes the temporal error below the spatial
-# one, which is the only regime in which a spatial convergence rate means
-# anything. The Nt >= 200 values then agree to 1.4e-09.
 _CONVERGENCE_RTOL, _CONVERGENCE_ATOL = 1e-11, 1e-13
 
 
@@ -81,8 +49,6 @@ def _collapse_metrics(nt, backend):
   return minimum, time
 
 
-# Nt=200 is reachable again: `_solver_for` gives the forward solve a Jacobian-reusing
-# root finder above `_CHORD_ABOVE`, which runs it in 52.6 s where Newton did not finish.
 _REFERENCE_NT = 200
 _SPECTRAL_NT = 25
 _FINITE_NT = 100
@@ -110,10 +76,7 @@ def test_spectral_beats_fine_finite_difference_on_timing(measured):
 
 @pytest.mark.slow
 def test_spectral_keeps_converging(measured):
-  """Spectral must keep converging -- there is no floor. The overall improvement is
-  asserted rather than a strict chain: near the reference's own accuracy the individual
-  steps are not monotone, and requiring monotonicity is a flaky test, not a stronger
-  one."""
+  """Spectral must keep converging -- there is no floor. The overall improvement is"""
   reference, _ = _collapse_metrics(_REFERENCE_NT, "spectral")
   coarse, _ = _collapse_metrics(_SPECTRAL_NT, "spectral")
   fine, _ = _collapse_metrics(_FINITE_NT, "spectral")
@@ -123,10 +86,7 @@ def test_spectral_keeps_converging(measured):
 
 @pytest.mark.slow
 def test_convergence_is_measured_above_the_reference_floor(measured):
-  """The ratio above means nothing unless it is measured above the reference's own
-  uncertainty, so that is reported alongside it. The floor is the difference between the
-  two finest grids available; leaving it out is what let this read as a solver result for
-  as long as it did."""
+  """The ratio above means nothing unless it is measured above the reference's own"""
   reference, _ = _collapse_metrics(_REFERENCE_NT, "spectral")
   fine, _ = _collapse_metrics(_FINITE_NT, "spectral")
   floor = abs(_collapse_metrics(_FLOOR_NT, "spectral")[0] - reference)

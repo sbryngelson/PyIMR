@@ -1,8 +1,4 @@
-"""Constitutive stress evaluation.
-
-Pure evaluation: material plus kinematic state in, stress and its rate out.
-No solver state, no preparation, no dependency on the RHS.
-"""
+"""Constitutive stress evaluation."""
 
 from __future__ import annotations
 
@@ -50,12 +46,6 @@ class _MaterialDomainError(RuntimeError):
 _OGDEN_SERIES_LIMIT = 1e-3
 
 def _ogden_ratio(u, exponent, *, xp=np):
-  # (1 - u**exponent) / (1 - u), continued analytically through u = 1.
-  #
-  # The singularity is removable -- the limit is `exponent` -- but the quotient loses all precision near it, so switch
-  # to the binomial series in (u - 1). The predicate reads the primal value only: comparing a Dual or a complex
-  # perturbation directly would either fail or discard the derivative, which is the trap recorded at _mechanical.py's
-  # complex-step note.
   offset = u - 1.0
   near = xp.abs(offset) < _OGDEN_SERIES_LIMIT
   series = exponent * (
@@ -64,44 +54,18 @@ def _ogden_ratio(u, exponent, *, xp=np):
     + (exponent - 1.0) * (exponent - 2.0) / 6.0 * offset**2
     + (exponent - 1.0) * (exponent - 2.0) * (exponent - 3.0) / 24.0 * offset**3
   )
-  # The scalar shortcut branches on the predicate, so it stays on the numpy path where
-  # the predicate has a value. Tracing takes the `where` form, which is what it would
-  # have to do anyway.
   if xp is np and np.ndim(near) == 0: return series if near else (1.0 - u**exponent) / (1.0 - u)
-  # Evaluate the quotient only where it is well conditioned; a plain `where`
-  # would still divide by (1 - u) at u == 1 and raise or produce a NaN that
-  # then propagates through the tangent.
   safe = xp.where(near, 1.0 + 2.0 * _OGDEN_SERIES_LIMIT, u)
   return xp.where(near, series, (1.0 - safe**exponent) / (1.0 - safe))
 
 def _elastic_integrand(model, stretch, pressure_scale, *, xp=np):
   stretch = xp.asarray(stretch)
-  # The domain guard reads VALUES, so it only runs where there are values. Under a
-  # trace there is nothing to read and nothing to raise with: a traced solve cannot
-  # branch on a state it has not computed yet. diffrax reports the resulting non-finite
-  # solve through `RESULTS` instead, which `integrate_jax` turns into the same
-  # `SimulationError` this raise fed.
-  #
-  # This is where instantaneous materials failed once the scipy backend went. They had
-  # never been traced -- `unsupported_reason` did not refuse them and no coverage case
-  # used one -- so the numpy-only guard sat unreached behind the other backend.
   if xp is np:
+    # value guards are numpy-only; a tracer has no value to test
     if np.any(stretch <= 0.0): raise _MaterialDomainError("elastic stretch became non-positive")
   invariant_offset = stretch**-4 + 2.0 * stretch**2 - 3.0
   geometric_factor = (stretch**3 + 1.0) / stretch**5
   if isinstance(model, Ogden):
-    # Ogden depends on the principal stretches, not on I1 alone, so it does not
-    # factor as coefficient * geometric_factor like the laws below.
-    #
-    # For the spherical incompressible deformation the stretches are
-    # (l^-2, l, l), so tau_rr - tau_hh = sum_p mu_p (l^(-2 a_p) - l^(a_p)), and
-    # the shared measure factor is -2 / (l (1 - l^3)). Writing u = l^3,
-    #
-    #   (l^(-2a) - l^a) / (1 - u) = l^(-2a) (1 - u^a) / (1 - u)
-    #
-    # which is analytic at u = 1 but 0/0 there, so _ogden_ratio supplies the
-    # series. At a = 2 this collapses to (1 + l^3) / l^4 and the whole
-    # expression to the NeoHookean line below, exactly.
     u = stretch**3
     total = 0.0
     for modulus, exponent in zip(model.shear_moduli_pa, model.exponents, strict=True):
@@ -119,9 +83,6 @@ def _elastic_integrand(model, stretch, pressure_scale, *, xp=np):
       coefficient = model.shear_modulus_pa / pressure_scale * xp.exp(model.stiffening * invariant_offset)
     elif isinstance(model, Gent):
       remaining_extension = 1.0 - invariant_offset / model.extensibility
-      # Lock-up is a value the trace does not have. A traced solve that reaches it
-      # produces non-finite states, which diffrax reports through `RESULTS` and
-      # `integrate_jax` turns into the same `SimulationError` this raise feeds.
       if xp is np and np.any(remaining_extension <= 0.0):
         maximum = float(np.max(invariant_offset))
         raise _MaterialDomainError(f"Gent lock-up: I1 - 3 reached {maximum:.6g}, limit is {float(model.extensibility):.6g}")
@@ -138,18 +99,11 @@ def _elastic_integrand(model, stretch, pressure_scale, *, xp=np):
 _PE_SERIES_LIMIT = 1e-4
 
 def _powell_eyring_terms(u, modified, *, xp=np):
-  """`(f, s)`: the shape factor `F(u)` and the slope term `u F'(u)`.
-
-  One namespace-polymorphic form. Dispatching on `isinstance(u, np.ndarray)` sent
-  every traced solve down a scalar branch that compares a tracer, so Powell-Eyring
-  did not run at all.
-  """
+  """`(f, s)`: the shape factor `F(u)` and the slope term `u F'(u)`."""
   if modified:
     series = (1.0 - u / 2.0 + u**2 / 3.0, -u / 2.0 + 2.0 * u**2 / 3.0)
   else:
     series = (1.0 - u**2 / 6.0 + 3.0 * u**4 / 40.0, -(u**2) / 3.0 + 3.0 * u**4 / 10.0)
-  # `where` evaluates both arms, so the exact form needs an argument bounded away
-  # from zero or it divides by zero where the series is selected.
   safe = xp.maximum(u, _PE_SERIES_LIMIT)
   if modified:
     exact_f = xp.log1p(safe) / safe
@@ -199,8 +153,6 @@ def _viscosity_and_tangent(model, shear_rate, *, xp=np):
       exponent = model.exponent
       regularization = model.regularization_rate_per_s
     scaled = shear_rate / regularization
-    # Substituting 1.0 in the unselected denominator removes the 0/0 rather than
-    # silencing it, and selects the same values (#35).
     positive = shear_rate > 0.0
     denominator = xp.where(positive, shear_rate, 1.0)
     yield_viscosity = xp.where(positive, -yield_stress * xp.expm1(-scaled) / denominator, yield_stress / regularization)
@@ -212,9 +164,6 @@ def _viscosity_and_tangent(model, shear_rate, *, xp=np):
       + power_viscosity
       + consistency * (exponent - 1.0) * shear_rate**2 * effective_rate ** (exponent - 3.0)
     )
-  # Values again, so numpy only. A traced solve that produces an invalid viscosity
-  # produces non-finite states, which diffrax reports through `RESULTS` and
-  # `integrate_jax` raises as the same `SimulationError` this feeds.
   if xp is np:
     viscosity_values, tangent_values = viscosity, tangent
     if not np.all(np.isfinite(viscosity_values)) or not np.all(np.isfinite(tangent_values)) or np.any(viscosity_values < 0.0):
@@ -272,8 +221,6 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
     Ze = -0.5 * (R**3 / Ca) * (5 - Rst**4 - 4 * Rst)
     Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * (Rd / R) ** 2
-    # IMRv2's compressible radial equations use the full 4/Re8 implicit
-    # coefficient for Zener, not the solvent-only coefficient visible in S.
     return S, Sdot, xp.array([Z1d]), 4.0 / Re8
   if isinstance(material, QuadraticZener):
     Z1 = Z[0]
@@ -282,7 +229,6 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
     Ze = R**3 * (strainhard * (5 - Rst**4 - 4 * Rst) + (2 * ax / Ca) * (0.675 + 0.125 * Rst**8 + 0.2 * Rst**5 + Rst**2 - 2 / Rst))
     Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
-    # Same upstream implicit coefficient convention as the linear Zener.
     return S, Sdot, xp.array([Z1d]), 4.0 / Re8
   if isinstance(material, OldroydB):
     Z1, Z2 = Z[0], Z[1]
@@ -322,8 +268,6 @@ def _distributed_stress(material, prepared, p, R, Rd, state, need_rate, *, xp=np
   stress_difference = radial_stress - hoop_stress
   polymer_integral_rate = 0.0
   if prepared.weights is not None:
-    # Mapped form: I = sum_i w_i * 2 * dtau_i / r_i**3, with w_i fixed in time.
-    # Differentiating term by term is therefore exact -- no discrete difference.
     polymer_integral = 2.0 * xp.sum(prepared.weights * stress_difference * inverse_radius_cubed)
     if need_rate:
       polymer_integral_rate = 2.0 * xp.sum(

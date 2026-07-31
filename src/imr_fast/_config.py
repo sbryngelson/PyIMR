@@ -1,8 +1,4 @@
-"""Configuration, prepared-problem and result value objects.
-
-Frozen dataclasses plus their validation, and the physical defaults. Holds no
-numerics: the one solver call, PreparedProblem.solve, defers its import.
-"""
+"""Configuration, prepared-problem and result value objects."""
 
 from __future__ import annotations
 
@@ -62,7 +58,6 @@ __all__ = [
   "_readonly_optional",
   "_validate_inputs",
 ]
-# gas and vapour thermal-conductivity coefficients, IMRv2 default_case.m
 _ATG, _BTG = 5.28e-5, 1.165e-2
 _ATV, _BTV = 3.30e-5, 1.742e-2
 P8 = 101325.0  # far-field pressure (Pa)
@@ -120,11 +115,7 @@ class PhysicalParameters:
 
 @dataclass(frozen=True, slots=True)
 class SampledForcing:
-  """Far-field pressure perturbation sampled in dimensional units.
-
-  Pressure is relative to the far-field baseline. A shape-preserving cubic
-  is used between samples and the perturbation is zero outside their span.
-  """
+  """Far-field pressure perturbation sampled in dimensional units."""
 
   time_s: tuple[float, ...]
   pressure_pa: tuple[float, ...]
@@ -140,10 +131,7 @@ class SampledForcing:
 
 @dataclass(frozen=True, slots=True)
 class InitialState:
-  """Optional dimensional initial conditions and internal solver state.
-
-  ``stress_state`` uses the solver's nondimensional auxiliary variables.
-  """
+  """Optional dimensional initial conditions and internal solver state."""
 
   wall_velocity_m_s: float = 0.0
   internal_pressure_pa: float | None = None
@@ -183,10 +171,7 @@ class CollapseInitialization:
 
 @dataclass(frozen=True, slots=True)
 class SimulationConfig:
-  """Validated dimensional inputs for one IMR simulation.
-
-  The defaults match :func:`simulate`.
-  """
+  """Validated dimensional inputs for one IMR simulation."""
 
   R0: float
   Req: float
@@ -203,25 +188,12 @@ class SimulationConfig:
   bubtherm: int = 0
   Nt: int = 25
   medtherm: int = 0
-  # 100, not the 25 that matches Nt and IMRv2 (#69). On the fully coupled model
-  # the error is set by the medium grid almost alone: refining Mt 25 -> 100 at
-  # fixed Nt improves accuracy 1100x (4.98e-02 -> 4.46e-05 in R/R0 against a
-  # converged reference), while refining Nt 25 -> 100 at fixed Mt changes
-  # nothing (4.98e-02 -> 5.03e-02). It costs under 2x, because medium nodes
-  # carry no mass-transfer coupling. Nt stays at 25.
   Mt: int = 100
   masstrans: int = 0
   rtol: float = 1e-8
   atol: float = 1e-10
   max_step_s: float | None = None
-  # Chebyshev collocation by default (#26). On the fully coupled model against
-  # a converged reference, second-order finite difference at this Nt carries
-  # 2.8e-01 error in R/R0 -- spectral at the same Nt carries 5.0e-02, and
-  # matches fd at Nt=200 for a ninth of the cost. Pass thermal="fd" for the
-  # cheaper scheme or to reproduce pre-0.3.0 numbers.
   thermal: str = "spectral"
-  # "scipy" (LSODA/BDF) or "jax" (diffrax). The default is what every pinned
-  # IMRv2 trajectory was validated against, and W11 keeps it that way: the jax
   physics: PhysicalParameters = field(default_factory=PhysicalParameters)
   sampled_forcing: SampledForcing | None = None
   initial: InitialState = field(default_factory=InitialState)
@@ -268,11 +240,6 @@ class CollapseStats:
   """Diagnostics for a completed precursor shooting solve."""
 
   initial_velocity_nondimensional: float
-  # The event time, recorded because the traced sensitivity path needs it. Locating
-  # the maximum is a root-find on the velocity, and differentiating through a
-  # diffrax event would mean differentiating that root-find; integrating to the time
-  # this records instead turns the same problem into a fixed-endpoint solve plus an
-  # implicit correction. See `_jax._collapse_tangents`.
   maximum_time_nondimensional: float
   maximum_radius_ratio: float
   shooting_evaluations: int
@@ -326,12 +293,6 @@ class MediumOperators:
   grad_Tm: np.ndarray
   grad_Trans: np.ndarray
   grad_C: np.ndarray
-  # Bare wall-flux stencils, carrying no parameter dependence: grad_Tm is
-  # 2*chi*iota*medium_wall_stencil, and grad_Trans / grad_C are chi and
-  # Fom*L_heat_star times bubble_wall_stencil. The sensitivity path rebuilds
-  # those weights with Dual parameters and must reuse these rather than
-  # assume a shape -- they are dense for Chebyshev and three-point for finite
-  # difference, and hardcoding the latter silently broke spectral tangents.
   bubble_wall_stencil: np.ndarray
   medium_wall_stencil: np.ndarray
 
@@ -344,8 +305,6 @@ class PreparedForcing:
 class PreparedDistributedStress:
   reference_radius: np.ndarray
   reference_radius_cubed: np.ndarray
-  # Fixed geometric weights for the mapped stress integral; None selects the
-  # trapezoid rule in physical r. See _prepare_distributed_stress.
   weights: np.ndarray | None = None
 
 @dataclass(frozen=True, slots=True)
@@ -413,10 +372,6 @@ def _readonly_optional(values) -> np.ndarray | None: return None if values is No
 _MATERIALS = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, InstantaneousMaterial, Giesekus, LinearPTT)
 
 def _validate_config(config) -> None:
-  # Everything checkable without a time grid.
-  #
-  # Split out because `SimulationConfig.__post_init__` wants exactly this and used to reach it by passing a fake
-  # `[0.0, 1.0]` grid through the combined check.
   c = config
   for name, value in (("R0", c.R0), ("Req", c.Req), ("T8", c.T8), ("rtol", c.rtol), ("atol", c.atol)):
     if not np.isfinite(value) or value <= 0: raise ValueError(f"{name} must be finite and positive")
@@ -436,13 +391,7 @@ def _validate_config(config) -> None:
   if c.bubtherm and c.vapor and not c.masstrans: raise ValueError("bubtherm=1 with vapor=1 currently requires masstrans=1")
 
 def _validate_inputs(tv, config) -> np.ndarray:
-  """Validate a time grid against a config, returning the grid as an array.
-
-  Took twenty positional arguments until every caller turned out to already hold
-  the `SimulationConfig` it was unpacking -- three call sites spelling out
-  nineteen fields in order, where a swap of any same-typed pair (`Nt`/`Mt`,
-  `bubtherm`/`medtherm`, `rtol`/`atol`) was a silent bug no type checker sees.
-  """
+  """Validate a time grid against a config, returning the grid as an array."""
   times = np.asarray(tv, dtype=float)
   if times.ndim != 1 or times.size < 2: raise ValueError("tv must be a one-dimensional array with at least two times")
   if not np.all(np.isfinite(times)): raise ValueError("tv must contain only finite values")

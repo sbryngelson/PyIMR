@@ -1,26 +1,4 @@
-"""Fast, validated solvers for inertial microcavitation rheometry.
-
-    radial     1 Rayleigh-Plesset, 2 Keller-Miksis (pressure), 3 Keller-Miksis
-               (enthalpy, Tait), 4 Gilmore (Tait), 5 Keller-Miksis (enthalpy,
-               Mie-Gruneisen), 6 Gilmore (Mie-Gruneisen)
-    bubtherm   0 polytropic, or 1 gas thermal PDE; medtherm 1 adds the liquid
-               boundary layer, masstrans 1 adds vapour transport (needs vapor=1)
-    material   closed-form NHKV, quadratic KV, Zener, quadratic Zener,
-               Oldroyd-B; composable hyperelastic x generalised-Newtonian; and
-               distributed Giesekus or linear PTT memory
-    forcing    constant offset, Gaussian, histotripsy, Heaviside step, or a
-               sampled dimensional pressure history
-
-Physical defaults reproduce the pinned reference trajectories and are
-configurable through `PhysicalParameters`; note IMRv2 ships a polytropic
-exponent of 1.47 where this defaults to 1.4, the value its reference data was
-generated with.
-
-`radial` 5 and 6 deliberately diverge from IMRv2, whose Mie-Gruneisen branch
-takes the wrong root of its own density quadratic; 6 is the configuration
-IMRv2 cannot run at all. Which branches replicate upstream exactly, which
-replicate its quirks on purpose, and which correct it, is in docs/upstream.md.
-"""
+"""Fast, validated solvers for inertial microcavitation rheometry."""
 
 from __future__ import annotations
 
@@ -114,8 +92,6 @@ from ._config import (  # noqa: F401
   _validate_inputs,
 )
 
-# Tait equation-of-state constants for the liquid, IMRv2 defaults
-# (default_case.m: GAM, nstate), used by radial=3,4.
 from ._thermal import (  # noqa: F401
   _GAM_TAIT,
   _HUGONIOT_S,
@@ -136,17 +112,6 @@ from ._thermal import (  # noqa: F401
   pvsat,
 )
 
-# Mie-Gruneisen EoS constants for radial=5,6, IMRv2 defaults (default_case.m:
-# hugoniot_s; f_imr_fd.m: nog=(nstate-1)/2, same nstate as the Tait branch).
-
-# gas / vapor thermal-conductivity linear-in-T fit coefficients, IMRv2 defaults
-# (default_case.m). K8 is IMRv2's reference conductivity: it mixes gas AND
-# vapor coefficients even when vapor=0, because it is used purely as a
-# normalization constant, not a physical mixture average at a given state.
-
-# liquid (medium) thermal properties, IMRv2 defaults (default_case.m); water-like
-
-# mass-transfer / vapor-species properties, IMRv2 defaults (default_case.m)
 
 from ._materials import (  # noqa: F401
   _is_distributed_stress,
@@ -287,9 +252,6 @@ def _integrate_prepared(problem: PreparedProblem, tv):
 
 def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
   time_s, states, stats = _integrate_prepared(problem, tv)
-  # The traced path carries no value guards, so a material leaving its domain is caught
-  # on the numpy output pass rather than during the solve. `_MaterialDomainError` is
-  # private; callers get the documented `SimulationError` either way.
   try:
     return _build_result(problem, time_s, states, stats)
   except _MaterialDomainError as error:
@@ -300,9 +262,5 @@ def simulate(tv, config: SimulationConfig) -> SimulationResult:
   return prepare(config).solve(tv)
 
 def simulate_with_sensitivities(tv, config: SimulationConfig, parameters):
-  """Run one simulation with forward sensitivities.
-
-  Parameter paths identify continuous configuration fields such as ``R0`` or
-  ``material.shear_modulus_pa``.
-  """
+  """Run one simulation with forward sensitivities."""
   return prepare(config).solve_with_sensitivities(tv, parameters)

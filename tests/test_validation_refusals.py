@@ -1,9 +1,4 @@
-"""What the package refuses, and the message it refuses with.
-
-Messages are asserted, not just exception types. Scope is the refusals reachable
-by construction; failures needing a solver to diverge first belong with the
-physics they come from.
-"""
+"""What the package refuses, and the message it refuses with."""
 
 import numpy as np
 import pytest
@@ -21,8 +16,6 @@ def _config(**overrides):
   overrides.setdefault("material", NHKV)
   return imr_fast.SimulationConfig(R0=R0, Req=REQ, **overrides)
 
-
-# --- configuration ------------------------------------------------------------
 
 _CONFIG_REFUSALS = [
   ("vapor fraction range", ValueError, "initial.vapor_mass_fraction must be between 0 and 1",
@@ -66,11 +59,7 @@ def test_configuration_refusals(label, error, message, build):
     build()
 
 
-# --- materials ----------------------------------------------------------------
-
 _MATERIAL_REFUSALS = [
-  # Giesekus/LinearPTT carry a polymer mode proportional to (relaxation - retardation),
-  # so they refuse equality; Oldroyd-B degenerates gracefully and allows it.
   ("Oldroyd-B retardation greater", ValueError, "retardation_time_s must be no greater than relaxation_time_s",
    lambda: imr_fast.OldroydB(0.1, 2e-6, 3e-6)),
   ("Giesekus retardation equal", ValueError, "retardation_time_s must be less than relaxation_time_s",
@@ -98,8 +87,6 @@ def test_material_refusals(label, error, message, build):
     build()
 
 
-# --- operators and sensitivities ----------------------------------------------
-
 def test_finite_difference_matrix_refuses_an_unsupported_order():
   with pytest.raises(ValueError, match="order must be 1 or 2"):
     thermal_fd.finite_diff_mat(9, 3, 0)
@@ -111,8 +98,6 @@ def test_sensitivity_parameter_refuses_a_non_positive_scale():
   with pytest.raises(ValueError, match="scale must be finite and positive"):
     SensitivityParameter("R0", scale=0.0)
 
-
-# --- inference ----------------------------------------------------------------
 
 _TIMES = np.linspace(1e-6, 2e-5, 8)
 _VALUES = np.full(_TIMES.size, 1e-4)
@@ -183,10 +168,7 @@ def test_batch_evaluation_refuses_malformed_unit_parameters():
 
 
 def test_the_log_transform_is_geometric_and_its_derivative_is_exact(measured):
-  """Two claims: the map is geometric, so the unit midpoint lands on the geometric
-  mean (a linear map would still hit both endpoints); and `derivative` is checked
-  against a central difference rather than against the formula it came from.
-  """
+  """Two claims: the map is geometric, so the unit midpoint lands on the geometric"""
   from imr_fast.inference import InferenceParameter
 
   lower, upper = 1e-3, 1e3

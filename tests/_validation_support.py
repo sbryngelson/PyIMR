@@ -1,9 +1,4 @@
-"""Shared constants and helpers for the numerical validation suite.
-
-Not collected by pytest (no `test_` prefix). The numerical content of these
-checks is unchanged from the `run_validation.py` script this replaced; only the
-harness around them moved. See issue #32.
-"""
+"""Shared constants and helpers for the numerical validation suite."""
 
 import functools
 from dataclasses import replace
@@ -32,8 +27,7 @@ def oldroyd_b():
 
 @functools.lru_cache(maxsize=None)
 def reference(name):
-  """A pinned IMRv2 trajectory. Cached -- imr2_s06.csv alone is 234 kB and
-  several modules read the same files."""
+  """A pinned IMRv2 trajectory. Cached -- imr2_s06.csv alone is 234 kB and"""
   return np.loadtxt(DATA / name, delimiter="," if name == "imr2_s06.csv" else None)
 
 
@@ -52,19 +46,7 @@ def deviation(left, right):
 
 
 def median_deviation(left, right):
-  """Median pointwise deviation -- the phase-insensitive companion to the max.
-
-  The pointwise maximum on the 300-point reference grid is dominated by a
-  sub-nanosecond timing difference at the collapse, amplified by
-  |dR/dt| ~ 3.3e5 /s: a 25 ps shift of our own solution removes about 77% of it
-  (issue #23). It therefore cannot be tightened without measuring integrator
-  phase, and it hides real regressions inside its own slack.
-
-  The median has no such sensitivity. Across the pinned suite it sits at
-  3e-08 to 1.6e-06 where the maxima span 6e-06 to 2.9e-04, so bounding it
-  is roughly a hundred times tighter in absolute terms at comparable relative
-  margin.
-  """
+  """Median pointwise deviation -- the phase-insensitive companion to the max."""
   return float(np.nanmedian(np.abs(left - right)))
 
 
@@ -80,15 +62,7 @@ def with_path(config, path, value):
 
 
 def difference_tangent(config, path, times, field="radius_ratio", relative_step=1e-5):
-  """d(field)/d(path) by central difference of the forward solve.
-
-  The independent reference for a traced tangent. Resolves 1e-09 to 1e-04, well below
-  every defect this suite has caught, though it cannot separate two already-correct
-  routes.
-
-  The step is SIGNED. On a negative base an unsigned divisor reads as a factor-two
-  error in the tangent, indistinguishable from a real defect.
-  """
+  """d(field)/d(path) by central difference of the forward solve."""
   parts = path.split(".")
   holder = config if len(parts) == 1 else getattr(config, parts[0])
   base = float(getattr(holder, parts[-1]))
@@ -100,12 +74,7 @@ def difference_tangent(config, path, times, field="radius_ratio", relative_step=
 
 
 def tangent_deviation(config, path, times, field="radius_ratio", relative_step=1e-5):
-  """Relative deviation of a traced tangent from a central difference.
-
-  Raises rather than returning zero when the traced tangent is identically zero, which
-  is how a case that tests nothing announces itself -- several paths have no effect on a
-  mechanical configuration and would otherwise compare zero against zero and pass.
-  """
+  """Relative deviation of a traced tangent from a central difference."""
   import imr_fast.sensitivity as _sensitivity
 
   traced = np.asarray(getattr(_sensitivity.solve_with_sensitivities(imr_fast.prepare(config), times, (path,)), field), dtype=float)[..., 0]

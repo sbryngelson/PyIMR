@@ -1,38 +1,4 @@
-"""
-Finite-difference operators for the IMRv2 thermal-PDE fields, ported from
-IMRv2/src/f_imr_fd.m :: f_finite_diff_mat.
-
-Two grids, two different operators:
-
-  tm_check=0  interior (bubble gas) grid, y in [0,1].
-              The order=2 ("second derivative") matrix is NOT d^2/dy^2 -- it is
-              the spherically-symmetric Laplacian
-                  (1/y^2) d/dy( y^2 df/dy ) = f'' + (2/y) f'
-              folded directly into one stencil via off-diagonal coefficients
-              (1 +- dy/y_i). Row 0 (the bubble center, y=0) uses the standard
-              L'Hopital/mirror-symmetry treatment for the removable 1/y
-              singularity: Lap f(0) = 3 f''(0), discretized as
-                  6*(f_1 - f_0) / dy^2
-              which is what the -6, 6 coefficients encode.
-              Row 0 of the order=1 matrix is left as all-zero: regularity at
-              the bubble center means f'(0)=0 by construction, so no
-              approximation is needed there.
-              The last row of the order=1 matrix uses a one-sided 2nd-order
-              backward stencil (the wall gradient, needed for the pressure
-              flux term); the last row of the order=2 matrix is left as zero
-              because the physics RHS always overwrites that field component
-              directly rather than reading its raw Laplacian.
-
-  tm_check=1  exterior (medium/liquid) grid, xi in [1,-1]. PLAIN (non-spherical)
-              central-difference stencils. The physical stretching (the Lt
-              parameter) and spherical geometry factors are applied
-              separately, multiplicatively, in the RHS -- NOT baked into this
-              matrix. Both end rows are left as zero for the same reason as
-              above (the physics RHS clamps Tm at both ends directly).
-
-Validated standalone (see validate_thermal_fd.py) before being wired into any
-ODE state -- this file has no simulate()-side dependencies.
-"""
+"""Finite-difference operators for the IMRv2 thermal-PDE fields, ported from"""
 
 import numpy as np
 

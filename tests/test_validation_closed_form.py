@@ -1,36 +1,4 @@
-"""Closed forms the radial dynamics must satisfy, owing nothing to IMRv2.
-
-Every other trajectory check in this suite compares against IMRv2 -- pinned
-output from another *implementation*. Agreement there means the two codes agree,
-not that either is right. Three checks here do not:
-
-1. **Rayleigh collapse time** (1917), `t_c = 0.914681 * R0 * sqrt(rho / dp)` for
-   an empty cavity in an incompressible, inviscid liquid. The constant is
-   `sqrt(3*pi/2) * Gamma(5/6) / Gamma(1/3)`. Approached rather than reached: an
-   empty cavity collapses through the solver's radius floor, so the gas content
-   is driven toward zero through `Req/R0` and the collapse time watched as it
-   converges.
-
-2. **The exact first integral of Rayleigh-Plesset.** Multiplying by `2 R^2 R'`
-   makes the left side `d/dt (R^3 R'^2)`, and for a polytropic gas the right
-   side integrates in closed form. Unlike the other two this is a *pointwise*
-   statement -- it constrains the whole trajectory, so it tests the entire
-   radial right-hand side rather than one scalar summary of it.
-
-3. **Keller-Miksis reduces to Rayleigh-Plesset as `c -> inf`,** at first order
-   in `1/c`. That the *order* is right, not merely the limit, is what makes this
-   a test of the compressibility correction rather than of a coincidence.
-
-4. **The thermal PDE reduces to both polytropic limits.** No conduction gives
-   `P R^(3*gamma) = const`; conduction fast enough to pin the gas at the wall
-   gives `P R^3 = const`. One knob, `chi`, carries it monotonically between
-   them.
-
-Each limit is paired with its converse -- Keller-Miksis must *violate* the
-incompressible invariant, conduction must *break* the adiabatic one. Without
-those, a Keller-Miksis branch that silently fell back to Rayleigh-Plesset, or a
-conduction term that was inert, would score perfectly.
-"""
+"""Closed forms the radial dynamics must satisfy, owing nothing to IMRv2."""
 
 from dataclasses import replace
 import functools
@@ -49,15 +17,11 @@ _R0 = 225e-6
 _RHO, _P8 = 1064.0, 101325.0
 _ANALYTIC = RAYLEIGH * _R0 * np.sqrt(_RHO / _P8)
 
-# Surface tension must be positive, so it is driven to zero rather than set
-# there. At 1e-12 N/m the Laplace pressure is ~1e-8 Pa against 1e5 Pa ambient.
 _SIGMA = 1e-12
 _INVISCID = imr_fast.PhysicalParameters(surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO)
 
 _SAMPLES = 40001
 _WINDOW = 1.3 * _ANALYTIC
-# argmin over a uniform grid cannot resolve the collapse time better than one
-# spacing, which sets the floor these assertions can meaningfully test against.
 _RESOLUTION = _WINDOW / (_SAMPLES - 1) / _ANALYTIC
 
 
@@ -69,10 +33,7 @@ def _collapse_time(ratio):
 
 
 def test_collapse_time_converges_to_rayleigh(measured):
-  """Residual gas cushions the collapse, so the time is long and falls toward
-  the analytic value as the cavity empties. Monotonicity is asserted as well as
-  the endpoint: a solver that happened to sit near 0.9147 without converging
-  toward it would pass a single-tolerance check."""
+  """Residual gas cushions the collapse, so the time is long and falls toward"""
   ratios = (1.0 / 6.0, 0.1, 0.05, 0.02)
   errors = [abs(_collapse_time(ratio) - _ANALYTIC) / _ANALYTIC for ratio in ratios]
 
@@ -82,13 +43,7 @@ def test_collapse_time_converges_to_rayleigh(measured):
 
 
 def test_the_step_budget_failure_is_retried_at_higher_order(measured):
-  """The retry that replaces LSODA's switching, asserted on the case that needed it.
-
-  Req/R0 = 0.02 at rtol=1e-11 exhausts Tsit5's million steps. It is NOT stiff -- the
-  implicit solver fails it after 97 s -- so the retry is higher ORDER, not implicit,
-  and the backend label is what proves which solver produced the answer rather than
-  leaving it inferred from the fact that a number came back.
-  """
+  """The retry that replaces LSODA's switching, asserted on the case that needed it."""
   config = imr_fast.SimulationConfig(
     R0=_R0, Req=_R0 * 0.02, material=imr_fast.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13
   )
@@ -97,16 +52,12 @@ def test_the_step_budget_failure_is_retried_at_higher_order(measured):
   assert "dopri8" in result.stats.backend, f"expected the higher-order retry, got {result.stats.backend}"
   assert result.stats.success
 
-  # And the retry stays out of the way: an ordinary case is answered by Tsit5.
   easy = imr_fast.simulate(np.linspace(0.0, _WINDOW, 2001), replace(config, Req=_R0 / 6.0))
   assert "tsit5" in easy.stats.backend, f"the retry fired where it was not needed: {easy.stats.backend}"
 
 
 def test_gas_content_lengthens_the_collapse(measured):
-  """Direction, not just magnitude. Gas resists compression, so a fuller bubble
-  must collapse later than an emptier one -- and later than Rayleigh, never
-  sooner. A sign error in the gas pressure term passes the convergence test
-  above but fails this."""
+  """Direction, not just magnitude. Gas resists compression, so a fuller bubble"""
   loose, tight = _collapse_time(1.0 / 6.0), _collapse_time(0.05)
   measured("gas cushioning", f"Req/R0=1/6: {loose * 1e6:.4f}us  Req/R0=0.05: {tight * 1e6:.4f}us")
   assert loose > tight > _ANALYTIC * (1.0 - _RESOLUTION)
@@ -123,7 +74,6 @@ def _trace(ratio, radial, sound_speed=None, window=60e-6, samples=4000):
 
 
 def _first_integral_residual(ratio, radial=1):
-  """max |R^3 R'^2 - closed form| along the trajectory, relative to its scale."""
   result = _trace(ratio, radial=radial)
   radius = np.asarray(result.radius_ratio) * _R0
   velocity = np.asarray(result.wall_velocity_m_s)
@@ -140,23 +90,14 @@ def _first_integral_residual(ratio, radial=1):
 
 @pytest.mark.parametrize("ratio", (1.0 / 6.0, 0.1, 0.3))
 def test_rayleigh_plesset_conserves_its_first_integral(ratio, measured):
-  """Pointwise, so it constrains the entire right-hand side rather than one
-  scalar. A collapse-time check passes for any model that happens to arrive on
-  schedule; this one does not.
-
-  `wall_velocity_m_s` is the solver's own state, so no finite difference enters
-  and the residual is bounded by integration tolerance rather than by a stencil.
-  """
+  """Pointwise, so it constrains the entire right-hand side rather than one"""
   residual = _first_integral_residual(ratio)
   measured(f"RP first integral Req/R0={ratio:.3f}", f"rel={residual:.2e}")
   assert residual < 1e-8
 
 
 def test_keller_miksis_is_compressible_at_all(measured):
-  """The converse of the test above. At a physical sound speed Keller-Miksis
-  must *violate* the incompressible invariant, and by an O(1) amount. Without
-  this, a KM branch that silently fell back to Rayleigh-Plesset would pass every
-  other check in this module."""
+  """The converse of the test above. At a physical sound speed Keller-Miksis"""
   incompressible = _first_integral_residual(1.0 / 6.0, radial=1)
   compressible = _first_integral_residual(1.0 / 6.0, radial=2)
   measured("KM violates the RP invariant", f"RP rel={incompressible:.1e}  KM rel={compressible:.2f}")
@@ -165,10 +106,7 @@ def test_keller_miksis_is_compressible_at_all(measured):
 
 
 def test_keller_miksis_approaches_rayleigh_plesset_as_first_order_in_one_over_c(measured):
-  """`c -> inf` is the easy half. The order matters more: Keller-Miksis carries
-  `O(1/c)` corrections, so a hundredfold rise in `c` must cut the gap a
-  hundredfold. A correction attached at the wrong order still converges and
-  would pass a limit-only check."""
+  """`c -> inf` is the easy half. The order matters more: Keller-Miksis carries"""
   gaps = []
   for sound_speed in (1e7, 1e9):
     reference = np.asarray(_trace(1.0 / 6.0, radial=1, sound_speed=sound_speed).radius_ratio)
@@ -186,24 +124,6 @@ _T8 = 298.15  # SimulationConfig default far-field temperature, and the wall val
 
 
 def _scaled_conductivity(scale):
-  """Scale gas AND vapour conductivity together, so that `chi` is the only thing that moves.
-
-  `K8` averages the two, and `alpha_g = gas_slope*T8/K8`, `beta_g = gas_offset/K8`.
-  Scaling only the gas terms therefore changes `alpha_g` as a side effect. That
-  matters because `theta` is a Kirchhoff transform of a conductivity linear in
-  `T`, so the temperature it can represent is bounded below by `1 - 1/alpha_g`:
-  raising `alpha_g` lifts that floor into the physical range and the
-  reconstruction degenerates.
-
-  This is not hypothetical. Issue #71 was filed and retracted over exactly this,
-  and the adiabatic tests below then shipped still doing it -- at
-  `scale = 1e-8`, gas-only scaling gives `alpha_g + beta_g = 2e-08`, the gas
-  reports [298.2, 298.2] K while being compressed 216x in volume, and the
-  pressure invariant passes because `dtheta[-1] ~ 0` makes `Pdot` polytropic by
-  degeneracy rather than by the adiabatic reduction it claims to test.
-
-  Scaling both keeps `alpha_g` fixed and moves only the magnitude.
-  """
   return imr_fast.PhysicalParameters(
     gas_conductivity_slope=_BASE_PHYSICS.gas_conductivity_slope * scale,
     gas_conductivity_offset=_BASE_PHYSICS.gas_conductivity_offset * scale,
@@ -217,11 +137,6 @@ _MEDIUM = {"medtherm": 1, "Mt": 25}
 
 @functools.lru_cache(maxsize=None)
 def _polytropic_state(conductivity_scale, exponent, samples=600, thermal=None, medium=False):
-  """Relative drift of `P * R^exponent`, plus the gas temperature range.
-
-  The temperature range is returned because the invariant alone cannot tell a
-  successful reduction from a degenerate one -- see `_scaled_conductivity`.
-  """
   options: dict[str, Any] = dict(_MEDIUM) if medium else {}
   if thermal is not None:
     options["thermal"] = thermal
@@ -251,18 +166,7 @@ _ISOTHERMAL = 3.0
 @pytest.mark.parametrize("thermal", ("spectral", "fd"))
 @pytest.mark.parametrize("medium", (False, True), ids=("gas only", "with medtherm"))
 def test_both_schemes_anchor_at_the_adiabatic_limit(thermal, medium, measured):
-  """The closed forms must hold for the scheme that actually ships.
-
-  #67 pinned `thermal="fd"` on every IMRv2-referenced test and #68 then made
-  `"spectral"` the default, so the default was left covered only by
-  self-consistency checks -- grid parity, tangent parity -- and by nothing
-  absolute. Running the anchor at both schemes restores that, and extending it
-  over `medtherm` covers the liquid layer as well as the gas.
-
-  Not extended to `masstrans`: transferring vapour changes the gas content, so
-  `P R^(3*gamma)` is not conserved even adiabatically (measured drift 6.2e-01).
-  That configuration has no closed form and needs a different kind of check.
-  """
+  """The closed forms must hold for the scheme that actually ships."""
   drift, _, hottest = _polytropic_state(1e-8, _ADIABATIC, thermal=thermal, medium=medium)
   measured(f"adiabatic {thermal}{' +medtherm' if medium else ''}", f"drift={drift:.2e}  Tmax={hottest:.0f}K")
   assert drift < 1e-3
@@ -270,15 +174,7 @@ def test_both_schemes_anchor_at_the_adiabatic_limit(thermal, medium, measured):
 
 
 def test_thermal_pde_reduces_to_the_adiabatic_polytropic_law(measured):
-  """Switch conduction off and the thermal PDE must reproduce `P R^(3*gamma) =
-  const` -- a closed form, not another code's output.
-
-  The temperature assertion is the load-bearing half. Compressing 216x in volume
-  adiabatically has to raise the gas to thousands of kelvin; a run that reports
-  the wall temperature throughout satisfies the pressure invariant trivially and
-  validates nothing. That is precisely the state the previous version of this
-  test ran in.
-  """
+  """Switch conduction off and the thermal PDE must reproduce `P R^(3*gamma) ="""
   drift, coldest, hottest = _polytropic_state(1e-8, _ADIABATIC)
   measured("thermal -> adiabatic", f"P*R^(3g) drift={drift:.2e}  T in [{coldest:.1f}, {hottest:.1f}] K")
   assert drift < 1e-3
@@ -286,9 +182,7 @@ def test_thermal_pde_reduces_to_the_adiabatic_polytropic_law(measured):
 
 
 def test_thermal_pde_reduces_to_the_isothermal_polytropic_law(measured):
-  """The other limit. Fast conduction pins the gas at the wall temperature, so
-  `P R^3 = const` -- and again the check is not only the invariant but that the
-  gas temperature actually collapses onto `T8`."""
+  """The other limit. Fast conduction pins the gas at the wall temperature, so"""
   drift, coldest, hottest = _polytropic_state(1e5, _ISOTHERMAL)
   measured("thermal -> isothermal", f"P*R^3 drift={drift:.2e}  T in [{coldest:.1f}, {hottest:.1f}] K")
   assert drift < 5e-2
@@ -296,20 +190,7 @@ def test_thermal_pde_reduces_to_the_isothermal_polytropic_law(measured):
 
 
 def test_conduction_carries_the_gas_between_both_limits(measured):
-  """One knob, two endpoints. Raising `chi` must break the adiabatic invariant
-  and mend the isothermal one, monotonically in both.
-
-  Both directions are asserted because either alone is satisfiable degenerately:
-  a run stuck at the wall temperature has a perfect `P R^3`, and a run with no
-  conduction at all has a perfect `P R^(3*gamma)`.
-
-  The temperature *spread* is checked only at the endpoints, because it is not
-  monotone -- 5530 -> 5625 -> 6256 -> 6242 -> 594 -> 4 K over this sweep. It
-  widens first: moderate conduction cools the gas during expansion while the
-  collapse still heats it, so the range grows before it collapses onto the wall.
-  Asserting monotonicity there would encode a plausible guess rather than the
-  measured behaviour.
-  """
+  """One knob, two endpoints. Raising `chi` must break the adiabatic invariant"""
   scales = (1e-8, 1e-4, 1e-2, 1.0, 1e2, 1e5)
   adiabatic = [_polytropic_state(scale, _ADIABATIC)[0] for scale in scales]
   states = [_polytropic_state(scale, _ISOTHERMAL) for scale in scales]
@@ -328,17 +209,7 @@ def test_conduction_carries_the_gas_between_both_limits(measured):
 
 @pytest.mark.parametrize("options", ({"bubtherm": 1, "Nt": 25}, {"bubtherm": 1, "medtherm": 1, "Nt": 25, "Mt": 25}))
 def test_a_dry_run_ignores_the_vapour_conductivity(options, measured):
-  """With no vapour present, the vapour conductivity cannot affect anything.
-
-  It enters only through the normalisation `K8`, and `K8` cancels from
-  `chi * K*(T)` -- the dimensional conductivity -- so it is a unit convention.
-  A trajectory that moves when it changes is reporting a defect, and this one
-  did: up to 1.5e-03 in R/R0 before #75, roughly 200x the pinned tolerance.
-
-  This is the check that settles the Kirchhoff correction without reference to
-  IMRv2, to a closed form, or to anyone else's convention. It asserts only that
-  an irrelevant parameter is irrelevant.
-  """
+  """With no vapour present, the vapour conductivity cannot affect anything."""
   times = np.linspace(0.0, 40e-6, 400)
   baseline, worst = None, 0.0
   for scale in (1.0, 1.5, 3.0, 10.0):
@@ -358,20 +229,7 @@ def test_a_dry_run_ignores_the_vapour_conductivity(options, measured):
 
 @pytest.mark.parametrize("radial", (5, 6))
 def test_the_mie_gruneisen_domain_is_one_boundary_not_two(radial, measured):
-  """The Hugoniot's density root and its sound speed fail at the same place.
-
-  `_mu_of_A` solves `a*mu^2 + b*mu + A = 0`; its discriminant collapses to
-  `1 + 4*A*(s + nog)` -- the quartic terms cancel exactly -- so a real root
-  needs `A > -1/(4*(s + nog)) = -0.0529`. The sound-speed radicand reduces to
-  `(1 + (s + 2*nog)*mu) / (1 - s*mu)^3`, which vanishes at `mu = -1/(s + 2*nog)`,
-  and that is *precisely* the mu the first expression returns at its own root.
-
-  So the sound-speed `sqrt` can never see a negative argument the density
-  `sqrt` did not already turn into nan, and `sqrt(nan)` is quiet. #35 suppressed
-  it for years on the strength of a comment blaming rejected LSODA trial steps;
-  the negative values that comment described were the *spurious* root's, fixed
-  in #18. Nothing was left to suppress.
-  """
+  """The Hugoniot's density root and its sound speed fail at the same place."""
   s, nog = _thermal._HUGONIOT_S, _thermal._NOG
   limit = -1.0 / (4.0 * (s + nog))
   assert _thermal._mu_of_A(limit, s, nog) == pytest.approx(-1.0 / (s + 2.0 * nog), rel=1e-12)

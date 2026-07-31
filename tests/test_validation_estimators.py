@@ -1,7 +1,4 @@
-"""Trace-side estimators (`imr_data`) and the prepared inference layer.
-
-Numerical content unchanged from `run_validation.py`; see issue #32.
-"""
+"""Trace-side estimators (`imr_data`) and the prepared inference layer."""
 
 import numpy as np
 import pytest
@@ -40,8 +37,6 @@ def rebound_trace():
 
 def test_natural_frequency_matches_measured_rebound(rebound_trace, measured):
   collapse_times, _, _ = rebound_trace
-  # The first rebound is strongly nonlinear and the late tail is numerical
-  # wiggle, so take the median of the intermediate periods.
   observed = float(np.median(2 * np.pi / np.diff(collapse_times)[1:5]))
   predicted, _ = data.natural_frequency(R0, REQ, 2500.0, 0.1)
   error = abs(predicted - observed) / observed
@@ -103,16 +98,8 @@ _VELOCITY_SIGMA = 2.0
 
 @pytest.fixture(scope="module")
 def multi_observable():
-  """Radius on one grid, wall velocity on a coarser one -- deliberately not the
-  same times, so the union-grid path is exercised."""
+  """Radius on one grid, wall velocity on a coarser one -- deliberately not the"""
   times = np.linspace(0.0, 4e-5, 50)
-  # Tightened past the default so the gradient check below measures the GRADIENT. At
-  # the default rtol=1e-8 the analytic and differenced gradients sit 3.0e-05 apart and
-  # that gap is step-independent -- unmoved from a 1e-04 step down to 1e-07 -- so it is
-  # not the differencing. It is the integrator: the same comparison reads 2.98e-05,
-  # 1.41e-07 and 2.24e-09 at rtol 1e-08, 1e-10 and 1e-12. The tangent differentiates the
-  # continuous solution while the difference differences an adaptively stepped one, and
-  # the two agree only to the accuracy the steps were taken at.
   config = imr_fast.SimulationConfig(R0, REQ, NHKV, rtol=1e-10, atol=1e-12)
   truth = imr_fast.simulate(times, config)
   rng = np.random.default_rng(3)
@@ -126,9 +113,7 @@ def multi_observable():
 
 
 def test_a_second_observable_stacks_onto_the_residual(multi_observable, measured):
-  """One sensitivity solve already returns tangents for every observable; the
-  likelihood used to read radius and discard the rest. Observing wall velocity
-  as well costs nothing beyond the arithmetic."""
+  """One sensitivity solve already returns tangents for every observable; the"""
   radius_only, both = multi_observable
   assert radius_only.observation_size == 50
   assert both.observation_size == 67, "50 radius plus 17 velocity samples"
@@ -139,8 +124,7 @@ def test_a_second_observable_stacks_onto_the_residual(multi_observable, measured
 
 
 def test_the_stacked_gradient_is_still_the_derivative(multi_observable, measured):
-  """Stacking is only correct if the log-likelihood and its gradient still agree
-  -- a mis-indexed union grid would pass the shape check above and fail here."""
+  """Stacking is only correct if the log-likelihood and its gradient still agree"""
   _, both = multi_observable
   unit = np.array([0.42, 0.37])
   evaluation, jacobian = both.evaluate_with_jacobian(unit)
@@ -165,12 +149,7 @@ def test_an_unknown_field_is_refused():
 
 
 def test_gauss_newton_is_exact_where_eig_uses_it(measured):
-  """`J^T J` is not an approximation to the Fisher information for a correctly
-  specified model -- the dropped term is `sum_k r_k H^k` and `E[r_k] = 0`.
-
-  So this checks the claim that lets `design.py` use `J^T J` unqualified: at the
-  parameters the data were generated from, the dropped term is negligible.
-  """
+  """`J^T J` is not an approximation to the Fisher information for a correctly"""
   times = np.linspace(0.0, 4e-5, 60)
   config = imr_fast.SimulationConfig(R0, REQ, NHKV)
   truth = imr_fast.simulate(times, config)
@@ -183,9 +162,7 @@ def test_gauss_newton_is_exact_where_eig_uses_it(measured):
 
 
 def test_the_dropped_term_detects_misspecification(measured):
-  """The diagnostic's actual use. Data from Zener, fitted with NHKV: the model
-  cannot represent the data, `E[r] != 0`, and the term Gauss-Newton drops stops
-  being negligible -- by three orders of magnitude against the matched case."""
+  """The diagnostic's actual use. Data from Zener, fitted with NHKV: the model"""
   times = np.linspace(0.0, 4e-5, 60)
   config = imr_fast.SimulationConfig(R0, REQ, NHKV)
   other = imr_fast.SimulationConfig(R0, REQ, imr_fast.Zener(0.1, 2500.0, 2e-6, 2e-7))
@@ -204,7 +181,6 @@ _TAU = 3e-6
 @pytest.fixture(scope="module")
 def correlated():
   times = np.linspace(2e-6, 4e-5, 40)
-  # Tightened for the gradient check, for the reason given on `multi_observable`.
   config = imr_fast.SimulationConfig(R0, REQ, NHKV, rtol=1e-10, atol=1e-12)
   truth = np.asarray(imr_fast.simulate(times, config).radius_m)
   observed = truth + np.random.default_rng(5).normal(0.0, 5e-7, times.size)
@@ -215,9 +191,7 @@ def correlated():
 
 
 def test_correlated_likelihood_matches_a_direct_multivariate_gaussian(correlated, measured):
-  """Whitening by the Cholesky factor must reproduce the full
-  `-0.5 [(y-m)^T S^-1 (y-m) + log det(2 pi S)]`, computed here without any of
-  the machinery under test."""
+  """Whitening by the Cholesky factor must reproduce the full"""
   times, observed, _, linked = correlated
   unit = np.array([0.42, 0.37])
   lag = np.abs(times[:, None] - times[None, :])
@@ -248,21 +222,15 @@ def test_the_correlated_gradient_is_still_the_derivative(correlated, measured):
 
 
 def test_vanishing_correlation_time_reduces_to_independent_noise(correlated):
-  """The limit that must hold exactly, not approximately: at tau -> 0 the
-  covariance is diagonal and the two code paths have to agree bit for bit."""
+  """The limit that must hold exactly, not approximately: at tau -> 0 the"""
   times, observed, independent, _ = correlated
-  # The fixture's own config, not a fresh one. A second `SimulationConfig(R0, REQ, NHKV)`
-  # here silently stopped matching when the fixture tightened its tolerances, and a
-  # bit-for-bit assertion then fails for a reason that has nothing to do with tau.
   tiny = prepare_inference(independent.config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=1e-15), independent.parameters)
   unit = np.array([0.42, 0.37])
   assert tiny.evaluate(unit).log_likelihood == independent.evaluate(unit).log_likelihood
 
 
 def test_correlated_noise_carries_less_information(correlated, measured):
-  """The reason this matters for design. Neighbouring frames that share noise
-  say less than independent ones at the same sigma, so treating a correlated
-  measurement as independent overstates what an experiment will teach."""
+  """The reason this matters for design. Neighbouring frames that share noise"""
   from imr_fast.design import expected_information_gain
 
   _, _, independent, linked = correlated

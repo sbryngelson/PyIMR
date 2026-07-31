@@ -11,20 +11,10 @@ import imr_fast as _solver
 
 __all__ = ["SensitivityParameter", "SensitivityResult", "simulate_with_sensitivities", "solve_with_sensitivities"]
 
-# Moved here when W11 stage 5 deleted `_dual.py`. The parameter vocabulary -- what a
-# differentiable path may name, and how it resolves -- is this module's business and
-# lived there only because the `Dual` route consumed it.
 
 @dataclass(frozen=True, slots=True)
 class SensitivityParameter:
-  """One differentiable configuration field.
-
-  ``path`` uses dataclass field notation, for example ``"R0"``,
-  ``"material.shear_modulus_pa"``, or
-  ``"physics.polytropic_exponent"``. ``scale`` is the dimensional parameter
-  perturbation represented by a unit tangent; it affects integrator scaling,
-  not the returned dimensional derivative.
-  """
+  """One differentiable configuration field."""
 
   path: str
   scale: float | None = None
@@ -133,21 +123,9 @@ def _readonly(values):
   return result
 
 def _readonly_optional(values):
-  # The three thermal tangents are absent for a mechanical config on either
-  # backend, so both result assemblies need this and neither should spell it out.
   return None if values is None else _readonly(values)
 
 def _jax_sensitivities(problem, time_s, normalized):
-  """`SensitivityResult` from one `jacfwd`, for the jax backend.
-
-  Restricted to `bubtherm=0`. The thermal outputs are produced by replaying the
-  boundary closure per time point with a carried wall state, which under trace
-  becomes an unrolled loop as long as the output grid -- three hundred boundary
-  solves in one graph. That is a different piece of work from this dispatch, so
-  it is refused by name rather than silently routed back to the Dual path, which
-  would make `backend="jax"` mean one thing for trajectories and another for
-  their derivatives.
-  """
   from ._jax import CONFIG_PATHS, INITIAL_PATHS, PHYSICS_PATHS, SCALE_PATHS, sensitivities_jax
 
   paths = [parameter.path for parameter in normalized]
@@ -178,13 +156,7 @@ def _jax_sensitivities(problem, time_s, normalized):
   )
 
 def solve_with_sensitivities(problem, tv, parameters):
-  """Solve one prepared problem and all requested forward sensitivities.
-
-  One route, because W11 stage 5 left one differentiable implementation. Three things
-  had to be true first, and each was a separate blocker: the collapse shooting had to be
-  differentiable, the compiled program had to be cached on content rather than identity,
-  and the spectral thermal grids had to have a stiff solver. See PLAN.md W11.
-  """
+  """Solve one prepared problem and all requested forward sensitivities."""
   if not isinstance(problem, _solver.PreparedProblem): raise TypeError("problem must be a PreparedProblem")
   time_s = _solver._validate_inputs(tv, problem.config)
   normalized, _values, _scales = _normalize_parameters(problem.config, parameters)

@@ -1,47 +1,4 @@
-"""PyMC bridge: drive NUTS from the exact forward sensitivities (#25, piece 1).
-
-`PreparedInference` already returns the standardised residual and its Jacobian
-with respect to the unit parameters, so the gradient of the Gaussian
-log-likelihood is one contraction:
-
-    log L = -0.5 * sum(r**2 + log(2*pi*sigma**2))
-    d log L / du_k = -sum(r * dr/du_k)
-
-That is the whole bridge. Nothing here re-derives physics, and no finite
-differences are involved -- the Jacobian is the same exact tangent the solver
-produces, which is the reason this package exists.
-
-PyMC is an OPTIONAL dependency (`pip install imr-fast[inference]`); importing
-this module without it raises with an actionable message rather than an
-ImportError from three frames down.
-
-Sampling happens on the unit cube, where every parameter is Uniform(0, 1) and
-`InferenceParameter` owns the transform back to physical units (including the
-log option). That keeps the prior specification in one place and means the
-sampler never sees a bound it can walk through.
-
-On robustness: a stiff IMR solve can fail outright at parameter values a sampler
-will propose. Those return -inf with a zero gradient, which PyMC treats as a
-rejected proposal. Silently returning a large finite number instead would bias
-the posterior toward the failure region.
-
-Cost: one sensitivity solve per NUTS step. `evaluate` and `jacobian` used to be
-called separately and each `Op` discarded half the result, so a leapfrog step
-paid two forward solves plus two sensitivity solves. Folding them into
-`evaluate_with_jacobian` and memoising one point removes all of that -- and it
-is also more correct, since the gradient is now the derivative of the same
-integration that produced the log-likelihood rather than of a separately
-converged one.
-
-Verified by hand on synthetic data (NHKV, 60 observations at sigma = 5e-7 m,
-truth G = 2500 Pa and mu = 0.1 Pa s): 60 draws x 2 chains in 62 s recovered
-G = 2779 +- 216 and mu = 0.1097 +- 0.0069, both inside 1.5 sd of the truth.
-
-Sampling cost is dominated by the solver and is not proportional to the draw
-count: tuning proposes parameter values where the stiff integration is very
-slow, so wall time varies strongly with the seed. Budget by trial, not by
-arithmetic on a per-draw figure.
-"""
+"""PyMC bridge: drive NUTS from the exact forward sensitivities (#25, piece 1)."""
 
 from __future__ import annotations
 
@@ -62,7 +19,6 @@ def _pymc():
   return pymc, tensor, Op
 
 def _log_likelihood_and_gradient(inference, unit):
-  # Both from one sensitivity solve. Returns (-inf, zeros) when it fails.
   try:
     evaluation, jacobian = inference.evaluate_with_jacobian(unit)
   except Exception:  # noqa: BLE001 - any solver failure is a rejected proposal
@@ -71,12 +27,6 @@ def _log_likelihood_and_gradient(inference, unit):
   return float(evaluation.log_likelihood), np.asarray(gradient, dtype=float)
 
 def _make_ops(inference):
-  # The two `Op`s share one solve per point.
-  #
-  # `logp` and `dlogp` are separate nodes in the PyTensor graph, but a sampler evaluates them at the same point: NUTS
-  # needs both at every leapfrog step. A one-entry memo is therefore enough to halve the work, and one entry rather
-  # than a growing dict because nothing ever revisits an earlier point -- an unbounded cache would retain the whole
-  # chain for no hit rate.
   _, tensor, Op = _pymc()
   memo = {}
 
@@ -102,12 +52,7 @@ def _make_ops(inference):
   return LogLikelihood(), gradient_op
 
 class IMRLogLikelihood:
-  """Callable PyTensor `Op` pair for one `PreparedInference`.
-
-  Held as a class rather than a bare `Op` so the two operations share a single
-  prepared problem: the `Op` instances close over it, and rebuilding them per
-  call would re-run `imr_fast.prepare` on every gradient evaluation.
-  """
+  """Callable PyTensor `Op` pair for one `PreparedInference`."""
 
   def __init__(self, inference):
     if not isinstance(inference, PreparedInference): raise TypeError("inference must be a PreparedInference")
@@ -117,12 +62,7 @@ class IMRLogLikelihood:
   def __call__(self, unit_parameters): return self.log_likelihood(unit_parameters)
 
 def build_model(inference, name="unit"):
-  """A PyMC model sampling the unit cube, with the IMR likelihood as a Potential.
-
-  The physical parameters are recorded as deterministics, so a trace carries the
-  quantities that were fitted rather than requiring the caller to re-apply each
-  transform afterwards.
-  """
+  """A PyMC model sampling the unit cube, with the IMR likelihood as a Potential."""
   pymc, tensor, _ = _pymc()
   operation = IMRLogLikelihood(inference)
   with pymc.Model() as model:
@@ -136,112 +76,20 @@ def build_model(inference, name="unit"):
   return model
 
 def sample_posterior(inference, draws=1000, tune=1000, chains=4, **kwargs):
-  """NUTS over the unit cube. `kwargs` pass straight through to `pymc.sample`.
-
-  **A tighter posterior is a harder one, so a better design makes this less
-  reliable, not more.** Measured on two cases that differ only in the design:
-
-      posterior sd     R-hat   ESS of 400   outcome
-        8.8e-02         ~1.0      good      recovers the truth; the numbers in
-                                            the module docstring above
-        1.3e-03         1.84      3.1       BOTH chains stranded outside the
-                                            posterior, one 7568 nats below the
-                                            mode and frozen at sd 2.5e-03
-
-  The second is a 40-frame design concentrated at the collapse -- a *good*
-  design, which is the point. Its posterior is 68x tighter, and NUTS started
-  from `jitter+adapt_diag` never found it.
-
-  Do not pass `compute_convergence_checks=False` and then use the trace
-  quantitatively. That is what hid the failure above: R-hat 1.84 was never
-  printed, the two stranded chains were pooled with `np.cov`, and the resulting
-  covariance -- inflated by the gap between chain means -- was reported as a
-  posterior for long enough to be written into an issue as a property of the
-  EIG criterion rather than of the sampler. See #25.
-  """
+  """NUTS over the unit cube. `kwargs` pass straight through to `pymc.sample`."""
   pymc, _, _ = _pymc()
   with build_model(inference):
     return pymc.sample(draws=draws, tune=tune, chains=chains, **kwargs)
 
 def sample_smc(inference, draws=1000, chains=4, **kwargs):
-  """Sequential Monte Carlo over the unit cube (#25, piece 2).
-
-  Use this for **model comparison**, not for speed. SMC tempers from prior to
-  posterior and reweights along the way, so the log marginal likelihood falls
-  out of the run -- `trace.sample_stats.log_marginal_likelihood` -- which is
-  what lets two material models be compared on the same data. NUTS gives no such
-  quantity.
-
-  What it costs, stated plainly because the trade is easy to miss:
-
-  - **It throws the gradients away.** `pm.sample_smc`'s mutation kernel is
-    Metropolis; it never calls `dlogp`, so the exact tangents that are this
-    package's reason for existing go unused. `sample_posterior` is the right
-    default for parameter estimation.
-  - It needs far more total solves than a chain of the same length, though they
-    parallelise across particles rather than running serially.
-
-  On multimodality specifically: the landscape study on #25 found the
-  optimisation surface multimodal but the posterior effectively unimodal --
-  nearest competing basin at delta(-log L) = 23.5, a likelihood ratio of ~6e-11.
-  So SMC is a robustness measure here rather than a correction, and a NUTS
-  posterior that looks unimodal is not evidence of a missed mode either way.
-  """
+  """Sequential Monte Carlo over the unit cube (#25, piece 2)."""
   pymc, _, _ = _pymc()
-  # `cores=1` unless the caller insists, because PyMC's SMC FORKS its workers and jax
-  # is not fork-safe. It runs hundreds of threads, and forking a multithreaded process
-  # leaves the child holding locks owned by threads that do not exist in it -- the
-  # workers deadlock on a futex while the parent waits on their pipe, forever. It is
-  # not a slow run; it never returns. This only began to bite when W11 stage 5 left one
-  # backend, because until then the workers evaluated the likelihood on numpy and never
-  # touched jax.
-  #
-  # The parallelism is worth less than it looks. SMC's mutation kernel is Metropolis, so
-  # it is the one path here that calls no `dlogp` and gains nothing from tracing -- but
-  # its likelihood still runs traced, at ~2 ms against numpy's 30-70 ms. Cores buy 2-4x;
-  # tracing bought 15-35x per evaluation. Measured on 32 draws over 2 chains: 8.5 s
-  # serial against 9.5 s for the forked numpy path it replaces, to the same evidence.
   kwargs.setdefault("cores", 1)
   with build_model(inference):
     return pymc.sample_smc(draws=draws, chains=chains, **kwargs)
 
 def log_marginal_likelihood(trace):
-  """The evidence from a `sample_smc` trace, as one number.
-
-  `sample_stats.log_marginal_likelihood` is cumulative over SMC's tempering
-  stages, so the estimate is the last entry -- taken PER CHAIN, because adaptive
-  tempering means chains do not all run the same number of stages. Reading it by
-  hand does not survive that: when the counts differ arviz stores unequal lists,
-  and `np.asarray(trace.sample_stats[...])` then has object dtype, so `.ravel()
-  [-1]` yields a list rather than a float. One seed in five tempered [10, 9] on
-  the test problem. The obvious expression also keeps a single chain and
-  silently discards the others.
-
-  Chains combine as `log(mean(Z))` rather than `mean(log(Z))`: SMC's `Z-hat` is
-  unbiased and its logarithm is not, so averaging the estimates before taking
-  the log is the combination that keeps what unbiasedness there is.
-
-  **What limits this is scatter, not bias.** Validated against exact
-  Gauss-Legendre quadrature of the same posterior -- three models, 60
-  observations, errors in nats over three seeds:
-
-      draws   1 param        2 params       2 params, misspecified
-         64   -0.09 +- 0.15  +0.26 +- 0.36  +0.19 +- 0.19
-        256   -0.06 +- 0.02  +0.02 +- 0.05  -0.05 +- 0.03
-
-  Quadrupling the draws shrinks the spread ~8x, near the 1/sqrt(N) it should be.
-  What survives at 256 draws is a residual under 0.06 nats -- resolvable against
-  the seed scatter, but a factor of 1.06, so not a quantity any decision turns
-  on. Differences fare the same: both a same-dimension and a cross-dimension
-  comparison came out within 0.08 nats of exact.
-
-  So the number is trustworthy, and `draws` is what buys it. At 64 draws a
-  difference carries +-0.45 nats of seed-to-seed noise, which cannot resolve a
-  1-nat Bayes factor; at 256 that falls to +-0.06 and can.
-
-  Inter-chain spread is NOT a usable error bar -- it read 0.08 where the error
-  against quadrature was 0.44. Re-run with a different `random_seed` instead.
-  """
+  """The evidence from a `sample_smc` trace, as one number."""
   raw = np.atleast_1d(trace.sample_stats["log_marginal_likelihood"].values)
   per_chain = np.array([float(np.asarray(chain, dtype=float).ravel()[-1]) for chain in raw])
   peak = per_chain.max()

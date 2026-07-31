@@ -1,15 +1,4 @@
-"""Distributed stress quadrature convergence.
-
-The distributed constitutive equations are pointwise ODEs -- no spatial
-derivatives -- so the only spatial approximation is the quadrature for
-I = int_R^inf 2 (t_rr - t_hh) / r dr. Mapping to the Lagrangian coordinate
-turns it into a fixed-weight sum, which makes Gauss-Legendre available and makes
-the integral's time derivative exact instead of a discrete difference.
-
-Marked slow: the reference solves at 1920 and 3840 points.
-
-Numerical content unchanged from `run_validation.py`; see issue #32.
-"""
+"""Distributed stress quadrature convergence."""
 
 import functools
 
@@ -25,9 +14,6 @@ pytestmark = pytest.mark.slow
 
 _TIMES = np.linspace(0.0, 120e-6, 300)
 
-# Past ~1e-7 the residual is the ODE solver's own tolerance floor and does not
-# decrease monotonically. Assertions below stay above it -- requiring monotone
-# improvement at the floor is a flaky test, not a stronger one.
 _FLOOR = 1e-6
 
 
@@ -64,18 +50,14 @@ def test_default_and_half_default_are_converged(measured):
 
 
 def test_gauss_agrees_with_trapezoid(measured):
-  """Independent-rule cross-check: the two quadratures must agree once both are
-  resolved. This is the only independent check the distributed models have --
-  IMRv2 cannot run Giesekus or PTT at all."""
+  """Independent-rule cross-check: the two quadratures must agree once both are"""
   worst = deviation(_giesekus(240, "gauss"), _giesekus(3840, "trapezoid"))
   measured("gauss(240) vs trapezoid(3840)", f"max|dR|={worst:.2e}")
   assert worst < 5e-3
 
 
 def test_former_trapezoid_default_was_not_converged(measured):
-  """The trapezoid rule at the former default carries percent-level error,
-  which the Oldroyd-B reduction limit alone did not reveal. This is why the
-  default moved in 0.3.0."""
+  """The trapezoid rule at the former default carries percent-level error,"""
   worst = _error(480, "trapezoid")
   measured("former default trapezoid(480)", f"max|dR|={worst:.2e}")
   assert worst > 1e-3, "if this ever drops, the 0.3.0 default change no longer has a justification"

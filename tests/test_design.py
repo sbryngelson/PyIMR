@@ -1,10 +1,4 @@
-"""Laplace/Fisher expected information gain (#25, piece 3).
-
-What is checked here is the criterion, not the Jacobian: `J` comes from
-`PreparedInference` and is verified against exact tangents in the sensitivity
-suite. So these tests pin the contraction, its exact scalings, and the one
-qualitative property the linearisation must not violate.
-"""
+"""Laplace/Fisher expected information gain (#25, piece 3)."""
 
 import numpy as np
 import pytest
@@ -23,7 +17,6 @@ _PARAMETERS = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), 
 
 
 def _flaky(real, *, every):
-  """Fail every `every`-th call, succeed otherwise."""
   calls = []
 
   def wrapper(inference, unit):
@@ -38,12 +31,6 @@ def _flaky(real, *, every):
 _TRUTH_UNIT = np.array([(2500.0 - 1500.0) / 2500.0, (0.1 - 0.05) / 0.15])
 
 def _collapse_design(count=40, half_width=1e-6):
-  """Half the frames inside +-1 us of the first collapse, half spread over 60 us.
-
-  The first LOCAL minimum, not the deepest: at low viscosity a later rebound
-  collapses deeper, and `argmin` picks that one instead -- a 32 us error where
-  the real spread between designs is 2.2 us.
-  """
   fine = np.linspace(0.0, 60e-6, 4000)
   trace = np.asarray(imr_fast.simulate(fine, imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))).radius_m)
   interior = np.flatnonzero((trace[1:-1] < trace[:-2]) & (trace[1:-1] <= trace[2:])) + 1
@@ -75,9 +62,7 @@ def test_gain_matches_the_closed_form(design, measured):
 
 
 def test_halving_the_noise_scales_the_information_by_four(design, measured):
-  """`jacobian` carries a 1/sigma, so the Fisher information is exactly
-  quadratic in the noise level. That makes the sigma dependence checkable
-  without a second solve, which is the cheapest real test available here."""
+  """`jacobian` carries a 1/sigma, so the Fisher information is exactly"""
   unit = np.random.default_rng(0).random((1, design.size))[0]
   jacobian = design.jacobian(unit)
   scaled = np.eye(design.size) + 4.0 * imr_design.UNIFORM_VARIANCE * (jacobian.T @ jacobian)
@@ -90,9 +75,7 @@ def test_halving_the_noise_scales_the_information_by_four(design, measured):
 
 
 def test_more_observations_cannot_reduce_the_gain(measured):
-  """Adding observation times adds positive semidefinite terms to `J^T J`, so
-  the gain is monotone. A criterion that violated this would be misreporting the
-  information, not making a modelling choice."""
+  """Adding observation times adds positive semidefinite terms to `J^T J`, so"""
   sparse = imr_design.expected_information_gain(_design(times=_TIMES[::2]), draws=6)
   dense = imr_design.expected_information_gain(_design(), draws=6)
   measured("EIG 20 vs 40 frames", f"{sparse.expected_information_gain:.3f} -> {dense.expected_information_gain:.3f}")
@@ -100,14 +83,7 @@ def test_more_observations_cannot_reduce_the_gain(measured):
 
 
 def test_the_prior_average_is_not_the_nominal_value(design, measured):
-  """The concern this criterion has to answer for: it is linearised, so a score
-  computed at one nominal theta inherits that tangent's blind spots.
-
-  Averaging over the prior is the mitigation, and this measures how much it
-  matters -- the per-draw gains spread widely enough that a single nominal
-  evaluation is not a usable substitute. That is a bound on the nominal-tangent
-  shortcut, not a defect in the averaged criterion.
-  """
+  """The concern this criterion has to answer for: it is linearised, so a score"""
   gains = [
     imr_design._gain(design, unit, np.full(design.size, imr_design.UNIFORM_VARIANCE)) for unit in np.random.default_rng(0).random((8, design.size))
   ]
@@ -126,17 +102,14 @@ def test_a_tighter_prior_yields_less_to_learn(design, measured):
 
 
 def test_a_failed_draw_raises_by_default(design, monkeypatch):
-  """Censoring is opt-in. A dropped draw makes the average estimate
-  `E[gain | solve succeeded]`, which is not what the caller asked for and is not
-  what the error bar describes -- so silence is the wrong default."""
+  """Censoring is opt-in. A dropped draw makes the average estimate"""
   monkeypatch.setattr(imr_design, "_fisher", _flaky(imr_design._fisher, every=2))
   with pytest.raises(RuntimeError, match="max_failure_fraction"):
     imr_design.expected_information_gain(design, draws=4)
 
 
 def test_allowed_failures_are_counted_and_warned(design, monkeypatch):
-  """With censoring opted into, the result must still say so: `draws` is what
-  was requested, `successful` is what reached the average."""
+  """With censoring opted into, the result must still say so: `draws` is what"""
   monkeypatch.setattr(imr_design, "_fisher", _flaky(imr_design._fisher, every=2))
   with pytest.warns(RuntimeWarning, match="conditional on"):
     result = imr_design.expected_information_gain(design, draws=4, max_failure_fraction=0.75)
@@ -145,8 +118,7 @@ def test_allowed_failures_are_counted_and_warned(design, monkeypatch):
 
 
 def test_a_failure_chains_its_cause(design, monkeypatch):
-  """The bare handler this replaces turned a stale signature or a bad parameter
-  path -- programming errors -- into an unattributable failure count."""
+  """The bare handler this replaces turned a stale signature or a bad parameter"""
 
   def broken(*_args):
     raise KeyError("material.not_a_field")
@@ -159,9 +131,7 @@ def test_a_failure_chains_its_cause(design, monkeypatch):
 
 
 def test_a_design_inference_refuses_to_be_fitted(design):
-  """It holds placeholder radii, so a likelihood evaluated against them is
-  meaningless -- and `RadiusObservation` cannot object, because a constant
-  positive trace is valid."""
+  """It holds placeholder radii, so a likelihood evaluated against them is"""
   assert isinstance(design, imr_design.DesignInference)
   unit = np.full(design.size, 0.5)
   for call in (lambda: design.evaluate(unit), lambda: design.residual(unit), lambda: design.fit_multistart(2)):
@@ -186,9 +156,7 @@ def test_foreign_input_is_rejected():
 
 
 def test_a_prior_sweep_reuses_one_set_of_solves(design, monkeypatch):
-  """`prior_variance` exists for sweeping several priors against one design, and
-  the solves do not depend on the prior. Fused, a 5-prior sweep at draws=128
-  paid 640 solves for 128 distinct Jacobians."""
+  """`prior_variance` exists for sweeping several priors against one design, and"""
   calls = []
   real = imr_design._fisher
   monkeypatch.setattr(imr_design, "_fisher", lambda inference, unit: (calls.append(unit), real(inference, unit))[1])
@@ -203,14 +171,7 @@ def test_a_prior_sweep_reuses_one_set_of_solves(design, monkeypatch):
 
 
 def test_a_second_observable_raises_the_information(measured):
-  """The BOED reason for observables: *what to measure* becomes a design
-  variable, not a modelling choice.
-
-  Adding an observable adds a positive semidefinite block to `J^T J`, so the
-  gain cannot fall. It costs nothing in solve time -- one sensitivity solve
-  already returns tangents for every field, and the likelihood used to discard
-  all but one.
-  """
+  """The BOED reason for observables: *what to measure* becomes a design"""
   config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
   radius = imr_fast.inference.RadiusObservation(_TIMES, np.full(_TIMES.size, R0), _NOISE)
   velocity = imr_fast.inference.FieldObservation("wall_velocity_m_s", _TIMES, np.zeros(_TIMES.size), 2.0)
@@ -226,13 +187,7 @@ def test_a_second_observable_raises_the_information(measured):
 
 @pytest.mark.parametrize("index", (5, 12, 20))
 def test_the_time_gradient_matches_a_central_difference(index, measured):
-  """Scoring a time grid needs `J`; moving one needs `dJ/dt`. For a radius
-  observation that is the wall-velocity tangent, which the same solve already
-  returns -- so this costs nothing beyond the arithmetic.
-
-  The reference perturbs one observation time and re-scores, which exercises the
-  whole path including the union-grid indexing.
-  """
+  """Scoring a time grid needs `J`; moving one needs `dJ/dt`. For a radius"""
   times = np.linspace(2e-6, 4e-5, 25)
   config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
 
@@ -252,43 +207,17 @@ def test_the_time_gradient_matches_a_central_difference(index, measured):
 
 
 def test_a_field_without_a_time_derivative_refuses(measured):
-  """`dP/dt` would mean differentiating the right-hand side, which is a larger
-  change than this. Refusing beats silently returning the wrong tangent."""
+  """`dP/dt` would mean differentiating the right-hand side, which is a larger"""
   config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
   pressure = imr_fast.inference.FieldObservation("internal_pressure_pa", _TIMES, np.full(_TIMES.size, 1e5), 1e3)
   inference = imr_design.DesignInference(config, pressure, _PARAMETERS)
   with pytest.raises(NotImplementedError, match="no time derivative available"):
     inference.jacobian_time_derivative(np.full(inference.size, 0.5))
 
-# Exact information gain for the design below, from tensor Gauss-Legendre
-# quadrature of the posterior over the unit square -- the prior is Uniform(0,1)
-# per parameter, so `0.5*(logdet Sigma_prior - logdet Sigma_posterior)` is a
-# 2-D integral owing nothing to the Laplace approximation being checked. Stable
-# to 1e-4 between order 40 and 64 (10.8069, 10.8068).
 _EXACT_GAIN_AT_COLLAPSE = 10.807
 
 def test_gain_matches_an_exact_posterior(measured):
-  """The criterion against a posterior computed rather than sampled.
-
-  Everything else here checks EIG's arithmetic -- the closed form, the sigma
-  scaling, monotonicity. This checks the approximation itself: EIG assumes the
-  posterior is the Gaussian its Fisher information implies, and quadrature says
-  what the posterior actually is.
-
-  #25 recorded EIG as over-predicting by 0.52-0.81 against NUTS. That was wrong,
-  and this is the reference that shows it. The NUTS runs behind that number had
-  R-hat 1.84 and 3.1 effective samples from 400 draws -- both chains stranded
-  outside the posterior, one of them 7568 nats below the mode -- and pooling
-  them inflated the covariance by ~4 nats of gain. `compute_convergence_checks`
-  had been switched off, so nothing said so. Against the exact posterior the
-  criterion is accurate to 0.003 nats here.
-
-  The failure mode is worth keeping in view: this posterior has a unit-coordinate
-  sd of 1.3e-03, about 68x tighter than the wide-prior case in `pymc_op`'s
-  docstring, where NUTS converges fine. A better design gives a tighter
-  posterior, so the sampler gets *harder* to trust exactly as the design
-  improves.
-  """
+  """The criterion against a posterior computed rather than sampled."""
   times = _collapse_design()
   gain = imr_design._gain(_design(times=times), _TRUTH_UNIT, np.full(len(_PARAMETERS), imr_design.UNIFORM_VARIANCE))
   error = abs(gain - _EXACT_GAIN_AT_COLLAPSE)
@@ -296,23 +225,8 @@ def test_gain_matches_an_exact_posterior(measured):
   assert error < 0.05, f"EIG {gain:.4f} against an exact quadrature posterior of {_EXACT_GAIN_AT_COLLAPSE:.4f}"
 
 
-# Batched design information. Scoring a design is `draws` sensitivity solves that
-# differ only in the values of the inference parameters -- which the traced path
-# takes as an argument -- so the graph is shared and `vmap` maps over the points
-# rather than the loop re-tracing per draw.
-
-
 def test_batched_design_information_matches_the_per_draw_loop(measured):
-  """The whole point of batching is that it changes cost and not the answer.
-
-  Compared against `_fisher` per draw, which is the numpy route, so the difference
-  here is cross-backend rather than batching: the Fisher entries land at 1e-04 while
-  the EIG lands at 5e-07, because a log-determinant is far less sensitive than the
-  entries it reduces. The EIG is what a design is ranked by, so that is the number
-  the bound is set on.
-  """
-  # `_fisher` and `jacobians` share one implementation now, so this compares batching
-  # alone -- the per-draw loop against the vmapped program.
+  """The whole point of batching is that it changes cost and not the answer."""
   inference = imr_design.design_inference(
     imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)),
     _TIMES, _NOISE, _PARAMETERS,
@@ -328,15 +242,12 @@ def test_batched_design_information_matches_the_per_draw_loop(measured):
   batched_gain = imr_design.expected_information_gain(inference, draws=draws, seed=0, information=(batched, requested, failures))
   gain = abs(looped_gain.expected_information_gain - batched_gain.expected_information_gain) / abs(looped_gain.expected_information_gain)
   measured("batched vs looped design information", f"fisher={fisher:.1e} eig={gain:.1e}")
-  # Same backend on both sides, so this is batching alone and the bound is tight.
   assert fisher < 1e-9, fisher
   assert gain < 1e-11, gain
 
 
 def test_batched_jacobians_agree_with_the_single_draw_call():
-  """`jacobians` skips the per-draw `config_from_unit` and `prepare` that `jacobian`
-  performs, on the grounds that a draw varies only the traced parameters. This is
-  what licenses that: the two agree where both run through the same backend."""
+  """`jacobians` skips the per-draw `config_from_unit` and `prepare` that `jacobian`"""
   config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
   inference = imr_design.design_inference(config, _TIMES, _NOISE, _PARAMETERS)
   points = np.random.default_rng(1).random((5, len(_PARAMETERS)))
@@ -347,9 +258,7 @@ def test_batched_jacobians_agree_with_the_single_draw_call():
 
 
 def test_batching_refuses_to_pretend_it_can_count_failures():
-  """`batched=True` is opt-in because a single traced program fails as a WHOLE. Rather
-  than accept `max_failure_fraction` and silently ignore it -- which would report a
-  gain as conditional on draws it never checked -- the combination is refused."""
+  """`batched=True` is opt-in because a single traced program fails as a WHOLE. Rather"""
   inference = imr_design.design_inference(
     imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)),
     _TIMES, _NOISE, _PARAMETERS,

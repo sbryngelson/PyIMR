@@ -97,10 +97,13 @@ _MATERIAL_REFUSALS = [
    lambda: imr_fast.Ogden((1000.0, 500.0), (2.0,))),
   ("Ogden zero exponent", ValueError, "Ogden exponents must be finite and non-zero",
    lambda: imr_fast.Ogden((1000.0,), (0.0,))),
+  # `object()` is the point -- these guards exist for callers who pass the wrong type,
+  # so the argument has to BE the wrong type. pyright is correct to object and is told
+  # so here rather than in the baseline, where it would look like a defect to fix.
   ("elastic type", TypeError, "elastic must be a supported elastic model",
-   lambda: imr_fast.InstantaneousMaterial(elastic=object())),
+   lambda: imr_fast.InstantaneousMaterial(elastic=object())),  # pyright: ignore[reportArgumentType]
   ("viscous type", TypeError, "viscous must be a supported viscous model",
-   lambda: imr_fast.InstantaneousMaterial(viscous=object())),
+   lambda: imr_fast.InstantaneousMaterial(viscous=object())),  # pyright: ignore[reportArgumentType]
   ("empty instantaneous material", ValueError, "an instantaneous material requires an elastic or viscous law",
    lambda: imr_fast.InstantaneousMaterial()),
   ("quadrature points", ValueError, "quadrature_points must be an integer >= 8",

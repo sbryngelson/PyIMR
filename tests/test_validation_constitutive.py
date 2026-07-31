@@ -159,10 +159,10 @@ def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material,
   # elastic acceleration coefficient. The two namespaces must agree on WHICH slots
   # those are, which is itself part of the property.
   assert [value is None for value in reference] == [value is None for value in traced], f"{label}: namespaces disagree on which terms exist"
-  pairs = [(a, b) for a, b in zip(reference, traced, strict=True) if a is not None]
-  worst = max(abs(float(a) - float(b)) / max(1.0, abs(float(a))) for a, b in pairs)
+  pairs = [(float(a), float(b)) for a, b in zip(reference, traced, strict=True) if a is not None and b is not None]
+  worst = max(abs(a - b) / max(1.0, abs(a)) for a, b in pairs)
   measured(f"namespace agreement {label}", f"rel={worst:.2e}")
-  assert all(np.isfinite(float(b)) for _, b in pairs), f"{label}: traced evaluation is not finite"
+  assert all(np.isfinite(b) for _, b in pairs), f"{label}: traced evaluation is not finite"
   assert worst < 1e-12, f"{label}: {worst:.3e}"
 
 

@@ -133,21 +133,20 @@ jobs:
           files: coverage.xml
           fail_ci_if_error: false
 
-      # Bound the archive before `actions/cache` saves it. XLA's key includes host
-      # CPU features, so a run landing on different runner hardware hits NOTHING it
-      # restored and writes a whole new generation on top -- measured at 456 entries
-      # in, 912 out. Left alone that ratchets up every time the hardware differs.
-      #
-      # Dropping the oldest half when over the cap keeps the newest generation, which
-      # is the one a matching runner will hit, and cannot grow without limit.
+      # Bound the archive before `actions/cache` saves it. The cap MUST stay above the
+      # suite's working set (912 for `not slow`, more for the nightly). Below it, every
+      # run prunes: restored entries carry old mtimes, so the save keeps the half just
+      # compiled and drops the half just restored, and the next run recompiles that
+      # half instead. Measured under a 700 cap -- 450 in, 910 out, prune to 455, on
+      # every run, costing ~160 s of the ~300 s test step.
       - name: Bound and report the XLA cache
         if: always()
         run: |
           count=$(find "$IMR_FAST_JAX_CACHE" -type f 2>/dev/null | wc -l)
           echo "entries after tests: $count"
-          if [ "$count" -gt 700 ]; then
-            find "$IMR_FAST_JAX_CACHE" -type f -printf '%T@ %p\n' | sort -n | head -n $((count / 2)) | cut -d' ' -f2- | xargs -r rm -f
-            echo "over cap, pruned oldest half -> $(find "$IMR_FAST_JAX_CACHE" -type f | wc -l) entries"
+          if [ "$count" -gt 4000 ]; then
+            find "$IMR_FAST_JAX_CACHE" -type f -printf '%T@ %p\n' | sort -n | head -n $((count - 3000)) | cut -d' ' -f2- | xargs -r rm -f
+            echo "over cap, pruned oldest -> $(find "$IMR_FAST_JAX_CACHE" -type f | wc -l) entries"
           fi
           du -sh "$IMR_FAST_JAX_CACHE" 2>/dev/null || true
 

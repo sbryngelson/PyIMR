@@ -138,6 +138,25 @@ jobs:
         if: env.COVERAGE == 'true'
         run: python -m pytest -rA -n auto --dist loadfile -m "$PYTEST_MARKERS" --cov --cov-report=xml
 
+      # `fail_ci_if_error: false` below means the upload step goes green whether or not the
+      # report lands, and that hid a total failure: the only upload this repo has ever
+      # attempted logged `Token length: 0` and `Token required - not valid tokenless
+      # upload`, while the step reported success. Zero reports across 172 pushes, 113 pull
+      # requests and 1 nightly.
+      #
+      # A missing token is a configuration defect, not the service outage that flag exists
+      # to tolerate. So it is checked separately, and loudly.
+      - name: Check the Codecov token is set
+        if: env.COVERAGE == 'true'
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          if [ -z "$CODECOV_TOKEN" ]; then
+            echo "::error::CODECOV_TOKEN is not set, so the upload would report success and deliver nothing."
+            exit 1
+          fi
+          echo "CODECOV_TOKEN is set"
+
       # Must not fail the build: a coverage service being down is not a defect here.
       - name: Upload coverage to Codecov
         if: env.COVERAGE == 'true'

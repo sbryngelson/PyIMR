@@ -28,6 +28,7 @@ worth seeing.
 | `pyimr/pymc_op.py` | PyMC bridge: NUTS on the exact tangents, plus SMC for model comparison. Needs `pip install 'PyIMR[inference]'` |
 | `pyimr/design.py` | Laplace/Fisher expected information gain for ranking experiment designs |
 | `pyimr/assimilation.py` | ensemble and variational state estimation on the prepared flow |
+| `pyimr/optimize.py` | Bayesian optimization, and expected-information-gain design search on top of it |
 | `pyimr/data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
 | `pyimr/thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
 | `tests/test_validation_*.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |

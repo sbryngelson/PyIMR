@@ -69,3 +69,39 @@ def test_the_configured_start_is_the_default():
 def test_restart_refuses_a_state_that_does_not_match_the_layout(state, message):
   with pytest.raises(ValueError, match=message):
     _problem().solve_from(state, _TIMES)
+
+
+@pytest.mark.parametrize("label", ["mechanical", "zener memory", "bubtherm"])
+def test_the_tangent_linear_operator_propagates_a_perturbation(label, measured):
+  """`J[k] @ v` must move the trajectory the way perturbing the start by `v` does."""
+  problem = _problem(**dict(_LAYOUTS[label]))
+  times = np.linspace(0.0, 12e-6, 25)
+  start = np.asarray(problem.initial_state, dtype=float)
+
+  states, jacobian = problem.state_tangents(times)
+  assert jacobian.shape == (times.size, start.size, start.size)
+
+  identity = np.eye(start.size)
+  assert np.array_equal(jacobian[0], identity), "the flow at t0 is the identity, exactly"
+
+  rng = np.random.default_rng(0)
+  direction = rng.normal(size=start.size)
+  direction /= np.linalg.norm(direction)
+  # 1e-5, not smaller. Differencing two solves that agree to `rtol` puts a roundoff floor of
+  # about rtol/step on this comparison: measured 7e-08 at 1e-5 rising to 4.8e-03 at 1e-9, so a
+  # tighter step measures the instrument rather than the tangent.
+  step = 1e-5
+  difference = (problem.solve_states(times, start + step * direction) - problem.solve_states(times, start - step * direction)) / (2.0 * step)
+  predicted = np.einsum("kij,j->ki", jacobian, direction)
+
+  error = float(np.linalg.norm(predicted - difference) / np.linalg.norm(difference))
+  measured(f"{label} tangent operator", f"rel={error:.2e}")
+  assert error < 1e-6, f"{label}: J @ v differs from the perturbed solve by {error:.3e}"
+
+
+def test_the_tangent_operator_is_consistent_with_the_primal():
+  """The primal returned beside the Jacobian must be the trajectory itself."""
+  problem = _problem(bubtherm=1, Nt=7)
+  times = np.linspace(0.0, 12e-6, 25)
+  states, _ = problem.state_tangents(times)
+  np.testing.assert_allclose(states, problem.solve_states(times), rtol=1e-9, atol=1e-12)

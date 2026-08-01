@@ -52,7 +52,10 @@ jobs:
       XLA_FLAGS: --xla_cpu_max_isa=AVX2
       # Everything on the nightly and on demand; the fast set per push.
       PYTEST_MARKERS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'slow or not slow' || 'not slow' }}
-      COVERAGE: ${{ matrix.python-version == '3.12' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+      # Every run, not just the nightly: a coverage report that arrives once a day cannot
+      # inform a review. One version only, because three uploads of the same lines add
+      # nothing and each costs a slower job.
+      COVERAGE: ${{ matrix.python-version == '3.12' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -141,6 +144,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
           fail_ci_if_error: false
+          # Flagged by which tests ran. A push covers `not slow`; the nightly also covers
+          # `slow`, so it reports higher. Without this, a PR would be compared against a
+          # nightly base and read as a coverage drop that is really a marker difference.
+          flags: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'fast' }}
 
       # Bound the archive before `actions/cache` saves it. The cap MUST stay above the
       # suite's working set (912 for `not slow`, more for the nightly). Below it, every

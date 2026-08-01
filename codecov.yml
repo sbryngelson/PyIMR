@@ -13,6 +13,16 @@ comment:
   layout: "condensed_header, diff, files"
   require_changes: true
 
+# `fast` is every push and pull request, over `-m "not slow"`. `full` is the nightly,
+# which also runs the slow set and therefore reports higher. Keeping them apart stops a
+# pull request being compared against a nightly base and reading as a drop that is only
+# a difference in which tests ran.
+flags:
+  fast:
+    carryforward: false
+  full:
+    carryforward: false
+
 ignore:
   - "tests/**"
   - "tools/**"

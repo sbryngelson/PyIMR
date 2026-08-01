@@ -76,14 +76,22 @@ def _rhs(
   Rd = y[1]
   Pv = p["Pv"]
   kappa = p["kappa"]
+  # `bubtherm`, `medtherm` and `masstrans` each pair a flag with companion arguments that are
+  # non-None exactly when it is set, and `_validate_config` enforces medtherm/masstrans =>
+  # bubtherm. None of that is visible to a type checker, and these values flow between three
+  # separate flag blocks, so hoist the bindings and state the invariant where each is used.
   kv = None
+  theta = None
+  Tm = None
+  T = None
   if bubtherm:
+    assert D1 is not None and D2 is not None and ygrid is not None
     P = y[2]
     Nt = ygrid.size
     theta = y[3 : 3 + Nt].copy()
     idx = 3 + Nt
-    Tm = None
     if medtherm:
+      assert mt is not None
       Tm = y[idx : idx + mt.xi.size].copy()
       idx += mt.xi.size
     if masstrans:
@@ -105,8 +113,10 @@ def _rhs(
   thetadot = None
   kvdot = None
   if bubtherm:
+    assert D1 is not None and D2 is not None and ygrid is not None and theta is not None and T is not None
     alpha_g, beta_g, chi = p["alpha_g"], p["beta_g"], p["chi"]
     if masstrans:
+      assert kv is not None  # masstrans => the vapour field was sliced out above
       # T below uses the stale kv[-1]. IMRv2's own one-step lag, replicated deliberately.
       alpha_v, beta_v = p["alpha_v"], p["beta_v"]
       Rv_star, Rg_star = p["Rv_star"], p["Rg_star"]
@@ -147,6 +157,7 @@ def _rhs(
     Pdot = -3 * kappa * (p["Pb"] - Pv) * R ** (-3 * kappa - 1) * Rd
   Tmdot = None
   if medtherm:
+    assert mt is not None and Tm is not None  # medtherm => bubtherm, so both were bound above
     dTm = mt.D1 @ Tm
     ddTm = mt.D2 @ Tm
     xi, yT, yT2, yT3, iyT3, iyT4, iyT6 = (mt.xi, mt.yT, mt.yT2, mt.yT3, mt.iyT3, mt.iyT4, mt.iyT6)

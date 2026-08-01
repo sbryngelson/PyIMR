@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from ._config import InitialState, PhysicalParameters, SimulationError, SolverStats
 from ._materials import Zener
 
-__all__ = ["CONFIG_PATHS", "INITIAL_PATHS", "PHYSICS_PATHS", "SCALE_PATHS", "TracedOutputs", "integrate_jax", "sensitivities_jax", "state_tangents_jax"]
+__all__ = ["CONFIG_PATHS", "INITIAL_PATHS", "PHYSICS_PATHS", "SCALE_PATHS", "TracedOutputs", "ensemble_states_jax", "integrate_jax", "sensitivities_jax", "state_tangents_jax"]
 
 # chord scales but its reused jacobian ruins tangents (1e-3 vs a 5e-5 bound); newton is
 # exact but stalls past ~80 nodes. forward answers agree to 5e-12, so split on use. #120
@@ -226,12 +226,10 @@ _INITIAL_FIELDS = tuple(f.name for f in dataclasses.fields(InitialState) if f.na
 PHYSICS_PATHS = tuple(f"physics.{name}" for name in _PHYSICS_FIELDS)
 INITIAL_PATHS = tuple(f"initial.{name}" for name in _INITIAL_FIELDS)
 
-def state_tangents_jax(problem, times, state):
-  """`(states, d states / d y0)` -- the tangent linear operator along the trajectory.
+def _traced_flow(problem, times):
+  """`(jax, solve, grid)` for one prepared problem, where `solve(y0)` returns the saved states.
 
-  Forward mode. That is nominally one solve per state component, but the tangent columns
-  share a step controller and a factorization, so measured warm cost is far below it:
-  3.6x a plain solve at width 10, 4.5x at 28, 5.5x at 36. Sublinear, not proportional.
+  Shared by the tangent operator and the ensemble: both differ only in what they map over.
   """
   jax, jnp, diffrax = _jax()
   from ._rhs import _rhs, _rhs_args
@@ -240,7 +238,6 @@ def state_tangents_jax(problem, times, state):
   p = problem.parameters
   args = _rhs_args(problem, p, medium=problem.medium)
   grid = jnp.asarray(np.asarray(times, dtype=float) / p["t0"])
-  start = jnp.asarray(np.asarray(state, dtype=float))
 
   def solve(y0):
     return diffrax.diffeqsolve(
@@ -249,6 +246,26 @@ def state_tangents_jax(problem, times, state):
       stepsize_controller=diffrax.PIDController(rtol=config.rtol, atol=config.atol),
       saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, adjoint=diffrax.ForwardMode(),
     ).ys
+
+  return jax, solve, grid
+
+def ensemble_states_jax(problem, times, members):
+  """`(member, time, state)` for a batch of initial states, advanced under one `vmap`."""
+  jax, solve, grid = _traced_flow(problem, times)
+  batch = np.asarray(members, dtype=float)
+  key = (_content_key(problem), int(grid.size), batch.shape, "ensemble")
+  compiled = _cached(key, lambda: jax.jit(jax.vmap(solve)))
+  return np.asarray(jax.block_until_ready(compiled(batch)), dtype=float)
+
+def state_tangents_jax(problem, times, state):
+  """`(states, d states / d y0)` -- the tangent linear operator along the trajectory.
+
+  Forward mode. That is nominally one solve per state component, but the tangent columns
+  share a step controller and a factorization, so measured warm cost is far below it:
+  3.6x a plain solve at width 10, 4.5x at 28, 5.5x at 36. Sublinear, not proportional.
+  """
+  jax, solve, grid = _traced_flow(problem, times)
+  start = np.asarray(state, dtype=float)
 
   key = (_content_key(problem), int(grid.size), int(start.size), "state-tangents")
   primal, tangent = _cached(key, lambda: (jax.jit(solve), jax.jit(jax.jacfwd(solve))))

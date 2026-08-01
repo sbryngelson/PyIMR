@@ -7,7 +7,7 @@ import numpy as np
 from .inference import PreparedInference
 
 __all__ = ["IMRLogLikelihood", "build_model", "log_marginal_likelihood", "sample_posterior", "sample_smc"]
-_MISSING = "imr_fast.pymc_op requires PyMC: pip install 'imr-fast[inference]'"
+_MISSING = "pyimr.pymc_op requires PyMC: pip install 'PyIMR[inference]'"
 
 def _pymc():
   try:

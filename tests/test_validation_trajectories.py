@@ -5,8 +5,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from imr_fast import _thermal
-import imr_fast
+from pyimr import _thermal
+import pyimr
 from _validation_support import NHKV, R0, REQ, T0, deviation, median_deviation, oldroyd_b, reference, reference_times, solve_radius, zener
 
 SECTION = "1. Forward solver vs IMRv2 reference trajectories"
@@ -55,7 +55,7 @@ def _imr2_cases():
   cases = [("Zener truth De=2 s=6", zener(), 0)]
   for k in (0, 30, gg.size * mg.size - 1):
     gi, mi = k // mg.size, k % mg.size
-    cases.append((f"NHKV G={gg[gi]:.0f} mu={mg[mi]:.4f}", imr_fast.NeoHookeanKelvinVoigt(gg[gi], mg[mi]), 1 + k))
+    cases.append((f"NHKV G={gg[gi]:.0f} mu={mg[mi]:.4f}", pyimr.NeoHookeanKelvinVoigt(gg[gi], mg[mi]), 1 + k))
   return cases
 
 
@@ -71,9 +71,9 @@ def test_imr2_trajectory(label, material, column, measured):
 
 
 _EXTENDED: list[tuple[str, dict[str, Any], str]] = [
-  ("qKV alphax=0.10", dict(material=imr_fast.QuadraticKelvinVoigt(2500.0, 0.1, 0.10)), "ref_qkv_a010.csv"),
-  ("qKV alphax=0.25", dict(material=imr_fast.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)), "ref_qkv_a025.csv"),
-  ("UCM/OldB De=0.5", dict(material=imr_fast.OldroydB(0.1, 0.5 * T0, 0.1 * T0)), "ref_ucm_De005.csv"),
+  ("qKV alphax=0.10", dict(material=pyimr.QuadraticKelvinVoigt(2500.0, 0.1, 0.10)), "ref_qkv_a010.csv"),
+  ("qKV alphax=0.25", dict(material=pyimr.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)), "ref_qkv_a025.csv"),
+  ("UCM/OldB De=0.5", dict(material=pyimr.OldroydB(0.1, 0.5 * T0, 0.1 * T0)), "ref_ucm_De005.csv"),
   ("UCM/OldB De=2.0", dict(material=oldroyd_b()), "ref_ucm_De020.csv"),
   ("Keller-Miksis NHKV", dict(material=NHKV, radial=2), "ref_km_nhkv.csv"),
   ("Keller-Miksis Zener", dict(material=zener(), radial=2), "ref_km_zener.csv"),
@@ -86,8 +86,8 @@ _EXTENDED: list[tuple[str, dict[str, Any], str]] = [
   ("bubtherm=1 (thermal PDE)", dict(bubtherm=1, Nt=25, thermal="fd"), "ref_bubtherm.csv"),
   ("medtherm=1 (liquid layer)", dict(bubtherm=1, medtherm=1, Nt=25, Mt=25, thermal="fd"), "ref_medtherm.csv"),
   ("masstrans=1+medtherm=1 (coupled)", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=25, Mt=25, thermal="fd"), "ref_masstrans_medtherm.csv"),
-  ("no constitutive stress", dict(material=imr_fast.NoStress()), "ref_stress0.csv"),
-  ("quadratic Zener", dict(material=imr_fast.QuadraticZener(2500.0, 0.1, 2 * T0, 0.4 * T0, 0.25)), "ref_stress4.csv"),
+  ("no constitutive stress", dict(material=pyimr.NoStress()), "ref_stress0.csv"),
+  ("quadratic Zener", dict(material=pyimr.QuadraticZener(2500.0, 0.1, 2 * T0, 0.4 * T0, 0.25)), "ref_stress4.csv"),
   ("radial=3 (KM enthalpy, Tait)", dict(radial=3), "ref_radial3.csv"),
   ("radial=4 (Gilmore, Tait)", dict(radial=4), "ref_radial4.csv"),
   ("radial=3+Zener", dict(radial=3, material=zener()), "ref_radial3_zener.csv"),
@@ -113,8 +113,8 @@ _IMRV2_SZERO = -0.1600469117114953
 
 
 def test_collapse_zener(measured):
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=zener(), collapse=imr_fast.CollapseInitialization(), **_FULL)
-  computed = imr_fast.simulate(reference_times(), config).radius_ratio
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=zener(), collapse=pyimr.CollapseInitialization(), **_FULL)
+  computed = pyimr.simulate(reference_times(), config).radius_ratio
   upstream = reference("ref_collapse_zener.csv")
   worst, typical = deviation(upstream, computed), median_deviation(upstream, computed)
   measured("collapse Zener", f"max|dR|={worst:.2e}  median={typical:.2e}")
@@ -123,8 +123,8 @@ def test_collapse_zener(measured):
 
 def test_collapse_zener_with_upstream_szero(measured):
   """The residual above is entirely one number: the precursor stress at maximum"""
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=zener(), initial=imr_fast.InitialState(stress_state=(_IMRV2_SZERO,)), **_FULL)
-  worst = deviation(reference("ref_collapse_zener.csv"), imr_fast.simulate(reference_times(), config).radius_ratio)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=zener(), initial=pyimr.InitialState(stress_state=(_IMRV2_SZERO,)), **_FULL)
+  worst = deviation(reference("ref_collapse_zener.csv"), pyimr.simulate(reference_times(), config).radius_ratio)
   measured("collapse Zener w/ IMRv2 Szero", f"max|dR|={worst:.2e}")
   assert worst < 2e-4
 
@@ -135,8 +135,8 @@ def test_collapse_zener_with_upstream_szero(measured):
   ids=["oldroyd-b", "nhkv"],
 )
 def test_coupled_without_precursor(label, material_factory, reference_file, measured):
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material_factory(), **_FULL)
-  computed = imr_fast.simulate(reference_times(), config).radius_ratio
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=material_factory(), **_FULL)
+  computed = pyimr.simulate(reference_times(), config).radius_ratio
   upstream = reference(reference_file)
   worst, typical = deviation(upstream, computed), median_deviation(upstream, computed)
   measured(f"coupled {label}", f"max|dR|={worst:.2e}  median={typical:.2e}")
@@ -145,10 +145,10 @@ def test_coupled_without_precursor(label, material_factory, reference_file, meas
 
 
 def test_memoryless_collapse_is_refused():
-  """imr-fast refuses collapse without memory; IMRv2 accepts the flag and"""
+  """PyIMR refuses collapse without memory; IMRv2 accepts the flag and"""
   with pytest.raises(ValueError):
-    imr_fast.simulate(
-      reference_times(), imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, collapse=imr_fast.CollapseInitialization(), **_FULL)
+    pyimr.simulate(
+      reference_times(), pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, collapse=pyimr.CollapseInitialization(), **_FULL)
     )
 
 
@@ -165,7 +165,7 @@ def test_masstrans_diverges_from_upstream_by_the_kirchhoff_correction(measured):
 
 @pytest.fixture(scope="module")
 def mie_parameters():
-  p = imr_fast.params(R0, REQ, NHKV, 0, 298.15, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, imr_fast.PhysicalParameters())
+  p = pyimr.params(R0, REQ, NHKV, 0, 298.15, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, pyimr.PhysicalParameters())
   return p, p["Cstar"], p["hugoniot_slope"], p["nog"]
 
 
@@ -199,7 +199,7 @@ def test_mie_enthalpy_weakly_compressible_limit(mie_parameters, measured):
 @pytest.fixture(scope="module")
 def radial_trajectories():
   return {
-    n: imr_fast.simulate(reference_times(), imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, radial=n)).radius_ratio for n in (2, 3, 4, 5, 6)
+    n: pyimr.simulate(reference_times(), pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, radial=n)).radius_ratio for n in (2, 3, 4, 5, 6)
   }
 
 

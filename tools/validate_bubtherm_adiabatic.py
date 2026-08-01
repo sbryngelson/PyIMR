@@ -10,7 +10,7 @@ theta back into Pdot once chi=0).
 
 IMPORTANT: bubtherm=1 and bubtherm=0 use DIFFERENT P0 initial-condition
 formulas (f_call_params.m:158-163 -- exponent 3 vs 3*kappa; this is a real,
-intentional physical difference, not a bug -- see imr_fast.py's params()
+intentional physical difference, not a bug -- see pyimr.py's params()
 docstring). So comparing against F.simulate(...,bubtherm=0) directly is
 WRONG: it starts from a different P(0) and the two trajectories will
 legitimately differ. The correct reduction check isolates the RHS-structure
@@ -22,9 +22,9 @@ initial condition and only the RHS structure is being tested.
 import numpy as np
 from scipy.integrate import solve_ivp
 
-import imr_fast as F
-from imr_fast._rhs import _rhs
-from imr_fast.thermal_fd import finite_diff_mat
+import pyimr as F
+from pyimr._rhs import _rhs
+from pyimr.thermal_fd import finite_diff_mat
 
 R0, Req, G, mu = 225e-6, 225e-6 * 0.15, 2500.0, 0.1
 tv = np.linspace(0, 1.2e-4, 400)

@@ -2,27 +2,49 @@
 
 import importlib
 import re
+import tempfile
 import types
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
 
-import imr_fast
+import pyimr
 
 _ROOT = Path(__file__).resolve().parents[1]
-_PACKAGE = Path(imr_fast.__file__).resolve().parent
+_PACKAGE = Path(pyimr.__file__).resolve().parent
 
 _UNSHIPPED = frozenset({"validate_bubtherm_adiabatic", "validate_thermal_fd"})
+_TOOLS = _ROOT / "tools"
 
 
 def _package_modules():
-  return sorted(f"imr_fast.{path.stem}" for path in _PACKAGE.glob("*.py") if path.stem != "__init__")
+  return sorted(f"pyimr.{path.stem}" for path in _PACKAGE.glob("*.py") if path.stem != "__init__")
 
 
-def test_the_suite_imports_the_installed_package():
-  """The point of `src/`. If `imr_fast` resolved from the repo root, the suite"""
-  assert _PACKAGE.parent != _ROOT, f"imr_fast imported from the repo root: {_PACKAGE}"
-  assert imr_fast.__file__ is not None and Path(imr_fast.__file__).name == "__init__.py"
+@pytest.mark.slow
+def test_the_wheel_ships_every_package_module():
+  """The package sits at the repo root, so the suite imports the source tree and a
+
+  module missing from the wheel would still pass every other test here. Under the
+  old `src/` layout that could not happen. Building is the only way to check it.
+  """
+  import subprocess
+  import sys
+  import zipfile
+
+  with tempfile.TemporaryDirectory() as out:
+    build = subprocess.run(
+      [sys.executable, "-m", "build", "--wheel", "-o", out], cwd=_ROOT, capture_output=True, text=True, timeout=600
+    )
+    assert build.returncode == 0, build.stdout[-2000:] + build.stderr[-2000:]
+    wheel = next(Path(out).glob("*.whl"))
+    shipped = {Path(n).stem for n in zipfile.ZipFile(wheel).namelist() if n.startswith("pyimr/") and n.endswith(".py")}
+    tops = {n.split("/")[0] for n in zipfile.ZipFile(wheel).namelist()}
+
+  on_disk = {path.stem for path in _PACKAGE.glob("*.py")}
+  assert on_disk - shipped == set(), f"modules missing from the wheel: {sorted(on_disk - shipped)}"
+  assert tops == {"pyimr", f"pyimr-{version('PyIMR')}.dist-info"}, f"wheel ships extra top-level entries: {sorted(tops)}"
 
 
 @pytest.mark.parametrize("module", _package_modules())
@@ -33,19 +55,19 @@ def test_every_shipped_module_imports(module):
 
 def test_modules_shadowed_by_a_re_export_are_still_importable():
   """`__init__` re-exports functions named `_rhs` and `_stress` from modules of"""
-  for name in ("imr_fast._rhs", "imr_fast._stress"):
+  for name in ("pyimr._rhs", "pyimr._stress"):
     assert isinstance(importlib.import_module(name), types.ModuleType)
 
 
 def test_no_importable_modules_remain_at_the_repo_root():
-  """Anything left beside `src/` is a top-level name that shadows or leaks. The"""
+  """A loose `.py` beside the package is a top-level name that shadows or leaks."""
   stray = sorted(path.stem for path in _ROOT.glob("*.py"))
-  assert set(stray) == _UNSHIPPED, f"unexpected top-level modules: {sorted(set(stray) - _UNSHIPPED)}"
+  assert stray == [], f"unexpected top-level modules: {stray}"
 
 
 def test_unshipped_scripts_exist():
   """Keeps `_UNSHIPPED` honest: a renamed or deleted dev script would otherwise"""
-  missing = sorted(name for name in _UNSHIPPED if not (_ROOT / f"{name}.py").exists())
+  missing = sorted(name for name in _UNSHIPPED if not (_TOOLS / f"{name}.py").exists())
   assert not missing, f"_UNSHIPPED names modules that no longer exist: {missing}"
 
 

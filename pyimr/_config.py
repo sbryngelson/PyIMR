@@ -330,7 +330,7 @@ class PreparedProblem:
   collapse_stats: CollapseStats | None = None
 
   def solve(self, tv) -> SimulationResult:
-    from imr_fast import _solve_prepared
+    from pyimr import _solve_prepared
 
     return _solve_prepared(self, tv)
 

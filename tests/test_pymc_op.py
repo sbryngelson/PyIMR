@@ -6,12 +6,12 @@ import types
 import numpy as np
 import pytest
 
-import imr_fast
+import pyimr
 from _validation_support import R0, REQ
-from imr_fast.inference import InferenceParameter, RadiusObservation, prepare_inference
+from pyimr.inference import InferenceParameter, RadiusObservation, prepare_inference
 
 pytest.importorskip("pymc")
-from imr_fast import pymc_op  # noqa: E402
+from pyimr import pymc_op  # noqa: E402
 
 SECTION = "5. PyMC bridge"
 _TIMES = np.linspace(0.0, 20e-6, 60)
@@ -20,8 +20,8 @@ _NOISE = 5e-7
 
 @pytest.fixture(scope="module")
 def inference():
-  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
-  truth = imr_fast.simulate(_TIMES, config)
+  config = pyimr.SimulationConfig(R0, REQ, pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  truth = pyimr.simulate(_TIMES, config)
   observed = truth.radius_m + np.random.default_rng(7).normal(0.0, _NOISE, _TIMES.size)
   return prepare_inference(
     config,
@@ -97,7 +97,7 @@ def test_missing_pymc_gives_an_actionable_error(monkeypatch):
   for module in [name for name in sys.modules if name.split(".")[0] in ("pymc", "pytensor")]:
     monkeypatch.delitem(sys.modules, module)
 
-  with pytest.raises(ImportError, match=r"imr-fast\[inference\]"):
+  with pytest.raises(ImportError, match=r"PyIMR\[inference\]"):
     pymc_op._pymc()
 
 

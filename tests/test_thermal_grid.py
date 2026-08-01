@@ -3,17 +3,17 @@
 import numpy as np
 import pytest
 
-from imr_fast import _thermal
-import imr_fast
-from imr_fast._thermal import _far_field_singular_index
+from pyimr import _thermal
+import pyimr
+from pyimr._thermal import _far_field_singular_index
 from _validation_support import NHKV, R0, REQ
 
 _FIELDS = ("yT", "yT2", "yT3", "iyT3", "iyT4", "iyT6")
 
 
 def _medium(backend, mt, nt=5):
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=nt, Mt=mt, thermal=backend)
-  medium = imr_fast.prepare(config).medium
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=nt, Mt=mt, thermal=backend)
+  medium = pyimr.prepare(config).medium
   assert medium is not None, "medtherm=1 must produce medium operators"
   return medium
 
@@ -64,11 +64,11 @@ def test_guard_rejects_a_moved_singularity():
 
 
 _DISSIPATION_CASES = (
-  ("instantaneous", imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 250.0), viscous=imr_fast.Newtonian(0.1))),
-  ("distributed", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12)),
+  ("instantaneous", pyimr.InstantaneousMaterial(elastic=pyimr.Gent(2500.0, 250.0), viscous=pyimr.Newtonian(0.1))),
+  ("distributed", pyimr.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12)),
   ("closed form", NHKV),
-  ("quadratic kelvin-voigt", imr_fast.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)),
-  ("no stress", imr_fast.NoStress()),
+  ("quadratic kelvin-voigt", pyimr.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)),
+  ("no stress", pyimr.NoStress()),
 )
 
 
@@ -76,14 +76,14 @@ _DISSIPATION_CASES = (
 @pytest.mark.parametrize("label,material", _DISSIPATION_CASES, ids=[c[0] for c in _DISSIPATION_CASES])
 def test_medium_dissipation_needs_no_suppression(label, material, backend):
   """The dissipation paths read yT, which is +inf at the wall, and used to"""
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material, bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=9, thermal=backend)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=material, bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=9, thermal=backend)
   with np.errstate(divide="raise", invalid="raise", over="raise"):
-    imr_fast.simulate(np.linspace(0.0, 4e-6, 20), config)
+    pyimr.simulate(np.linspace(0.0, 4e-6, 20), config)
 
 
 def _prepared_wall_inputs(Mt=9):
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
-  problem = imr_fast.prepare(config)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
+  problem = pyimr.prepare(config)
   medium = problem.medium
   assert medium is not None
   parameters = problem.parameters
@@ -110,10 +110,10 @@ def test_wall_temperature_satisfies_its_own_boundary_condition(scale):
 def test_coupled_solve_survives_awkward_retardation_ratios(ratio):
   """These retardation ratios aborted the integration outright (#57): the secant"""
   relaxation = 2.0 * R0 / np.sqrt(101325 / 1064)
-  config = imr_fast.SimulationConfig(
-    R0=R0, Req=REQ, material=imr_fast.OldroydB(0.1, relaxation, ratio * relaxation), bubtherm=1, medtherm=1, Nt=9, Mt=9, thermal="fd"
+  config = pyimr.SimulationConfig(
+    R0=R0, Req=REQ, material=pyimr.OldroydB(0.1, relaxation, ratio * relaxation), bubtherm=1, medtherm=1, Nt=9, Mt=9, thermal="fd"
   )
-  result = imr_fast.simulate(np.linspace(0.0, 6e-5, 60), config)
+  result = pyimr.simulate(np.linspace(0.0, 6e-5, 60), config)
   assert result.stats.success
   assert result.medium_temperature_k is not None
   assert np.all(np.isfinite(result.medium_temperature_k))
@@ -125,8 +125,8 @@ _ULP_HOSTILE_MT = (50, 99, 104, 108, 162, 188, 197, 198, 207, 215, 238, 240, 250
 @pytest.mark.parametrize("Mt", _ULP_HOSTILE_MT)
 def test_medium_grid_lands_on_the_far_field_node_exactly(Mt):
   """The far-field check is only meaningful if the grid can satisfy it. A"""
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
-  medium = imr_fast.prepare(config).medium
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
+  medium = pyimr.prepare(config).medium
   assert medium is not None
   assert _far_field_singular_index(np.asarray(medium.xi)) == Mt - 1
 
@@ -134,8 +134,8 @@ def test_medium_grid_lands_on_the_far_field_node_exactly(Mt):
 @pytest.mark.parametrize("Mt", (25, 50, 99))
 def test_medium_solves_run_at_ulp_hostile_sizes(Mt):
   """End to end: these sizes raised ValueError from `prepare` before the fix."""
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
-  result = imr_fast.simulate(np.linspace(0.0, 2e-5, 40), config)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, medtherm=1, Nt=9, Mt=Mt, thermal="fd")
+  result = pyimr.simulate(np.linspace(0.0, 2e-5, 40), config)
   assert np.all(np.isfinite(result.radius_ratio))
 
 
@@ -177,8 +177,8 @@ def test_every_wall_solve_returns_a_physical_mass_fraction():
 
   _thermal._bracketed_root = record
   try:
-    config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd")
-    imr_fast.simulate(np.linspace(0.0, 25e-6, 200), config)
+    config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd")
+    pyimr.simulate(np.linspace(0.0, 25e-6, 200), config)
   finally:
     _thermal._bracketed_root = original
   fractions = np.array(solves)
@@ -198,8 +198,8 @@ def test_the_wall_residual_has_one_root_on_the_bracket():
 
   _thermal._bracketed_root = record
   try:
-    config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd")
-    imr_fast.simulate(np.linspace(0.0, 25e-6, 60), config)
+    config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd")
+    pyimr.simulate(np.linspace(0.0, 25e-6, 60), config)
   finally:
     _thermal._bracketed_root = original
   grid = np.linspace(1e-13, 1.0 - 1e-13, 401)

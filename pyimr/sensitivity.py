@@ -7,7 +7,7 @@ from numbers import Real
 
 import numpy as np
 
-import imr_fast as _solver
+import pyimr as _solver
 
 __all__ = ["SensitivityParameter", "SensitivityResult", "simulate_with_sensitivities", "solve_with_sensitivities"]
 

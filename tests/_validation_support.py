@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-import imr_fast
+import pyimr
 
 DATA = Path(__file__).resolve().parent
 
@@ -14,15 +14,15 @@ R0 = 225e-6
 REQ = R0 / 6
 T0 = R0 / np.sqrt(101325 / 1064)
 
-NHKV = imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)
+NHKV = pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1)
 
 
 def zener():
-  return imr_fast.Zener(2500.0, 0.1, 2 * T0, 0.4 * T0)
+  return pyimr.Zener(2500.0, 0.1, 2 * T0, 0.4 * T0)
 
 
 def oldroyd_b():
-  return imr_fast.OldroydB(0.1, 2 * T0, 0.4 * T0)
+  return pyimr.OldroydB(0.1, 2 * T0, 0.4 * T0)
 
 
 @functools.lru_cache(maxsize=None)
@@ -37,8 +37,8 @@ def reference_times():
 
 
 def solve_radius(times, material=NHKV, R0_m=R0, Req_m=REQ, **options):
-  config = imr_fast.SimulationConfig(R0=R0_m, Req=Req_m, material=material, **options)
-  return imr_fast.simulate(times, config).radius_ratio
+  config = pyimr.SimulationConfig(R0=R0_m, Req=Req_m, material=material, **options)
+  return pyimr.simulate(times, config).radius_ratio
 
 
 def deviation(left, right):
@@ -68,16 +68,16 @@ def difference_tangent(config, path, times, field="radius_ratio", relative_step=
   base = float(getattr(holder, parts[-1]))
   step = base * relative_step
   if step == 0.0: raise ValueError(f"{path!r} is zero here, so a multiplicative step cannot move it")
-  ahead = np.asarray(getattr(imr_fast.simulate(times, with_path(config, path, base + step)), field), dtype=float)
-  behind = np.asarray(getattr(imr_fast.simulate(times, with_path(config, path, base - step)), field), dtype=float)
+  ahead = np.asarray(getattr(pyimr.simulate(times, with_path(config, path, base + step)), field), dtype=float)
+  behind = np.asarray(getattr(pyimr.simulate(times, with_path(config, path, base - step)), field), dtype=float)
   return (ahead - behind) / (2.0 * step)
 
 
 def tangent_deviation(config, path, times, field="radius_ratio", relative_step=1e-5):
   """Relative deviation of a traced tangent from a central difference."""
-  import imr_fast.sensitivity as _sensitivity
+  import pyimr.sensitivity as _sensitivity
 
-  traced = np.asarray(getattr(_sensitivity.solve_with_sensitivities(imr_fast.prepare(config), times, (path,)), field), dtype=float)[..., 0]
+  traced = np.asarray(getattr(_sensitivity.solve_with_sensitivities(pyimr.prepare(config), times, (path,)), field), dtype=float)[..., 0]
   scale = float(np.max(np.abs(traced)))
   if scale == 0.0: raise ValueError(f"the {path!r} tangent of {field!r} is identically zero here, so this comparison tests nothing")
   return float(np.max(np.abs(traced - difference_tangent(config, path, times, field, relative_step)))) / scale

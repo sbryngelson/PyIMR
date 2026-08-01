@@ -1,4 +1,4 @@
-% Generate pinned IMRv2 reference trajectories for cases imr-fast currently
+% Generate pinned IMRv2 reference trajectories for cases PyIMR currently
 % validates only against its own reduction limits (PLAN.md W1).
 %
 % Usage:  matlab -batch "run('tools/gen_imrv2_cases.m')"
@@ -16,7 +16,7 @@ addpath(fullfile(imrv2, 'src'));
 here = fileparts(mfilename('fullpath'));
 outdir = fullfile(here, '..', 'tests');
 
-% match tests/ref_t.csv and the imr-fast defaults exactly
+% match tests/ref_t.csv and the PyIMR defaults exactly
 R0    = 225e-6;
 Req   = R0/6;
 tfin  = 120e-6;
@@ -27,7 +27,7 @@ P8    = 101325;
 t0    = R0/sqrt(P8/rho8);
 G     = 2500;
 mu    = 0.1;
-kappa = 1.4;          % imr-fast default; IMRv2 default_case ships 1.47
+kappa = 1.4;          % PyIMR default; IMRv2 default_case ships 1.47
 
 base = {'progdisplay',0,'method',23,'dimout',0,'tvector',tv, ...
         'r0',R0,'req',Req,'rho8',rho8,'p8',P8,'kappa',kappa};
@@ -65,7 +65,7 @@ end
 % stress == 5, and the recomputed Req_zero comes back identical (0.16666667).
 % So collapse=1 is a no-op for NHKV and Oldroyd-B: those two files pin the
 % fully coupled model WITHOUT a precursor, which is why they are named
-% ref_coupled_*. Verified -- imr-fast reproduces them without collapse to
+% ref_coupled_*. Verified -- PyIMR reproduces them without collapse to
 % 6.2e-06 and 1.6e-05 respectively.
 full = {'bubtherm',1,'medtherm',1,'masstrans',1,'vapor',1,'nt',25,'mt',25};
 cases{end+1} = {'ref_collapse_zener.csv', ...
@@ -79,7 +79,7 @@ cases{end+1} = {'ref_coupled_nhkv.csv', ...
 
 % ---- radial 6 and 7 (PLAN W4) -----------------------------------------
 % The gate at f_call_params.m:187 permits radial 1..7 despite its message
-% naming only 1..4. imr-fast supports 1..5; probe what 6 and 7 actually do.
+% naming only 1..4. PyIMR supports 1..5; probe what 6 and 7 actually do.
 for rr = [6 7]
     cases{end+1} = {sprintf('ref_radial%d.csv', rr), ...
         [base, {'radial',rr,'stress',1,'g',G,'mu',mu}]};

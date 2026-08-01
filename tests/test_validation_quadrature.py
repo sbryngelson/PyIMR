@@ -5,7 +5,7 @@ import functools
 import numpy as np
 import pytest
 
-import imr_fast
+import pyimr
 from _validation_support import R0, REQ, T0, deviation
 
 SECTION = "2c. Distributed stress quadrature"
@@ -19,9 +19,9 @@ _FLOOR = 1e-6
 
 @functools.lru_cache(maxsize=None)
 def _giesekus(points, quadrature, mobility=0.2):
-  return imr_fast.simulate(
+  return pyimr.simulate(
     _TIMES,
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.Giesekus(0.1, 2 * T0, 0.4 * T0, mobility, points=points, quadrature=quadrature)),
+    pyimr.SimulationConfig(R0=R0, Req=REQ, material=pyimr.Giesekus(0.1, 2 * T0, 0.4 * T0, mobility, points=points, quadrature=quadrature)),
   ).radius_ratio
 
 

@@ -32,7 +32,7 @@ class DesignInference(PreparedInference):
   def _refuse(self, name):
     raise TypeError(
       f"{name}() needs measured radii, and this inference holds placeholders. "
-      "Build one with imr_fast.inference.prepare_inference once the experiment has been run."
+      "Build one with pyimr.inference.prepare_inference once the experiment has been run."
     )
 
   def residual(self, unit_parameters): self._refuse("residual")

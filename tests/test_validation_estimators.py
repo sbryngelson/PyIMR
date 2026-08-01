@@ -3,17 +3,17 @@
 import numpy as np
 import pytest
 
-from imr_fast import data
-import imr_fast
+from pyimr import data
+import pyimr
 from _validation_support import NHKV, R0, REQ
-from imr_fast.inference import FieldObservation, InferenceParameter, RadiusObservation, prepare_inference
+from pyimr.inference import FieldObservation, InferenceParameter, RadiusObservation, prepare_inference
 
 SECTION = "3b. Trace estimators and prepared inference"
 
 
 def test_equilibrium_radius_round_trip(measured):
   """The estimator must invert the solver's own pressure/radius relation."""
-  gas_pressure = (imr_fast.P8 + 2 * imr_fast.SURF / REQ) * (REQ / R0) ** (3 * imr_fast.KAPPA)
+  gas_pressure = (pyimr.P8 + 2 * pyimr.SURF / REQ) * (REQ / R0) ** (3 * pyimr.KAPPA)
   error = abs(data.equilibrium_radius(R0, gas_pressure) - REQ) / REQ
   measured("equilibrium radius round-trip", f"rel={error:.2e}")
   assert error < 1e-12
@@ -22,7 +22,7 @@ def test_equilibrium_radius_round_trip(measured):
 def test_natural_frequency_reduces_to_minnaert(measured):
   """The gas-only limit must reproduce Minnaert exactly."""
   computed, _ = data.natural_frequency(R0, REQ, 1e-12, 1e-12, surface_tension_n_m=0.0)
-  minnaert = np.sqrt(3 * imr_fast.KAPPA * imr_fast.P8 / imr_fast.RHO) / REQ
+  minnaert = np.sqrt(3 * pyimr.KAPPA * pyimr.P8 / pyimr.RHO) / REQ
   error = abs(computed - minnaert) / minnaert
   measured("natural frequency -> Minnaert", f"rel={error:.2e}")
   assert error < 1e-12
@@ -31,7 +31,7 @@ def test_natural_frequency_reduces_to_minnaert(measured):
 @pytest.fixture(scope="module")
 def rebound_trace():
   times = np.linspace(0, 300e-6, 8000)
-  radius = imr_fast.simulate(times, imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV)).radius_m
+  radius = pyimr.simulate(times, pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV)).radius_m
   return data.collapse_features(times, radius)
 
 
@@ -55,7 +55,7 @@ def test_collapse_features_decay(rebound_trace, measured):
 def test_thermal_grid_convergence(measured):
   """Thermal grid refinement must converge monotonically."""
   convergence = data.resolution_convergence(
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=10, Mt=10), np.linspace(0, 60e-6, 200), [(10, 10), (20, 20), (40, 40)]
+    pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=10, Mt=10), np.linspace(0, 60e-6, 200), [(10, 10), (20, 20), (40, 40)]
   )
   errors = [error for _, error in convergence]
   measured("thermal grid convergence", " ".join(f"{error:.1e}" for error in errors))
@@ -64,9 +64,9 @@ def test_thermal_grid_convergence(measured):
 
 @pytest.fixture(scope="module")
 def prepared_inference():
-  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
+  config = pyimr.SimulationConfig(R0, REQ, NHKV)
   times = np.linspace(0.0, 20e-6, 50)
-  truth = imr_fast.simulate(times, config)
+  truth = pyimr.simulate(times, config)
   return times, prepare_inference(
     config,
     RadiusObservation(times, truth.radius_m, 1e-8),
@@ -100,8 +100,8 @@ _VELOCITY_SIGMA = 2.0
 def multi_observable():
   """Radius on one grid, wall velocity on a coarser one -- deliberately not the"""
   times = np.linspace(0.0, 4e-5, 50)
-  config = imr_fast.SimulationConfig(R0, REQ, NHKV, rtol=1e-10, atol=1e-12)
-  truth = imr_fast.simulate(times, config)
+  config = pyimr.SimulationConfig(R0, REQ, NHKV, rtol=1e-10, atol=1e-12)
+  truth = pyimr.simulate(times, config)
   rng = np.random.default_rng(3)
   radius = RadiusObservation(times, np.asarray(truth.radius_m) + rng.normal(0.0, 5e-7, times.size), 5e-7)
   coarse = times[::3]
@@ -151,8 +151,8 @@ def test_an_unknown_field_is_refused():
 def test_gauss_newton_is_exact_where_eig_uses_it(measured):
   """`J^T J` is not an approximation to the Fisher information for a correctly"""
   times = np.linspace(0.0, 4e-5, 60)
-  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
-  truth = imr_fast.simulate(times, config)
+  config = pyimr.SimulationConfig(R0, REQ, NHKV)
+  truth = pyimr.simulate(times, config)
   observed = np.asarray(truth.radius_m) + np.random.default_rng(11).normal(0.0, 5e-7, times.size)
   parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
   inference = prepare_inference(config, RadiusObservation(times, observed, 5e-7), parameters)
@@ -164,9 +164,9 @@ def test_gauss_newton_is_exact_where_eig_uses_it(measured):
 def test_the_dropped_term_detects_misspecification(measured):
   """The diagnostic's actual use. Data from Zener, fitted with NHKV: the model"""
   times = np.linspace(0.0, 4e-5, 60)
-  config = imr_fast.SimulationConfig(R0, REQ, NHKV)
-  other = imr_fast.SimulationConfig(R0, REQ, imr_fast.Zener(0.1, 2500.0, 2e-6, 2e-7))
-  observed = np.asarray(imr_fast.simulate(times, other).radius_m)
+  config = pyimr.SimulationConfig(R0, REQ, NHKV)
+  other = pyimr.SimulationConfig(R0, REQ, pyimr.Zener(0.1, 2500.0, 2e-6, 2e-7))
+  observed = np.asarray(pyimr.simulate(times, other).radius_m)
   observed = observed + np.random.default_rng(11).normal(0.0, 5e-7, times.size)
   parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
   inference = prepare_inference(config, RadiusObservation(times, observed, 5e-7), parameters)
@@ -181,8 +181,8 @@ _TAU = 3e-6
 @pytest.fixture(scope="module")
 def correlated():
   times = np.linspace(2e-6, 4e-5, 40)
-  config = imr_fast.SimulationConfig(R0, REQ, NHKV, rtol=1e-10, atol=1e-12)
-  truth = np.asarray(imr_fast.simulate(times, config).radius_m)
+  config = pyimr.SimulationConfig(R0, REQ, NHKV, rtol=1e-10, atol=1e-12)
+  truth = np.asarray(pyimr.simulate(times, config).radius_m)
   observed = truth + np.random.default_rng(5).normal(0.0, 5e-7, times.size)
   parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
   independent = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7), parameters)
@@ -196,7 +196,7 @@ def test_correlated_likelihood_matches_a_direct_multivariate_gaussian(correlated
   unit = np.array([0.42, 0.37])
   lag = np.abs(times[:, None] - times[None, :])
   covariance = (5e-7) ** 2 * np.exp(-lag / _TAU)
-  deviation = np.asarray(imr_fast.simulate(times, linked.config_from_unit(unit)).radius_m) - observed
+  deviation = np.asarray(pyimr.simulate(times, linked.config_from_unit(unit)).radius_m) - observed
   direct = -0.5 * (deviation @ np.linalg.solve(covariance, deviation) + np.linalg.slogdet(2 * np.pi * covariance)[1])
 
   computed = linked.evaluate(unit).log_likelihood
@@ -231,7 +231,7 @@ def test_vanishing_correlation_time_reduces_to_independent_noise(correlated):
 
 def test_correlated_noise_carries_less_information(correlated, measured):
   """The reason this matters for design. Neighbouring frames that share noise"""
-  from imr_fast.design import expected_information_gain
+  from pyimr.design import expected_information_gain
 
   _, _, independent, linked = correlated
   loose = expected_information_gain(independent, draws=6).expected_information_gain
@@ -242,13 +242,13 @@ def test_correlated_noise_carries_less_information(correlated, measured):
 
 def _shear_modulus_error(deborah, window_t0):
   """Cramer-Rao sd(G) at the truth, from the exact Jacobian."""
-  from imr_fast.design import _fisher
+  from pyimr.design import _fisher
 
   from _validation_support import T0
 
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.Zener(2500.0, 0.1, deborah * T0, 0.2 * deborah * T0))
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=pyimr.Zener(2500.0, 0.1, deborah * T0, 0.2 * deborah * T0))
   times = np.linspace(1e-6, window_t0 * T0, 60)
-  observed = np.asarray(imr_fast.simulate(times, config).radius_m)
+  observed = np.asarray(pyimr.simulate(times, config).radius_m)
   parameters = (InferenceParameter("material.shear_modulus_pa", 500.0, 8000.0), InferenceParameter("material.viscosity_pa_s", 0.01, 0.5))
   inference = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7), parameters)
   fisher = _fisher(inference, np.array([(2500.0 - 500.0) / 7500.0, (0.1 - 0.01) / 0.49]))
@@ -293,8 +293,8 @@ def test_batched_evaluation_matches_the_per_point_route(measured):
   cheaper per point, which is what makes a posterior scan affordable (#129).
   """
   times = np.linspace(1e-6, 4e-5, 40)
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV)
-  observed = np.asarray(imr_fast.simulate(times, config).radius_m) + np.random.default_rng(7).normal(0.0, 5e-7, times.size)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV)
+  observed = np.asarray(pyimr.simulate(times, config).radius_m) + np.random.default_rng(7).normal(0.0, 5e-7, times.size)
   parameters = (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0), InferenceParameter("material.viscosity_pa_s", 0.05, 0.2))
   inference = prepare_inference(config, FieldObservation("radius_m", times, observed, 5e-7), parameters)
 

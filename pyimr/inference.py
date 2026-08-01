@@ -12,7 +12,7 @@ from scipy.linalg import solve_triangular
 from scipy.optimize import least_squares
 from scipy.stats import qmc
 
-import imr_fast
+import pyimr
 from .sensitivity import SensitivityParameter, _normalize_parameters
 
 __all__ = [
@@ -173,7 +173,7 @@ class LikelihoodEvaluation:
   physical_parameters: np.ndarray
   residual: np.ndarray
   log_likelihood: float
-  stats: imr_fast.SolverStats
+  stats: pyimr.SolverStats
 
 @dataclass(frozen=True, slots=True)
 class MultistartEndpoint:
@@ -204,7 +204,7 @@ class MultistartResult:
 class PreparedInference:
   """Reusable parameterization and Gaussian radius likelihood."""
 
-  config: imr_fast.SimulationConfig
+  config: pyimr.SimulationConfig
   observation: RadiusObservation | FieldObservation | tuple
   parameters: tuple[InferenceParameter, ...]
   _observations: tuple = ()
@@ -214,7 +214,7 @@ class PreparedInference:
   _problem: object = None
 
   def __post_init__(self):
-    if not isinstance(self.config, imr_fast.SimulationConfig): raise TypeError("config must be SimulationConfig")
+    if not isinstance(self.config, pyimr.SimulationConfig): raise TypeError("config must be SimulationConfig")
     observations = _as_field_observations(self.observation)
     grid = np.unique(np.concatenate([item.time_s for item in observations]))
     object.__setattr__(self, "_observations", observations)
@@ -230,7 +230,7 @@ class PreparedInference:
       value = _path_value(self.config, _path_parts(parameter.path), parameter.path)
       if not np.isscalar(value) or not np.isfinite(value): raise ValueError(f"{parameter.path!r} must identify a finite scalar field")
       _normalize_parameters(self.config, (SensitivityParameter(parameter.path),))
-    object.__setattr__(self, "_problem", imr_fast.prepare(self.config))
+    object.__setattr__(self, "_problem", pyimr.prepare(self.config))
     object.__setattr__(self, "parameters", parameters)
 
   @property
@@ -275,7 +275,7 @@ class PreparedInference:
 
   def residual(self, unit_parameters):
     config = self.config_from_unit(unit_parameters)
-    return self._stack_residual(imr_fast.simulate(self._grid, config))
+    return self._stack_residual(pyimr.simulate(self._grid, config))
 
   def jacobian(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
@@ -335,7 +335,7 @@ class PreparedInference:
   def evaluate(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
     config = self.config_from_unit(unit)
-    result = imr_fast.simulate(self._grid, config)
+    result = pyimr.simulate(self._grid, config)
     return self._evaluation(unit, self._stack_residual(result), result.stats)
 
   def evaluate_with_jacobian(self, unit_parameters):
@@ -345,7 +345,7 @@ class PreparedInference:
     chain = np.array([parameter.derivative(value) for parameter, value in zip(self.parameters, unit, strict=True)])
     residual = self._stacked("value", {name: array[0] for name, array in values.items()}, subtract=True)
     jacobian = self._stacked("tangent", {name: array[0] for name, array in tangents.items()}, chain)
-    stats = imr_fast.SolverStats(
+    stats = pyimr.SolverStats(
       backend="jax-tsit5-forward", success=True, message="jacfwd through the diffrax solve", nfev=0, njev=0, nlu=0, elapsed_s=0.0
     )
     return self._evaluation(unit, residual, stats), jacobian
@@ -396,7 +396,7 @@ class PreparedInference:
 
   def _evaluate_batched(self, points):
     values = self._traced_values(points)
-    stats = imr_fast.SolverStats(
+    stats = pyimr.SolverStats(
       backend="jax-batched", success=True, message="one traced program over the batch", nfev=0, njev=0, nlu=0, elapsed_s=0.0
     )
     return tuple(

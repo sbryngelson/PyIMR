@@ -1,6 +1,6 @@
 % Dump IMRv2's collapse initial stress at full precision (PLAN.md W8).
 %
-% imr-fast's precursor lands on S0 = -0.159945110; the trajectory that matches
+% PyIMR's precursor lands on S0 = -0.159945110; the trajectory that matches
 % ref_collapse_zener.csv to 1.5e-05 implies S0 = -0.160046461. This prints what
 % upstream actually computes, plus the intermediates that feed it, so the
 % 1.0e-04 gap can be attributed rather than guessed at.
@@ -33,5 +33,5 @@ fprintf('Rzero            = %.16g\n', init_opts(1));
 fprintf('Rdotzero         = %.16g\n', init_opts(2));
 fprintf('Pb_star          = %.16g\n', init_opts(3));
 fprintf('Pv_star          = %.16g\n', init_opts(6));
-fprintf('\nimr-fast precursor   = -0.159945110\n');
+fprintf('\nPyIMR precursor   = -0.159945110\n');
 fprintf('reference-implied    = -0.160046461\n');

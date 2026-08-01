@@ -3,29 +3,29 @@
 import numpy as np
 import pytest
 
-import imr_fast
-from imr_fast import thermal_fd
+import pyimr
+from pyimr import thermal_fd
 from _validation_support import NHKV, R0, REQ
 
 SECTION = "8. Refusals"
 
-_FORCING = imr_fast.SampledForcing(time_s=(0.0, 1e-5, 2e-5), pressure_pa=(0.0, 1e4, 0.0))
+_FORCING = pyimr.SampledForcing(time_s=(0.0, 1e-5, 2e-5), pressure_pa=(0.0, 1e4, 0.0))
 
 
 def _config(**overrides):
   overrides.setdefault("material", NHKV)
-  return imr_fast.SimulationConfig(R0=R0, Req=REQ, **overrides)
+  return pyimr.SimulationConfig(R0=R0, Req=REQ, **overrides)
 
 
 _CONFIG_REFUSALS = [
   ("vapor fraction range", ValueError, "initial.vapor_mass_fraction must be between 0 and 1",
-   lambda: imr_fast.InitialState(vapor_mass_fraction=1.5)),
+   lambda: pyimr.InitialState(vapor_mass_fraction=1.5)),
   ("vapor fraction negative", ValueError, "initial.vapor_mass_fraction must be between 0 and 1",
-   lambda: imr_fast.InitialState(vapor_mass_fraction=-0.1)),
+   lambda: pyimr.InitialState(vapor_mass_fraction=-0.1)),
   ("non-finite stress state", ValueError, "initial.stress_state must contain finite values",
-   lambda: imr_fast.InitialState(stress_state=(0.0, np.inf))),
+   lambda: pyimr.InitialState(stress_state=(0.0, np.inf))),
   ("bracket expansions", ValueError, "collapse.maximum_bracket_expansions must be a positive integer",
-   lambda: imr_fast.CollapseInitialization(maximum_bracket_expansions=0)),
+   lambda: pyimr.CollapseInitialization(maximum_bracket_expansions=0)),
   ("material type", TypeError, "material must be a supported material model",
    lambda: _config(material=object())),
   ("physics type", TypeError, "physics must be PhysicalParameters",
@@ -43,13 +43,13 @@ _CONFIG_REFUSALS = [
   ("sampled plus analytic", ValueError, "sampled_forcing cannot be combined with analytic forcing",
    lambda: _config(sampled_forcing=_FORCING, wave_type=1, pA=1e4)),
   ("collapse needs memory", ValueError, "collapse initialization requires a material with memory",
-   lambda: _config(collapse=imr_fast.CollapseInitialization())),
+   lambda: _config(collapse=pyimr.CollapseInitialization())),
   ("collapse excludes stress state", ValueError, "collapse initialization cannot be combined with initial.stress_state",
-   lambda: _config(material=imr_fast.OldroydB(0.1, 2e-6, 4e-7), collapse=imr_fast.CollapseInitialization(),
-                   initial=imr_fast.InitialState(stress_state=(0.0, 0.0)))),
+   lambda: _config(material=pyimr.OldroydB(0.1, 2e-6, 4e-7), collapse=pyimr.CollapseInitialization(),
+                   initial=pyimr.InitialState(stress_state=(0.0, 0.0)))),
   ("collapse excludes wall velocity", ValueError, "collapse initialization requires zero observed wall velocity",
-   lambda: _config(material=imr_fast.OldroydB(0.1, 2e-6, 4e-7), collapse=imr_fast.CollapseInitialization(),
-                   initial=imr_fast.InitialState(wall_velocity_m_s=-1.0))),
+   lambda: _config(material=pyimr.OldroydB(0.1, 2e-6, 4e-7), collapse=pyimr.CollapseInitialization(),
+                   initial=pyimr.InitialState(wall_velocity_m_s=-1.0))),
 ]
 
 
@@ -61,23 +61,23 @@ def test_configuration_refusals(label, error, message, build):
 
 _MATERIAL_REFUSALS = [
   ("Oldroyd-B retardation greater", ValueError, "retardation_time_s must be no greater than relaxation_time_s",
-   lambda: imr_fast.OldroydB(0.1, 2e-6, 3e-6)),
+   lambda: pyimr.OldroydB(0.1, 2e-6, 3e-6)),
   ("Giesekus retardation equal", ValueError, "retardation_time_s must be less than relaxation_time_s",
-   lambda: imr_fast.Giesekus(0.1, 2e-6, 2e-6, 0.2, points=12)),
+   lambda: pyimr.Giesekus(0.1, 2e-6, 2e-6, 0.2, points=12)),
   ("Ogden non-positive modulus", ValueError, r"Ogden requires sum\(shear_moduli_pa \* exponents\) > 0",
-   lambda: imr_fast.Ogden((1000.0,), (-2.0,))),
+   lambda: pyimr.Ogden((1000.0,), (-2.0,))),
   ("Ogden mismatched lengths", ValueError, "Ogden requires equal, non-empty shear_moduli_pa and exponents",
-   lambda: imr_fast.Ogden((1000.0, 500.0), (2.0,))),
+   lambda: pyimr.Ogden((1000.0, 500.0), (2.0,))),
   ("Ogden zero exponent", ValueError, "Ogden exponents must be finite and non-zero",
-   lambda: imr_fast.Ogden((1000.0,), (0.0,))),
+   lambda: pyimr.Ogden((1000.0,), (0.0,))),
   ("elastic type", TypeError, "elastic must be a supported elastic model",
-   lambda: imr_fast.InstantaneousMaterial(elastic=object())),  # pyright: ignore[reportArgumentType]
+   lambda: pyimr.InstantaneousMaterial(elastic=object())),  # pyright: ignore[reportArgumentType]
   ("viscous type", TypeError, "viscous must be a supported viscous model",
-   lambda: imr_fast.InstantaneousMaterial(viscous=object())),  # pyright: ignore[reportArgumentType]
+   lambda: pyimr.InstantaneousMaterial(viscous=object())),  # pyright: ignore[reportArgumentType]
   ("empty instantaneous material", ValueError, "an instantaneous material requires an elastic or viscous law",
-   lambda: imr_fast.InstantaneousMaterial()),
+   lambda: pyimr.InstantaneousMaterial()),
   ("quadrature points", ValueError, "quadrature_points must be an integer >= 8",
-   lambda: imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0), quadrature_points=4)),
+   lambda: pyimr.InstantaneousMaterial(elastic=pyimr.NeoHookean(2500.0), quadrature_points=4)),
 ]
 
 
@@ -93,7 +93,7 @@ def test_finite_difference_matrix_refuses_an_unsupported_order():
 
 
 def test_sensitivity_parameter_refuses_a_non_positive_scale():
-  from imr_fast.sensitivity import SensitivityParameter
+  from pyimr.sensitivity import SensitivityParameter
 
   with pytest.raises(ValueError, match="scale must be finite and positive"):
     SensitivityParameter("R0", scale=0.0)
@@ -104,7 +104,7 @@ _VALUES = np.full(_TIMES.size, 1e-4)
 
 
 def _observation(**overrides):
-  from imr_fast.inference import FieldObservation
+  from pyimr.inference import FieldObservation
 
   fields = {"field": "radius_m", "time_s": _TIMES, "values": _VALUES, "standard_deviation": 5e-7}
   fields.update(overrides)
@@ -112,7 +112,7 @@ def _observation(**overrides):
 
 
 def _inference_refusals():
-  from imr_fast.inference import FieldObservation, InferenceParameter, prepare_inference
+  from pyimr.inference import FieldObservation, InferenceParameter, prepare_inference
 
   good = InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0)
   return [
@@ -156,7 +156,7 @@ def test_inference_refusals(label, error, message, build):
 
 
 def test_batch_evaluation_refuses_malformed_unit_parameters():
-  from imr_fast.inference import InferenceParameter, prepare_inference
+  from pyimr.inference import InferenceParameter, prepare_inference
 
   problem = prepare_inference(_config(), _observation(), (InferenceParameter("material.shear_modulus_pa", 1500.0, 4000.0),))
   with pytest.raises(ValueError, match="batch parameters must have shape"):
@@ -169,7 +169,7 @@ def test_batch_evaluation_refuses_malformed_unit_parameters():
 
 def test_the_log_transform_is_geometric_and_its_derivative_is_exact(measured):
   """Two claims: the map is geometric, so the unit midpoint lands on the geometric"""
-  from imr_fast.inference import InferenceParameter
+  from pyimr.inference import InferenceParameter
 
   lower, upper = 1e-3, 1e3
   parameter = InferenceParameter("material.viscosity_pa_s", lower, upper, transform="log")
@@ -189,18 +189,18 @@ def test_the_log_transform_is_geometric_and_its_derivative_is_exact(measured):
 def test_masstrans_refuses_a_half_specified_thermal_start():
   """kv0 is saturation at T8, so naming only one of the pair inherits a mismatched other (#133)."""
   for initial in (
-    imr_fast.InitialState(bubble_temperature_k=300.0),
-    imr_fast.InitialState(vapor_mass_fraction=0.9),
+    pyimr.InitialState(bubble_temperature_k=300.0),
+    pyimr.InitialState(vapor_mass_fraction=0.9),
   ):
     with pytest.raises(ValueError, match="set both or neither"):
-      imr_fast.prepare(_config(bubtherm=1, masstrans=1, vapor=1, initial=initial))
+      pyimr.prepare(_config(bubtherm=1, masstrans=1, vapor=1, initial=initial))
 
   # both or neither is accepted, including a deliberately off-equilibrium pair
-  imr_fast.prepare(_config(bubtherm=1, masstrans=1, vapor=1))
-  imr_fast.prepare(
+  pyimr.prepare(_config(bubtherm=1, masstrans=1, vapor=1))
+  pyimr.prepare(
     _config(bubtherm=1, masstrans=1, vapor=1,
-            initial=imr_fast.InitialState(bubble_temperature_k=300.0, vapor_mass_fraction=0.804203))
+            initial=pyimr.InitialState(bubble_temperature_k=300.0, vapor_mass_fraction=0.804203))
   )
 
   # without masstrans there is no saturation coupling, so a lone bubble temperature is fine
-  imr_fast.prepare(_config(bubtherm=1, initial=imr_fast.InitialState(bubble_temperature_k=300.0)))
+  pyimr.prepare(_config(bubtherm=1, initial=pyimr.InitialState(bubble_temperature_k=300.0)))

@@ -242,3 +242,35 @@ def test_exact_gradients_beat_an_ensemble_smoother_on_known_truth(measured):
   # the unobserved component is where the exact operator pays: it is reached only through
   # the coupling, which one ensemble linearisation across the window represents poorly
   assert rms(variational, 1) < rms(ensemble, 1) / 5.0
+
+
+@pytest.mark.slow
+def test_ienks_converges_onto_the_variational_solution(measured):
+  """The claim that makes IEnKS worth having: it reaches the same minimum 4D-Var does,
+
+  by re-linearising in the ensemble subspace, without ever forming the tangent operator.
+  The one-shot smoother linearises once and stops five orders of magnitude short.
+  """
+  from pyimr.assimilation import ensemble_smoother, four_dvar, ienks
+
+  problem, times, truth, operator = _flow()
+  sigma = 2e-4
+  background_sd = np.array([5e-3, 2e-2])
+  clean = problem.solve_states(times, truth) @ operator.T
+
+  rng = np.random.default_rng(100)
+  observations = clean + rng.normal(0.0, sigma, size=clean.shape)
+  background = truth + rng.normal(0.0, background_sd)
+  variational = four_dvar(
+    problem, times, observations, operator, sigma**2, background, np.diag(1.0 / background_sd**2), maximum_iterations=80
+  ).state
+  members = background + rng.normal(0.0, background_sd, size=(64, truth.size))
+
+  gaps = [float(np.linalg.norm(ienks(problem, times, members, observations, operator, sigma**2, iterations=n).mean - variational))
+          for n in (1, 2, 4, 12)]
+  one_shot = float(np.linalg.norm(ensemble_smoother(problem, times, members, observations, operator, sigma**2, rng=rng).mean - variational))
+
+  measured("ienks -> 4D-Var", "  ".join(f"{n}it={g:.1e}" for n, g in zip((1, 2, 4, 12), gaps, strict=True)) + f"  one-shot={one_shot:.1e}")
+  assert gaps == sorted(gaps, reverse=True), f"each iteration must close on the variational solution; got {gaps}"
+  assert gaps[-1] < 1e-6, f"12 iterations should essentially reach it; got {gaps[-1]:.2e}"
+  assert one_shot > 100 * gaps[-1], "the one-shot smoother must be visibly short of the minimum, or this proves nothing"

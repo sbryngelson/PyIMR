@@ -2091,3 +2091,77 @@ harness, because it produces numbers that look like evidence.
 | **Dispatch under `jit`** | the #96 tables are Python-object keyed | closed over at trace time; static per solve |
 | **Compile latency** | 1.4 s per distinct configuration | amortised for BOED, but a design sweep that varies the time grid may retrigger |
 | **Two backends drift** | exactly the failure mode `_mechanical.py` already has | the cross-backend test must cover every config the JAX backend claims |
+
+---
+
+## Open issues, banked
+
+GitHub is the source of truth; this is the copy that survives losing the issue
+tracker. Updated 2026-07-31. Each entry records what was **measured**, because
+in three consecutive cases (#119, #120, #129) the issue's stated cause was wrong
+and the proposed remedy would have been aimed at the wrong thing.
+
+| # | title | priority | state of knowledge |
+|---|---|---|---|
+| 120 | Spectral thermal implicit solve is a dense `O(Nt^3)` Newton | labelled P1, **is P2** | narrowed |
+| 122 | Data assimilation: EnKF / IEnKS / 4D-Var | P2 | partly built already |
+| 124 | Remaining coverage gaps | P3 | untouched |
+| 123 | CI test step vs the 5-minute target | closed, **prematurely** | see below |
+
+### #120 -- dense thermal Newton
+
+The premise "exploit sparsity in the thermal Jacobian" is **wrong**: Chebyshev
+differentiation matrices are dense, so there is nothing to factor sparsely.
+Narrowed to *high-resolution sensitivities capped near `Nt = 80`*, which nothing
+currently needs -- hence P2, not P1. Jacobian-free Newton-Krylov is the
+remaining lever. Do not start by implementing the issue as written.
+
+### #122 -- data assimilation
+
+The issue's table claims initial-state tangents are missing. They are **partly
+built**: `INITIAL_PATHS` exists in `_jax.py` and `jacfwd` already reaches the
+scalar initial fields through `initial_state_vector`. What is actually missing:
+
+- `stress_state`, excluded from `_INITIAL_FIELDS` because it is a vector
+- radius, pinned to `1.0` and not exposed
+- the raw state vector `y0`, which is what a window restart needs
+
+So step 2 of that issue should read "lift the *raw state vector* to an
+argument", not "lift `start`". Also: the declared `initial.*` paths have **no
+correctness test** -- they appear only in a coverage-set assertion in
+`tests/test_backend_jax.py`. Sliding windows remain out of scope by maintainer
+decision.
+
+### #124 -- coverage gaps
+
+Multiprocessing paths, constructed-failure states, distributed stress rate.
+P3, and genuinely just work.
+
+### #123 -- CI timing, closed prematurely
+
+Auto-closed by a `Closes #123` line in PR #132 before the evidence it was
+waiting for arrived. The diagnosis history is worth keeping because two of the
+three explanations were wrong:
+
+1. blamed test selection -- wrong
+2. blamed XLA cache keys not being portable across runner CPUs, and added
+   `XLA_FLAGS=--xla_cpu_max_isa=AVX2` -- **wrong**; measured a job restoring 450
+   entries and reusing them, so keys were already portable
+3. the actual cause: the prune cap (700) sat **below** the suite's working set
+   (912 programs), so every run pruned the oldest half, which is the half it had
+   just restored. It alternated forever. Cap raised to 4000/3000 in #132, and
+   the workflow added to the cache key in #134 because `actions/cache` keys are
+   write-once and the fix could not otherwise take effect
+
+Still unsettled: whether the AVX2 pin earns its 3.6% throughput cost, and
+whether the per-push step now sits under 5 minutes. The flatten in #137 rotated
+the key from `src/**/*.py` to `pyimr/**/*.py`, so the cache is cold again and
+the next few runs say nothing. Reopen and judge after several warm runs.
+
+### Not an issue, but do not lose it
+
+`_bracketed_root` (numpy) strips the tracer from its finite-difference slope via
+`_value`, while `_traced_root` (the jax path) differentiates the identical
+expression. Same routine, two behaviours. It is **not** the cause of #133 --
+`stop_gradient` on the slope changed nothing -- but the asymmetry is real and
+unexplained.

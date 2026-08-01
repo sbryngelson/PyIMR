@@ -128,7 +128,7 @@ def test_structured_api_requires_config():
     simulate([0.0, 1.0], object())  # pyright: ignore[reportArgumentType] - the wrong type IS the test
 
 
-PUBLIC_MODULES = ("pyimr", "pyimr.sensitivity", "pyimr.inference", "pyimr.data", "pyimr.design", "pyimr.pymc_op")
+PUBLIC_MODULES = ("pyimr", "pyimr.sensitivity", "pyimr.inference", "pyimr.data", "pyimr.design", "pyimr.pymc_op", "pyimr.assimilation")
 PACKAGE = "pyimr"
 
 

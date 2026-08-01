@@ -180,7 +180,7 @@ jobs:
         if: matrix.python-version == '3.12'
         run: |
           python -m pip install "pdoc>=15"
-          python -m pdoc -o site pyimr pyimr.sensitivity pyimr.inference pyimr.data pyimr.design pyimr.pymc_op
+          python -m pdoc -o site pyimr pyimr.sensitivity pyimr.inference pyimr.data pyimr.design pyimr.pymc_op pyimr.assimilation
 
       - name: Build distributions
         if: matrix.python-version == '3.12'

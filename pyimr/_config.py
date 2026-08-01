@@ -345,6 +345,20 @@ class PreparedProblem:
     _, states, _ = _integrate_prepared(self, tv, state)
     return _freeze_array(np.asarray(states).T)
 
+  def state_tangents(self, tv, state=None):
+    """`(states, jacobian)` where `jacobian[k]` is `d state(t_k) / d state(t_0)`.
+
+    The tangent linear operator of the flow. `jacobian[0]` is the identity by
+    construction, and `jacobian[k] @ v` propagates a perturbation `v` to `t_k`.
+    """
+    from pyimr import _validate_state
+
+    from ._jax import state_tangents_jax
+
+    times = _validate_inputs(tv, self.config)
+    start = self.initial_state if state is None else _validate_state(self, state)
+    return state_tangents_jax(self, times, start)
+
   def solve_from(self, state, tv) -> SimulationResult:
     """Solve from an arbitrary state rather than the configured initial one.
 

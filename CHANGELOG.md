@@ -33,8 +33,14 @@ builds a wheel and checks its contents instead, and runs in the nightly set.
 
 `validate_bubtherm_adiabatic.py` and `validate_thermal_fd.py` moved from the
 repo root to `tools/`. `pyproject.toml` gained `authors`, `keywords`,
-`classifiers` and `[project.urls]`; it still declares no `license`, because the
-repo ships no LICENSE file and guessing one would be worse than saying nothing.
+`classifiers` and `[project.urls]`.
+
+### The project is MIT licensed
+
+Previously unlicensed, which meant no permission to use it. `LICENSE` is now in
+the repo and ships inside the wheel at `dist-info/licenses/`, declared as a
+PEP 639 SPDX expression (`license = "MIT"`) rather than the deprecated
+`License ::` classifier. Building therefore needs `setuptools>=77`.
 
 ### Breaking: results change
 

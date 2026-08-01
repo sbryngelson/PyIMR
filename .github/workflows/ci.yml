@@ -165,10 +165,10 @@ jobs:
       - name: Static checks
         run: python -m ruff check .
 
-      # Gates on NEW type errors only; the pre-existing ones are recorded in
-      # tools/pyright_baseline.json (issue #33). One version, because pyright
-      # infers differently across releases and a matrix would need a baseline
-      # per entry.
+      # The baseline is empty as of #142, so this gates on zero. The wrapper stays
+      # because it supplies --pythonpath; a bare `pyright` resolves against the wrong
+      # interpreter and reports every third-party import as missing. One version,
+      # because pyright infers differently across releases.
       - name: Type check
         if: matrix.python-version == '3.12'
         run: python tools/pyright_baseline.py

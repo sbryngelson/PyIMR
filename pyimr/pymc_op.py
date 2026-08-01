@@ -46,7 +46,8 @@ def _make_ops(inference):
     itypes, otypes = [tensor.dvector], [tensor.dscalar]
 
     def perform(self, node, inputs, output_storage): output_storage[0][0] = np.array(evaluate(inputs[0])[0])
-    def grad(self, inputs, output_grads): return [output_grads[0] * gradient_op(inputs[0])]
+    # pytensor's stub types `gradient_op(...)` as list[Variable]; at runtime it is a Variable
+    def grad(self, inputs, output_grads): return [output_grads[0] * gradient_op(inputs[0])]  # pyright: ignore[reportOperatorIssue]
 
   gradient_op = Gradient()
   return LogLikelihood(), gradient_op

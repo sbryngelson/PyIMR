@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import copy
 from types import MappingProxyType
@@ -334,9 +334,17 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
     expansions += 1
   if upper_residual < 0.0:
     raise SimulationError(f"collapse shooting could not bracket an initial velocity after {settings.maximum_bracket_expansions} expansions")
-  initial_velocity = float(brentq(
-    residual, lower_velocity, upper_velocity, xtol=settings.radius_tolerance, rtol=max(settings.radius_tolerance, 4.0 * np.finfo(float).eps)
-  ))  # pyright: ignore[reportArgumentType] - scipy types rtol as float64
+  # `cast` because scipy's stub returns `float | tuple[float, RootResults]` whatever
+  # `full_output` says, so nothing narrows it at the call.
+  initial_velocity = float(
+    cast(
+      float,
+      brentq(
+        residual, lower_velocity, upper_velocity, xtol=settings.radius_tolerance,
+        rtol=np.float64(max(settings.radius_tolerance, 4.0 * np.finfo(float).eps)),  # the stub wants float64
+      ),
+    )
+  )
   maximum_state, maximum_time = integrate(initial_velocity)
   memory_state = _freeze_array(maximum_state[2:])
   stats = CollapseStats(

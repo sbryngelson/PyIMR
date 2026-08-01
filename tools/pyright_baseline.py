@@ -1,9 +1,15 @@
 """Run pyright and fail only on diagnostics that are not already recorded.
 
-pyright has no built-in baseline. The repo has 114 pre-existing diagnostics
-(issue #33) and requiring them to be cleared before any type checking runs at
-all is how type checking never gets started -- so this records them and gates
-on additions.
+pyright has no built-in baseline. This started at 114 pre-existing diagnostics
+(issue #33), because requiring them cleared before any type checking runs at all
+is how type checking never gets started.
+
+**The baseline is now empty**, so the bar is simply zero and this is the runner
+that enforces it (#142). It stays rather than being replaced by a bare `pyright`
+call for two reasons: it supplies `--pythonpath`, without which pyright resolves
+against whatever interpreter it finds and reports every third-party import as
+missing; and if a dependency ships a broken stub, recording that one diagnostic
+is better than turning the gate off.
 
 Fingerprint is (path, rule, message), deliberately without a line number:
 including one makes the baseline churn on every unrelated edit, which trains

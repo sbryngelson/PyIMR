@@ -115,7 +115,7 @@ def test_an_ensemble_member_matches_its_individual_solve():
   rng = np.random.default_rng(0)
   members = start + 1e-4 * rng.normal(size=(6, start.size))
 
-  ensemble = problem.solve_ensemble(members, times)
+  ensemble, _ = problem.solve_ensemble(members, times)
   assert ensemble.shape == (6, times.size, start.size)
 
   worst = max(float(np.abs(ensemble[i] - problem.solve_states(times, members[i])).max()) for i in range(len(members)))
@@ -132,7 +132,7 @@ def test_the_ensemble_carries_a_spread_forward():
   rng = np.random.default_rng(1)
   members = start + np.column_stack([rng.normal(0.0, 1e-3, 24), np.zeros(24)])
 
-  ensemble = problem.solve_ensemble(members, times)
+  ensemble, _ = problem.solve_ensemble(members, times)
   spread = ensemble[:, :, 0].std(axis=0)
   assert spread[0] == pytest.approx(members[:, 0].std(), rel=1e-9)
   assert spread[-1] > spread[0], "a perturbation in radius should not stay the same size through a collapse"

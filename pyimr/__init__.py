@@ -237,21 +237,31 @@ def _build_result(problem: PreparedProblem, time_s: np.ndarray, states, stats: S
     config=config,
   )
 
-def _integrate_prepared(problem: PreparedProblem, tv):
+def _validate_state(problem: PreparedProblem, state):
+  """A restart state has to match the layout the problem was prepared for."""
+  values = np.asarray(state, dtype=float)
+  expected = problem.initial_state.size
+  if values.shape != (expected,):
+    raise ValueError(f"state must have shape ({expected},) for this configuration; got {values.shape}")
+  if not np.all(np.isfinite(values)): raise ValueError("state must contain only finite values")
+  return values
+
+def _integrate_prepared(problem: PreparedProblem, tv, state=None):
   config = problem.config
   time_s = _validate_inputs(tv, config)
   p = problem.parameters
   tn = time_s / p["t0"]
   args = _rhs_args(problem, p, medium=problem.medium)
+  start = problem.initial_state if state is None else _validate_state(problem, state)
   states, stats = _integrate(
-    _rhs, tn, problem.initial_state, args=args,
+    _rhs, tn, start, args=args,
     rtol=config.rtol, atol=config.atol, failure="IMR integration failed", config=config,
     max_step=None if config.max_step_s is None else config.max_step_s / p["t0"],
   )
   return time_s, states, stats
 
-def _solve_prepared(problem: PreparedProblem, tv) -> SimulationResult:
-  time_s, states, stats = _integrate_prepared(problem, tv)
+def _solve_prepared(problem: PreparedProblem, tv, state=None) -> SimulationResult:
+  time_s, states, stats = _integrate_prepared(problem, tv, state)
   try:
     return _build_result(problem, time_s, states, stats)
   except _MaterialDomainError as error:

@@ -236,3 +236,20 @@ def test_floating_point_suppression_stays_where_it_was_argued_for():
   root = Path(str(importlib.import_module(PACKAGE).__file__)).resolve().parent
   found = {site for path in sorted(root.glob("*.py")) for site in _errstate_sites(ast.parse(path.read_text()), path.stem)}
   assert found == ERRSTATE_ALLOWED, f"floating-point suppression moved: {found ^ ERRSTATE_ALLOWED}; see #35"
+
+
+def test_a_prepared_problem_survives_pickling():
+  """Every `workers > 1` path sends this to another process. `parameters` is a
+
+  mappingproxy, which pickle refuses, so all of them died before running any work.
+  Checked here rather than only through a subprocess, because this is the actual cause
+  and the check costs nothing.
+  """
+  import pickle
+
+  times = np.linspace(0.0, 1e-5, 20)
+  problem = prepare(base_config(bubtherm=1, Nt=7))
+  restored = pickle.loads(pickle.dumps(problem))
+
+  assert type(restored.parameters).__name__ == "mappingproxy", "the round trip must not quietly widen the type"
+  np.testing.assert_array_equal(problem.solve(times).radius_ratio, restored.solve(times).radius_ratio)

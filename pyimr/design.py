@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import get_context
 from dataclasses import dataclass
 import warnings
 from numbers import Integral
@@ -75,7 +76,7 @@ def design_information(inference, *, draws=128, seed=0, workers=1, max_failure_f
   if workers == 1:
     outcomes = [_fisher_worker(argument) for argument in arguments]
   else:
-    with ProcessPoolExecutor(max_workers=workers) as executor:
+    with ProcessPoolExecutor(max_workers=workers, mp_context=get_context("spawn")) as executor:
       outcomes = list(executor.map(_fisher_worker, arguments))
   matrices = [value for value in outcomes if not isinstance(value, Exception)]
   errors = [value for value in outcomes if isinstance(value, Exception)]

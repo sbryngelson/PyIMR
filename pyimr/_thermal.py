@@ -146,7 +146,18 @@ def _value(x):
   return getattr(x, "value", x).real
 
 def _traced_root(residual, bracket, xp, *, halvings=_HALVINGS, polish=_POLISH):
-  """The bracketed solve again, for a namespace that cannot branch on a value."""
+  """The bracketed solve again, for a namespace that cannot branch on a value.
+
+  This differentiates the finite-difference `slope` where `_bracketed_root` freezes it
+  with `_value`. That asymmetry is a constraint, not a decision: `_value` is there so
+  scipy's `brentq` receives a plain float, and this path has no such requirement.
+
+  It is immaterial at the settings above. Differentiating the slope adds a term scaled
+  by `residual(root)`, and 20 halvings leave a residual near 1e-06, so the two agree to
+  machine precision -- measured 2e-16 or better against an analytic implicit derivative.
+  It stops being immaterial if `_HALVINGS` or `_POLISH` are cut, which is what
+  `test_the_traced_root_derivative_is_exact` pins (#161).
+  """
   low, high = bracket
   below = residual(low) >= 0.0
   for _ in range(halvings):

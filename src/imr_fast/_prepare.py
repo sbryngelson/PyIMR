@@ -376,6 +376,15 @@ def prepare(config: SimulationConfig) -> PreparedProblem:
   if initial.bubble_temperature_k is not None and not config.bubtherm: raise ValueError("initial bubble temperature requires bubtherm=1")
   if initial.medium_temperature_k is not None and not config.medtherm: raise ValueError("initial medium temperature requires medtherm=1")
   if initial.vapor_mass_fraction is not None and not config.masstrans: raise ValueError("initial vapor mass fraction requires masstrans=1")
+  # saturation ties these two. Setting one alone leaves the vapour out of equilibrium with the
+  # temperature it is supposed to be saturated at -- kv0 is saturation at T8, so a bubble
+  # temperature of 300 K against T8=298.15 K starts 0.144 off. Demand both so the choice is
+  # deliberate rather than inherited from a default (#133).
+  if config.masstrans and (initial.bubble_temperature_k is None) != (initial.vapor_mass_fraction is None):
+    raise ValueError(
+      "masstrans=1 couples initial.bubble_temperature_k and initial.vapor_mass_fraction through saturation; "
+      "set both or neither"
+    )
   stress_width = layout.stress.stop - layout.stress.start
   if initial.stress_state is not None and len(initial.stress_state) != stress_width:
     raise ValueError(f"initial stress_state requires exactly {stress_width} values")

@@ -58,3 +58,26 @@ def test_collapse_shooting_tangent(measured):
   assert error < 1e-5
   assert residual < 2e-8
 
+
+
+def _initial_offset(config, field, amount):
+  return replace(config, initial=replace(config.initial, **{field: getattr(config.initial, field) + amount}))
+
+
+def test_an_off_equilibrium_start_still_yields_a_tangent(measured):
+  """A deliberate start off thermal equilibrium drove the solver through unphysical states (#133).
+
+  0.804203 is saturation at T8=298.15 K, so pairing it with 300 K is out of equilibrium on
+  purpose -- the state the solver used to choke on, now stated explicitly rather than inherited.
+  """
+  config = imr_fast.SimulationConfig(
+    R0, REQ, NHKV, bubtherm=1, masstrans=1, vapor=1, Nt=15, rtol=1e-9, atol=1e-11,
+    initial=imr_fast.InitialState(bubble_temperature_k=300.0, vapor_mass_fraction=0.804203),
+  )
+  times = np.linspace(0.0, 2e-7, 6)
+  tangent = imr_fast.simulate_with_sensitivities(times, config, ["material.shear_modulus_pa"]).radius_ratio[:, 0]
+  assert np.all(np.isfinite(tangent))
+  difference = _centered_output(times, config, "shear_modulus_pa", 25.0, lambda result: result.radius_ratio)
+  error = float(np.linalg.norm(tangent - difference) / np.linalg.norm(difference))
+  measured("off-equilibrium start tangent", f"rel={error:.2e}")
+  assert error < 1e-4

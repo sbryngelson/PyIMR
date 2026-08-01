@@ -275,8 +275,12 @@ class PreparedInference:
     )
 
   def residual(self, unit_parameters):
-    config = self.config_from_unit(unit_parameters)
-    return self._stack_residual(pyimr.simulate(self._grid, config))
+    # Through the traced program, not `simulate`. `simulate`'s cache key is content-based
+    # on the parameter VALUES, so every distinct point was a fresh XLA compile -- 390 ms a
+    # call against 3 ms here, and `least_squares` calls this every iteration (#163).
+    unit = self._validate_unit_parameters(unit_parameters)
+    values, _ = self._traced_values(np.atleast_2d(unit))
+    return self._stacked("value", {name: array[0] for name, array in values.items()}, subtract=True)
 
   def jacobian(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
@@ -305,7 +309,7 @@ class PreparedInference:
 
   def _traced_values(self, points):
     values, _ = self._traced_at(points, True)
-    return self._by_field(values)
+    return self._by_field(values), np.asarray(values.steps)
 
   def _traced_fields(self, points):
     values, tangents = self._traced_at(points, False)
@@ -335,9 +339,7 @@ class PreparedInference:
 
   def evaluate(self, unit_parameters):
     unit = self._validate_unit_parameters(unit_parameters)
-    config = self.config_from_unit(unit)
-    result = pyimr.simulate(self._grid, config)
-    return self._evaluation(unit, self._stack_residual(result), result.stats)
+    return self._evaluate_batched(np.atleast_2d(unit))[0]
 
   def evaluate_with_jacobian(self, unit_parameters):
     """Likelihood and Jacobian from a single sensitivity solve."""
@@ -396,13 +398,21 @@ class PreparedInference:
       return tuple(executor.map(_evaluate_worker, repeat(self), points))
 
   def _evaluate_batched(self, points):
-    values = self._traced_values(points)
-    stats = pyimr.SolverStats(
-      backend="jax-batched", success=True, message="one traced program over the batch", nfev=0, njev=0, nlu=0, elapsed_s=0.0
-    )
+    values, steps = self._traced_values(points)
     return tuple(
-      self._evaluation(point, self._stacked("value", {n: a[k] for n, a in values.items()}, subtract=True), stats)
+      self._evaluation(
+        point, self._stacked("value", {n: a[k] for n, a in values.items()}, subtract=True), self._batched_stats(steps, k)
+      )
       for k, point in enumerate(points)
+    )
+
+  @staticmethod
+  def _batched_stats(steps, index):
+    """Per-point solver steps, which the batched path used to report as zero."""
+    count = np.atleast_1d(np.asarray(steps))
+    return pyimr.SolverStats(
+      backend="jax-batched", success=True, message="one traced program over the batch",
+      nfev=int(count[index if count.size > 1 else 0]), njev=0, nlu=0, elapsed_s=0.0,
     )
 
   def fit_multistart(self, starts, *, seed=0, max_evaluations=200, workers=1):

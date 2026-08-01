@@ -210,6 +210,9 @@ class TracedOutputs:
   bubble_temperature: np.ndarray | None
   medium_temperature: np.ndarray | None
   vapor_fraction: np.ndarray | None
+  # Solver steps, primal only. `jacfwd` never sees it -- an integer count has no
+  # derivative, and including it in the differentiated outputs is an error, not a zero.
+  steps: np.ndarray | None = None
 
 SCALE_PATHS = {
   "material.shear_modulus_pa": 0,
@@ -345,7 +348,12 @@ def sensitivities_jax(problem, times, paths, at=None, values_only=False):
     derived = jnp.stack(
       [radius, radius * length, velocity * length / p["t0"], pressure * p["P8"], stress * p["P8"]], axis=1
     )
-    return (states, derived, *_thermal_fields(states, p, problem, medium, jnp, _apply_thermal_boundaries, scalars["T8"]))
+    fields = _thermal_fields(states, p, problem, medium, jnp, _apply_thermal_boundaries, scalars["T8"])
+    return (states, derived, *fields, solution.stats["num_steps"])
+
+  def differentiable(traced, grid_s):
+    """`outputs` without the step count, which is what `jacfwd` may be applied to."""
+    return outputs(traced, grid_s)[:-1]
 
   point = traced_base if at is None else np.asarray(at, dtype=float)
   batched = point.ndim == 2
@@ -354,8 +362,8 @@ def sensitivities_jax(problem, times, paths, at=None, values_only=False):
 
   def build():
     if batched:
-      return jax.jit(jax.vmap(outputs, in_axes=(0, None))), jax.jit(jax.vmap(jax.jacfwd(outputs), in_axes=(0, None)))
-    return jax.jit(outputs), jax.jit(jax.jacfwd(outputs))
+      return jax.jit(jax.vmap(outputs, in_axes=(0, None))), jax.jit(jax.vmap(jax.jacfwd(differentiable), in_axes=(0, None)))
+    return jax.jit(outputs), jax.jit(jax.jacfwd(differentiable))
 
   program_key = (_content_key(problem), tuple(paths), grid_s.size, point.shape, "sensitivities")
   primal_fn, tangent_fn = _cached(program_key, build)
@@ -368,8 +376,10 @@ def sensitivities_jax(problem, times, paths, at=None, values_only=False):
     return None if item is None else required(item)
 
   def plain(group):
-    states, derived, bubble, medium, vapor = group
-    return TracedOutputs(required(states), required(derived), optional(bubble), optional(medium), optional(vapor))
+    """Primal groups carry a trailing step count; tangent groups do not."""
+    states, derived, bubble, medium, vapor, *rest = group
+    steps = required(rest[0]) if rest else None
+    return TracedOutputs(required(states), required(derived), optional(bubble), optional(medium), optional(vapor), steps)
 
   # `jax.jit` traces lazily, so leaving `tangent_fn` uncalled skips the whole `jacfwd`
   # rather than merely discarding it.

@@ -80,7 +80,14 @@ def test_likelihood_and_jacobian(prepared_inference, measured):
   evaluation = inference.evaluate(centre)
   jacobian = inference.jacobian(centre)
   measured("likelihood and Jacobian", f"max|residual|={np.max(np.abs(evaluation.residual)):.2e}")
-  assert np.max(np.abs(evaluation.residual)) == 0.0
+  # Not exactly zero any more, and the reason is worth keeping. The observation is built
+  # by `simulate`; `evaluate` now goes through the traced program (#163), so two routes
+  # produce the prediction. They agree to 2.4e-16 RELATIVE on the radius -- one bit -- and
+  # the whitened residual only looks large because sigma is 1e-8 m, making 5.4e-20 m of
+  # disagreement read as 5.4e-12. Real observations never share a code path with the model,
+  # so exact cancellation was an artefact of the fixture rather than a property worth
+  # asserting.
+  assert np.max(np.abs(evaluation.residual)) < 1e-10
   assert jacobian.shape == (times.size, 2)
   assert np.all(np.isfinite(jacobian))
 

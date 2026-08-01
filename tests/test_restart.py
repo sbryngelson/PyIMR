@@ -149,3 +149,35 @@ def test_the_ensemble_carries_a_spread_forward():
 def test_the_ensemble_refuses_a_malformed_batch(members, message):
   with pytest.raises(ValueError, match=message):
     _problem().solve_ensemble(members, _TIMES)
+
+
+def test_chunking_an_ensemble_changes_only_the_last_bits_of_the_remainder(measured):
+  """`chunk` is a performance lever, and it is NOT exactly a no-op.
+
+  70 members at 32 splits 32/32/6. The full-width pieces come back bit-identical to the
+  unchunked solve; the width-6 remainder does not, because a different batch width is a
+  different XLA kernel and so a different summation order. Measured at 1.0e-15 absolute,
+  3.6e-14 relative -- three orders below the solver's own rtol, but not zero, and a test
+  asserting equality would fail on the remainder alone.
+  """
+  problem = _problem(bubtherm=1, Nt=7)
+  times = np.linspace(0.0, 12e-6, 21)
+  start = np.asarray(problem.initial_state, dtype=float)
+  members = start + 1e-4 * np.random.default_rng(1).normal(size=(70, start.size))
+
+  whole, whole_ok = problem.solve_ensemble(members, times)
+  pieces, pieces_ok = problem.solve_ensemble(members, times, chunk=32)
+
+  np.testing.assert_array_equal(whole_ok, pieces_ok)
+  np.testing.assert_array_equal(whole[:64], pieces[:64])  # the two full-width chunks
+  remainder = float(np.abs(whole[64:] - pieces[64:]).max())
+  measured("chunk remainder", f"max|diff|={remainder:.1e}")
+  assert remainder < 1e-12, f"the remainder chunk moved by {remainder:.2e}, far more than rounding"
+
+
+@pytest.mark.parametrize("chunk", [0, -1, 2.5])
+def test_a_malformed_chunk_is_refused(chunk):
+  problem = _problem()
+  members = np.asarray(problem.initial_state, dtype=float)[None, :].repeat(4, axis=0)
+  with pytest.raises(ValueError, match="chunk must be a positive integer"):
+    problem.solve_ensemble(members, _TIMES, chunk=chunk)

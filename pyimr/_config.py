@@ -358,7 +358,7 @@ class PreparedProblem:
     _, states, _ = _integrate_prepared(self, tv, state)
     return _freeze_array(np.asarray(states).T)
 
-  def solve_ensemble(self, members, tv, *, drop_failures: bool = False):
+  def solve_ensemble(self, members, tv, *, drop_failures: bool = False, chunk: int | None = None):
     """`(states, ok)` for a batch of initial states, advanced together.
 
     One `vmap` over the whole ensemble rather than a loop of solves, so the members share
@@ -368,6 +368,16 @@ class PreparedProblem:
 
     Raises if any member failed, unless `drop_failures`, in which case the survivors are
     returned and `ok` records who they were.
+
+    `chunk` splits the batch and solves the pieces in turn. Per-member cost is not
+    monotone in batch width -- measured 20 ms at 32 members and 74-94 ms at 36-48, with
+    the same members duplicated into a wider batch reproducing it, so it is the width and
+    not the draw (#162). Chunking at 32 was 1.8-2.6x faster for 64-256 members on one
+    machine. It is not the default because that number is a fact about that machine: XLA
+    picks kernels per shape and 34 was fast where 33 and 36 were not. Measure before
+    setting it. Chunking is not exactly a no-op: full-width pieces come back
+    bit-identical, but a remainder piece has a different width and so a different kernel
+    and summation order -- measured 1.0e-15 absolute, three orders below the solver rtol.
     """
     from pyimr import _validate_state
 
@@ -377,7 +387,13 @@ class PreparedProblem:
     batch = np.asarray(members, dtype=float)
     if batch.ndim != 2: raise ValueError(f"members must be a 2-D array of states; got shape {batch.shape}")
     stacked = np.stack([_validate_state(self, row) for row in batch])
-    states, ok = ensemble_states_jax(self, times, stacked)
+    if chunk is None:
+      states, ok = ensemble_states_jax(self, times, stacked)
+    else:
+      if not isinstance(chunk, Integral) or chunk < 1: raise ValueError("chunk must be a positive integer")
+      pieces = [ensemble_states_jax(self, times, stacked[start : start + int(chunk)]) for start in range(0, len(stacked), int(chunk))]
+      states = np.concatenate([piece[0] for piece in pieces])
+      ok = np.concatenate([piece[1] for piece in pieces])
     if not ok.all() and not drop_failures:
       failed = np.flatnonzero(~ok)
       raise SimulationError(f"{failed.size} of {ok.size} ensemble members failed to integrate: {failed[:8].tolist()}")

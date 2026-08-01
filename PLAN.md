@@ -2162,17 +2162,33 @@ not what they deliver.
 
 Sliding windows remain out of scope by maintainer decision.
 
-### #124 -- coverage gaps
+### #124 -- coverage gaps, narrowed to one group
 
-The one item worth doing is done (#145): the distributed stress **rate** had no
-test, because the default quadrature is `gauss` and the default radial is `1`, so
-nothing selected the trapezoid branch. Asserted as an identity against a centered
-difference rather than as a line touched -- gauss 1.5e-10, trapezoid 3.1e-11.
+Two of the three groups are done, and the second was mis-described here and in
+the issue.
 
-Left open deliberately. The multiprocessing paths risk becoming flaky deadlock
-detectors rather than tests, and the constructed-failure states are only as good
-as the engineering: a state that fails for the wrong reason exercises the line
-without checking the guard.
+**Distributed stress rate (#145).** The trapezoid branch of the explicit `dS/dt`
+was unreachable by any test: the default quadrature is `gauss` and the default
+radial is `1`, so nothing selected both. Asserted as an identity against a
+centered difference -- gauss 1.5e-10, trapezoid 3.1e-11.
+
+**Multiprocessing (#153).** Described as "never run their `workers > 1` branch
+under test". They were not untested, they were **broken**, and had been since the
+parallel code was written. Two faults, the second hidden behind the first:
+`PreparedProblem.parameters` is a mappingproxy so nothing could be pickled to a
+worker; and once that was fixed, `ProcessPoolExecutor`'s default fork start
+method deadlocked against an initialised jax runtime. Fixed with
+`__getstate__`/`__setstate__` and an explicit spawn context. Spawn costs a full
+jax import per worker, so `workers > 1` is now slower than serial on small
+batches and only pays on large ones.
+
+**Left: failure paths needing a constructed physical state.** Collapse precursor
+that never reaches a maximum radius, shooting that cannot bracket, invalid
+generalized viscosity mid-solve, unbracketed equilibrium radius, the
+`except Exception` around the compiled solve. Each needs a configuration
+engineered to fail in one specific way, and the tests are only as good as that
+engineering: a state that fails for the wrong reason exercises the line without
+checking the guard, which reads as coverage while testing nothing.
 
 ### #123 -- CI timing, closed prematurely
 

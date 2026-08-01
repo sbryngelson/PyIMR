@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=69"]
+# >=77 for PEP 639: `license` as an SPDX expression and `license-files`.
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,8 +10,11 @@ description = "Fast, validated solvers for inertial microcavitation rheometry"
 readme = "README.md"
 authors = [{ name = "Spencer Bryngelson", email = "sbryngelson@gmail.com" }]
 keywords = ["cavitation", "rheometry", "bubble-dynamics", "jax", "inverse-problems"]
-# No `license` field: the repo ships no LICENSE file, and guessing one would be worse
-# than declaring nothing. Add both together, as a PEP 639 SPDX string.
+# PEP 639: an SPDX expression, not the legacy `{text = ...}` table, and no
+# `License ::` classifier -- those are deprecated and setuptools rejects pairing
+# them with an expression. Needs setuptools>=77, pinned in [build-system].
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",

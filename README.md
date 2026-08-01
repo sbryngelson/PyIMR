@@ -549,3 +549,7 @@ converted back to dimensional parameter units.
   with relaxation*, Physics of Fluids 27, 063103 (2015).
   <https://doi.org/10.1063/1.4922598>
 - IMRv2: <https://github.com/InertialMicrocavitationRheometry/IMRv2>
+
+## License
+
+MIT — see [LICENSE](LICENSE).

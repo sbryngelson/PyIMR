@@ -61,3 +61,35 @@ def test_former_trapezoid_default_was_not_converged(measured):
   worst = _error(480, "trapezoid")
   measured("former default trapezoid(480)", f"max|dR|={worst:.2e}")
   assert worst > 1e-3, "if this ever drops, the 0.3.0 default change no longer has a justification"
+
+
+@pytest.mark.parametrize("quadrature", ["gauss", "trapezoid"])
+def test_the_distributed_stress_rate_is_the_time_derivative(quadrature, measured):
+  """`radial != 1` asks for an explicit dS/dt. The trapezoid branch of that had no test.
+
+  Checked as an identity rather than a line: along the trajectory the returned rate must
+  equal `dS/dR * Rd + dS/dZ . dZ`, which a centered difference in the direction the state
+  is actually moving reproduces without needing either partial separately.
+  """
+  from pyimr._prepare import prepare
+  from pyimr._stress import _distributed_stress
+
+  material = pyimr.Giesekus(0.1, 2 * T0, 0.4 * T0, 0.2, points=64, quadrature=quadrature)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=material, radial=2)
+  problem = prepare(config)
+  p = problem.parameters
+  state = np.asarray(problem.initial_state, dtype=float)
+  R, Rd = 0.75, -0.4  # mid-collapse: both the radius and the memory are moving
+  Z = state[problem.layout.stress]
+
+  stress, rate, dZ, _ = _distributed_stress(material, problem.distributed_stress, p, R, Rd, Z, True)
+
+  def integral_at(step):
+    moved, _, _, _ = _distributed_stress(material, problem.distributed_stress, p, R + step * Rd, Rd, Z + step * np.asarray(dZ), True)
+    return moved
+
+  step = 1e-7
+  difference = (integral_at(step) - integral_at(-step)) / (2.0 * step)
+  error = abs(rate - difference) / abs(difference)
+  measured(f"{quadrature} stress rate", f"rel={error:.2e}")
+  assert error < 1e-6, f"{quadrature}: rate {rate:.8e} vs centered difference {difference:.8e}"

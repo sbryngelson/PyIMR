@@ -118,3 +118,34 @@ def test_the_guards_leave_physical_states_untouched():
   guarded = kirchhoff_temperature(theta, alpha, beta)
   exact = (-beta + np.sqrt((alpha + beta) ** 2 + 2.0 * alpha * theta)) / alpha
   assert np.array_equal(guarded, exact)
+
+
+def test_the_traced_root_derivative_is_exact(measured):
+  """`_traced_root` must return the implicit-function derivative, not merely the root.
+
+  The residual is chosen so its slope depends on the parameter: `d/dx (t x^2 - 1) = 2 t x`.
+  A residual like `x^2 - t` cannot detect a mistake here, because its slope carries no `t`
+  and every treatment of the slope agrees by construction.
+
+  This is the guard on the asymmetry in #161. `_traced_root` differentiates its
+  finite-difference slope where `_bracketed_root` freezes it, which is harmless only
+  because 20 halvings leave almost no residual. Cutting `_HALVINGS` or `_POLISH` breaks
+  that, and this test is what says so.
+  """
+  from pyimr._jax import _jax
+  from pyimr._thermal import _traced_root
+
+  jax, jnp, _ = _jax()
+
+  def root_of(parameter):
+    return _traced_root(lambda x: parameter * x**2 - 1.0, (0.1, 5.0), jnp)
+
+  worst = 0.0
+  for parameter in (0.5, 2.0, 8.0):
+    exact = -1.0 / (2.0 * parameter**1.5)  # root is t^-1/2
+    assert float(root_of(parameter)) == pytest.approx(parameter**-0.5, rel=1e-9)
+    derivative = float(jax.grad(root_of)(parameter))
+    worst = max(worst, abs(derivative - exact) / abs(exact))
+
+  measured("traced root derivative", f"rel={worst:.2e}")
+  assert worst < 1e-9, f"implicit derivative off by {worst:.2e} relative"

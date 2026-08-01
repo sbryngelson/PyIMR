@@ -97,3 +97,103 @@ def test_the_analysis_leaves_an_unobserved_direction_alone():
 def test_the_analysis_refuses_malformed_input(members, operator, noise, message):
   with pytest.raises(ValueError, match=message):
     enkf_analysis(members, np.zeros(2), operator, noise)
+
+
+def _flow():
+  import pyimr
+  from _validation_support import NHKV, R0, REQ
+
+  problem = pyimr.prepare(pyimr.SimulationConfig(R0, REQ, NHKV, rtol=1e-11, atol=1e-13))
+  times = np.linspace(0.0, 15e-6, 31)
+  truth = np.asarray(problem.initial_state, dtype=float)
+  operator = np.array([[1.0, 0.0]])  # radius only; velocity is never observed
+  return problem, times, truth, operator
+
+
+def test_the_variational_gradient_is_exact(measured):
+  """The gradient is the whole claim. An einsum that contracts the wrong index of the
+
+  tangent operator transposes it, which agrees with a difference quotient in the first
+  component and is 52% wrong in the second -- so this compares every component.
+  """
+  from pyimr.assimilation import variational_cost
+
+  problem, times, truth, operator = _flow()
+  observations = problem.solve_states(times, truth) @ operator.T
+  precision = np.diag([1e4, 1e2])
+  background = truth + np.array([2e-3, 5e-3])
+
+  _, gradient = variational_cost(problem, times, background, observations, operator, 1e-4, background, precision)
+
+  step = 1e-6
+  difference = np.zeros_like(background)
+  for index in range(background.size):
+    offset = np.zeros_like(background)
+    offset[index] = step
+    ahead, _ = variational_cost(problem, times, background + offset, observations, operator, 1e-4, background, precision)
+    behind, _ = variational_cost(problem, times, background - offset, observations, operator, 1e-4, background, precision)
+    difference[index] = (ahead - behind) / (2.0 * step)
+
+  error = float(np.linalg.norm(gradient - difference) / np.linalg.norm(difference))
+  measured("4D-Var gradient", f"rel={error:.2e}")
+  assert error < 1e-7, f"gradient {gradient} vs difference {difference}"
+
+
+def test_four_dvar_recovers_an_initial_state_it_never_observed(measured):
+  """Radius alone is observed, yet the wall velocity comes back too -- the flow couples them."""
+  from pyimr.assimilation import four_dvar
+
+  problem, times, truth, operator = _flow()
+  observations = problem.solve_states(times, truth) @ operator.T
+  background = truth + np.array([5e-3, 2e-2])
+
+  analysis = four_dvar(problem, times, observations, operator, 1e-5, background, np.diag([1e-6, 1e-6]), maximum_iterations=60)
+
+  before = np.abs(background - truth)
+  after = np.abs(analysis.state - truth)
+  measured("4D-Var recovery", f"|err| {before.max():.1e} -> {after.max():.1e} in {analysis.iterations} iters")
+  assert analysis.success
+  assert after.max() < 1e-10, f"analysis still {after} from the truth"
+  assert after.max() < before.max() / 1e6
+
+
+def test_a_tight_background_holds_the_analysis_near_it():
+  """With observations this weak the background term has to dominate, or the prior is decoration."""
+  from pyimr.assimilation import four_dvar
+
+  problem, times, truth, operator = _flow()
+  observations = problem.solve_states(times, truth) @ operator.T
+  background = truth + np.array([5e-3, 2e-2])
+
+  analysis = four_dvar(problem, times, observations, operator, 1e6, background, np.diag([1e12, 1e12]), maximum_iterations=40)
+  assert np.abs(analysis.state - background).max() < 1e-6 * np.abs(background - truth).max()
+
+
+def test_the_cost_refuses_observations_that_do_not_line_up():
+  from pyimr.assimilation import variational_cost
+
+  problem, times, truth, operator = _flow()
+  with pytest.raises(ValueError, match="observations must be"):
+    variational_cost(problem, times, truth, np.zeros((3, 1)), operator, 1e-4, truth, np.eye(2))
+  with pytest.raises(ValueError, match="observations must have 1 columns"):
+    variational_cost(problem, times, truth, np.zeros((times.size, 2)), operator, 1e-4, truth, np.eye(2))
+
+
+def test_a_row_of_nan_observations_is_skipped_rather_than_poisoning_the_cost():
+  """Gaps in a record are normal. A NaN row must contribute nothing, not NaN."""
+  from pyimr.assimilation import variational_cost
+
+  problem, times, truth, operator = _flow()
+  observations = problem.solve_states(times, truth) @ operator.T
+  background = truth + np.array([1e-3, 1e-3])
+  precision = np.diag([1e2, 1e2])
+
+  full_cost, full_gradient = variational_cost(problem, times, background, observations, operator, 1e-4, background, precision)
+  gapped = observations.copy()
+  gapped[5] = np.nan
+  gap_cost, gap_gradient = variational_cost(problem, times, background, gapped, operator, 1e-4, background, precision)
+
+  assert np.isfinite(gap_cost) and np.all(np.isfinite(gap_gradient))
+  assert gap_cost < full_cost, "dropping an observation cannot increase the misfit"
+  # and dropping one of 31 should move it a little, not wipe it out
+  assert gap_cost > 0.5 * full_cost

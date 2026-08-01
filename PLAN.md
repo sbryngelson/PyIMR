@@ -38,7 +38,7 @@ Revised priority after W1: **W8 -> W3 -> W5 -> W6 -> W2 -> W7.**
 
 Small, independent, no physics risk.
 
-- [x] Add `__all__` to `imr_fast.py` (42 names). It previously re-exported
+- [x] Add `__all__` to `pyimr.py` (42 names). It previously re-exported
       `np`, `solve_ivp`, `brentq`, `csr_matrix`, `lil_matrix`, `dataclass`,
       `field`, `PchipInterpolator`, `perf_counter`, `Mapping`,
       `MappingProxyType`, `Integral`, and `annotations`.
@@ -49,7 +49,7 @@ Small, independent, no physics risk.
       star-import namespace and rejects modules, foreign `__module__` owners,
       and union aliases whose members are not repo-owned.
 
-**Done when:** `dir(imr_fast)` minus dunders equals the documented API surface.
+**Done when:** `dir(pyimr)` minus dunders equals the documented API surface.
 
 **Status: done.** 22 passed, ruff clean, `tests/run_validation.py` fully green.
 Note: `imr_inference` imports `_normalize_parameters` from `imr_sensitivity` --
@@ -85,7 +85,7 @@ item is the case-generation script plus harness wiring, with CSV drop-in later.
       `ref_collapse_oldb.csv`, `ref_collapse_nhkv.csv`.
 - [x] Hyperelastic laws: **moot.** IMRv2 expresses only neo-Hookean (`stress=1`)
       and quadratic KV (`stress=2`), both already pinned. The other ten laws in
-      imr-fast have no upstream counterpart to pin against.
+      PyIMR have no upstream counterpart to pin against.
 - [x] Extend `tests/run_validation.py` -- new section `1c. COLLAPSE
       INITIALIZATION vs IMRv2`, plus a `KNOWN GAPS` summary block so
       discrepancies are reported rather than hidden behind a passing suite.
@@ -105,18 +105,18 @@ to it would pin to a bug. The CSV is retained as evidence.
 ### Consequences for the rest of the plan
 
 - **W2 collapses in scope.** Its premise was matching IMRv2's spectral
-  reference for Giesekus/PTT. That reference is unreachable, so imr-fast is not
+  reference for Giesekus/PTT. That reference is unreachable, so PyIMR is not
   behind on those models -- it implements capability upstream advertises but
-  cannot run. The 1e-3 reduction errors are imr-fast FD versus its own
+  cannot run. The 1e-3 reduction errors are PyIMR FD versus its own
   Oldroyd-B limit, not a deficit against a reference. Spectral becomes an
   optional accuracy improvement, not a parity requirement.
 - **W3 changes character.** Only Carreau works upstream, and incorrectly.
-  imr-fast already exceeds IMRv2 here. Any Powell-Eyring work must be built on
+  PyIMR already exceeds IMRv2 here. Any Powell-Eyring work must be built on
   correct formulas, not ported ones.
 - **W4 is resolved.** See below.
 - **New work surfaced:** the collapse Oldroyd-B discrepancy and the memoryless
   collapse restriction, tracked in W8 -- where both turned out to be upstream
-  stubs rather than imr-fast defects.
+  stubs rather than PyIMR defects.
 
 ---
 
@@ -128,7 +128,7 @@ Chebyshev collocation for the thermal and viscoelastic PDEs) alongside
 forces `spectral = 1` for `stress == 6` (PTT) and `stress == 7` (Giesekus)
 unconditionally — there is no upstream FD path for those models.
 
-imr-fast solves them on a 480-point FD Lagrangian grid
+PyIMR solves them on a 480-point FD Lagrangian grid
 (`Giesekus.points=480, extent=60.0`). This is a different discretization from
 the reference, not a tolerance difference.
 
@@ -155,13 +155,13 @@ Decide explicitly rather than by omission.
 
 The stated "done when" above is **unachievable and no longer the point**:
 IMRv2 cannot run Giesekus or PTT at all (upstream defect 1), so there is no
-pinned trajectory to match and no parity deficit to close. imr-fast is ahead
+pinned trajectory to match and no parity deficit to close. PyIMR is ahead
 here, not behind.
 
 What survives as genuine motivation:
 
 - Spectral collocation converges faster than the 480-point FD Lagrangian grid,
-  so it is an accuracy and cost improvement on imr-fast's own terms.
+  so it is an accuracy and cost improvement on PyIMR's own terms.
 - A second independent discretization is the strongest available check on the
   distributed models, precisely *because* no upstream reference exists.
 
@@ -176,7 +176,7 @@ W8, which addresses measured discrepancies rather than hypothetical ones.
 IMRv2 `src/f_viscosity.m` dispatches seven models: Carreau, Carreau-Yasuda,
 Cross, modified Cross, Powell-Eyring, modified Powell-Eyring, simplified Cross.
 
-imr-fast has Newtonian, PowerLaw, CarreauYasuda, Cross, HerschelBulkley,
+PyIMR has Newtonian, PowerLaw, CarreauYasuda, Cross, HerschelBulkley,
 Bingham. PowerLaw / HerschelBulkley / Bingham exceed upstream.
 
 - [ ] Add `PowelEyring` — genuinely absent, no parameter case reaches it.
@@ -235,7 +235,7 @@ confined to the branch predicate. `log1p`/`arcsinh` are also spelled via
 
 ## W4. Radial equation 6
 
-IMRv2 `src/f_radial_eq.m` branches 1--6. imr-fast supports 1--5. The README
+IMRv2 `src/f_radial_eq.m` branches 1--6. PyIMR supports 1--5. The README
 asserts the upstream branch produces non-real states in the tested pressure
 range; that assertion is currently untested.
 
@@ -255,7 +255,7 @@ range; that assertion is currently untested.
 
 **Done when:** the claim is a measurement, not an assertion, either way.
 
-**Status: resolved.** imr-fast's decision to stop at `radial = 5` is correct
+**Status: resolved.** PyIMR's decision to stop at `radial = 5` is correct
 and now evidenced.
 
 ---
@@ -352,9 +352,9 @@ superseded and documented, or listed as a known gap.
 | spectral | `spectral` `nv` `lv` | W2; effectively dead upstream |
 | output | `dimout` `progdisplay` | superseded -- output is always dimensional; no progress printing |
 | nondimensional overrides | `re` `we` `ca` `de` `lam` `br` `chi` `foh` `fom` `iota` `dre` `ee` `om` `gama` `cstar` `p0star` `rzero` `rdotzero` `dtx` `twx` `alpha_g` `alpha_v` `beta_g` `beta_v` `dm` | **not exposed by design** -- the public API is dimensional; these are derived internally |
-| minor gaps | `pv` | imr-fast derives vapour pressure from `T8` via `pvsat`; no direct override |
+| minor gaps | `pv` | PyIMR derives vapour pressure from `T8` via `pvsat`; no direct override |
 
-Only one true gap (`pv`), and it is reachable by adjusting `T8`. imr-fast also
+Only one true gap (`pv`), and it is reachable by adjusting `T8`. PyIMR also
 exposes `medium_specific_heat_j_kg_k`, which IMRv2 fixes in `default_case.m`
 and does not accept as an option.
 
@@ -372,11 +372,11 @@ because it is measured rather than hypothetical.
       a collapse precursor **only** for stress 3 and 4. The recomputed
       `Req_zero` also comes back identical (0.16666667 = the input `Req/R0`),
       so `collapse=1` is a total no-op for NHKV and Oldroyd-B.
-      Confirmed numerically: imr-fast reproduces both references **without**
+      Confirmed numerically: PyIMR reproduces both references **without**
       collapse at **1.56e-05** (Oldroyd-B) and **6.22e-06** (NHKV) -- inside
-      the normal pinned band. The 1.51e-01 figure was imr-fast doing real
+      the normal pinned band. The 1.51e-01 figure was PyIMR doing real
       physics against an upstream stub.
-- [x] **Memoryless collapse: imr-fast is correct to refuse.** IMRv2 accepts
+- [x] **Memoryless collapse: PyIMR is correct to refuse.** IMRv2 accepts
       `collapse=1` with `stress=1` and silently ignores it. Refusing is the
       stricter behaviour; the harness now asserts the refusal so it cannot
       regress.
@@ -386,12 +386,12 @@ because it is measured rather than hypothetical.
       bubtherm+medtherm+masstrans+vapor model, which is **new coverage**: the
       Oldroyd-B case is the first pinned coupled-model trajectory with a
       memory material.
-- [x] **Collapse Zener 1.55e-03 explained; imr-fast is the more accurate side.**
+- [x] **Collapse Zener 1.55e-03 explained; PyIMR is the more accurate side.**
       The hypothesis above was right. Resolved quantitatively:
 
       | quantity | value |
       |---|---|
-      | imr-fast S0 (event root-find, velocity = 0) | `-0.1599451098` |
+      | PyIMR S0 (event root-find, velocity = 0) | `-0.1599451098` |
       | IMRv2 `Szero` (`tools/probe_collapse_stress.m`) | `-0.1600469117` |
       | S0 that best fits the reference | `-0.1600464610` |
       | resulting best-fit deviation | **1.48e-05** |
@@ -409,7 +409,7 @@ because it is measured rather than hypothetical.
       `R` is locally quadratic at the maximum and `S` locally linear, so a
       discrete argmax over solver output points cannot resolve the peak
       position better than O(sqrt(tol)), and carries that error straight into
-      the stress. imr-fast's event root-find on `v = 0` is O(tol).
+      the stress. PyIMR's event root-find on `v = 0` is O(tol).
 
       Confirmed converged and integrator-independent: the event method returns
       `-0.15994511` under LSODA, Radau and BDF at both 1e-6 and 1e-9, while the
@@ -444,7 +444,7 @@ the only spatial operation in the whole model is the quadrature for
     I = int_R^inf 2 (t_rr - t_hh) / r dr .
 
 IMRv2 needs Chebyshev collocation because it writes the stress equation in
-Eulerian form, where advection introduces spatial derivatives. imr-fast is
+Eulerian form, where advection introduces spatial derivatives. PyIMR is
 Lagrangian, so advection is exact and a PDE discretization has nothing to
 discretize. The right independent check is a different **quadrature rule**.
 
@@ -632,7 +632,7 @@ generated with `thermal="fd"`, so switching invalidates the pinned suite.
 
 Not just report them -- work out the correct physics and validate against
 independent results. Done for the Mie-Gruneisen equation of state, which was
-the only defect that cost imr-fast a capability.
+the only defect that cost PyIMR a capability.
 
 ### The defect
 
@@ -701,7 +701,7 @@ numba cache) after any single-character edit before trusting a measurement.**
 
 ---
 
-## Ledger: where imr-fast already exceeds upstream
+## Ledger: where PyIMR already exceeds upstream
 
 Keep current as work lands; this is the other half of "parity or better".
 
@@ -718,7 +718,7 @@ Keep current as work lands; this is the other half of "parity or better".
 Added after W1 measurement:
 
 - **Giesekus and linear PTT actually run.** IMRv2 dispatches both but gates
-  them out; imr-fast is the only working implementation of the two.
+  them out; PyIMR is the only working implementation of the two.
 - **A correct generalized-Newtonian suite.** Six laws that pass their own
   Newtonian reduction exactly, against an upstream suite where six of seven
   models raise and the seventh is quantitatively wrong.
@@ -737,13 +737,13 @@ Target: tight, dense, minimal-surface Python. Measured against
 
 Baseline as of this plan:
 
-| metric | tinygrad | imr-fast | verdict |
+| metric | tinygrad | PyIMR | verdict |
 |---|---|---|---|
 | comment-only lines | 1.2% | 1.0% | already there |
 | blank lines | 3.0% | 9.2% | 3x too airy |
 | docstrings | ~0 | 82 | strip most |
 | indent | 2 space | 4 space | convert |
-| largest file | -- | `imr_fast.py`, 2683 lines | split |
+| largest file | -- | `pyimr.py`, 2683 lines | split |
 
 The house rules, taken from tinygrad's own config and source:
 
@@ -762,7 +762,7 @@ The house rules, taken from tinygrad's own config and source:
 
 ### The one deliberate divergence
 
-tinygrad is an internals-heavy library; imr-fast is a scientific API that
+tinygrad is an internals-heavy library; PyIMR is a scientific API that
 people call from notebooks, where `help()` and IDE hovers matter. Resolution:
 **keep docstrings on the public API surface only** -- the exported material
 classes, `SimulationConfig`, `simulate`, `prepare`, `solve_with_sensitivities`,
@@ -779,31 +779,31 @@ current 82.
 - [x] Convert to 2-space indent via `ruff format` (AST-safe) rather than regex.
 - [x] Strip internal docstrings with an AST tool that keeps module docstrings
       and anything named in `__all__`: 82 -> 53, all remaining ones public.
-- [x] Split `imr_fast.py`: extracted the material value objects into
+- [x] Split `pyimr.py`: extracted the material value objects into
       `_imr_materials.py` (436 lines), registered in `pyproject.toml` and the
       W0 leak test. **2683 -> 2214 lines.**
 - [x] Re-measure and record.
 - [ ] Collapse blank lines from 10.7% toward 3-4%. **Blocked by the formatter**
       -- see trade-off below.
-- [x] Two further splits of `imr_fast.py`, both AST-driven and bitwise-verified:
+- [x] Two further splits of `pyimr.py`, both AST-driven and bitwise-verified:
       `_imr_stress.py` (359) takes the constitutive evaluation -- material plus
       kinematic state in, stress and rate out, with no dependency on the RHS --
       and `_imr_thermal.py` (287) takes the Tait/Mie-Gruneisen parameters,
       `pvsat`, the dissipation terms and the implicit wall-temperature solve.
-      **`imr_fast.py` 2683 -> 1686 across the three splits (-37%).**
+      **`pyimr.py` 2683 -> 1686 across the three splits (-37%).**
 - [x] `_imr_rhs.py` (315): the right-hand side plus forcing evaluation --
       `_rhs`, `_pinf`, `_sampled_pressure`, `_nZ`, `_radius_floor_event`. A
       clean leaf: it reads a prepared problem but never builds one. The two
       material predicates `_is_distributed_stress` and `_stress_state_count`
       moved to `_imr_materials.py` where they belong, which is what made the
-      cut acyclic. **`imr_fast.py` 2683 -> 1396 over four splits (-48%).**
+      cut acyclic. **`pyimr.py` 2683 -> 1396 over four splits (-48%).**
 - [x] `_imr_config.py` (568): the frozen config, prepared-problem and result
       dataclasses, their validation, and the physical defaults.
       `PreparedProblem.solve` defers its `_solve_prepared` import, the same
       trick it already used for `solve_with_sensitivities`.
 - [x] `_imr_prepare.py` (530): `params`, the `_prepare_*` helpers, the collapse
       precursor and `prepare` itself.
-- [x] **`imr_fast.py` 2683 -> 482 over six splits (-82%).** Every module is now
+- [x] **`pyimr.py` 2683 -> 482 over six splits (-82%).** Every module is now
       under the ~800 target except `imr_sensitivity.py` (1001), which is
       untouched and dominated by `solve_with_sensitivities` (146),
       `_material_parameters` (107) and `_output_duals` (101).
@@ -814,7 +814,7 @@ current 82.
       | `_imr_mechanical.py` | 647 |
       | `_imr_config.py` | 568 |
       | `_imr_prepare.py` | 530 |
-      | `imr_fast.py` | 482 |
+      | `pyimr.py` | 482 |
       | `_imr_materials.py` | 452 |
       | `_imr_stress.py` | 359 |
       | `imr_inference.py` | 331 |
@@ -836,7 +836,7 @@ current 82.
       4. Do not run `ruff check --fix` on a new module before its imports are
          complete -- it strips not-yet-used imports as F401 and the failure
          then presents as a missing name. It also silently dropped
-         `finite_diff_mat` from `imr_fast`, breaking
+         `finite_diff_mat` from `pyimr`, breaking
          `validate_bubtherm_adiabatic.py`, which nothing in CI ran. Those two
          standalone scripts are now covered by `tests/test_api.py`.
 - [ ] Fold one-line function bodies onto the `def` line -- see trade-off below.
@@ -847,7 +847,7 @@ current 82.
 
 | metric | tinygrad | before | after |
 |---|---|---|---|
-| total lines | -- | 6290 | **6245** (and 469 fewer in `imr_fast.py`) |
+| total lines | -- | 6290 | **6245** (and 469 fewer in `pyimr.py`) |
 | comment-only | 1.2% | 1.0% | 1.3% |
 | blank | 3.0% | 9.2% | 10.7% |
 | docstrings | ~0 | 82 | **53** (public only) |
@@ -1013,7 +1013,7 @@ JAX arrives as a **selectable backend, defaulting off**, the same shape
 
 ### Stage 0 results
 
-Ported `radial=2` + NHKV standalone (no `imr_fast` import, so nothing could
+Ported `radial=2` + NHKV standalone (no `pyimr` import, so nothing could
 accidentally depend on the code it is meant to replace). Against the tightest
 pinned median bound in the suite, 2e-07, where scipy sits at 3.128e-08:
 

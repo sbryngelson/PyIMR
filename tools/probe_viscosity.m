@@ -1,4 +1,4 @@
-% Diagnostic: isolate where imr-fast and IMRv2 disagree on nu_model=1 (Carreau).
+% Diagnostic: isolate where PyIMR and IMRv2 disagree on nu_model=1 (Carreau).
 % Runs reduction limits that must collapse onto known Newtonian trajectories.
 % Usage: matlab -batch "run('tools/probe_viscosity.m')"
 

@@ -3,11 +3,11 @@
 import numpy as np
 import pytest
 
-from imr_fast import design as imr_design
-import imr_fast
-import imr_fast.inference
+from pyimr import design as imr_design
+import pyimr
+import pyimr.inference
 from _validation_support import R0, REQ
-from imr_fast.inference import InferenceParameter
+from pyimr.inference import InferenceParameter
 
 SECTION = "6. Experiment design"
 
@@ -32,14 +32,14 @@ _TRUTH_UNIT = np.array([(2500.0 - 1500.0) / 2500.0, (0.1 - 0.05) / 0.15])
 
 def _collapse_design(count=40, half_width=1e-6):
   fine = np.linspace(0.0, 60e-6, 4000)
-  trace = np.asarray(imr_fast.simulate(fine, imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))).radius_m)
+  trace = np.asarray(pyimr.simulate(fine, pyimr.SimulationConfig(R0, REQ, pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1))).radius_m)
   interior = np.flatnonzero((trace[1:-1] < trace[:-2]) & (trace[1:-1] <= trace[2:])) + 1
   collapse = float(fine[interior[0]])
   near = np.linspace(max(collapse - half_width, 1e-7), collapse + half_width, count // 2)
   return np.unique(np.concatenate([near, np.linspace(1e-7, 60e-6, count - count // 2)]))
 
 def _design(times=_TIMES, noise=_NOISE):
-  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  config = pyimr.SimulationConfig(R0, REQ, pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1))
   return imr_design.design_inference(config, times, noise, _PARAMETERS)
 
 
@@ -172,9 +172,9 @@ def test_a_prior_sweep_reuses_one_set_of_solves(design, monkeypatch):
 
 def test_a_second_observable_raises_the_information(measured):
   """The BOED reason for observables: *what to measure* becomes a design"""
-  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
-  radius = imr_fast.inference.RadiusObservation(_TIMES, np.full(_TIMES.size, R0), _NOISE)
-  velocity = imr_fast.inference.FieldObservation("wall_velocity_m_s", _TIMES, np.zeros(_TIMES.size), 2.0)
+  config = pyimr.SimulationConfig(R0, REQ, pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  radius = pyimr.inference.RadiusObservation(_TIMES, np.full(_TIMES.size, R0), _NOISE)
+  velocity = pyimr.inference.FieldObservation("wall_velocity_m_s", _TIMES, np.zeros(_TIMES.size), 2.0)
 
   alone = imr_design.expected_information_gain(imr_design.DesignInference(config, radius, _PARAMETERS), draws=6).expected_information_gain
   together = imr_design.expected_information_gain(
@@ -189,7 +189,7 @@ def test_a_second_observable_raises_the_information(measured):
 def test_the_time_gradient_matches_a_central_difference(index, measured):
   """Scoring a time grid needs `J`; moving one needs `dJ/dt`. For a radius"""
   times = np.linspace(2e-6, 4e-5, 25)
-  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  config = pyimr.SimulationConfig(R0, REQ, pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1))
 
   def score(grid):
     return imr_design.expected_information_gain(imr_design.design_inference(config, grid, _NOISE, _PARAMETERS), draws=4).expected_information_gain
@@ -208,8 +208,8 @@ def test_the_time_gradient_matches_a_central_difference(index, measured):
 
 def test_a_field_without_a_time_derivative_refuses(measured):
   """`dP/dt` would mean differentiating the right-hand side, which is a larger"""
-  config = imr_fast.SimulationConfig(R0, REQ, imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
-  pressure = imr_fast.inference.FieldObservation("internal_pressure_pa", _TIMES, np.full(_TIMES.size, 1e5), 1e3)
+  config = pyimr.SimulationConfig(R0, REQ, pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  pressure = pyimr.inference.FieldObservation("internal_pressure_pa", _TIMES, np.full(_TIMES.size, 1e5), 1e3)
   inference = imr_design.DesignInference(config, pressure, _PARAMETERS)
   with pytest.raises(NotImplementedError, match="no time derivative available"):
     inference.jacobian_time_derivative(np.full(inference.size, 0.5))
@@ -228,7 +228,7 @@ def test_gain_matches_an_exact_posterior(measured):
 def test_batched_design_information_matches_the_per_draw_loop(measured):
   """The whole point of batching is that it changes cost and not the answer."""
   inference = imr_design.design_inference(
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)),
+    pyimr.SimulationConfig(R0=R0, Req=REQ, material=pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1)),
     _TIMES, _NOISE, _PARAMETERS,
   )
   draws = 32
@@ -248,7 +248,7 @@ def test_batched_design_information_matches_the_per_draw_loop(measured):
 
 def test_batched_jacobians_agree_with_the_single_draw_call():
   """`jacobians` skips the per-draw `config_from_unit` and `prepare` that `jacobian`"""
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1))
   inference = imr_design.design_inference(config, _TIMES, _NOISE, _PARAMETERS)
   points = np.random.default_rng(1).random((5, len(_PARAMETERS)))
   looped = np.stack([inference.jacobian(unit) for unit in points])
@@ -260,7 +260,7 @@ def test_batched_jacobians_agree_with_the_single_draw_call():
 def test_batching_refuses_to_pretend_it_can_count_failures():
   """`batched=True` is opt-in because a single traced program fails as a WHOLE. Rather"""
   inference = imr_design.design_inference(
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)),
+    pyimr.SimulationConfig(R0=R0, Req=REQ, material=pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1)),
     _TIMES, _NOISE, _PARAMETERS,
   )
   with pytest.raises(ValueError, match="cannot honour max_failure_fraction"):

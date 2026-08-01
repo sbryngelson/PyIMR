@@ -5,9 +5,9 @@ import functools
 import numpy as np
 import pytest
 
-import imr_fast
-from imr_fast import thermal_fd
-from imr_fast import thermal_spectral
+import pyimr
+from pyimr import thermal_fd
+from pyimr import thermal_spectral
 from _validation_support import NHKV, R0, REQ
 
 SECTION = "2d. Thermal PDE discretization"
@@ -37,9 +37,9 @@ def test_spectral_laplacian_operator(measured):
 
 @functools.lru_cache(maxsize=None)
 def _collapse_metrics(nt, backend):
-  radius = imr_fast.simulate(
+  radius = pyimr.simulate(
     _FINE_TIMES,
-    imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=nt, thermal=backend, rtol=_CONVERGENCE_RTOL, atol=_CONVERGENCE_ATOL),
+    pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=nt, thermal=backend, rtol=_CONVERGENCE_RTOL, atol=_CONVERGENCE_ATOL),
   ).radius_ratio
   index = int(radius.argmin())
   before, at, after = radius[index - 1], radius[index], radius[index + 1]
@@ -96,7 +96,7 @@ def test_convergence_is_measured_above_the_reference_floor(measured):
 
 def test_thermal_inverses_stay_finite_outside_their_domain():
   """Implicit solvers evaluate these at unphysical trial states; NaN there is fatal (#133)."""
-  from imr_fast._thermal import _T_of_kv, kirchhoff_temperature
+  from pyimr._thermal import _T_of_kv, kirchhoff_temperature
 
   alpha, beta = 0.5, 0.8
   # theta far below the branch point of the sqrt, where the argument is negative
@@ -111,7 +111,7 @@ def test_thermal_inverses_stay_finite_outside_their_domain():
 
 def test_the_guards_leave_physical_states_untouched():
   """The floors must never engage where the arguments are already well posed."""
-  from imr_fast._thermal import kirchhoff_temperature
+  from pyimr._thermal import kirchhoff_temperature
 
   alpha, beta = 0.5, 0.8
   theta = np.linspace(0.0, 5.0, 21)

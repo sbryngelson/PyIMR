@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
-import imr_fast
-from imr_fast._prepare import medium_with_parameters
+import pyimr
+from pyimr._prepare import medium_with_parameters
 
-_NHKV = imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1)
+_NHKV = pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1)
 
 def _relative_deviation(left, right):
   scale = max(np.abs(left).max(), np.abs(right).max(), 1e-30)
@@ -23,8 +23,8 @@ _THERMAL_CONFIGURATIONS = [
 @pytest.mark.parametrize("label,options", _THERMAL_CONFIGURATIONS, ids=[c[0] for c in _THERMAL_CONFIGURATIONS])
 def test_prepared_and_dual_wall_stencils_agree(label, options, backend):
   """The forward solve's wall-flux weights and the sensitivity path's rebuild of"""
-  config = imr_fast.SimulationConfig(R0=225e-6, Req=37.5e-6, material=_NHKV, thermal=backend, **options)
-  problem = imr_fast.prepare(config)
+  config = pyimr.SimulationConfig(R0=225e-6, Req=37.5e-6, material=_NHKV, thermal=backend, **options)
+  problem = pyimr.prepare(config)
   rebuilt_medium = medium_with_parameters(problem.medium, problem.parameters)
   assert rebuilt_medium is not None
 

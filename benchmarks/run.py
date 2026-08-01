@@ -17,8 +17,8 @@ from time import perf_counter
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 
-import imr_fast as F
-from imr_fast import sensitivity
+import pyimr as F
+from pyimr import sensitivity
 
 R0, REQ = 225e-6, 225e-6 / 6
 T0 = R0 / np.sqrt(101325 / 1064)

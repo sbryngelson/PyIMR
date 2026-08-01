@@ -39,7 +39,7 @@ from ._materials import (
   _stress_state_count,
 )
 from ._rhs import _rhs
-import imr_fast as _solver
+import pyimr as _solver
 from ._arrays import at_set
 from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, mixture_kirchhoff, pvsat
 from .thermal_fd import finite_diff_mat

@@ -7,8 +7,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-import imr_fast
-from imr_fast import _thermal
+import pyimr
+from pyimr import _thermal
 
 SECTION = "1d. Closed forms independent of IMRv2"
 
@@ -18,7 +18,7 @@ _RHO, _P8 = 1064.0, 101325.0
 _ANALYTIC = RAYLEIGH * _R0 * np.sqrt(_RHO / _P8)
 
 _SIGMA = 1e-12
-_INVISCID = imr_fast.PhysicalParameters(surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO)
+_INVISCID = pyimr.PhysicalParameters(surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO)
 
 _SAMPLES = 40001
 _WINDOW = 1.3 * _ANALYTIC
@@ -26,9 +26,9 @@ _RESOLUTION = _WINDOW / (_SAMPLES - 1) / _ANALYTIC
 
 
 def _collapse_time(ratio):
-  config = imr_fast.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=imr_fast.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13)
+  config = pyimr.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=pyimr.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13)
   times = np.linspace(0.0, _WINDOW, _SAMPLES)
-  radius = np.asarray(imr_fast.simulate(times, config).radius_ratio)
+  radius = np.asarray(pyimr.simulate(times, config).radius_ratio)
   return float(times[int(np.argmin(radius))])
 
 
@@ -44,15 +44,15 @@ def test_collapse_time_converges_to_rayleigh(measured):
 
 def test_the_step_budget_failure_is_retried_at_higher_order(measured):
   """The retry that replaces LSODA's switching, asserted on the case that needed it."""
-  config = imr_fast.SimulationConfig(
-    R0=_R0, Req=_R0 * 0.02, material=imr_fast.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13
+  config = pyimr.SimulationConfig(
+    R0=_R0, Req=_R0 * 0.02, material=pyimr.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13
   )
-  result = imr_fast.simulate(np.linspace(0.0, _WINDOW, 2001), config)
+  result = pyimr.simulate(np.linspace(0.0, _WINDOW, 2001), config)
   measured("step-budget retry", f"backend={result.stats.backend}")
   assert "dopri8" in result.stats.backend, f"expected the higher-order retry, got {result.stats.backend}"
   assert result.stats.success
 
-  easy = imr_fast.simulate(np.linspace(0.0, _WINDOW, 2001), replace(config, Req=_R0 / 6.0))
+  easy = pyimr.simulate(np.linspace(0.0, _WINDOW, 2001), replace(config, Req=_R0 / 6.0))
   assert "tsit5" in easy.stats.backend, f"the retry fired where it was not needed: {easy.stats.backend}"
 
 
@@ -67,10 +67,10 @@ def _trace(ratio, radial, sound_speed=None, window=60e-6, samples=4000):
   physics = (
     _INVISCID
     if sound_speed is None
-    else imr_fast.PhysicalParameters(surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO, sound_speed_m_s=sound_speed)
+    else pyimr.PhysicalParameters(surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO, sound_speed_m_s=sound_speed)
   )
-  config = imr_fast.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=imr_fast.NoStress(), radial=radial, physics=physics, rtol=1e-12, atol=1e-14)
-  return imr_fast.simulate(np.linspace(0.0, window, samples), config)
+  config = pyimr.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=pyimr.NoStress(), radial=radial, physics=physics, rtol=1e-12, atol=1e-14)
+  return pyimr.simulate(np.linspace(0.0, window, samples), config)
 
 
 def _first_integral_residual(ratio, radial=1):
@@ -79,9 +79,9 @@ def _first_integral_residual(ratio, radial=1):
   velocity = np.asarray(result.wall_velocity_m_s)
 
   equilibrium = _R0 * ratio
-  gas_at_r0 = (_P8 + 2.0 * _SIGMA / equilibrium) * (equilibrium / _R0) ** (3.0 * imr_fast.KAPPA)
-  exponent = 3.0 - 3.0 * imr_fast.KAPPA
-  gas = 2.0 * gas_at_r0 * _R0 ** (3.0 * imr_fast.KAPPA) / (_RHO * exponent) * (radius**exponent - _R0**exponent)
+  gas_at_r0 = (_P8 + 2.0 * _SIGMA / equilibrium) * (equilibrium / _R0) ** (3.0 * pyimr.KAPPA)
+  exponent = 3.0 - 3.0 * pyimr.KAPPA
+  gas = 2.0 * gas_at_r0 * _R0 ** (3.0 * pyimr.KAPPA) / (_RHO * exponent) * (radius**exponent - _R0**exponent)
   ambient = 2.0 * _P8 / (3.0 * _RHO) * (radius**3 - _R0**3)
 
   actual = radius**3 * velocity**2
@@ -119,12 +119,12 @@ def test_keller_miksis_approaches_rayleigh_plesset_as_first_order_in_one_over_c(
   assert 50.0 < ratio < 200.0, "gap must fall like 1/c, not faster or slower"
 
 
-_BASE_PHYSICS = imr_fast.PhysicalParameters()
+_BASE_PHYSICS = pyimr.PhysicalParameters()
 _T8 = 298.15  # SimulationConfig default far-field temperature, and the wall value when medtherm=0
 
 
 def _scaled_conductivity(scale):
-  return imr_fast.PhysicalParameters(
+  return pyimr.PhysicalParameters(
     gas_conductivity_slope=_BASE_PHYSICS.gas_conductivity_slope * scale,
     gas_conductivity_offset=_BASE_PHYSICS.gas_conductivity_offset * scale,
     vapor_conductivity_slope=_BASE_PHYSICS.vapor_conductivity_slope * scale,
@@ -140,10 +140,10 @@ def _polytropic_state(conductivity_scale, exponent, samples=600, thermal=None, m
   options: dict[str, Any] = dict(_MEDIUM) if medium else {}
   if thermal is not None:
     options["thermal"] = thermal
-  config = imr_fast.SimulationConfig(
+  config = pyimr.SimulationConfig(
     R0=_R0,
     Req=_R0 / 6,
-    material=imr_fast.NoStress(),
+    material=pyimr.NoStress(),
     radial=1,
     bubtherm=1,
     Nt=25,
@@ -152,14 +152,14 @@ def _polytropic_state(conductivity_scale, exponent, samples=600, thermal=None, m
     atol=1e-12,
     **options,
   )
-  result = imr_fast.simulate(np.linspace(0.0, 40e-6, samples), config)
+  result = pyimr.simulate(np.linspace(0.0, 40e-6, samples), config)
   invariant = np.asarray(result.internal_pressure_pa) * np.asarray(result.radius_ratio) ** exponent
   temperature = np.asarray(result.bubble_temperature_k)
   drift = float(np.max(np.abs(invariant - invariant[0])) / abs(invariant[0]))
   return drift, float(np.min(temperature)), float(np.max(temperature))
 
 
-_ADIABATIC = 3.0 * imr_fast.KAPPA
+_ADIABATIC = 3.0 * pyimr.KAPPA
 _ISOTHERMAL = 3.0
 
 
@@ -213,14 +213,14 @@ def test_a_dry_run_ignores_the_vapour_conductivity(options, measured):
   times = np.linspace(0.0, 40e-6, 400)
   baseline, worst = None, 0.0
   for scale in (1.0, 1.5, 3.0, 10.0):
-    physics = imr_fast.PhysicalParameters(
+    physics = pyimr.PhysicalParameters(
       vapor_conductivity_slope=_BASE_PHYSICS.vapor_conductivity_slope * scale,
       vapor_conductivity_offset=_BASE_PHYSICS.vapor_conductivity_offset * scale,
     )
-    config = imr_fast.SimulationConfig(
-      R0=_R0, Req=_R0 / 6, material=imr_fast.NoStress(), radial=1, physics=physics, rtol=1e-10, atol=1e-12, **options
+    config = pyimr.SimulationConfig(
+      R0=_R0, Req=_R0 / 6, material=pyimr.NoStress(), radial=1, physics=physics, rtol=1e-10, atol=1e-12, **options
     )
-    trace = np.asarray(imr_fast.simulate(times, config).radius_ratio)
+    trace = np.asarray(pyimr.simulate(times, config).radius_ratio)
     baseline = trace if baseline is None else baseline
     worst = max(worst, float(np.max(np.abs(trace - baseline))))
   measured(f"vapour-K invariance {'+medtherm' if 'medtherm' in options else 'gas'}", f"max|dR|={worst:.2e}")
@@ -240,9 +240,9 @@ def test_the_mie_gruneisen_domain_is_one_boundary_not_two(radial, measured):
   radicand = (1.0 + (s + 2.0 * nog) * mu) / (1.0 - s * mu) ** 3
   assert np.all(radicand >= 0.0), "a real density root must imply a real sound speed"
 
-  config = imr_fast.SimulationConfig(R0=_R0, Req=_R0 / 6, material=imr_fast.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=radial)
-  parameters = imr_fast.prepare(config).parameters
-  result = imr_fast.simulate(np.linspace(0.0, 60e-6, 2000), config)
+  config = pyimr.SimulationConfig(R0=_R0, Req=_R0 / 6, material=pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=radial)
+  parameters = pyimr.prepare(config).parameters
+  result = pyimr.simulate(np.linspace(0.0, 60e-6, 2000), config)
   bubble = np.asarray(result.internal_pressure_pa) + np.asarray(result.stress_integral_pa)
   reached = (bubble / parameters["P8"] - parameters["iWe"] / np.asarray(result.radius_ratio)) / parameters["Cstar"] ** 2
   measured(f"Mie-Gruneisen A range r={radial}", f"[{reached.min():.2e}, {reached.max():.2e}] vs limit {limit:.4f}")

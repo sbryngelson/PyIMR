@@ -43,7 +43,7 @@ def _enable_compilation_cache(jax):
   location = os.environ.get("IMR_FAST_JAX_CACHE")
   if location == "": return
   if location is None:
-    location = str(pathlib.Path(os.environ.get("XDG_CACHE_HOME", pathlib.Path.home() / ".cache")) / "imr_fast" / "jax")
+    location = str(pathlib.Path(os.environ.get("XDG_CACHE_HOME", pathlib.Path.home() / ".cache")) / "pyimr" / "jax")
   jax.config.update("jax_compilation_cache_dir", location)
   jax.config.update("jax_persistent_cache_min_compile_time_secs", 0.0)
   jax.config.update("jax_persistent_cache_min_entry_size_bytes", 0)

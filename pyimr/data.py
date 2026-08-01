@@ -7,8 +7,8 @@ from dataclasses import replace
 import numpy as np
 from scipy.optimize import brentq
 
-import imr_fast
-from imr_fast import C8, KAPPA, P8, RHO, SURF, pvsat
+import pyimr
+from pyimr import C8, KAPPA, P8, RHO, SURF, pvsat
 
 __all__ = ["collapse_features", "equilibrium_radius", "natural_frequency", "resolution_convergence", "saturated_vapor_pressure"]
 
@@ -89,7 +89,7 @@ def resolution_convergence(config, times_s, resolutions, *, field="radius_ratio"
   if len(grids) < 2: raise ValueError("need at least two resolutions to compare")
   solved = []
   for nt, mt in grids:
-    solution = imr_fast.simulate(times_s, replace(config, Nt=nt, Mt=mt))
+    solution = pyimr.simulate(times_s, replace(config, Nt=nt, Mt=mt))
     solved.append(np.asarray(getattr(solution, field), dtype=float))
   finest = solved[-1]
   return tuple((grid, float(np.nanmax(np.abs(values - finest)))) for grid, values in zip(grids, solved))

@@ -1,150 +1,150 @@
 [
   {
-    "file": "src/imr_fast/__init__.py",
+    "file": "pyimr/__init__.py",
     "rule": "reportOperatorIssue",
     "message": "Operator \"*\" not supported for types \"float\" and \"Any | None\" Operator \"*\" not supported for types \"float\" and \"None\" when expected type is \"_ConvertibleToFloat | _ArrayLikeFloat_co | _NestedSequence[_ConvertibleToFloat | None] | None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_prepare.py",
+    "file": "pyimr/_prepare.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"float\" cannot be assigned to parameter \"rtol\" of type \"float64\" in function \"brentq\" \"float\" is not assignable to \"float64\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_prepare.py",
+    "file": "pyimr/_prepare.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"tuple[Unknown, RootResults] | Unknown\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\" Type \"tuple[Unknown, RootResults] | Unknown\" is not assignable to type \"ConvertibleToFloat\" Type \"tuple[Unknown, RootResults]\" is not assignable to type \"ConvertibleToFloat\" \"tuple[Unknown, RootResults]\" is not assignable to \"str\" \"tuple[Unknown, RootResults]\" is incompatible with protocol \"Buffer\" \"__buffer__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsFloat\" \"__float__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsIndex\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_prepare.py",
+    "file": "pyimr/_prepare.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"tuple[Unknown, RootResults] | Unknown\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\" Type \"tuple[Unknown, RootResults] | Unknown\" is not assignable to type \"ConvertibleToFloat\" Type \"tuple[Unknown, RootResults]\" is not assignable to type \"ConvertibleToFloat\" \"tuple[Unknown, RootResults]\" is not assignable to \"str\" \"tuple[Unknown, RootResults]\" is incompatible with protocol \"Buffer\" \"__buffer__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsFloat\" \"__float__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsIndex\" ...",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_prepare.py",
+    "file": "pyimr/_prepare.py",
     "rule": "reportFunctionMemberAccess",
     "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_prepare.py",
+    "file": "pyimr/_prepare.py",
     "rule": "reportFunctionMemberAccess",
     "message": "Cannot assign to attribute \"terminal\" for class \"FunctionType\" Attribute \"terminal\" is unknown",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOperatorIssue",
     "message": "Operator \"-\" not supported for types \"float\" and \"Unknown | None\" Operator \"-\" not supported for types \"float\" and \"None\"",
     "count": 2
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"D1\" is not a known attribute of \"None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"D2\" is not a known attribute of \"None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"iyT3\" is not a known attribute of \"None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"iyT4\" is not a known attribute of \"None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"iyT6\" is not a known attribute of \"None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"size\" is not a known attribute of \"None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"xi\" is not a known attribute of \"None\"",
     "count": 3
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"yT\" is not a known attribute of \"None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"yT2\" is not a known attribute of \"None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalMemberAccess",
     "message": "\"yT3\" is not a known attribute of \"None\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalOperand",
     "message": "Operator \"@\" not supported for \"None\"",
     "count": 6
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportOptionalSubscript",
     "message": "Object of type \"None\" is not subscriptable",
     "count": 1
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportPossiblyUnboundVariable",
     "message": "\"T\" is possibly unbound",
     "count": 7
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportPossiblyUnboundVariable",
     "message": "\"Tm\" is possibly unbound",
     "count": 2
   },
   {
-    "file": "src/imr_fast/_rhs.py",
+    "file": "pyimr/_rhs.py",
     "rule": "reportPossiblyUnboundVariable",
     "message": "\"theta\" is possibly unbound",
     "count": 4
   },
   {
-    "file": "src/imr_fast/inference.py",
+    "file": "pyimr/inference.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"Integral\" cannot be assigned to parameter \"n\" of type \"IntNumber\" in function \"random\" Type \"Integral\" is not assignable to type \"IntNumber\" \"Integral\" is not assignable to \"int\" \"Integral\" is not assignable to \"integer[Any]\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/inference.py",
+    "file": "pyimr/inference.py",
     "rule": "reportCallIssue",
     "message": "No parameter named \"seed\"",
     "count": 1
   },
   {
-    "file": "src/imr_fast/pymc_op.py",
+    "file": "pyimr/pymc_op.py",
     "rule": "reportOperatorIssue",
     "message": "Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown] | list[Variable[Unknown, Unknown]]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"list[Variable[Unknown, Unknown]]\"",
     "count": 1

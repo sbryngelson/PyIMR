@@ -9,6 +9,33 @@ Everything merged after `0.2.0` was set (PR #7). Several changes are breaking in
 the way that matters most for a solver: **the same call returns different
 numbers**, with no error and no deprecation path.
 
+### Breaking: the project is now PyIMR
+
+Every import changes. Nothing about the numbers does.
+
+| was | now |
+|---|---|
+| `import imr_fast` | `import pyimr` |
+| `from imr_fast import simulate` | `from pyimr import simulate` |
+| `pip install imr-fast` | `pip install PyIMR` |
+| `pip install 'imr-fast[inference]'` | `pip install 'PyIMR[inference]'` |
+| `github.com/sbryngelson/imr-fast` | `github.com/sbryngelson/PyIMR` |
+
+The old GitHub URL redirects; the old distribution name does not. There is no
+compatibility shim — `import imr_fast` fails outright rather than warning, which
+is the honest failure for a package still at `0.x`.
+
+The layout is flat: the package is `pyimr/` at the repo root, not `src/pyimr/`.
+That trades away the guarantee `src/` gave — that the suite imports the
+*installed* package rather than the working copy — so a module missing from the
+wheel can no longer be caught by ordinary tests. `test_the_wheel_ships_every_package_module`
+builds a wheel and checks its contents instead, and runs in the nightly set.
+
+`validate_bubtherm_adiabatic.py` and `validate_thermal_fd.py` moved from the
+repo root to `tools/`. `pyproject.toml` gained `authors`, `keywords`,
+`classifiers` and `[project.urls]`; it still declares no `license`, because the
+repo ships no LICENSE file and guessing one would be worse than saying nothing.
+
 ### Breaking: results change
 
 - **`Mt` now defaults to 100 rather than 25** (#69). `Nt` is unchanged at 25.

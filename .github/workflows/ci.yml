@@ -31,7 +31,7 @@ jobs:
         python-version: ["3.12", "3.13", "3.14"]
 
     # Set the cache location EXPLICITLY rather than letting the package derive
-    # `~/.cache/imr_fast/jax` from `XDG_CACHE_HOME`. If a runner image ever sets
+    # `~/.cache/pyimr/jax` from `XDG_CACHE_HOME`. If a runner image ever sets
     # that variable the derived path moves, the `actions/cache` path stops
     # matching, and caching silently does nothing while still appearing green.
     env:
@@ -82,14 +82,14 @@ jobs:
         id: jaxlib
         run: python -c "import jaxlib, os; print(f'version={jaxlib.__version__}', file=open(os.environ['GITHUB_OUTPUT'], 'a'))"
 
-      # The XLA compilation cache `imr_fast._jax._enable_compilation_cache`
+      # The XLA compilation cache `pyimr._jax._enable_compilation_cache`
       # configures. Measured 64.0 s cold against 29.7 s warm on
       # tests/test_backend_jax.py; tracing is Python and paid either way.
       #
       # Keyed on the SOURCE that determines the programs, not on the commit. At
       # ~326 MB per job a commit-keyed cache wrote ~900 MB per push, so the 10 GB
       # repository budget churned every ten commits and evicted the pip caches
-      # alongside. Hashing src/ and tests/ means a docs commit reuses the entry
+      # alongside. Hashing pyimr/ and tests/ means a docs commit reuses the entry
       # outright, while anything that can change an HLO rotates it.
       #
       # This workflow is in the hash too, because it sets the cache POLICY. A key
@@ -103,7 +103,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.xla-cache
-          key: xla-avx2-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-${{ hashFiles('src/**/*.py', 'tests/**/*.py', '.github/workflows/ci.yml') }}
+          key: xla-avx2-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-${{ hashFiles('pyimr/**/*.py', 'tests/**/*.py', '.github/workflows/ci.yml') }}
           restore-keys: xla-avx2-${{ matrix.python-version }}-${{ steps.jaxlib.outputs.version }}-
 
       # Proof the cache is doing its job, rather than an assumption that it is. A
@@ -180,7 +180,7 @@ jobs:
         if: matrix.python-version == '3.12'
         run: |
           python -m pip install "pdoc>=15"
-          python -m pdoc -o site imr_fast imr_fast.sensitivity imr_fast.inference imr_fast.data imr_fast.design imr_fast.pymc_op
+          python -m pdoc -o site pyimr pyimr.sensitivity pyimr.inference pyimr.data pyimr.design pyimr.pymc_op
 
       - name: Build distributions
         if: matrix.python-version == '3.12'

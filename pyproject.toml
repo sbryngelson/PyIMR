@@ -3,10 +3,22 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "imr-fast"
+name = "PyIMR"
 version = "0.3.0"
 description = "Fast, validated solvers for inertial microcavitation rheometry"
 readme = "README.md"
+authors = [{ name = "Spencer Bryngelson", email = "sbryngelson@gmail.com" }]
+keywords = ["cavitation", "rheometry", "bubble-dynamics", "jax", "inverse-problems"]
+# No `license` field: the repo ships no LICENSE file, and guessing one would be worse
+# than declaring nothing. Add both together, as a PEP 639 SPDX string.
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Physics",
+]
 # 3.12 because jax requires it, and jax is not optional. See PLAN.md W11 stage 5.
 requires-python = ">=3.12"
 dependencies = [
@@ -17,9 +29,15 @@ dependencies = [
     "scipy>=1.11",
 ]
 
+[project.urls]
+Homepage = "https://github.com/sbryngelson/PyIMR"
+Repository = "https://github.com/sbryngelson/PyIMR"
+Changelog = "https://github.com/sbryngelson/PyIMR/blob/master/CHANGELOG.md"
+Issues = "https://github.com/sbryngelson/PyIMR/issues"
+
 [project.optional-dependencies]
 # Optional on purpose: PyMC pulls pytensor, arviz, pandas and xarray, which is a
-# large addition to a core install of numpy/scipy/numba. `imr_fast.pymc_op`
+# large addition to a core install of numpy/scipy/numba. `pyimr.pymc_op`
 # is the only module that needs it, and it imports lazily so the rest of the package works
 # without it. See #25.
 inference = [
@@ -47,8 +65,12 @@ test = [
 [tool.setuptools.packages.find]
 # Discovered, not listed. The hand-maintained `py-modules` array this replaces
 # was forgotten twice during file splits (#34) and needed an edit for every new
-# module; a src/ package makes the list structural instead. See #61.
-where = ["src"]
+# module; discovery makes the list structural instead. See #61.
+#
+# `include` is required, not decoration: the package sits at the repo root, so
+# unfiltered discovery also sweeps up tests/, tools/, docs/ and benchmarks/.
+where = ["."]
+include = ["pyimr*"]
 
 [tool.pyright]
 # Build artefacts are a second copy of the whole package. Without this, anyone
@@ -65,7 +87,7 @@ addopts = ["--strict-config", "--strict-markers"]
 # Branch coverage: behaviour is selected by configuration flags, so a fully-covered
 # `if` whose false arm never runs is the gap worth seeing.
 branch = true
-source = ["imr_fast"]
+source = ["pyimr"]
 # xdist runs one process per worker, which would otherwise overwrite one data file.
 parallel = true
 

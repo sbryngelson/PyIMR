@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from imr_fast import (
+from pyimr import (
   Giesekus,
   InitialState,
   NeoHookeanKelvinVoigt,
@@ -123,8 +123,8 @@ def test_structured_api_requires_config():
     simulate([0.0, 1.0], object())
 
 
-PUBLIC_MODULES = ("imr_fast", "imr_fast.sensitivity", "imr_fast.inference", "imr_fast.data", "imr_fast.design", "imr_fast.pymc_op")
-PACKAGE = "imr_fast"
+PUBLIC_MODULES = ("pyimr", "pyimr.sensitivity", "pyimr.inference", "pyimr.data", "pyimr.design", "pyimr.pymc_op")
+PACKAGE = "pyimr"
 
 
 def _foreign(value):
@@ -161,14 +161,14 @@ def test_star_import_leaks_no_foreign_names(name):
 
 
 def test_equilibrium_radius_rejects_unbracketed_input():
-  from imr_fast import data
+  from pyimr import data
 
   with pytest.raises(ValueError, match="no equilibrium below R0"):
     data.equilibrium_radius(225e-6, 5e5)
 
 
 def test_natural_frequency_rejects_equilibrium_above_maximum():
-  from imr_fast import data
+  from pyimr import data
 
   with pytest.raises(ValueError, match="strictly inside"):
     data.natural_frequency(225e-6, 300e-6, 2500.0, 0.1)
@@ -176,7 +176,7 @@ def test_natural_frequency_rejects_equilibrium_above_maximum():
 
 @pytest.mark.parametrize("time,radius", [([0.0, 1.0], [1.0, 1.0]), ([0.0, 1.0, 0.5, 2.0, 3.0], [1.0, 1.0, 1.0, 1.0, 1.0])])
 def test_collapse_features_rejects_bad_traces(time, radius):
-  from imr_fast import data
+  from pyimr import data
 
   with pytest.raises(ValueError):
     data.collapse_features(time, radius)
@@ -203,7 +203,7 @@ def test_standalone_validation_scripts_still_run(script):
   import sys
 
   root = pathlib.Path(__file__).resolve().parent.parent
-  done = subprocess.run([sys.executable, str(root / script)], capture_output=True, text=True, cwd=root, timeout=300)
+  done = subprocess.run([sys.executable, str(root / "tools" / script)], capture_output=True, text=True, cwd=root, timeout=300)
   assert done.returncode == 0, done.stdout[-2000:] + done.stderr[-2000:]
 
 

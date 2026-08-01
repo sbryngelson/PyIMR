@@ -6,7 +6,7 @@ Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
 
 - **Giesekus and linear PTT cannot be run.** `f_call_params.m` dispatches
   `stress` 6 and 7 and forces spectral collocation for both, but its own input
-  gate rejects `stress > 5`. imr-fast implements both.
+  gate rejects `stress > 5`. PyIMR implements both.
 - **The non-Newtonian viscosity suite is non-functional.** `nu_model` 3--7
   leave `intf`/`dintf`/`ddintf` unassigned and raise; `nu_model = 2`
   (Carreau-Yasuda) calls a four-argument helper with three arguments and
@@ -17,7 +17,7 @@ Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
   applies a precursor only for the Zener family; it leaves the initial stress
   empty for memoryless materials and returns zeros under an explicit
   `% TODO initial max stress for UCM and Oldroyd-B`. The flag is accepted and
-  silently ignored. imr-fast implements the precursor for Oldroyd-B and the
+  silently ignored. PyIMR implements the precursor for Oldroyd-B and the
   distributed models, and refuses the flag outright for memoryless materials.
 - **The collapse precursor locates the maximum by discrete argmax.**
   `f_init_stress.m` takes `max(abs(X(:,1)))` over ode23tb output points rather
@@ -28,7 +28,7 @@ Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
   to sampling 1.9e-03 before the peak, where the radius is only 2.06e-06 lower.
   That single number accounts for the whole 1.55e-03 deviation on the pinned
   collapse-Zener trajectory; injecting upstream's own `Szero` reproduces it at
-  2.08e-05. imr-fast root-finds `v = 0` instead, which is O(tol).
+  2.08e-05. PyIMR root-finds `v = 0` instead, which is O(tol).
 - **The Mie-Gruneisen branch takes the wrong root of its own density
   quadratic.** `a*mu^2 + b*mu + A = 0` has roots tending to `0` and `-1/nog`
   as `A -> 0`; `f_radial_eq.m` takes `(-b + sqrt(d))/(2a)`, which is the
@@ -49,7 +49,7 @@ Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
   branch. Unreachable for the memory models that call it, so latent rather
   than active.
 
-These are the reason several imr-fast models are validated by reduction limit
+These are the reason several PyIMR models are validated by reduction limit
 rather than against a pinned upstream trajectory: for those models, no working
 upstream implementation exists to pin against.
 

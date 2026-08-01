@@ -5,8 +5,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-import imr_fast
-from imr_fast._stress import _stress
+import pyimr
+from pyimr._stress import _stress
 from _validation_support import NHKV, R0, REQ, T0, deviation, oldroyd_b, reference_times, solve_radius
 
 SECTION = "2. Constitutive suite"
@@ -14,12 +14,12 @@ SECTION = "2. Constitutive suite"
 _EQUIVALENCE = dict(rtol=1e-10, atol=1e-12)
 _TRAJECTORY_TOLERANCE = 1e-7
 
-_GENERIC_NH = imr_fast.InstantaneousMaterial(imr_fast.NeoHookean(2500.0), imr_fast.Newtonian(0.1))
+_GENERIC_NH = pyimr.InstantaneousMaterial(pyimr.NeoHookean(2500.0), pyimr.Newtonian(0.1))
 
 
 def _instantaneous_values(material, radius=0.5, velocity=-0.3, need_rate=True):
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material)
-  problem = imr_fast.prepare(config)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=material)
+  problem = pyimr.prepare(config)
   return _stress(material, problem.parameters, radius, velocity, None, problem.instantaneous_material, need_rate)
 
 
@@ -42,59 +42,59 @@ def test_composable_matches_closed_form_with_thermal(measured):
 
 
 _ELASTIC_REDUCTIONS = [
-  ("Mooney-Rivlin", imr_fast.MooneyRivlin(1250.0, 0.0), 1e-12),
-  ("Yeoh", imr_fast.Yeoh(1250.0), 1e-12),
-  ("Fung", imr_fast.Fung(2500.0, 0.0), 1e-12),
-  ("Gent", imr_fast.Gent(2500.0, 1e9), 1e-8),
-  ("Arruda-Boyce", imr_fast.ArrudaBoyce(2500.0, 1e9), 1e-8),
-  ("Ogden one term", imr_fast.Ogden((2500.0,), (2.0,)), 1e-12),
+  ("Mooney-Rivlin", pyimr.MooneyRivlin(1250.0, 0.0), 1e-12),
+  ("Yeoh", pyimr.Yeoh(1250.0), 1e-12),
+  ("Fung", pyimr.Fung(2500.0, 0.0), 1e-12),
+  ("Gent", pyimr.Gent(2500.0, 1e9), 1e-8),
+  ("Arruda-Boyce", pyimr.ArrudaBoyce(2500.0, 1e9), 1e-8),
+  ("Ogden one term", pyimr.Ogden((2500.0,), (2.0,)), 1e-12),
 ]
 
 
 @pytest.mark.parametrize("label,elastic,tolerance", _ELASTIC_REDUCTIONS, ids=[c[0] for c in _ELASTIC_REDUCTIONS])
 def test_elastic_reduces_to_neo_hookean(label, elastic, tolerance, measured):
-  expected = _instantaneous_values(imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0)))[0]
-  value = _instantaneous_values(imr_fast.InstantaneousMaterial(elastic=elastic))[0]
+  expected = _instantaneous_values(pyimr.InstantaneousMaterial(elastic=pyimr.NeoHookean(2500.0)))[0]
+  value = _instantaneous_values(pyimr.InstantaneousMaterial(elastic=elastic))[0]
   error = abs(value - expected) / abs(expected)
   measured(f"{label} -> neo-Hookean", f"rel={error:.2e}")
   assert error < tolerance
 
 
 _VISCOUS_REDUCTIONS = [
-  ("power law", imr_fast.PowerLaw(0.1, 1.0)),
-  ("Carreau-Yasuda", imr_fast.CarreauYasuda(0.1, 0.1, 1.0, 2.0, 0.5)),
-  ("Cross", imr_fast.Cross(0.1, 0.1, 1.0, 2.0)),
-  ("Powell-Eyring", imr_fast.PowellEyring(0.1, 0.1, 1.0)),
-  ("mod Powell-Eyring", imr_fast.ModifiedPowellEyring(0.1, 0.1, 1.0)),
-  ("Powell-Eyring lam=0", imr_fast.PowellEyring(0.1, 0.05, 0.0)),
-  ("mod Powell-Eyring lam=0", imr_fast.ModifiedPowellEyring(0.1, 0.05, 0.0)),
-  ("Herschel-Bulkley", imr_fast.HerschelBulkley(0.0, 0.1, 1.0)),
-  ("Bingham", imr_fast.Bingham(0.0, 0.1)),
+  ("power law", pyimr.PowerLaw(0.1, 1.0)),
+  ("Carreau-Yasuda", pyimr.CarreauYasuda(0.1, 0.1, 1.0, 2.0, 0.5)),
+  ("Cross", pyimr.Cross(0.1, 0.1, 1.0, 2.0)),
+  ("Powell-Eyring", pyimr.PowellEyring(0.1, 0.1, 1.0)),
+  ("mod Powell-Eyring", pyimr.ModifiedPowellEyring(0.1, 0.1, 1.0)),
+  ("Powell-Eyring lam=0", pyimr.PowellEyring(0.1, 0.05, 0.0)),
+  ("mod Powell-Eyring lam=0", pyimr.ModifiedPowellEyring(0.1, 0.05, 0.0)),
+  ("Herschel-Bulkley", pyimr.HerschelBulkley(0.0, 0.1, 1.0)),
+  ("Bingham", pyimr.Bingham(0.0, 0.1)),
 ]
 
 
 @pytest.mark.parametrize("label,viscous", _VISCOUS_REDUCTIONS, ids=[c[0] for c in _VISCOUS_REDUCTIONS])
 def test_viscous_reduces_to_newtonian(label, viscous, measured):
-  expected = _instantaneous_values(imr_fast.InstantaneousMaterial(viscous=imr_fast.Newtonian(0.1)))[0]
-  value = _instantaneous_values(imr_fast.InstantaneousMaterial(viscous=viscous))[0]
+  expected = _instantaneous_values(pyimr.InstantaneousMaterial(viscous=pyimr.Newtonian(0.1)))[0]
+  value = _instantaneous_values(pyimr.InstantaneousMaterial(viscous=viscous))[0]
   error = abs(value - expected) / abs(expected)
   measured(f"{label} -> Newtonian", f"rel={error:.2e}")
   assert error < 1e-12
 
 
 _RATE_MATERIALS = [
-  ("Mooney-Rivlin", imr_fast.InstantaneousMaterial(elastic=imr_fast.MooneyRivlin(1000.0, 400.0))),
-  ("Yeoh", imr_fast.InstantaneousMaterial(elastic=imr_fast.Yeoh(1000.0, 100.0, 10.0))),
-  ("Fung", imr_fast.InstantaneousMaterial(elastic=imr_fast.Fung(2500.0, 0.2))),
-  ("Gent", imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 500.0))),
-  ("Arruda-Boyce", imr_fast.InstantaneousMaterial(elastic=imr_fast.ArrudaBoyce(2500.0, 50.0))),
-  ("power law", imr_fast.InstantaneousMaterial(viscous=imr_fast.PowerLaw(0.1, 0.7))),
-  ("Carreau-Yasuda", imr_fast.InstantaneousMaterial(viscous=imr_fast.CarreauYasuda(0.1, 0.01, 1e-5, 2.0, 0.5))),
-  ("Cross", imr_fast.InstantaneousMaterial(viscous=imr_fast.Cross(0.1, 0.01, 1e-5, 2.0))),
-  ("Herschel-Bulkley", imr_fast.InstantaneousMaterial(viscous=imr_fast.HerschelBulkley(100.0, 0.1, 0.8))),
-  ("Bingham", imr_fast.InstantaneousMaterial(viscous=imr_fast.Bingham(100.0, 0.1))),
-  ("Powell-Eyring", imr_fast.InstantaneousMaterial(viscous=imr_fast.PowellEyring(0.5, 0.1, 2e-5))),
-  ("mod Powell-Eyring", imr_fast.InstantaneousMaterial(viscous=imr_fast.ModifiedPowellEyring(0.5, 0.1, 2e-5))),
+  ("Mooney-Rivlin", pyimr.InstantaneousMaterial(elastic=pyimr.MooneyRivlin(1000.0, 400.0))),
+  ("Yeoh", pyimr.InstantaneousMaterial(elastic=pyimr.Yeoh(1000.0, 100.0, 10.0))),
+  ("Fung", pyimr.InstantaneousMaterial(elastic=pyimr.Fung(2500.0, 0.2))),
+  ("Gent", pyimr.InstantaneousMaterial(elastic=pyimr.Gent(2500.0, 500.0))),
+  ("Arruda-Boyce", pyimr.InstantaneousMaterial(elastic=pyimr.ArrudaBoyce(2500.0, 50.0))),
+  ("power law", pyimr.InstantaneousMaterial(viscous=pyimr.PowerLaw(0.1, 0.7))),
+  ("Carreau-Yasuda", pyimr.InstantaneousMaterial(viscous=pyimr.CarreauYasuda(0.1, 0.01, 1e-5, 2.0, 0.5))),
+  ("Cross", pyimr.InstantaneousMaterial(viscous=pyimr.Cross(0.1, 0.01, 1e-5, 2.0))),
+  ("Herschel-Bulkley", pyimr.InstantaneousMaterial(viscous=pyimr.HerschelBulkley(100.0, 0.1, 0.8))),
+  ("Bingham", pyimr.InstantaneousMaterial(viscous=pyimr.Bingham(100.0, 0.1))),
+  ("Powell-Eyring", pyimr.InstantaneousMaterial(viscous=pyimr.PowellEyring(0.5, 0.1, 2e-5))),
+  ("mod Powell-Eyring", pyimr.InstantaneousMaterial(viscous=pyimr.ModifiedPowellEyring(0.5, 0.1, 2e-5))),
 ]
 
 
@@ -115,13 +115,13 @@ def test_analytic_stress_rate_matches_centered_difference(label, material, measu
 @pytest.mark.parametrize("label,material", _RATE_MATERIALS, ids=[c[0] for c in _RATE_MATERIALS])
 def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material, measured):
   """Every material must evaluate under `jnp` as well as `np`, and agree."""
-  from imr_fast import _jax  # noqa: PLC0415
-  from imr_fast._stress import _instantaneous_stress  # noqa: PLC0415
+  from pyimr import _jax  # noqa: PLC0415
+  from pyimr._stress import _instantaneous_stress  # noqa: PLC0415
 
   _, jnp, _ = _jax._jax()
 
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material)
-  problem = imr_fast.prepare(config)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=material)
+  problem = pyimr.prepare(config)
   radius, velocity = 0.5, -0.3
   reference = _instantaneous_stress(material, problem.instantaneous_material, problem.parameters, radius, velocity, True, xp=np)
   traced = _instantaneous_stress(
@@ -138,8 +138,8 @@ def test_rate_materials_evaluate_the_same_under_both_namespaces(label, material,
 @pytest.mark.parametrize("stretch", (0.4, 0.9, 1.0, 1.0005, 1.3, 2.5))
 def test_ogden_matches_neo_hookean_through_the_series_switch(stretch, measured):
   """Ogden's (1 - u**a)/(1 - u) factor is 0/0 at u = 1 and is covered by a"""
-  reference = imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0))
-  ogden = imr_fast.InstantaneousMaterial(elastic=imr_fast.Ogden((2500.0,), (2.0,)))
+  reference = pyimr.InstantaneousMaterial(elastic=pyimr.NeoHookean(2500.0))
+  ogden = pyimr.InstantaneousMaterial(elastic=pyimr.Ogden((2500.0,), (2.0,)))
   expected = _instantaneous_values(reference, radius=stretch)[0]
   actual = _instantaneous_values(ogden, radius=stretch)[0]
   error = abs(actual - expected) / abs(expected)
@@ -149,8 +149,8 @@ def test_ogden_matches_neo_hookean_through_the_series_switch(stretch, measured):
 
 def test_ogden_multi_term_is_distinct(measured):
   """A reduction limit alone would pass for an implementation that ignored all"""
-  reference = imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0))
-  multi = imr_fast.InstantaneousMaterial(elastic=imr_fast.Ogden((1800.0, 600.0, -300.0), (1.3, 4.0, -2.0)))
+  reference = pyimr.InstantaneousMaterial(elastic=pyimr.NeoHookean(2500.0))
+  multi = pyimr.InstantaneousMaterial(elastic=pyimr.Ogden((1800.0, 600.0, -300.0), (1.3, 4.0, -2.0)))
   expected = _instantaneous_values(reference, radius=0.6)[0]
   actual = _instantaneous_values(multi, radius=0.6)[0]
   separation = abs(actual - expected) / abs(expected)
@@ -159,8 +159,8 @@ def test_ogden_multi_term_is_distinct(measured):
 
 
 def test_gent_lockup_becomes_a_solver_failure():
-  with pytest.raises(imr_fast.SimulationError, match="Gent lock-up"):
-    solve_radius(reference_times()[:3], imr_fast.InstantaneousMaterial(elastic=imr_fast.Gent(2500.0, 5.0)))
+  with pytest.raises(pyimr.SimulationError, match="Gent lock-up"):
+    solve_radius(reference_times()[:3], pyimr.InstantaneousMaterial(elastic=pyimr.Gent(2500.0, 5.0)))
 
 
 _DE, _LAM = 2.0, 0.2
@@ -176,7 +176,7 @@ def ucm_trajectory():
 
 @pytest.mark.parametrize(
   "label,model",
-  [("giesekus", imr_fast.Giesekus(0.1, _RELAXATION, _RETARDATION)), ("linear PTT", imr_fast.LinearPTT(0.1, _RELAXATION, _RETARDATION))],
+  [("giesekus", pyimr.Giesekus(0.1, _RELAXATION, _RETARDATION)), ("linear PTT", pyimr.LinearPTT(0.1, _RELAXATION, _RETARDATION))],
   ids=["giesekus", "linear-ptt"],
 )
 def test_zero_nonlinearity_reproduces_ucm(label, model, ucm_trajectory, measured):
@@ -187,7 +187,7 @@ def test_zero_nonlinearity_reproduces_ucm(label, model, ucm_trajectory, measured
 
 def test_zero_nonlinearity_reproduces_ucm_keller_miksis(measured):
   ucm = solve_radius(_MEMORY_TIMES, oldroyd_b(), radial=2)
-  distributed = solve_radius(_MEMORY_TIMES, imr_fast.Giesekus(0.1, _RELAXATION, _RETARDATION), radial=2)
+  distributed = solve_radius(_MEMORY_TIMES, pyimr.Giesekus(0.1, _RELAXATION, _RETARDATION), radial=2)
   worst = deviation(distributed, ucm)
   measured("KM Giesekus -> UCM", f"max|dR|={worst:.2e}")
   assert worst < 2e-3
@@ -199,8 +199,8 @@ def test_zero_nonlinearity_reproduces_ucm_coupled(measured):
 
   def gap(relaxation):
     retardation = _LAM * relaxation
-    ucm = solve_radius(_MEMORY_TIMES, imr_fast.OldroydB(0.1, relaxation, retardation), **options)
-    distributed = solve_radius(_MEMORY_TIMES, imr_fast.Giesekus(0.1, relaxation, retardation), **options)
+    ucm = solve_radius(_MEMORY_TIMES, pyimr.OldroydB(0.1, relaxation, retardation), **options)
+    distributed = solve_radius(_MEMORY_TIMES, pyimr.Giesekus(0.1, relaxation, retardation), **options)
     return deviation(distributed, ucm)
 
   slow, fast = gap(_RELAXATION), gap(0.25 * _RELAXATION)
@@ -211,8 +211,8 @@ def test_zero_nonlinearity_reproduces_ucm_coupled(measured):
 @pytest.mark.parametrize(
   "label,model",
   [
-    ("giesekus", imr_fast.Giesekus(0.1, _RELAXATION, _RETARDATION, mobility=0.2)),
-    ("linear PTT", imr_fast.LinearPTT(0.1, _RELAXATION, _RETARDATION, extensibility=0.2)),
+    ("giesekus", pyimr.Giesekus(0.1, _RELAXATION, _RETARDATION, mobility=0.2)),
+    ("linear PTT", pyimr.LinearPTT(0.1, _RELAXATION, _RETARDATION, extensibility=0.2)),
   ],
   ids=["giesekus", "linear-ptt"],
 )
@@ -224,14 +224,14 @@ def test_nonlinear_parameter_produces_distinct_physics(label, model, ucm_traject
 
 
 @pytest.mark.parametrize(
-  ("label", "viscous"), (("Bingham", imr_fast.Bingham(100.0, 0.1)), ("Herschel-Bulkley", imr_fast.HerschelBulkley(100.0, 0.1, 0.8)))
+  ("label", "viscous"), (("Bingham", pyimr.Bingham(100.0, 0.1)), ("Herschel-Bulkley", pyimr.HerschelBulkley(100.0, 0.1, 0.8)))
 )
 def test_yield_stress_needs_no_suppression(label, viscous, measured):
   """The yield-stress regularisation used `np.where` around a divide by the"""
-  material = imr_fast.InstantaneousMaterial(elastic=imr_fast.NeoHookean(2500.0), viscous=viscous)
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=material)
+  material = pyimr.InstantaneousMaterial(elastic=pyimr.NeoHookean(2500.0), viscous=viscous)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=material)
   with np.errstate(divide="raise", invalid="raise", over="raise"):
-    result = imr_fast.simulate(np.linspace(0.0, 6e-5, 200), config)
+    result = pyimr.simulate(np.linspace(0.0, 6e-5, 200), config)
   radius = np.asarray(result.radius_ratio)
   measured(f"{label} no suppression", f"min R/R0={radius.min():.4f}")
   assert np.all(np.isfinite(radius))

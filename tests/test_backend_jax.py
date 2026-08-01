@@ -5,9 +5,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-import imr_fast
-import imr_fast.sensitivity
-from imr_fast import _jax
+import pyimr
+import pyimr.sensitivity
+from pyimr import _jax
 from _validation_support import NHKV, R0, REQ, oldroyd_b, tangent_deviation, zener
 
 
@@ -18,8 +18,8 @@ _TIMES = np.linspace(0.0, 40e-6, 300)
 _MAX_BOUND, _MEDIAN_BOUND = 1e-05, 1e-06
 
 _CASES = [(radial, "NHKV", NHKV) for radial in range(1, 7)] + [
-  (2, "NoStress", imr_fast.NoStress()),
-  (2, "qKV", imr_fast.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)),
+  (2, "NoStress", pyimr.NoStress()),
+  (2, "qKV", pyimr.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)),
   (2, "Zener", zener()),
   (2, "OldroydB", oldroyd_b()),
   (4, "Zener", zener()),
@@ -37,9 +37,9 @@ _COVERAGE_CASES = [
   ("gaussian forcing", NHKV, dict(wave_type=1, pA=5e4, TW=5e-6, DT=2e-5)),
   ("heaviside step", NHKV, dict(wave_type=3, pA=5e4, TW=3e-5)),
   ("histotripsy pulse", NHKV, dict(wave_type=2, pA=1e5, omega=2 * np.pi / 2e-5, DT=3e-5, mn=2)),
-  ("giesekus", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), {}),
-  ("linear PTT", imr_fast.LinearPTT(0.1, 80e-6, 16e-6, 0.2, points=12), {}),
-  ("giesekus + medtherm", imr_fast.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), dict(bubtherm=1, medtherm=1, Nt=9, Mt=9, thermal="fd")),
+  ("giesekus", pyimr.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), {}),
+  ("linear PTT", pyimr.LinearPTT(0.1, 80e-6, 16e-6, 0.2, points=12), {}),
+  ("giesekus + medtherm", pyimr.Giesekus(0.1, 80e-6, 16e-6, 0.2, points=12), dict(bubtherm=1, medtherm=1, Nt=9, Mt=9, thermal="fd")),
 ]
 
 _TANGENT_FIELDS = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
@@ -47,17 +47,17 @@ _TANGENT_FIELDS = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pr
 def test_jax_sensitivities_refuse_only_what_is_not_a_scalar_field():
   """Everything this test used to list is covered now."""
   times = np.linspace(0.0, 20e-6, 40)
-  problem = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV))
+  problem = pyimr.prepare(pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV))
   with pytest.raises(ValueError, match="finite scalar"):
-    imr_fast.sensitivity.solve_with_sensitivities(problem, times, ("initial.stress_state",))
+    pyimr.sensitivity.solve_with_sensitivities(problem, times, ("initial.stress_state",))
   with pytest.raises(ValueError, match="unknown sensitivity parameter path"):
-    imr_fast.sensitivity.solve_with_sensitivities(problem, times, ("physics.not_a_field",))
+    pyimr.sensitivity.solve_with_sensitivities(problem, times, ("physics.not_a_field",))
 
 def test_the_traced_bisection_stays_inside_the_physical_bracket(measured):
   """`_traced_root`'s counterpart to `test_thermal_grid`'s admissibility check."""
   _, jnp, _ = _jax._jax()
 
-  from imr_fast import _thermal
+  from pyimr import _thermal
 
   root = 0.6
   found = float(_thermal._traced_root(lambda kv: (kv - root) * (2.0 + kv), (_thermal._KV_EPS, 1.0 - _thermal._KV_EPS), jnp))
@@ -69,7 +69,7 @@ def test_traced_and_brentq_roots_agree_on_the_shipped_closure(measured):
   """The two solvers on one captured wall state, so a disagreement shows up here"""
   _, jnp, _ = _jax._jax()
 
-  from imr_fast import _thermal
+  from pyimr import _thermal
 
   captured = []
   original = _thermal._bracketed_root
@@ -80,8 +80,8 @@ def test_traced_and_brentq_roots_agree_on_the_shipped_closure(measured):
 
   _thermal._bracketed_root = record
   try:
-    config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd")
-    imr_fast.simulate(np.linspace(0.0, 20e-6, 60), config)
+    config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd")
+    pyimr.simulate(np.linspace(0.0, 20e-6, 60), config)
   finally:
     _thermal._bracketed_root = original
 
@@ -125,11 +125,11 @@ _CONFIG_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float]] 
 
 def test_traced_sensitivities_are_compiled_once(measured):
   """`integrate_jax` caches a `jax.jit`; `sensitivities_jax` did not, so every call"""
-  from imr_fast import _jax
+  from pyimr import _jax
 
   times = np.linspace(0.0, 20e-6, 60)
   paths = ("material.shear_modulus_pa",)
-  problem = imr_fast.prepare(imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV))
+  problem = pyimr.prepare(pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV))
   _jax._COMPILED.clear()
   first = _jax.sensitivities_jax(problem, times, paths)
   after_one = dict(_jax._COMPILED)
@@ -146,12 +146,12 @@ def test_params_branches_only_on_concrete_configuration():
   """Two guards inside `params` tested values that the traced path differentiates."""
   import jax  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
 
-  from imr_fast._prepare import params
+  from pyimr._prepare import params
 
   _, jnp, _ = _jax._jax()
 
   def build(traced):
-    p = params(R0, REQ, NHKV, 1, traced[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, imr_fast.PhysicalParameters(), xp=jnp,
+    p = params(R0, REQ, NHKV, 1, traced[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, pyimr.PhysicalParameters(), xp=jnp,
                scales=(2500.0, traced[1], 0.0, 0.0, 0.0))
     return jnp.asarray([p["kv0"], p["De"], p["LAM"], p["Pv"], p["chi"]])
 
@@ -174,7 +174,7 @@ def test_the_traced_path_covers_every_differentiable_scalar_field():
   """The gate on deleting the numpy sensitivity route, asserted rather than assumed."""
   import dataclasses
 
-  config = imr_fast.SimulationConfig(
+  config = pyimr.SimulationConfig(
     R0=R0, Req=REQ, material=NHKV, pA=1e4, wave_type=2, omega=2 * np.pi / 2e-5, DT=3e-5, mn=2.0, TW=1e-5, vapor=1
   )
   candidates = []
@@ -191,7 +191,7 @@ def test_the_traced_path_covers_every_differentiable_scalar_field():
   accepted = []
   for path in sorted(set(candidates)):
     try:
-      imr_fast.sensitivity._normalize_parameters(config, (path,))
+      pyimr.sensitivity._normalize_parameters(config, (path,))
     except ValueError:
       continue
     accepted.append(path)
@@ -208,7 +208,7 @@ _TANGENT_CASES: list[tuple[str, str, dict[str, Any], str, float]] = [
   ("physics P8", "physics.far_field_pressure_pa", dict(radial=2), "radius_ratio", 5e-06),
   ("physics density", "physics.medium_density_kg_m3", dict(radial=2), "radius_ratio", 5e-06),
   ("physics surface tension", "physics.surface_tension_n_m", dict(radial=2), "radius_ratio", 5e-06),
-  ("initial velocity", "initial.wall_velocity_m_s", dict(radial=2, initial=imr_fast.InitialState(wall_velocity_m_s=-2.0)), "radius_ratio", 5e-06),
+  ("initial velocity", "initial.wall_velocity_m_s", dict(radial=2, initial=pyimr.InitialState(wall_velocity_m_s=-2.0)), "radius_ratio", 5e-06),
   ("bubtherm G", "material.shear_modulus_pa", dict(bubtherm=1, Nt=13, thermal="fd"), "bubble_temperature_k", 5e-05),
   ("coupled T8", "T8", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), "bubble_temperature_k", 5e-04),
   ("coupled medium", "physics.medium_conductivity_w_m_k", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), "medium_temperature_k", 5e-04),
@@ -219,7 +219,7 @@ _TANGENT_CASES: list[tuple[str, str, dict[str, Any], str, float]] = [
 
 @pytest.mark.parametrize("label,path,options,field,bound", _TANGENT_CASES, ids=[c[0] for c in _TANGENT_CASES])
 def test_traced_tangents_match_a_central_difference(label, path, options, field, bound, measured):
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, **options)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, **options)
   deviation = tangent_deviation(config, path, np.linspace(0.0, 15e-6, 60), field)
   measured(f"traced vs difference, {label}", f"{field} rel={deviation:.1e}")
   assert deviation < bound, f"{label}: {deviation:.3e} exceeds {bound:.0e}"
@@ -227,8 +227,8 @@ def test_traced_tangents_match_a_central_difference(label, path, options, field,
 
 def test_the_collapse_tangent_matches_a_central_difference(measured):
   """Tightened tolerances, because at the default this reads 2.8e-02 and is"""
-  config = imr_fast.SimulationConfig(
-    R0=R0, Req=REQ, material=zener(), collapse=imr_fast.CollapseInitialization(), rtol=1e-12, atol=1e-12
+  config = pyimr.SimulationConfig(
+    R0=R0, Req=REQ, material=zener(), collapse=pyimr.CollapseInitialization(), rtol=1e-12, atol=1e-12
   )
   deviation = tangent_deviation(config, "Req", np.linspace(0.0, 25e-6, 60), "radius_ratio", relative_step=1e-4)
   measured("traced vs difference, collapse Req", f"rel={deviation:.1e}")
@@ -239,10 +239,10 @@ def test_the_sampled_forcing_tangent_matches_a_central_difference(measured):
   """A LARGER step than elsewhere, and that is the interesting part: the deviation runs"""
   rng = np.random.default_rng(3)
   knots = np.linspace(0.0, 3e-5, 24)
-  history = imr_fast.SampledForcing(
+  history = pyimr.SampledForcing(
     time_s=tuple(knots), pressure_pa=tuple(6e4 * np.sin(2 * np.pi * knots / 1.5e-5) + 1e4 * rng.standard_normal(knots.size))
   )
-  config = imr_fast.SimulationConfig(R0=R0, Req=REQ, material=NHKV, sampled_forcing=history, rtol=1e-10, atol=1e-10)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, sampled_forcing=history, rtol=1e-10, atol=1e-10)
   worst = {p: tangent_deviation(config, p, np.linspace(0.0, 20e-6, 60), "radius_ratio", relative_step=1e-3)
            for p in ("R0", "physics.far_field_pressure_pa")}
   measured("traced vs difference, sampled forcing", "  ".join(f"{k.split('.')[-1]}={v:.1e}" for k, v in worst.items()))

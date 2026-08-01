@@ -184,3 +184,23 @@ def test_the_log_transform_is_geometric_and_its_derivative_is_exact(measured):
     worst = max(worst, abs(parameter.derivative(unit) - difference) / abs(difference))
   measured("log transform derivative", f"rel={worst:.2e}")
   assert worst < 1e-9, worst
+
+
+def test_masstrans_refuses_a_half_specified_thermal_start():
+  """kv0 is saturation at T8, so naming only one of the pair inherits a mismatched other (#133)."""
+  for initial in (
+    imr_fast.InitialState(bubble_temperature_k=300.0),
+    imr_fast.InitialState(vapor_mass_fraction=0.9),
+  ):
+    with pytest.raises(ValueError, match="set both or neither"):
+      imr_fast.prepare(_config(bubtherm=1, masstrans=1, vapor=1, initial=initial))
+
+  # both or neither is accepted, including a deliberately off-equilibrium pair
+  imr_fast.prepare(_config(bubtherm=1, masstrans=1, vapor=1))
+  imr_fast.prepare(
+    _config(bubtherm=1, masstrans=1, vapor=1,
+            initial=imr_fast.InitialState(bubble_temperature_k=300.0, vapor_mass_fraction=0.804203))
+  )
+
+  # without masstrans there is no saturation coupling, so a lone bubble temperature is fine
+  imr_fast.prepare(_config(bubtherm=1, initial=imr_fast.InitialState(bubble_temperature_k=300.0)))

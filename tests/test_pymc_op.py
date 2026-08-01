@@ -58,8 +58,8 @@ def test_one_solve_serves_both_halves(inference, monkeypatch):
 
   operation = pymc_op.IMRLogLikelihood(inference)
   unit = tensor.as_tensor_variable(np.array([0.5, 0.5]))
-  operation.log_likelihood(unit).eval()
-  operation.gradient(unit).eval()
+  operation.log_likelihood(unit).eval()  # pyright: ignore[reportAttributeAccessIssue] - pytensor stubs say list
+  operation.gradient(unit).eval()  # pyright: ignore[reportAttributeAccessIssue]
   assert len(calls) == 1, f"expected one solve for logp and dlogp at the same point, got {len(calls)}"
 
 

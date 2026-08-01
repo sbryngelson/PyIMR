@@ -39,6 +39,7 @@ def test_coupled_heat_mass_transfer_output_tangent(measured):
   times = np.linspace(0.0, 2e-6, 8)
   sensitivity = pyimr.simulate_with_sensitivities(times, config, ["material.shear_modulus_pa"])
   difference = _centered_output(times, config, "shear_modulus_pa", 0.025, lambda result: result.medium_temperature_k)
+  assert sensitivity.medium_temperature_k is not None
   error = float(np.linalg.norm(sensitivity.medium_temperature_k[..., 0] - difference) / np.linalg.norm(difference))
   measured("medium temperature tangent", f"rel={error:.2e}")
   assert error < 2e-3
@@ -53,7 +54,9 @@ def test_collapse_shooting_tangent(measured):
     - pyimr.prepare(_material_offset(config, "shear_modulus_pa", -step)).initial_state[-1]
   ) / (2.0 * step)
   error = abs(tangent - difference) / abs(difference)
-  residual = abs(pyimr.prepare(config).collapse_stats.maximum_radius_ratio - 1.0)
+  stats = pyimr.prepare(config).collapse_stats
+  assert stats is not None  # collapse=CollapseInitialization() above is what populates it
+  residual = abs(stats.maximum_radius_ratio - 1.0)
   measured("initial memory tangent", f"rel={error:.2e}  shooting residual={residual:.2e}")
   assert error < 1e-5
   assert residual < 2e-8

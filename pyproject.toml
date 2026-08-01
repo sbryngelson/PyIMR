@@ -77,6 +77,24 @@ where = ["."]
 include = ["pyimr*"]
 
 [tool.pyright]
+# Deliberately no `venvPath`/`venv`: CI installs into the interpreter that
+# `actions/setup-python` provides and has no `.venv` at all, so pinning one here
+# would resolve to nothing there and turn every third-party import into
+# `reportMissingImports`. The environment is supplied per-run instead, by
+# `tools/pyright_baseline.py --pythonpath`, which is correct in both places.
+# Run the type check through that tool, not bare `pyright`.
+
+# The floor of `requires-python`, not the local interpreter. Checking against the
+# oldest supported version is what catches use of newer syntax or stdlib.
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+
+# Explicit, so a pyright release that changes its default does not silently move
+# the gate. "standard" is what the 65-diagnostic baseline was recorded under.
+typeCheckingMode = "standard"
+
+include = ["pyimr", "tests", "tools", "benchmarks"]
+
 # Build artefacts are a second copy of the whole package. Without this, anyone
 # who runs `python -m build` before the type check sees every diagnostic twice
 # and the baseline reports a flood of "new" errors. CI happens to build after

@@ -283,8 +283,9 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
 
   def maximum_event(_time, state): return state[1]
 
-  maximum_event.terminal = True
-  maximum_event.direction = -1
+  # scipy's event protocol is attributes on the function object, which no type describes
+  maximum_event.terminal = True  # pyright: ignore[reportFunctionMemberAccess]
+  maximum_event.direction = -1  # pyright: ignore[reportFunctionMemberAccess]
 
   def integrate(initial_velocity):
     nonlocal integration_evaluations
@@ -333,9 +334,9 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
     expansions += 1
   if upper_residual < 0.0:
     raise SimulationError(f"collapse shooting could not bracket an initial velocity after {settings.maximum_bracket_expansions} expansions")
-  initial_velocity = brentq(
+  initial_velocity = float(brentq(
     residual, lower_velocity, upper_velocity, xtol=settings.radius_tolerance, rtol=max(settings.radius_tolerance, 4.0 * np.finfo(float).eps)
-  )
+  ))  # pyright: ignore[reportArgumentType] - scipy types rtol as float64
   maximum_state, maximum_time = integrate(initial_velocity)
   memory_state = _freeze_array(maximum_state[2:])
   stats = CollapseStats(

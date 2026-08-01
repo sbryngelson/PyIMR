@@ -110,7 +110,11 @@ def bayesian_maximize(objective, bounds, *, evaluations=24, initial=6, seed=0, r
   for _ in range(int(evaluations) - int(initial)):
     centre, spread = values.mean(), values.std() or 1.0
     log_scale, log_lengths = _fit(unit, (values - centre) / spread, noise / spread)
-    incumbent = float(((values - centre) / spread).max())
+    # The incumbent is the best posterior MEAN, not the best observation. With a noisy
+    # objective the best observation is the luckiest draw, so using it makes the search
+    # chase noise and report a value it cannot reproduce. With noiseless data the GP
+    # interpolates and the two coincide, so this costs nothing there.
+    incumbent = float(_posterior(unit, unit, (values - centre) / spread, noise / spread, log_scale, log_lengths)[0].max())
 
     def negative_acquisition(candidate, _s=log_scale, _l=log_lengths, _i=incumbent, _c=centre, _p=spread):
       point = np.clip(np.atleast_2d(candidate), 0.0, 1.0)
@@ -127,9 +131,15 @@ def bayesian_maximize(objective, bounds, *, evaluations=24, initial=6, seed=0, r
     values = np.append(values, value)
     noise = np.append(noise, deviation)
 
-  order = int(np.argmax(values))
+  # Report the same way: the point whose posterior mean is highest, and that mean as the
+  # value. Returning `values.max()` would be an estimate biased upward by exactly the
+  # noise -- measured at +0.064 against sigma = 0.05, positive in 10 trials out of 10.
+  centre, spread = values.mean(), values.std() or 1.0
+  log_scale, log_lengths = _fit(unit, (values - centre) / spread, noise / spread)
+  posterior = _posterior(unit, unit, (values - centre) / spread, noise / spread, log_scale, log_lengths)[0]
+  order = int(np.argmax(posterior))
   return SearchResult(
-    best_point=_physical(unit[order], box), best_value=float(values[order]),
+    best_point=_physical(unit[order], box), best_value=float(posterior[order] * spread + centre),
     points=_physical(unit, box), values=values, deviations=noise,
   )
 

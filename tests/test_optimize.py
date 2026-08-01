@@ -79,12 +79,20 @@ def test_a_reported_error_bar_keeps_it_from_chasing_luck(measured):
 
 
 def test_the_result_records_everything_it_evaluated():
+  """`best_value` is the posterior mean at `best_point`, not the raw observation there.
+
+  On a noiseless objective the GP interpolates, so the two agree to ~3e-05 relative and
+  the chosen point is still the best observation -- the distinction only bites under noise.
+  """
   result = bayesian_maximize(_bowl(np.array([0.0, 0.0])), _BOX, evaluations=12, initial=4, seed=0)
   assert result.points.shape == (12, 2)
   assert result.values.shape == (12,) and result.deviations.shape == (12,)
-  assert result.best_value == pytest.approx(result.values.max())
-  np.testing.assert_allclose(result.best_point, result.points[int(result.values.argmax())])
   assert np.all(result.points >= -1.0) and np.all(result.points <= 1.0), "no evaluation may leave the box"
+
+  chosen = int(np.argmin(np.linalg.norm(result.points - result.best_point, axis=1)))
+  np.testing.assert_allclose(result.points[chosen], result.best_point)
+  assert chosen == int(result.values.argmax()), "noiseless, the best posterior mean is the best observation"
+  assert result.best_value == pytest.approx(result.values[chosen], rel=1e-3)
 
 
 @pytest.mark.parametrize(
@@ -125,8 +133,44 @@ def test_design_search_runs_against_real_expected_information_gain(measured):
 
   assert result.values.shape == (6,)
   assert np.all(result.deviations >= 0.0), "every EIG must come back with an error bar"
-  assert result.best_value >= result.values[:3].max(), "the search cannot end below its own initial design"
+  # NOT `best_value >= values[:3].max()`: that compares a posterior mean against a raw
+  # observation, which are the same quantity estimated two ways and need not order. The
+  # meaningful claim is that they agree to within the error bars the objective reported.
+  assert result.best_value >= result.values.max() - 3.0 * result.deviations.max()
 
+  # Re-scoring reproduces the OBSERVATION recorded for that design, exactly -- same design,
+  # same seed, same draws. `best_value` is the posterior mean and sits near it, not on it.
+  chosen = int(np.argmin(np.linalg.norm(result.points - result.best_point, axis=1)))
   rescored = expected_information_gain(build(result.best_point), draws=8, seed=0)
   measured("design search", f"best pA={result.best_point[0]:.3g} Pa  EIG={result.best_value:.3f} nats")
-  assert rescored.expected_information_gain == pytest.approx(result.best_value, rel=1e-9)
+  assert rescored.expected_information_gain == pytest.approx(result.values[chosen], rel=1e-9)
+  assert result.best_value == pytest.approx(result.values[chosen], rel=0.05)
+
+
+@pytest.mark.slow
+def test_the_reported_best_is_not_inflated_by_noise(measured):
+  """The bug this module shipped with. Taking the best OBSERVATION as the answer reports
+
+  the luckiest draw: measured +0.064 against sigma = 0.05, positive in 10 trials out of
+  10. Reporting the best posterior mean instead removes it. This asserts the bias is
+  small and not one-sided, which a return to `values.max()` would fail immediately.
+  """
+  truth, sigma = np.array([0.3, -0.5]), 0.05
+
+  def true_value(point):
+    return -float(np.sum((np.asarray(point) - truth) ** 2))
+
+  gaps = []
+  for seed in range(10):
+    rng = np.random.default_rng(100 + seed)
+
+    def noisy(point, _r=rng):
+      return true_value(point) + _r.normal(0.0, sigma), sigma
+
+    result = bayesian_maximize(noisy, _BOX, evaluations=30, initial=8, seed=seed)
+    gaps.append(result.best_value - true_value(result.best_point))
+
+  gaps = np.array(gaps)
+  measured("reported-value bias", f"mean={gaps.mean():+.4f} at sigma={sigma}, positive in {(gaps > 0).sum()}/10")
+  assert abs(gaps.mean()) < 0.5 * sigma, f"reported value is biased by {gaps.mean():+.4f}"
+  assert 2 <= (gaps > 0).sum() <= 8, "a one-sided error is a bias, not noise"

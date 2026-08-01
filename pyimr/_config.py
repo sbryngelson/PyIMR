@@ -334,6 +334,27 @@ class PreparedProblem:
 
     return _solve_prepared(self, tv)
 
+  def solve_states(self, tv, state=None) -> np.ndarray:
+    """The raw internal trajectory, shaped `(time, state)`.
+
+    `solve` returns physical histories; ensemble and assimilation code needs the
+    vector the integrator actually advances, and `solve_from` needs one back.
+    """
+    from pyimr import _integrate_prepared
+
+    _, states, _ = _integrate_prepared(self, tv, state)
+    return _freeze_array(np.asarray(states).T)
+
+  def solve_from(self, state, tv) -> SimulationResult:
+    """Solve from an arbitrary state rather than the configured initial one.
+
+    `state` is the raw internal vector, laid out as `self.layout` describes and
+    nondimensionalised the same way `initial_state` is -- not physical units.
+    """
+    from pyimr import _solve_prepared
+
+    return _solve_prepared(self, tv, state)
+
   def solve_with_sensitivities(self, tv, parameters):
     from .sensitivity import solve_with_sensitivities
 

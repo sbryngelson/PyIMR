@@ -226,7 +226,7 @@ _INITIAL_FIELDS = tuple(f.name for f in dataclasses.fields(InitialState) if f.na
 PHYSICS_PATHS = tuple(f"physics.{name}" for name in _PHYSICS_FIELDS)
 INITIAL_PATHS = tuple(f"initial.{name}" for name in _INITIAL_FIELDS)
 
-def _traced_flow(problem, times):
+def _traced_flow(problem, times, *, throw=True):
   """`(jax, solve, grid)` for one prepared problem, where `solve(y0)` returns the saved states.
 
   Shared by the tangent operator and the ensemble: both differ only in what they map over.
@@ -244,18 +244,27 @@ def _traced_flow(problem, times):
       diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), _solver_for(config, diffrax)[0],
       t0=grid[0], t1=grid[-1], dt0=None, y0=y0,
       stepsize_controller=diffrax.PIDController(rtol=config.rtol, atol=config.atol),
-      saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, adjoint=diffrax.ForwardMode(),
-    ).ys
+      saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, adjoint=diffrax.ForwardMode(), throw=throw,
+    )
 
   return jax, solve, grid
 
 def ensemble_states_jax(problem, times, members):
-  """`(member, time, state)` for a batch of initial states, advanced under one `vmap`."""
-  jax, solve, grid = _traced_flow(problem, times)
+  """`(states, ok)` for a batch of initial states, advanced under one `vmap`.
+
+  `throw=False` deliberately: a vmapped solve shares one program, so a single diverged
+  member would otherwise take the whole batch down with it. Ensembles are drawn from a
+  distribution and their tails do diverge, so the failure is reported per member instead.
+  """
+  jax, solve, grid = _traced_flow(problem, times, throw=False)
+  _, _, diffrax = _jax()
   batch = np.asarray(members, dtype=float)
   key = (_content_key(problem), int(grid.size), batch.shape, "ensemble")
   compiled = _cached(key, lambda: jax.jit(jax.vmap(solve)))
-  return np.asarray(jax.block_until_ready(compiled(batch)), dtype=float)
+  solution = jax.block_until_ready(compiled(batch))
+  states = np.asarray(solution.ys, dtype=float)
+  ok = np.asarray(solution.result == diffrax.RESULTS.successful)
+  return states, ok
 
 def state_tangents_jax(problem, times, state):
   """`(states, d states / d y0)` -- the tangent linear operator along the trajectory.
@@ -266,9 +275,10 @@ def state_tangents_jax(problem, times, state):
   """
   jax, solve, grid = _traced_flow(problem, times)
   start = np.asarray(state, dtype=float)
+  primal_of = (lambda y0: solve(y0).ys)
 
   key = (_content_key(problem), int(grid.size), int(start.size), "state-tangents")
-  primal, tangent = _cached(key, lambda: (jax.jit(solve), jax.jit(jax.jacfwd(solve))))
+  primal, tangent = _cached(key, lambda: (jax.jit(primal_of), jax.jit(jax.jacfwd(primal_of))))
   states = np.asarray(jax.block_until_ready(primal(start)), dtype=float)
   jacobian = np.asarray(jax.block_until_ready(tangent(start)), dtype=float)
   return states, jacobian

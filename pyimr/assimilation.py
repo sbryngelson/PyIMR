@@ -10,6 +10,8 @@ __all__ = [
   "EnsembleAnalysis",
   "VariationalAnalysis",
   "enkf_analysis",
+  "ensemble_smoother",
+  "ensemble_update",
   "four_dvar",
   "kalman_analysis",
   "variational_cost",
@@ -51,6 +53,62 @@ def kalman_analysis(mean, covariance, observation, operator, noise):
   updated_mean = mean + gain @ (observation - H @ mean)
   updated_covariance = covariance - gain @ H @ covariance
   return updated_mean, updated_covariance
+
+def ensemble_update(members, predictions, observation, noise, *, rng=None, perturb=True):
+  """One stochastic ensemble analysis from *predicted observations*, not a linear operator.
+
+  This is the form nonlinear assimilation needs: `predictions[i]` is whatever the
+  observation operator produces for member `i`, however it was computed. The gain comes
+  from the sample cross-covariance between states and predictions, so the operator never
+  has to be written down or linearised.
+  """
+  ensemble = np.asarray(members, dtype=float)
+  predicted = np.asarray(predictions, dtype=float)
+  if ensemble.ndim != 2: raise ValueError(f"members must be a 2-D array of states; got shape {ensemble.shape}")
+  if predicted.ndim != 2 or predicted.shape[0] != ensemble.shape[0]:
+    raise ValueError(f"predictions must be (member, observation); got shape {predicted.shape}")
+  count = ensemble.shape[0]
+  if count < 2: raise ValueError("an ensemble analysis needs at least two members")
+  observation = np.asarray(observation, dtype=float)
+  if predicted.shape[1] != observation.size:
+    raise ValueError(f"predictions have {predicted.shape[1]} columns but the observation has {observation.size}")
+  R = _noise_matrix(noise, observation.size)
+
+  deviations = ensemble - ensemble.mean(axis=0)
+  spread = predicted - predicted.mean(axis=0)
+  cross = deviations.T @ spread / (count - 1)
+  innovation_covariance = spread.T @ spread / (count - 1) + R
+  gain = np.linalg.solve(innovation_covariance.T, cross.T).T
+
+  targets = np.broadcast_to(observation, (count, observation.size))
+  if perturb:
+    generator = np.random.default_rng() if rng is None else rng
+    targets = targets + generator.multivariate_normal(np.zeros(observation.size), R, size=count)
+  updated = ensemble + (targets - predicted) @ gain.T
+  centred = updated - updated.mean(axis=0)
+  return EnsembleAnalysis(updated, updated.mean(axis=0), centred.T @ centred / (count - 1))
+
+def ensemble_smoother(problem, times, members, observations, operator, noise, *, rng=None):
+  """Analyse the INITIAL state against a whole window at once, the ensemble way.
+
+  The counterpart to `four_dvar`: same observations, same window, same quantity
+  estimated -- but the relationship between the initial state and the observations is
+  taken from ensemble statistics rather than from the tangent operator.
+  """
+  ensemble = np.asarray(members, dtype=float)
+  # a diverged tail member is a fact about the draw, not an error: drop it and analyse
+  # with the survivors, which is what an ensemble method does anyway
+  trajectories, ok = problem.solve_ensemble(ensemble, times, drop_failures=True)
+  ensemble = ensemble[ok]
+  if ensemble.shape[0] < 2: raise ValueError(f"only {ensemble.shape[0]} of {ok.size} members integrated; cannot form an analysis")
+  H = _observation_matrix(operator, trajectories.shape[2])
+  targets = _observation_stack(observations, np.asarray(times).size, H.shape[0])
+  seen = np.asarray(~np.isnan(targets).any(axis=1))
+  predicted = np.einsum("mtj,ij->mti", trajectories, H)[:, seen].reshape(ensemble.shape[0], -1)
+  flat = targets[seen].reshape(-1)
+  spread = _noise_matrix(noise, H.shape[0])
+  block = np.kron(np.eye(int(seen.sum())), spread)
+  return ensemble_update(ensemble, predicted, flat, block, rng=rng)
 
 def enkf_analysis(members, observation, operator, noise, *, rng=None, perturb=True):
   """One stochastic EnKF analysis step.
@@ -136,8 +194,13 @@ def four_dvar(problem, times, observations, operator, noise, background, backgro
   start = np.asarray(background, dtype=float)
 
   def objective(state):
-    cost, gradient = variational_cost(problem, times, state, observations, operator, noise, background, background_precision)
-    return cost, gradient
+    # A line search will propose states the solver cannot integrate. That is a fact about
+    # the search, not an error: report the point as infeasible and let the optimiser back
+    # off, rather than letting one bad trial state end the minimisation.
+    try:
+      return variational_cost(problem, times, state, observations, operator, noise, background, background_precision)
+    except Exception:  # noqa: BLE001 - any failure to integrate means "do not go here"
+      return np.inf, np.zeros_like(np.asarray(state, dtype=float))
 
   outcome = minimize(objective, start, jac=True, method="L-BFGS-B", options={"maxiter": int(maximum_iterations)})
   return VariationalAnalysis(

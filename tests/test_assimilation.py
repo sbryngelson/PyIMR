@@ -197,3 +197,48 @@ def test_a_row_of_nan_observations_is_skipped_rather_than_poisoning_the_cost():
   assert gap_cost < full_cost, "dropping an observation cannot increase the misfit"
   # and dropping one of 31 should move it a little, not wipe it out
   assert gap_cost > 0.5 * full_cost
+
+
+@pytest.mark.slow
+def test_exact_gradients_beat_an_ensemble_smoother_on_known_truth(measured):
+  """The claim from Spratt et al. that motivates building this here rather than porting:
+
+  gradient-based estimation beats a plain ensemble one. Both methods get the same
+  observations, background, background covariance and observation noise. The only
+  difference is where the state-to-observation relationship comes from -- the exact
+  tangent operator, or ensemble statistics.
+  """
+  from pyimr.assimilation import ensemble_smoother, four_dvar
+
+  problem, times, truth, operator = _flow()
+  sigma = 2e-4
+  background_sd = np.array([5e-3, 2e-2])
+  precision = np.diag(1.0 / background_sd**2)
+  clean = problem.solve_states(times, truth) @ operator.T
+
+  variational, ensemble, prior = [], [], []
+  for trial in range(4):
+    rng = np.random.default_rng(100 + trial)
+    observations = clean + rng.normal(0.0, sigma, size=clean.shape)
+    background = truth + rng.normal(0.0, background_sd)
+    prior.append(np.abs(background - truth))
+
+    analysis = four_dvar(problem, times, observations, operator, sigma**2, background, precision, maximum_iterations=80)
+    variational.append(np.abs(analysis.state - truth))
+
+    members = background + rng.normal(0.0, background_sd, size=(64, truth.size))
+    smoothed = ensemble_smoother(problem, times, members, observations, operator, sigma**2, rng=rng)
+    ensemble.append(np.abs(smoothed.mean - truth))
+
+  prior, variational, ensemble = np.array(prior), np.array(variational), np.array(ensemble)
+  rms = lambda values, column: float(np.sqrt((values[:, column] ** 2).mean()))  # noqa: E731
+  measured(
+    "4D-Var vs ensemble smoother",
+    f"velocity rms: prior={rms(prior, 1):.1e} var={rms(variational, 1):.1e} ens={rms(ensemble, 1):.1e}",
+  )
+
+  assert rms(variational, 0) < rms(prior, 0) / 10.0, "4D-Var must improve substantially on the prior"
+  assert rms(ensemble, 0) < rms(prior, 0) / 10.0, "the ensemble smoother must also be a real method here"
+  # the unobserved component is where the exact operator pays: it is reached only through
+  # the coupling, which one ensemble linearisation across the window represents poorly
+  assert rms(variational, 1) < rms(ensemble, 1) / 5.0

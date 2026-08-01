@@ -345,11 +345,16 @@ class PreparedProblem:
     _, states, _ = _integrate_prepared(self, tv, state)
     return _freeze_array(np.asarray(states).T)
 
-  def solve_ensemble(self, members, tv) -> np.ndarray:
-    """`(member, time, state)` for a batch of initial states, advanced together.
+  def solve_ensemble(self, members, tv, *, drop_failures: bool = False):
+    """`(states, ok)` for a batch of initial states, advanced together.
 
-    One `vmap` over the whole ensemble rather than a loop of solves, so the members
-    share a compiled program. Each row is validated against the layout first.
+    One `vmap` over the whole ensemble rather than a loop of solves, so the members share
+    a compiled program. `ok[i]` says whether member `i` integrated successfully: an
+    ensemble is drawn from a distribution and its tails do diverge, and because the whole
+    batch shares one program a single failure would otherwise take all of it down.
+
+    Raises if any member failed, unless `drop_failures`, in which case the survivors are
+    returned and `ok` records who they were.
     """
     from pyimr import _validate_state
 
@@ -359,7 +364,12 @@ class PreparedProblem:
     batch = np.asarray(members, dtype=float)
     if batch.ndim != 2: raise ValueError(f"members must be a 2-D array of states; got shape {batch.shape}")
     stacked = np.stack([_validate_state(self, row) for row in batch])
-    return _freeze_array(ensemble_states_jax(self, times, stacked))
+    states, ok = ensemble_states_jax(self, times, stacked)
+    if not ok.all() and not drop_failures:
+      failed = np.flatnonzero(~ok)
+      raise SimulationError(f"{failed.size} of {ok.size} ensemble members failed to integrate: {failed[:8].tolist()}")
+    keep = np.ones(ok.size, dtype=bool) if not drop_failures else ok
+    return _freeze_array(states[keep]), _freeze_array(ok).astype(bool)
 
   def state_tangents(self, tv, state=None):
     """`(states, jacobian)` where `jacobian[k]` is `d state(t_k) / d state(t_0)`.

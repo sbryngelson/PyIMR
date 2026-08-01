@@ -408,8 +408,10 @@ class PreparedInference:
     if not isinstance(starts, Integral) or starts < 1: raise ValueError("starts must be a positive integer")
     if not isinstance(max_evaluations, Integral) or max_evaluations < 1: raise ValueError("max_evaluations must be a positive integer")
     if not isinstance(workers, Integral) or workers < 1: raise ValueError("workers must be a positive integer")
-    sampler = qmc.LatinHypercube(d=self.size, seed=seed)
-    start_points = sampler.random(starts)
+    # `rng=`, not the legacy `seed=`: scipy keeps `seed` only as an alias and will drop it.
+    # They are NOT equivalent -- `rng=n` seeds `default_rng(n)`, so the start points moved.
+    sampler = qmc.LatinHypercube(d=self.size, rng=seed)
+    start_points = sampler.random(int(starts))
     start_points[0] = 0.5
     arguments = [(self, point, max_evaluations) for point in start_points]
     if workers == 1:

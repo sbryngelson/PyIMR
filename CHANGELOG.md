@@ -35,6 +35,27 @@ builds a wheel and checks its contents instead, and runs in the nightly set.
 repo root to `tools/`. `pyproject.toml` gained `authors`, `keywords`,
 `classifiers` and `[project.urls]`.
 
+### Breaking: `scipy >= 1.15`, and multistart start points move
+
+`InferenceProblem.fit_multistart` seeded its Latin hypercube with scipy's
+`seed=`, which scipy keeps only as a deprecated alias for `rng=` and will
+eventually drop. Now `rng=`, which needs `scipy >= 1.15` -- the floor moves from
+`1.11`.
+
+**The two are not equivalent.** `rng=n` seeds `numpy.random.default_rng(n)`;
+legacy `seed=n` matched neither that nor `RandomState(n)`. So the same `seed`
+argument produces different start points: measured `0.78` maximum change on the
+unit hypercube for `seed=0, d=2`.
+
+The recovered optimum did not move on the package's own estimator problem --
+`fit_multistart(2, seed=7)` returns identical physical parameters before and
+after, to `0.0`, because the first start is pinned at the centre regardless.
+That is a measurement on one well-conditioned problem, not a guarantee:
+multistart exists for surfaces with more than one basin, and on those a
+different set of starts can land in a different one. **If you have published a
+multistart result, re-run it rather than assuming the seed still means the same
+thing.**
+
 ### The project is MIT licensed
 
 Previously unlicensed, which meant no permission to use it. `LICENSE` is now in

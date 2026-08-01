@@ -30,7 +30,8 @@ dependencies = [
     "jax>=0.4",
     "numba>=0.63",
     "numpy>=2.0",
-    "scipy>=1.11",
+    # >=1.15 for `rng=` on scipy.stats.qmc; `seed=` is a deprecated alias (#142).
+    "scipy>=1.15",
 ]
 
 [project.urls]

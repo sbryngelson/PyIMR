@@ -102,18 +102,6 @@
     "count": 4
   },
   {
-    "file": "pyimr/inference.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"Integral\" cannot be assigned to parameter \"n\" of type \"IntNumber\" in function \"random\" Type \"Integral\" is not assignable to type \"IntNumber\" \"Integral\" is not assignable to \"int\" \"Integral\" is not assignable to \"integer[Any]\"",
-    "count": 1
-  },
-  {
-    "file": "pyimr/inference.py",
-    "rule": "reportCallIssue",
-    "message": "No parameter named \"seed\"",
-    "count": 1
-  },
-  {
     "file": "pyimr/pymc_op.py",
     "rule": "reportOperatorIssue",
     "message": "Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown] | list[Variable[Unknown, Unknown]]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"list[Variable[Unknown, Unknown]]\"",

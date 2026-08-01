@@ -8,8 +8,11 @@ import numpy as np
 
 __all__ = [
   "EnsembleAnalysis",
+  "VariationalAnalysis",
   "enkf_analysis",
+  "four_dvar",
   "kalman_analysis",
+  "variational_cost",
 ]
 
 @dataclass(frozen=True, slots=True)
@@ -79,3 +82,69 @@ def enkf_analysis(members, observation, operator, noise, *, rng=None, perturb=Tr
   updated = ensemble + (targets - ensemble @ H.T) @ gain.T
   centred = updated - updated.mean(axis=0)
   return EnsembleAnalysis(updated, updated.mean(axis=0), centred.T @ centred / (count - 1))
+
+@dataclass(frozen=True, slots=True)
+class VariationalAnalysis:
+  """The minimising initial state and what the optimiser reported getting there."""
+
+  state: np.ndarray
+  cost: np.ndarray
+  gradient_norm: float
+  iterations: int
+  success: bool
+  message: str
+
+def _observation_stack(observations, times, width):
+  values = np.asarray(observations, dtype=float)
+  if values.ndim != 2 or values.shape[0] != times:
+    raise ValueError(f"observations must be ({times}, m); got shape {values.shape}")
+  if values.shape[1] != width:
+    raise ValueError(f"observations must have {width} columns to match the operator; got {values.shape[1]}")
+  return values
+
+def variational_cost(problem, times, state, observations, operator, noise, background, background_precision):
+  """`(cost, gradient)` of the strong-constraint 4D-Var objective at `state`.
+
+  The gradient is exact: `sum_k M_k^T H^T R^-1 r_k`, with `M_k` the tangent linear
+  operator this package computes rather than an ensemble approximation to it. That is
+  the whole reason true 4D-Var is reachable here and En4D-Var is not required.
+  """
+  grid = np.asarray(times, dtype=float)
+  states, jacobian = problem.state_tangents(grid, state)
+  H = _observation_matrix(operator, states.shape[1])
+  targets = _observation_stack(observations, grid.size, H.shape[0])
+  R = _noise_matrix(noise, H.shape[0])
+
+  residual = states @ H.T - targets
+  seen = np.asarray(~np.isnan(targets).any(axis=1))  # rows of NaN mean 'not observed here'
+  residual = np.where(seen[:, None], residual, 0.0)
+  weighted = np.linalg.solve(R, residual.T).T
+
+  departure = np.asarray(state, dtype=float) - np.asarray(background, dtype=float)
+  precision = np.asarray(background_precision, dtype=float)
+  cost = 0.5 * float(np.sum(residual * weighted)) + 0.5 * float(departure @ precision @ departure)
+  # jacobian[k][i][j] is d y_k[i] / d y0[j], so `M^T v` contracts the OUTPUT index i and
+  # leaves j. Contracting j instead transposes the operator and is right only when the
+  # Jacobian is symmetric, which it is not.
+  gradient = precision @ departure + np.einsum("kij,ki->j", jacobian, weighted @ H)
+  return cost, gradient
+
+def four_dvar(problem, times, observations, operator, noise, background, background_precision, *, maximum_iterations=100):
+  """Minimise the 4D-Var cost over the initial state, with exact gradients."""
+  from scipy.optimize import minimize
+
+  start = np.asarray(background, dtype=float)
+
+  def objective(state):
+    cost, gradient = variational_cost(problem, times, state, observations, operator, noise, background, background_precision)
+    return cost, gradient
+
+  outcome = minimize(objective, start, jac=True, method="L-BFGS-B", options={"maxiter": int(maximum_iterations)})
+  return VariationalAnalysis(
+    state=np.asarray(outcome.x, dtype=float),
+    cost=np.asarray(outcome.fun, dtype=float),
+    gradient_norm=float(np.linalg.norm(outcome.jac)),
+    iterations=int(outcome.nit),
+    success=bool(outcome.success),
+    message=str(outcome.message),
+  )

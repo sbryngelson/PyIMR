@@ -39,6 +39,7 @@ _NOG = (_NSTATE_TAIT - 1.0) / 2.0
 _KV_EPS = 1e-13
 _HALVINGS = 20
 _POLISH = 3
+_DOMAIN_FLOOR = 1e-12  # keeps sqrt/log arguments defined at unphysical trial states (#133)
 
 def kirchhoff_theta(temperature, alpha, beta):
   """The Kirchhoff transform of a conductivity linear in temperature."""
@@ -46,7 +47,10 @@ def kirchhoff_theta(temperature, alpha, beta):
 
 def kirchhoff_temperature(theta, alpha, beta, *, xp=np):
   """Inverse of :func:`kirchhoff_theta`."""
-  return (-beta + xp.sqrt((alpha + beta) ** 2 + 2.0 * alpha * theta)) / alpha
+  # implicit solvers evaluate this at trial states with theta < 0, where the root is of a
+  # negative number. NaN there is fatal: the primal rejects such a step, but optimistix
+  # differentiates the root find before that happens and hands the NaN to lineax (#133).
+  return (-beta + xp.sqrt(xp.maximum((alpha + beta) ** 2 + 2.0 * alpha * theta, _DOMAIN_FLOOR))) / alpha
 
 def mixture_kirchhoff(vapor_fraction, p, masstrans):
   """The `(alpha, beta)` a gas/vapour mixture presents to :func:`kirchhoff_theta`."""
@@ -132,7 +136,11 @@ def _kv_of_T(Tw, P, T8, Rvg_ratio, pressure_scale, *, xp=np):
 def _T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale, *, xp=np):
   """Closed-form inverse of :func:`_kv_of_T`."""
   ps = P * kv * Rvg_ratio / (kv * Rvg_ratio + 1.0 - kv)
-  return 5200.0 / (T8 * xp.log(1.17e11 / (pressure_scale * ps)))
+  # same trial-state problem as `kirchhoff_temperature`: P < 0 or kv outside [0, 1] drives the
+  # partial pressure to zero or negative, and the log argument with it. Two floors, one so the
+  # division stays finite and one so the log stays positive (#133).
+  saturation = 1.17e11 / (pressure_scale * xp.maximum(ps, _DOMAIN_FLOOR))
+  return 5200.0 / (T8 * xp.log(xp.maximum(saturation, 1.0 + _DOMAIN_FLOOR)))
 
 def _value(x):
   return getattr(x, "value", x).real

@@ -92,3 +92,29 @@ def test_convergence_is_measured_above_the_reference_floor(measured):
   floor = abs(_collapse_metrics(_FLOOR_NT, "spectral")[0] - reference)
   measured(f"reference floor |Nt={_FLOOR_NT} - Nt={_REFERENCE_NT}|", f"{floor:.2e}  vs error at Nt={_FINITE_NT} {abs(fine - reference):.2e}")
   assert abs(fine - reference) > floor
+
+
+def test_thermal_inverses_stay_finite_outside_their_domain():
+  """Implicit solvers evaluate these at unphysical trial states; NaN there is fatal (#133)."""
+  from imr_fast._thermal import _T_of_kv, kirchhoff_temperature
+
+  alpha, beta = 0.5, 0.8
+  # theta far below the branch point of the sqrt, where the argument is negative
+  theta = np.array([-1e3, -10.0, -(alpha + beta) ** 2 / (2.0 * alpha), 0.0, 1.0])
+  assert np.all(np.isfinite(kirchhoff_temperature(theta, alpha, beta)))
+
+  # negative pressure and vapour fractions outside [0, 1] make the log argument non-positive
+  kv = np.array([-23.0, -1e-3, 0.5, 1.5, 16.5])
+  for pressure in (-3.7e-2, 0.0, 1.0):
+    assert np.all(np.isfinite(_T_of_kv(kv, pressure, 298.15, 1.6, 1e5)))
+
+
+def test_the_guards_leave_physical_states_untouched():
+  """The floors must never engage where the arguments are already well posed."""
+  from imr_fast._thermal import kirchhoff_temperature
+
+  alpha, beta = 0.5, 0.8
+  theta = np.linspace(0.0, 5.0, 21)
+  guarded = kirchhoff_temperature(theta, alpha, beta)
+  exact = (-beta + np.sqrt((alpha + beta) ** 2 + 2.0 * alpha * theta)) / alpha
+  assert np.array_equal(guarded, exact)

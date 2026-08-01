@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from numbers import Integral
+from types import MappingProxyType
 from typing import Mapping
 
 import numpy as np
@@ -328,6 +329,18 @@ class PreparedProblem:
   instantaneous_material: PreparedInstantaneousMaterial | None = None
   distributed_stress: PreparedDistributedStress | None = None
   collapse_stats: CollapseStats | None = None
+
+  # `parameters` is a mappingproxy, which pickle refuses. Without these, every
+  # `workers > 1` path -- `evaluate_batch`, `fit_multistart`, `design_information` --
+  # dies with "cannot pickle 'mappingproxy' object" before running any work.
+  def __getstate__(self):
+    state = {item.name: getattr(self, item.name) for item in fields(self)}
+    state["parameters"] = dict(state["parameters"])
+    return state
+
+  def __setstate__(self, state):
+    for name, value in state.items():
+      object.__setattr__(self, name, MappingProxyType(value) if name == "parameters" else value)
 
   def solve(self, tv) -> SimulationResult:
     from pyimr import _solve_prepared

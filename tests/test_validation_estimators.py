@@ -304,3 +304,27 @@ def test_batched_evaluation_matches_the_per_point_route(measured):
   measured("batched vs per-point logL", f"max |d|={worst:.1e}")
   assert len(batched) == len(points)
   assert worst < 1e-6, worst
+
+
+@pytest.mark.slow
+def test_the_parallel_batch_matches_the_serial_one(prepared_inference):
+  """`workers > 1` was doubly broken: unpicklable, then deadlocked on fork with an
+
+  initialised jax runtime -- the same failure that makes `pymc_op.sample_smc` force
+  `cores=1`. It runs under `spawn`. This is slow because each worker re-imports jax,
+  which is also why parallelism only pays for large batches.
+  """
+  _, inference = prepared_inference
+  points = np.array([[0.3, 0.4], [0.6, 0.55]])
+
+  serial = inference.evaluate_batch(points, workers=1)
+  parallel = inference.evaluate_batch(points, workers=2)
+
+  # Relative, because these are two computational routes, not two answers: `workers=1`
+  # runs one vmapped program and `workers > 1` evaluates point by point. The residual
+  # difference is NOT from the parallelism -- in-process, batched-vs-single reproduces it
+  # exactly (2.086e-09 on this case, 2.4e-13 relative).
+  worst = max(
+    abs(a.log_likelihood - b.log_likelihood) / abs(a.log_likelihood) for a, b in zip(serial, parallel, strict=True)
+  )
+  assert worst < 1e-11, f"parallel batch disagrees with the serial one by {worst:.3e} relative"

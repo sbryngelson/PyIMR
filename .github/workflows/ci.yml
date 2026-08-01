@@ -52,10 +52,12 @@ jobs:
       XLA_FLAGS: --xla_cpu_max_isa=AVX2
       # Everything on the nightly and on demand; the fast set per push.
       PYTEST_MARKERS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'slow or not slow' || 'not slow' }}
-      # Every run, not just the nightly: a coverage report that arrives once a day cannot
-      # inform a review. One version only, because three uploads of the same lines add
-      # nothing and each costs a slower job.
-      COVERAGE: ${{ matrix.python-version == '3.12' }}
+      # Nightly only. Measured on the first push that carried it: the 3.12 test step went
+      # from ~200 s to 319 s, and the three jobs run in parallel so 3.12 sets the wall
+      # clock. That put every push over the five-minute target (#123), which is worth more
+      # here than per-review coverage -- the numerical claims are the suite's, not a
+      # percentage's. Coverage still lands once a day.
+      COVERAGE: ${{ matrix.python-version == '3.12' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
 
     steps:
       - uses: actions/checkout@v4
@@ -144,9 +146,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
           fail_ci_if_error: false
-          # Flagged by which tests ran. A push covers `not slow`; the nightly also covers
-          # `slow`, so it reports higher. Without this, a PR would be compared against a
-          # nightly base and read as a coverage drop that is really a marker difference.
+          # Flagged by which tests ran. Only `full` is reachable while coverage is nightly
+          # only, but the conditional stays: if per-push coverage is ever re-enabled, a
+          # `not slow` report compared against a `slow or not slow` base would read as a
+          # coverage drop that is really a marker difference.
           flags: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'fast' }}
 
       # Bound the archive before `actions/cache` saves it. The cap MUST stay above the

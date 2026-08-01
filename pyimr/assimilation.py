@@ -13,6 +13,7 @@ __all__ = [
   "ensemble_smoother",
   "ensemble_update",
   "four_dvar",
+  "ienks",
   "kalman_analysis",
   "variational_cost",
 ]
@@ -211,3 +212,65 @@ def four_dvar(problem, times, observations, operator, noise, background, backgro
     success=bool(outcome.success),
     message=str(outcome.message),
   )
+
+def _window_predictions(problem, times, members, operator, seen):
+  """Predicted observations for each member, flattened over the observed times."""
+  trajectories, ok = problem.solve_ensemble(members, times, drop_failures=True)
+  H = _observation_matrix(operator, trajectories.shape[2])
+  predicted = np.einsum("mtj,ij->mti", trajectories, H)[:, seen].reshape(trajectories.shape[0], -1)
+  return predicted, ok
+
+def ienks(problem, times, members, observations, operator, noise, *, iterations=12, epsilon=1e-3, tolerance=1e-10):
+  """Iterative ensemble Kalman smoother over the initial state, bundle variant.
+
+  The one-shot `ensemble_smoother` linearises once about the prior mean, which is what
+  costs it accuracy across a nonlinear window. This re-linearises about the current
+  estimate each iteration -- Gauss-Newton in the ensemble subspace -- so it closes on the
+  same minimum `four_dvar` finds, without ever forming the tangent operator.
+
+  `epsilon` scales the bundle used to estimate the ensemble-space sensitivity. Too large
+  and the finite difference is nonlinear; too small and it is roundoff.
+  """
+  ensemble = np.asarray(members, dtype=float)
+  if ensemble.ndim != 2: raise ValueError(f"members must be a 2-D array of states; got shape {ensemble.shape}")
+  count = ensemble.shape[0]
+  if count < 2: raise ValueError("an ensemble smoother needs at least two members")
+
+  grid = np.asarray(times, dtype=float)
+  H = _observation_matrix(operator, ensemble.shape[1])
+  targets = _observation_stack(observations, grid.size, H.shape[0])
+  seen = np.asarray(~np.isnan(targets).any(axis=1))
+  flat = targets[seen].reshape(-1)
+  block = np.kron(np.eye(int(seen.sum())), _noise_matrix(noise, H.shape[0]))
+
+  anchor = ensemble.mean(axis=0)
+  anomalies = (ensemble - anchor) / np.sqrt(count - 1.0)
+  coefficients = np.zeros(count)
+
+  for _ in range(int(iterations)):
+    centre = anchor + anomalies.T @ coefficients
+    bundle = centre + epsilon * anomalies
+    predicted, ok = _window_predictions(problem, grid, bundle, operator, seen)
+    if ok.sum() < 2: raise ValueError(f"only {int(ok.sum())} of {count} bundle members integrated")
+    sensitivity = (predicted - predicted.mean(axis=0)) / epsilon
+    departure = predicted.mean(axis=0) - flat
+
+    weighted = np.linalg.solve(block, sensitivity.T).T
+    hessian = np.eye(ok.sum()) + sensitivity @ weighted.T
+    gradient = coefficients[ok] + weighted @ departure
+    step = np.zeros(count)
+    step[ok] = -np.linalg.solve(hessian, gradient)
+    coefficients = coefficients + step
+    if np.linalg.norm(step) < tolerance: break
+
+  centre = anchor + anomalies.T @ coefficients
+  bundle = centre + epsilon * anomalies
+  predicted, ok = _window_predictions(problem, grid, bundle, operator, seen)
+  sensitivity = (predicted - predicted.mean(axis=0)) / epsilon
+  weighted = np.linalg.solve(block, sensitivity.T).T
+  transform = np.linalg.inv(np.eye(ok.sum()) + sensitivity @ weighted.T)
+  eigenvalues, vectors = np.linalg.eigh(transform)
+  root = vectors @ np.diag(np.sqrt(np.maximum(eigenvalues, 0.0))) @ vectors.T
+  updated = centre + np.sqrt(count - 1.0) * (root @ anomalies[ok])
+  centred = updated - updated.mean(axis=0)
+  return EnsembleAnalysis(updated, centre, centred.T @ centred / max(updated.shape[0] - 1, 1))

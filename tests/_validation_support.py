@@ -36,7 +36,7 @@ def reference_times():
   return reference("ref_t.csv")
 
 
-def solve_radius(times, material=NHKV, R0_m=R0, Req_m=REQ, **options):
+def solve_radius(times, material: pyimr.MaterialModel = NHKV, R0_m=R0, Req_m=REQ, **options):
   config = pyimr.SimulationConfig(R0=R0_m, Req=Req_m, material=material, **options)
   return pyimr.simulate(times, config).radius_ratio
 

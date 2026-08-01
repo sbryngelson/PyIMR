@@ -1,38 +1,8 @@
 [
   {
-    "file": "pyimr/__init__.py",
-    "rule": "reportOperatorIssue",
-    "message": "Operator \"*\" not supported for types \"float\" and \"Any | None\" Operator \"*\" not supported for types \"float\" and \"None\" when expected type is \"_ConvertibleToFloat | _ArrayLikeFloat_co | _NestedSequence[_ConvertibleToFloat | None] | None\"",
-    "count": 1
-  },
-  {
     "file": "pyimr/_prepare.py",
     "rule": "reportArgumentType",
     "message": "Argument of type \"float\" cannot be assigned to parameter \"rtol\" of type \"float64\" in function \"brentq\" \"float\" is not assignable to \"float64\"",
-    "count": 1
-  },
-  {
-    "file": "pyimr/_prepare.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"tuple[Unknown, RootResults] | Unknown\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\" Type \"tuple[Unknown, RootResults] | Unknown\" is not assignable to type \"ConvertibleToFloat\" Type \"tuple[Unknown, RootResults]\" is not assignable to type \"ConvertibleToFloat\" \"tuple[Unknown, RootResults]\" is not assignable to \"str\" \"tuple[Unknown, RootResults]\" is incompatible with protocol \"Buffer\" \"__buffer__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsFloat\" \"__float__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsIndex\"",
-    "count": 1
-  },
-  {
-    "file": "pyimr/_prepare.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"tuple[Unknown, RootResults] | Unknown\" cannot be assigned to parameter \"x\" of type \"ConvertibleToFloat\" in function \"__new__\" Type \"tuple[Unknown, RootResults] | Unknown\" is not assignable to type \"ConvertibleToFloat\" Type \"tuple[Unknown, RootResults]\" is not assignable to type \"ConvertibleToFloat\" \"tuple[Unknown, RootResults]\" is not assignable to \"str\" \"tuple[Unknown, RootResults]\" is incompatible with protocol \"Buffer\" \"__buffer__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsFloat\" \"__float__\" is not present \"tuple[Unknown, RootResults]\" is incompatible with protocol \"SupportsIndex\" ...",
-    "count": 1
-  },
-  {
-    "file": "pyimr/_prepare.py",
-    "rule": "reportFunctionMemberAccess",
-    "message": "Cannot assign to attribute \"direction\" for class \"FunctionType\" Attribute \"direction\" is unknown",
-    "count": 1
-  },
-  {
-    "file": "pyimr/_prepare.py",
-    "rule": "reportFunctionMemberAccess",
-    "message": "Cannot assign to attribute \"terminal\" for class \"FunctionType\" Attribute \"terminal\" is unknown",
     "count": 1
   },
   {
@@ -147,66 +117,6 @@
     "file": "pyimr/pymc_op.py",
     "rule": "reportOperatorIssue",
     "message": "Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown] | list[Variable[Unknown, Unknown]]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"Variable[Unknown, Unknown]\" Operator \"*\" not supported for types \"Variable[Unknown, Unknown]\" and \"list[Variable[Unknown, Unknown]]\"",
-    "count": 1
-  },
-  {
-    "file": "tests/test_api.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"object\" cannot be assigned to parameter \"config\" of type \"SimulationConfig\" in function \"simulate\" \"object\" is not assignable to \"SimulationConfig\"",
-    "count": 1
-  },
-  {
-    "file": "tests/test_api.py",
-    "rule": "reportOptionalMemberAccess",
-    "message": "\"shape\" is not a known attribute of \"None\"",
-    "count": 6
-  },
-  {
-    "file": "tests/test_api.py",
-    "rule": "reportOptionalSubscript",
-    "message": "Object of type \"None\" is not subscriptable",
-    "count": 2
-  },
-  {
-    "file": "tests/test_pymc_op.py",
-    "rule": "reportAttributeAccessIssue",
-    "message": "Cannot access attribute \"eval\" for class \"list[Variable[Unknown, Unknown]]\" Attribute \"eval\" is unknown",
-    "count": 2
-  },
-  {
-    "file": "tests/test_validation_constitutive.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"Giesekus\" cannot be assigned to parameter \"material\" of type \"NeoHookeanKelvinVoigt\" in function \"solve_radius\" \"Giesekus\" is not assignable to \"NeoHookeanKelvinVoigt\"",
-    "count": 2
-  },
-  {
-    "file": "tests/test_validation_constitutive.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"InstantaneousMaterial\" cannot be assigned to parameter \"material\" of type \"NeoHookeanKelvinVoigt\" in function \"solve_radius\" \"InstantaneousMaterial\" is not assignable to \"NeoHookeanKelvinVoigt\"",
-    "count": 3
-  },
-  {
-    "file": "tests/test_validation_constitutive.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"OldroydB\" cannot be assigned to parameter \"material\" of type \"NeoHookeanKelvinVoigt\" in function \"solve_radius\" \"OldroydB\" is not assignable to \"NeoHookeanKelvinVoigt\"",
-    "count": 3
-  },
-  {
-    "file": "tests/test_validation_sensitivities.py",
-    "rule": "reportOptionalMemberAccess",
-    "message": "\"maximum_radius_ratio\" is not a known attribute of \"None\"",
-    "count": 1
-  },
-  {
-    "file": "tests/test_validation_sensitivities.py",
-    "rule": "reportOptionalSubscript",
-    "message": "Object of type \"None\" is not subscriptable",
-    "count": 1
-  },
-  {
-    "file": "tests/test_validation_trajectories.py",
-    "rule": "reportArgumentType",
-    "message": "Argument of type \"tuple[str, NeoHookeanKelvinVoigt, int]\" cannot be assigned to parameter \"object\" of type \"tuple[str, Zener, int]\" in function \"append\" \"NeoHookeanKelvinVoigt\" is not assignable to \"Zener\"",
     "count": 1
   }
 ]

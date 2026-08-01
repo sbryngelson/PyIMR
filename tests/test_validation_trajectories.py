@@ -52,7 +52,7 @@ def _median_bound(label):
 
 def _imr2_cases():
   gg, mg = reference("imr2_G.csv"), reference("imr2_M.csv")
-  cases = [("Zener truth De=2 s=6", zener(), 0)]
+  cases: list[tuple[str, pyimr.MaterialModel, int]] = [("Zener truth De=2 s=6", zener(), 0)]
   for k in (0, 30, gg.size * mg.size - 1):
     gi, mi = k // mg.size, k % mg.size
     cases.append((f"NHKV G={gg[gi]:.0f} mu={mg[mi]:.4f}", pyimr.NeoHookeanKelvinVoigt(gg[gi], mg[mi]), 1 + k))

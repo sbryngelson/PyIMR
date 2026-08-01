@@ -57,6 +57,9 @@ def test_prepared_problem_is_reusable_and_returns_active_fields():
   second = problem.solve(times)
 
   np.testing.assert_array_equal(first.radius_ratio, second.radius_ratio)
+  # these four are `None` unless the matching option is on, which this config turns on
+  assert first.bubble_temperature_k is not None and first.medium_temperature_k is not None
+  assert first.vapor_mass_fraction is not None and first.stress_state is not None
   assert first.bubble_temperature_k.shape == (times.size, config.Nt)
   assert first.medium_temperature_k.shape == (times.size, config.Mt)
   assert first.vapor_mass_fraction.shape == (times.size, config.Nt)
@@ -83,6 +86,7 @@ def test_configurable_physics_and_initial_conditions_are_dimensional():
 
   result = simulate(times, config)
 
+  assert result.internal_pressure_pa is not None and result.bubble_temperature_k is not None
   assert result.wall_velocity_m_s[0] == pytest.approx(2.0)
   assert result.internal_pressure_pa[0] == pytest.approx(1.5e5)
   assert result.bubble_temperature_k[0, 0] == pytest.approx(310.0)
@@ -92,6 +96,7 @@ def test_distributed_constitutive_state_uses_prepared_grid():
   model = Giesekus(viscosity_pa_s=0.1, relaxation_time_s=2e-6, retardation_time_s=4e-7, mobility=0.1, points=24)
   result = simulate(np.linspace(0.0, 2e-6, 5), base_config(material=model))
 
+  assert result.stress_state is not None and result.stress_reference_radius_ratio is not None
   assert result.stress_state.shape == (5, 2 * model.points)
   assert result.stress_reference_radius_ratio.shape == (model.points,)
   with pytest.raises(ValueError):
@@ -120,7 +125,7 @@ def test_simulation_rejects_invalid_time_grids(times):
 
 def test_structured_api_requires_config():
   with pytest.raises(TypeError, match="SimulationConfig"):
-    simulate([0.0, 1.0], object())
+    simulate([0.0, 1.0], object())  # pyright: ignore[reportArgumentType] - the wrong type IS the test
 
 
 PUBLIC_MODULES = ("pyimr", "pyimr.sensitivity", "pyimr.inference", "pyimr.data", "pyimr.design", "pyimr.pymc_op")

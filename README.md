@@ -1,4 +1,4 @@
-# imr-fast
+# PyIMR
 
 Fast, validated solvers for **inertial microcavitation rheometry (IMR)** with a
 typed, dimensional material API.
@@ -34,7 +34,7 @@ worth seeing.
 | API reference | `pip install 'imr-fast[docs]'` then `python -m pdoc imr_fast imr_fast.sensitivity imr_fast.inference imr_fast.data imr_fast.design imr_fast.pymc_op` |
 | `docs/discretization.md` | stress quadrature and the two thermal backends, with cost/accuracy measurements |
 | `docs/validation.md` | what the suite pins, and the per-case deviations from IMRv2 |
-| `docs/upstream.md` | defects found in IMRv2, and what imr-fast does instead |
+| `docs/upstream.md` | defects found in IMRv2, and what PyIMR does instead |
 | `benchmarks/run.py` | reproducible timings; `--json` and `--baseline` to compare runs |
 
 ## Upgrading from 0.2.0
@@ -516,7 +516,7 @@ and the argument behind that split are in
 
 ## Reference implementation
 
-imr-fast diverges from IMRv2 in several places, always deliberately. Eight
+PyIMR diverges from IMRv2 in several places, always deliberately. Eight
 defects were found at `dea31cd`, each reproduced with MATLAB R2025a via
 `tools/gen_imrv2_cases.m`, and each correction validated against something
 other than upstream -- a closed form, an independent equation of state, or a
@@ -524,7 +524,7 @@ reduction limit. The wrong Mie-Gruneisen root, the non-functional
 non-Newtonian viscosity suite, the stubbed collapse initialization and the
 rest are in **[docs/upstream.md](docs/upstream.md)**.
 
-Those defects are why several imr-fast models are validated by reduction limit
+Those defects are why several PyIMR models are validated by reduction limit
 rather than against a pinned upstream trajectory: for those models, no working
 upstream implementation exists to pin against.
 

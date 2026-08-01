@@ -2097,45 +2097,82 @@ harness, because it produces numbers that look like evidence.
 ## Open issues, banked
 
 GitHub is the source of truth; this is the copy that survives losing the issue
-tracker. Updated 2026-07-31. Each entry records what was **measured**, because
-in three consecutive cases (#119, #120, #129) the issue's stated cause was wrong
-and the proposed remedy would have been aimed at the wrong thing.
+tracker. Updated 2026-08-01. Each entry records what was **measured**, because
+in four cases (#119, #120, #122, #129) the issue's stated cause or scope was
+wrong and the proposed remedy would have been aimed at the wrong thing.
 
-| # | title | priority | state of knowledge |
-|---|---|---|---|
-| 120 | Spectral thermal implicit solve is a dense `O(Nt^3)` Newton | labelled P1, **is P2** | narrowed |
-| 122 | Data assimilation: EnKF / IEnKS / 4D-Var | P2 | partly built already |
-| 124 | Remaining coverage gaps | P3 | untouched |
-| 123 | CI test step vs the 5-minute target | closed, **prematurely** | see below |
+| # | title | state |
+|---|---|---|
+| 122 | Data assimilation: EnKF / IEnKS / 4D-Var | **done** -- see below |
+| 120 | Spectral thermal implicit solve is a dense `O(Nt^3)` Newton | **closed**, every claim stale |
+| 142 | Remaining pyright diagnostics | **closed**, baseline is empty |
+| 124 | Remaining coverage gaps | open, P3, the valuable item done |
+| 123 | CI test step vs the 5-minute target | closed **prematurely**, still unjudged |
 
-### #120 -- dense thermal Newton
+### #120 -- dense thermal Newton, closed
 
-The premise "exploit sparsity in the thermal Jacobian" is **wrong**: Chebyshev
-differentiation matrices are dense, so there is nothing to factor sparsely.
-Narrowed to *high-resolution sensitivities capped near `Nt = 80`*, which nothing
-currently needs -- hence P2, not P1. Jacobian-free Newton-Krylov is the
-remaining lever. Do not start by implementing the issue as written.
+Every claim in it was stale by the time it was re-measured on 2026-08-01, and
+none of the proposed work was needed. Kept because the shape of the mistake is
+the useful part.
 
-### #122 -- data assimilation
+- "does not complete at Nt=200" -- completes in **54.3 s**. The numbers predated
+  the `VeryChord` root finder; above `_CHORD_ABOVE = 80` the solve reuses the
+  Jacobian instead of refactorizing every Newton iteration
+- "cost grows like `Nt^3`" -- measured `Nt^1.3`: 8x the nodes for 15x the time
+- "exploit sparsity in the thermal Jacobian" -- Chebyshev differentiation
+  matrices are dense; there was never sparsity to exploit
+- "the spectral convergence rate is no longer asserted" -- already restored,
+  `_REFERENCE_NT = 200`
+- my own narrowing, "high-resolution *sensitivities* capped near Nt=80" -- also
+  wrong: sensitivities run to **Nt=300 in 33 s**, finite throughout
 
-The issue's table claims initial-state tangents are missing. They are **partly
-built**: `INITIAL_PATHS` exists in `_jax.py` and `jacfwd` already reaches the
-scalar initial fields through `initial_state_vector`. What is actually missing:
+### #122 -- data assimilation, done
 
-- `stress_state`, excluded from `_INITIAL_FIELDS` because it is a vector
-- radius, pinned to `1.0` and not exposed
-- the raw state vector `y0`, which is what a window restart needs
+Delivered across #146, #147, #148, #149, #150, #151, #152:
 
-So step 2 of that issue should read "lift the *raw state vector* to an
-argument", not "lift `start`". Also: the declared `initial.*` paths have **no
-correctness test** -- they appear only in a coverage-set assertion in
-`tests/test_backend_jax.py`. Sliding windows remain out of scope by maintainer
-decision.
+| piece | entry point |
+|---|---|
+| window restart from a raw state | `PreparedProblem.solve_from`, `solve_states` |
+| tangent linear operator | `PreparedProblem.state_tangents` |
+| ensemble propagation | `PreparedProblem.solve_ensemble` |
+| EnKF analysis | `assimilation.enkf_analysis`, `ensemble_update` |
+| true 4D-Var | `assimilation.four_dvar`, `variational_cost` |
+| iterative smoother | `assimilation.ienks` |
+
+**The issue's scope was wrong in the direction of overstating the work.** It said
+initial-state tangents were missing and `start` had to be lifted out of the
+traced function. `integrate_jax`'s inner `solve(grid, start)` already took the
+start state as an argument, so `y0` was in a differentiable position all along;
+what was missing was a `jacfwd` over it with the `ForwardMode` adjoint.
+
+The validation it asked for reproduces, but the honest statement is narrower
+than "gradient methods win":
+
+  velocity rms (never observed)   prior 2.5e-02
+                                  4D-Var 1.7e-04
+                                  one-shot ensemble smoother 3.5e-03
+                                  IEnKS 1.9e-04
+
+4D-Var and IEnKS **agree** -- 3.2e-09 apart after 12 iterations. Only the
+one-shot ensemble update is beaten, and no ensemble size fixes it: 8x the
+members moved the answer in the fourth significant figure, so that gap is
+structural rather than sampling error. What separates 4D-Var from IEnKS is what
+they require -- the tangent operator, or an ensemble spanning the subspace --
+not what they deliver.
+
+Sliding windows remain out of scope by maintainer decision.
 
 ### #124 -- coverage gaps
 
-Multiprocessing paths, constructed-failure states, distributed stress rate.
-P3, and genuinely just work.
+The one item worth doing is done (#145): the distributed stress **rate** had no
+test, because the default quadrature is `gauss` and the default radial is `1`, so
+nothing selected the trapezoid branch. Asserted as an identity against a centered
+difference rather than as a line touched -- gauss 1.5e-10, trapezoid 3.1e-11.
+
+Left open deliberately. The multiprocessing paths risk becoming flaky deadlock
+detectors rather than tests, and the constructed-failure states are only as good
+as the engineering: a state that fails for the wrong reason exercises the line
+without checking the guard.
 
 ### #123 -- CI timing, closed prematurely
 

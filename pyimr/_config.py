@@ -345,6 +345,22 @@ class PreparedProblem:
     _, states, _ = _integrate_prepared(self, tv, state)
     return _freeze_array(np.asarray(states).T)
 
+  def solve_ensemble(self, members, tv) -> np.ndarray:
+    """`(member, time, state)` for a batch of initial states, advanced together.
+
+    One `vmap` over the whole ensemble rather than a loop of solves, so the members
+    share a compiled program. Each row is validated against the layout first.
+    """
+    from pyimr import _validate_state
+
+    from ._jax import ensemble_states_jax
+
+    times = _validate_inputs(tv, self.config)
+    batch = np.asarray(members, dtype=float)
+    if batch.ndim != 2: raise ValueError(f"members must be a 2-D array of states; got shape {batch.shape}")
+    stacked = np.stack([_validate_state(self, row) for row in batch])
+    return _freeze_array(ensemble_states_jax(self, times, stacked))
+
   def state_tangents(self, tv, state=None):
     """`(states, jacobian)` where `jacobian[k]` is `d state(t_k) / d state(t_0)`.
 

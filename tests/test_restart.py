@@ -105,3 +105,47 @@ def test_the_tangent_operator_is_consistent_with_the_primal():
   times = np.linspace(0.0, 12e-6, 25)
   states, _ = problem.state_tangents(times)
   np.testing.assert_allclose(states, problem.solve_states(times), rtol=1e-9, atol=1e-12)
+
+
+def test_an_ensemble_member_matches_its_individual_solve():
+  """The vmap must be a batching detail, not a different integration."""
+  problem = _problem(bubtherm=1, Nt=7)
+  times = np.linspace(0.0, 12e-6, 21)
+  start = np.asarray(problem.initial_state, dtype=float)
+  rng = np.random.default_rng(0)
+  members = start + 1e-4 * rng.normal(size=(6, start.size))
+
+  ensemble = problem.solve_ensemble(members, times)
+  assert ensemble.shape == (6, times.size, start.size)
+
+  worst = max(float(np.abs(ensemble[i] - problem.solve_states(times, members[i])).max()) for i in range(len(members)))
+  assert worst < 1e-12, f"batched member drifted from its own solve by {worst:.3e}"
+  with pytest.raises(ValueError):
+    ensemble[0, 0, 0] = 0.0
+
+
+def test_the_ensemble_carries_a_spread_forward():
+  """A filter needs the spread to actually evolve, not merely be transported."""
+  problem = _problem()
+  times = np.linspace(0.0, 20e-6, 41)
+  start = np.asarray(problem.initial_state, dtype=float)
+  rng = np.random.default_rng(1)
+  members = start + np.column_stack([rng.normal(0.0, 1e-3, 24), np.zeros(24)])
+
+  ensemble = problem.solve_ensemble(members, times)
+  spread = ensemble[:, :, 0].std(axis=0)
+  assert spread[0] == pytest.approx(members[:, 0].std(), rel=1e-9)
+  assert spread[-1] > spread[0], "a perturbation in radius should not stay the same size through a collapse"
+
+
+@pytest.mark.parametrize(
+  ("members", "message"),
+  [
+    (np.zeros(2), "members must be a 2-D array"),
+    (np.zeros((3, 2, 2)), "members must be a 2-D array"),
+    (np.zeros((3, 5)), "state must have shape"),
+  ],
+)
+def test_the_ensemble_refuses_a_malformed_batch(members, message):
+  with pytest.raises(ValueError, match=message):
+    _problem().solve_ensemble(members, _TIMES)

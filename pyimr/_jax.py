@@ -26,8 +26,23 @@ def _solver_for(config, diffrax, *, differentiating=True):
 
     nodes = config.Nt + (config.Mt if config.medtherm else 0)
     if not differentiating and nodes > _CHORD_ABOVE:
-      return diffrax.Kvaerno5(root_finder=diffrax.VeryChord(rtol=1e-8, atol=1e-8)), "kvaerno5-chord"
-    return diffrax.Kvaerno5(root_finder=optimistix.Newton(rtol=1e-8, atol=1e-8)), "kvaerno5"
+      return diffrax.Kvaerno5(root_finder=diffrax.VeryChord(rtol=1e-8, atol=1e-8)), "kvaerno5-verychord"
+    # Forward: `optimistix.Chord` -- one Jacobian per STAGE, reused inside that stage's
+    # solve, rather than one per Newton iteration. The Jacobian costs 5.4x the RHS, so that
+    # is where the money is: measured 1.600x (12/12 paired, single core), step count
+    # IDENTICAL at 333, trajectory agreeing to 3.6e-15.
+    #
+    # NOT `diffrax.VeryChord`, which reuses across STEPS and collapses step control (9574
+    # steps against 333, 12x worse). Reuse within a stage leaves the controller intact,
+    # which the identical step count is the evidence for.
+    #
+    # Differentiating: `Newton`. Chord reintroduces the #133 failure -- an off-equilibrium
+    # start drives the solver through unphysical trial states, and the reused Jacobian
+    # hands lineax a non-finite operator where a fresh one survives. The forward path never
+    # reaches that, so the split buys the speed without the fragility.
+    if differentiating:
+      return diffrax.Kvaerno5(root_finder=optimistix.Newton(rtol=1e-8, atol=1e-8)), "kvaerno5"
+    return diffrax.Kvaerno5(root_finder=optimistix.Chord(rtol=1e-8, atol=1e-8)), "kvaerno5-chord"
   return diffrax.Tsit5(), "tsit5"
 
 def _jax():

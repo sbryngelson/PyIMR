@@ -14,14 +14,17 @@ Every model is simulated once over the full record from the bubble maximum; only
 samples entering the likelihood change between windows. That isolates the window effect
 from the separate problem of how to re-initialize a model partway through an event.
 
-Run: .venv/bin/python examples/windowed_selection.py <dataset>
+Run: .venv/bin/python examples/windowed_selection.py <dataset> [thermal Nt] [workers]
 """
 
 from __future__ import annotations
 
+import multiprocessing as mp
+import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -33,7 +36,13 @@ from pyimr.noise import (
   strain_rate_weights,
   weighted_deviation,
 )
-from pyimr.selection import STANDARD_MODELS, compare, log_evidence, redundancy_over_grid, solve_grid
+from pyimr.selection import (
+  STANDARD_MODELS,
+  compare,
+  log_evidence,
+  parameter_grid,
+  redundancy_over_grid,
+)
 
 DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 # Solver tolerance. Adjustable: raise for validation work, lower for speed. At 1e-6 the
@@ -42,6 +51,11 @@ DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 RTOL, ATOL = 1e-6, 1e-8
 
 GRID_COUNT = 10
+# Rayleigh-Plesset. Almost certainly the wrong choice for laser cavitation, which is
+# compressible, but radial=2 exhausts the step budget at some grid points and needs
+# per-point failure handling first. Kept at 1 so this knob changes nothing yet.
+_RADIAL = int(os.environ.get('PYIMR_RADIAL', '1'))
+_CHUNK = 120  # grid points per work unit; keeps the uneven model sizes load-balanced
 _MAX_RATIO = 1.05  # R* cannot exceed the maximum it is normalized by, beyond tracking noise
 
 # name -> (file, R_max [m], R_max/R_inf) from the paper's dataset table
@@ -81,38 +95,89 @@ def collapse_windows(trace, times):
   windows["full record"] = np.ones(len(trace), dtype=bool)
   return windows
 
+def setup(dataset, thermal_nodes, radial=_RADIAL):
+  """Per-dataset state, rebuilt from picklable arguments alone.
+
+  Workers cannot receive a closure, so they reconstruct this from the dataset name. The
+  cost is one CSV read against seconds of solving.
+  """
+  nondimensional_time, trials, maximum_radius, equilibrium = load(dataset)
+  usable = screen(trials)
+  trials = trials[:, usable]
+  characteristic = characteristic_time(maximum_radius)
+  times = nondimensional_time[usable] * characteristic
+  weights = strain_rate_weights(
+    hencky_strain_rate(trials.mean(axis=0), times, characteristic), STRAIN_RATE_THRESHOLD_PER_S * characteristic
+  )
+  # annotated: an inferred dict[str, int | str] makes every SimulationConfig field
+  # int | str through the **options splat, which pyright rejects across the board
+  options: dict[str, Any] = {"radial": radial}
+  if thermal_nodes: options |= {"bubtherm": 1, "thermal": "spectral", "Nt": thermal_nodes}
+
+  def solve(material):
+    result = pyimr.simulate(
+      times, pyimr.SimulationConfig(maximum_radius, equilibrium, material, rtol=RTOL, atol=ATOL, **options)
+    )
+    return result.radius_ratio, result.stress_integral_pa
+
+  return trials, times, weights, solve, usable, (maximum_radius, equilibrium)
+
+def solve_chunk(payload):
+  """One model over a slice of its grid, plus the children that slice needs.
+
+  Module level and picklable-only because JAX deadlocks under `fork`, so `spawn` is
+  required, and `spawn` cannot pickle a closure.
+  """
+  os.environ.setdefault("OMP_NUM_THREADS", "1")
+  dataset, thermal_nodes, model, low, high = payload
+  _, _, weights, solve, _, _ = setup(dataset, thermal_nodes)
+  candidate = STANDARD_MODELS[model]
+  points = parameter_grid(candidate.axes, GRID_COUNT)[0][low:high]
+  solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
+  stresses = np.array([s for _, s in solved])
+  redundancies = redundancy_over_grid(candidate, STANDARD_MODELS, points, stresses, solve, weights=weights)
+  return model, low, np.array([r for r, _ in solved]), redundancies
+
 def main():
   name = sys.argv[1] if len(sys.argv) > 1 else "gelatin_15C"
-  nondimensional_time, trials, maximum_radius, equilibrium = load(name)
-  characteristic = characteristic_time(maximum_radius)
-  times = nondimensional_time * characteristic
+  # optional second argument: bubble-thermal node count. Accuracy saturates by Nt = 9
+  # (agreement to ~1e-9 against Nt = 60), so there is no reason to go finer -- see #181.
+  thermal_nodes = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+  workers = int(sys.argv[3]) if len(sys.argv) > 3 else 1
 
-  usable = screen(trials)
-  dropped = int((~usable).sum())
-  nondimensional_time, trials, times = nondimensional_time[usable], trials[:, usable], times[usable]
+  trials, times, weights, _, usable, (maximum_radius, equilibrium) = setup(name, thermal_nodes)
   mean_trace = trials.mean(axis=0)
   spread = trials.std(axis=0, ddof=1)
+  dropped = int((~usable).sum())
 
   print(f"{name}: {trials.shape[0]} trials, {trials.shape[1]} samples, "
-        f"Rmax={maximum_radius * 1e6:.0f} um, Rmax/Req={maximum_radius / equilibrium:.2f}")
+        f"Rmax={maximum_radius * 1e6:.0f} um, Rmax/Req={maximum_radius / equilibrium:.2f}, "
+        f"{'bubble-thermal Nt=%d' % thermal_nodes if thermal_nodes else 'cold'}")
   print(f"  measured spread: median {np.median(spread):.4f}, max {spread.max():.4f} of Rmax")
   print(f"  screened out {dropped} of {dropped + int(usable.sum())} samples "
         f"(unphysical R* or zero spread)\n")
 
-  def solve(material):
-    result = pyimr.simulate(times, pyimr.SimulationConfig(maximum_radius, equilibrium, material, rtol=RTOL, atol=ATOL))
-    return result.radius_ratio, result.stress_integral_pa
+  payloads = [
+    (name, thermal_nodes, model.name, low, min(low + _CHUNK, GRID_COUNT**model.dimension))
+    for model in STANDARD_MODELS.values()
+    for low in range(0, GRID_COUNT**model.dimension, _CHUNK)
+  ]
+  start = time.perf_counter()
+  if workers > 1:
+    with mp.get_context("spawn").Pool(workers) as pool: results = pool.map(solve_chunk, payloads)
+  else:
+    results = [solve_chunk(item) for item in payloads]
 
-  rate = hencky_strain_rate(mean_trace, times, characteristic)
-  weights = strain_rate_weights(rate, STRAIN_RATE_THRESHOLD_PER_S * characteristic)
-
-  cached, start, solves = {}, time.perf_counter(), 0
+  cached, solves = {}, 0
   for candidate in STANDARD_MODELS.values():
-    points, normalized, radii, stresses = solve_grid(candidate, solve, count=GRID_COUNT)
-    redundancies = redundancy_over_grid(candidate, STANDARD_MODELS, points, stresses, solve, weights=weights)
-    solves += len(points) * (1 + len(candidate.contains))
-    cached[candidate.name] = (radii, normalized, redundancies, candidate.dimension)
-  print(f"{solves} solves in {time.perf_counter() - start:.1f} s\n")
+    parts = sorted((low, radii, red) for model, low, radii, red in results if model == candidate.name)
+    radii = np.concatenate([r for _, r, _ in parts])
+    cached[candidate.name] = (
+      radii, parameter_grid(candidate.axes, GRID_COUNT)[1],
+      np.concatenate([w for _, _, w in parts]), candidate.dimension,
+    )
+    solves += len(radii) * (1 + len(candidate.contains))
+  print(f"{solves} solves in {time.perf_counter() - start:.1f} s on {workers} worker(s)\n")
 
   windows = collapse_windows(mean_trace, times)
   names = list(cached)

@@ -47,6 +47,19 @@ def test_an_identical_history_has_no_mismatch():
   assert relative_mismatch(history, np.zeros_like(history)) == pytest.approx(1.0)
 
 
+def test_a_pure_rescaling_counts_as_redundant(measured):
+  """Eqn 22 aligns amplitudes before comparing, so a model whose stress differs from its
+  child only by an overall factor is redundant. Skipping that alignment reports it as
+  maximally distinguishable instead -- 2.0 here against a true 0.
+  """
+  history = np.array([1.0, 2.0, 3.0, 4.0])
+  assert relative_mismatch(history, 3.0 * history) == pytest.approx(0.0, abs=1e-12)
+  measured("amplitude alignment", f"aligned 0 vs unaligned {relative_mismatch(history, 3.0 * history, align=False):.3f}")
+  assert relative_mismatch(history, 3.0 * history, align=False) > 1.0
+  # a genuine shape change survives the alignment
+  assert relative_mismatch(history, history[::-1]) > 0.5
+
+
 def test_weights_move_the_mismatch_toward_where_they_are_large():
   parent = np.array([1.0, 1.0, 1.0, 1.0])
   child = np.array([1.0, 1.0, 1.0, 0.0])  # differs only in the last sample

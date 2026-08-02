@@ -231,7 +231,7 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
     Ze = -0.5 * (R**3 / Ca) * (5 - Rst**4 - 4 * Rst)
     Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * (Rd / R) ** 2
-    return S, Sdot, xp.array([Z1d]), 4.0 / Re8
+    return S, Sdot, xp.array([Z1d]), 4.0 * LAM / Re8
   if isinstance(material, QuadraticZener):
     Z1 = Z[0]
     S = Z1 / R**3 - 4 * LAM / Re8 * Rd / R
@@ -239,7 +239,7 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
     Ze = R**3 * (strainhard * (5 - Rst**4 - 4 * Rst) + (2 * ax / Ca) * (0.675 + 0.125 * Rst**8 + 0.2 * Rst**5 + Rst**2 - 2 / Rst))
     Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
-    return S, Sdot, xp.array([Z1d]), 4.0 / Re8
+    return S, Sdot, xp.array([Z1d]), 4.0 * LAM / Re8
   if isinstance(material, OldroydB):
     Z1, Z2 = Z[0], Z[1]
     Z1d = -(1 / De - 2 * Rd / R) * Z1 + 2 * (LAM - 1) / (Re8 * De) * R**2 * Rd

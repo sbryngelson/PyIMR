@@ -27,7 +27,13 @@ def oldroyd_b():
 
 @functools.lru_cache(maxsize=None)
 def reference(name):
-  """A pinned IMRv2 trajectory. Cached -- imr2_s06.csv alone is 234 kB and"""
+  """A pinned trajectory. Cached -- imr2_s06.csv alone is 234 kB and
+
+  IMRv2-generated, EXCEPT `ref_km_zener.csv`, `ref_radial3_zener.csv` and
+  `ref_radial4_zener.csv`. Those three were regenerated from PyIMR when the Zener
+  acceleration coefficient was corrected away from IMRv2 (#174), so they are converged
+  self-references rather than independent cross-implementation checks.
+  """
   return np.loadtxt(DATA / name, delimiter="," if name == "imr2_s06.csv" else None)
 
 

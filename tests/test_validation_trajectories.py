@@ -90,6 +90,10 @@ _EXTENDED: list[tuple[str, dict[str, Any], str]] = [
   ("quadratic Zener", dict(material=pyimr.QuadraticZener(2500.0, 0.1, 2 * T0, 0.4 * T0, 0.25)), "ref_stress4.csv"),
   ("radial=3 (KM enthalpy, Tait)", dict(radial=3), "ref_radial3.csv"),
   ("radial=4 (Gilmore, Tait)", dict(radial=4), "ref_radial4.csv"),
+  # These three, and "Keller-Miksis Zener" above, no longer check against IMRv2. PyIMR
+  # corrected the Zener acceleration coefficient to 4*LAM/Re8 (#174), which moves the
+  # trajectory ~5e-02 from IMRv2, so the files were regenerated from a converged PyIMR
+  # solve. They catch regressions; they no longer catch a disagreement with upstream.
   ("radial=3+Zener", dict(radial=3, material=zener()), "ref_radial3_zener.csv"),
   ("radial=4+Zener", dict(radial=4, material=zener()), "ref_radial4_zener.csv"),
 ]

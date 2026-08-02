@@ -79,10 +79,27 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
 
   solver, solver_name = (diffrax.Tsit5(), "tsit5") if config is None else _solver_for(config, diffrax, differentiating=False)
 
+  # The nondimensional groups are traced ARGUMENTS, not constants closed over. Baking them
+  # in made the cache key depend on their values, so every distinct parameter set was a
+  # fresh XLA compile: a 20-point sweep cost 27.3 s against 0.04 s of actual solving (#163).
+  #
+  # `wave_type` stays static because `_pinf` branches on it. It is the only int among the
+  # 44 entries, and a branch on a tracer is an error rather than a slow path.
+  from ._prepare import medium_with_parameters
+
+  static = {"wave_type": args[0]["wave_type"]}
+  dynamic = {name: float(value) for name, value in args[0].items() if name not in static}
+  medium = args[8]
+
   def program(chosen):
-    def solve(grid, start):
+    def solve(grid, start, values):
+      merged = {**values, **static}
+      # `medium`'s wall weights are built FROM p, so they have to be rebuilt for the
+      # traced values rather than reused from preparation.
+      rebuilt = None if medium is None else medium_with_parameters(medium, merged, xp=jnp)
+      inner = (merged, *args[1:8], rebuilt, *args[9:])
       return diffrax.diffeqsolve(
-        diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *args, xp=jnp))), chosen,
+        diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *inner, xp=jnp))), chosen,
         t0=grid[0], t1=grid[-1], dt0=None, y0=start,
         stepsize_controller=diffrax.PIDController(rtol=rtol, atol=atol, dtmax=max_step),
         saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, throw=False,
@@ -92,12 +109,13 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
 
   grid_values = jnp.asarray(np.asarray(times, dtype=float))
   start_values = jnp.asarray(np.asarray(initial, dtype=float))
+  dynamic_values = {name: jnp.asarray(value) for name, value in dynamic.items()}
 
   def run(chosen, name, key):
     compiled = _cached(key, lambda: program(chosen)) if key is not None else program(chosen)
     started = perf_counter()
     try:
-      solution = compiled(grid_values, start_values)
+      solution = compiled(grid_values, start_values, dynamic_values)
     except Exception as error:  # noqa: BLE001 - any solver failure is one failure
       elapsed = perf_counter() - started
       stats = SolverStats(backend=f"jax-{name}{label}", success=False, message=str(error), nfev=0, njev=0, nlu=0, elapsed_s=elapsed)

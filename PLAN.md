@@ -2218,3 +2218,50 @@ the next few runs say nothing. Reopen and judge after several warm runs.
 expression. Same routine, two behaviours. It is **not** the cause of #133 --
 `stop_gradient` on the slope changed nothing -- but the asymmetry is real and
 unexplained.
+
+---
+
+## How to benchmark this package
+
+Established by measurement on 2026-08-02, after a performance claim of 1.53x turned out
+to be 1.02x. Read this before quoting a speedup.
+
+### The workload is serial. Measure it on one core.
+
+25 repeats of an IDENTICAL coupled spectral solve, by thread regime:
+
+| regime | min | CV | max/min |
+|---|---|---|---|
+| default (128 cores) | 1.718 s | 19.9% | 1.54 |
+| 8 cores | 1.706 s | 19.6% | 1.67 |
+| 4 cores | 1.696 s | 19.0% | 1.55 |
+| **1 core (`taskset -c 0`)** | **1.692 s** | **3.3%** | **1.11** |
+
+One core is both the **least noisy and the fastest**. The matrices are 25x25 and 78x78 --
+far too small for XLA's thread pool, which contributes synchronisation overhead and
+variance and no speedup. On the default regime the noise floor (1.54x) EXCEEDS most
+effects worth measuring, so any comparison there is meaningless.
+
+Consequences:
+
+- benchmark under `taskset -c 0`, which resolves effects down to a few percent
+- for a campaign, run independent solves across cores as separate processes
+  (`workers > 1`); do NOT `vmap` the implicit path, which measured 1.8-2.5x WORSE per
+  point than solving one at a time
+- report `min` over repeats, not mean or median -- `min` was stable to 1.5% where the
+  mean moved by 20%
+
+### Use a paired, interleaved design
+
+Sequential blocks -- measure all of A, then all of B -- are not robust to drift. Compile
+both programs up front, then alternate, and report the paired ratio distribution. That is
+what took the halvings comparison from "1.53x" (single sample, noisy regime) to "1.020x,
+range 1.008-1.022, unanimous over 12 pairs".
+
+### A microbenchmark of a component does not predict the system
+
+The wall root-find is 75% of the coupled RHS op count, and one jitted RHS call drops from
+105.6 us to 62.5 us when it is cut. The end-to-end solve moved by **2%**. Whatever
+dominates a step, it is not what the isolated RHS timing suggests, and the chain
+"RHS -> jacfwd is 5.4x RHS -> per-iteration cost" does NOT predict end-to-end behaviour.
+Do not infer a system speedup from a component measurement; measure the system.

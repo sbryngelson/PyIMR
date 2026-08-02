@@ -270,21 +270,24 @@ def test_linear_maxwell_reduces_to_newtonian_as_relaxation_vanishes(radial, meas
   assert errors[-1] < 1e-5, f"error floor at {errors[-1]:.3e} means a term survives the limit"
 
 
-def test_linear_maxwell_is_zener_without_the_parallel_spring(measured):
-  """`Zener` is `LinearMaxwell` plus an elastic branch, so removing the modulus must
-  recover it. Pinned at `radial=1` only: at `radial=2` this limit stalls at 1.57e-03
-  because `Zener` drops `LAM` from its acceleration coefficient (#174). Extend this to
-  `radial=2` when that is fixed -- it is the test that catches it.
+@pytest.mark.parametrize("radial", (1, 2))
+def test_linear_maxwell_is_zener_without_the_parallel_spring(radial, measured):
+  """`Zener` is `LinearMaxwell` plus an elastic branch, so removing the modulus recovers it.
+
+  `radial=2` is the case that matters: the acceleration coefficient is unused at
+  `radial=1`, so only the compressible branch exercises it. This limit stalled at 1.57e-03
+  there while `Zener` carried IMRv2's `4/Re8`, and converges since it was corrected to
+  `4*LAM/Re8` (#174). It is the test that catches that coefficient.
   """
   times = reference_times()
-  maxwell = solve_radius(times, pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, 2e-6), **_EQUIVALENCE)
+  maxwell = solve_radius(times, pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, 2e-6), radial=radial, **_EQUIVALENCE)
 
   errors = []
   for modulus in (1e0, 1e-2, 1e-4):
-    zener = solve_radius(times, pyimr.Zener(modulus, _MAXWELL_VISCOSITY, 2e-6, 0.0), **_EQUIVALENCE)
+    zener = solve_radius(times, pyimr.Zener(modulus, _MAXWELL_VISCOSITY, 2e-6, 0.0), radial=radial, **_EQUIVALENCE)
     errors.append(float(np.max(np.abs(zener - maxwell))))
 
-  measured("Zener(G->0) -> Maxwell", "  ".join(f"{e:.2e}" for e in errors))
+  measured(f"Zener(G->0) -> Maxwell radial={radial}", "  ".join(f"{e:.2e}" for e in errors))
   for coarse, fine in zip(errors, errors[1:]):
     assert coarse / fine > 80.0, f"{coarse:.3e} -> {fine:.3e} is not first-order in the modulus"
   assert errors[-1] < 1e-7

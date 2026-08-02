@@ -5,6 +5,27 @@ while the major version is `0`, breaking changes move the minor version.
 
 ## 0.3.0 — unreleased
 
+### Breaking: Zener acceleration coefficient corrected, diverging from IMRv2
+
+`Zener` and `QuadraticZener` now return `4*LAM/Re8` as their acceleration coefficient
+rather than `4/Re8`. This changes compressible (`radial >= 2`) trajectories whenever the
+retardation time differs from the relaxation time. Same call, different numbers.
+
+The coefficient is `dS/dRdot` moved to the left of Keller-Miksis, and both stresses carry
+`-4*LAM/Re8*Rdot/R`, so the coefficient must carry `LAM`. IMRv2 assigns `4/Re8` to these
+models while its own stress carries the `LAM` factor, and PyIMR reproduced that. The
+inconsistency is upstream; this is a deliberate divergence, not a porting fix.
+
+Confirmed by a reduction limit: `Zener` with no parallel spring must approach
+`LinearMaxwell`. At `radial=2` it stalled at 1.57e-03 before and now converges first order
+in the modulus (2.02e-04, 2.02e-06, 2.02e-08).
+
+`ref_km_zener.csv`, `ref_radial3_zener.csv` and `ref_radial4_zener.csv` moved by about
+5e-02 and were regenerated from a converged PyIMR solve. **Those three are no longer
+independent IMRv2 cross-checks**; they pin regressions only. Every other reference is
+untouched, including `ref_stress4.csv` and `ref_collapse_zener.csv`, which run at
+`radial=1` where the coefficient is unused.
+
 ### Bayesian constitutive model selection
 
 Choosing a constitutive model is a model-selection problem, not a fitting one: the

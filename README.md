@@ -568,6 +568,14 @@ and the argument behind that split are in
 
 ## Reference implementation
 
+PyIMR reproduces IMRv2 except in one deliberate place. `Zener` and `QuadraticZener` use
+`4*LAM/Re8` for the acceleration coefficient where IMRv2 uses `4/Re8`, which changes
+compressible trajectories by roughly 5e-02 when the retardation and relaxation times
+differ. IMRv2's own stress carries `-4*LAM/Re8*Rdot/R`, so the coefficient it pairs with
+that stress is internally inconsistent; the reduction limit to `LinearMaxwell` converges
+only with the `LAM` factor restored. Three Zener reference trajectories were regenerated
+from PyIMR as a result and pin regressions rather than cross-checking upstream (#174).
+
 PyIMR diverges from IMRv2 in several places, always deliberately. Eight
 defects were found at `dea31cd`, each reproduced with MATLAB R2025a via
 `tools/gen_imrv2_cases.m`, and each correction validated against something

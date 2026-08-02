@@ -247,6 +247,7 @@ The finite-dimensional hot paths are:
 - `Zener`
 - `QuadraticZener`
 - `OldroydB`
+- `LinearMaxwell`
 
 For example:
 

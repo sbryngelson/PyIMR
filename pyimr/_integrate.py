@@ -26,10 +26,11 @@ def integrate(rhs, times, initial, *, args, rtol, atol, failure, label="", max_s
     OldroydB,
     QuadraticKelvinVoigt,
     QuadraticZener,
+    LinearMaxwell,
     Zener,
   )
 
-  through_groups = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB)
+  through_groups = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, LinearMaxwell)
   material = args[1]
   material_key = type(material).__name__ if isinstance(material, through_groups) else _content_key(material)
   groups = args[0]

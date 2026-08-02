@@ -97,6 +97,20 @@ class Zener:
     _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False)
 
 @dataclass(frozen=True, slots=True)
+class LinearMaxwell:
+  """Maxwell fluid: a relaxing viscous stress with no elastic equilibrium.
+
+  Zener without the parallel spring. `Ca` is infinite because there is no modulus, so the
+  elastic target the memory relaxes toward is zero, and there is no retardation.
+  """
+
+  viscosity_pa_s: float
+  relaxation_time_s: float
+
+  def __post_init__(self) -> None:
+    _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, 0.0, polymer_required=False)
+
+@dataclass(frozen=True, slots=True)
 class QuadraticZener:
   """Closed-form quadratic-elastic Zener family."""
 
@@ -312,13 +326,13 @@ class LinearPTT:
     if self.quadrature not in ("trapezoid", "gauss"): raise ValueError("quadrature must be 'trapezoid' or 'gauss'")
 
 MaterialModel = (
-  NoStress | NeoHookeanKelvinVoigt | QuadraticKelvinVoigt | Zener | QuadraticZener | OldroydB | InstantaneousMaterial | Giesekus | LinearPTT
+  NoStress | NeoHookeanKelvinVoigt | QuadraticKelvinVoigt | Zener | QuadraticZener | OldroydB | InstantaneousMaterial | Giesekus | LinearPTT | LinearMaxwell
 )
 
 def _is_distributed_stress(material) -> bool: return isinstance(material, (Giesekus, LinearPTT))
 
 def _stress_state_count(material) -> int:
   if _is_distributed_stress(material): return 2 * material.points
-  if isinstance(material, (Zener, QuadraticZener)): return 1
+  if isinstance(material, (Zener, QuadraticZener, LinearMaxwell)): return 1
   if isinstance(material, OldroydB): return 2
   return 0

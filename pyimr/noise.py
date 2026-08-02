@@ -1,0 +1,144 @@
+"""Heteroscedastic observation weighting and a marginalized noise scale.
+
+Optical bubble tracking is least reliable exactly where the dynamics are fastest: motion
+blur and finite exposure degrade the edge during collapse, while a slow rebound is
+measured cleanly. A single noise level for the whole trace therefore trusts the collapse
+too much. Sanchez et al. (Soft Matter 2026, https://doi.org/10.1039/D5SM01193K) handle
+this in two stages, both implemented here.
+
+First, a logistic weight in the instantaneous strain rate inflates the variance where the
+wall moves fastest (eqns 10-12). Second, a scalar `beta` multiplies every variance and is
+marginalized out under a half-Cauchy prior (eqns 15-18), so a model that only fits by
+inflating its own error bars is penalized rather than rewarded.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from scipy.special import expit
+
+__all__ = [
+  "beta_quadrature",
+  "elliptical_gate",
+  "marginal_log_likelihood",
+  "marginalize_evaluation",
+  "strain_rate_weights",
+  "weighted_deviation",
+]
+
+STRAIN_RATE_THRESHOLD_PER_S = 1e5
+"""Onset of the high-strain-rate regime (eqn 5). Multiply by the characteristic time to
+get the nondimensional threshold the weighting expects."""
+
+_DEFAULT_FLOOR = 0.1
+_DEFAULT_STEEPNESS = 1.0
+
+def strain_rate_weights(strain_rate, threshold, *, steepness=_DEFAULT_STEEPNESS, floor=_DEFAULT_FLOOR):
+  """Bounded logistic weight in the strain rate (eqns 10-11).
+
+  `w = floor + (1 - floor) / (1 + exp(-steepness * (threshold - |rate|) / threshold))`,
+  decreasing in `|rate|`: fast wall motion earns a smaller weight and, through
+  `weighted_deviation`, a larger variance.
+
+  The weight is bounded below by `floor` but does **not** reach 1 from above. Its supremum
+  is `floor + (1 - floor) / (1 + exp(-steepness))` -- 0.758 at the defaults -- because
+  `|rate| >= 0` caps the logistic argument at `steepness`. Only the ratio between weights
+  matters here, since a constant factor on every variance is exactly what `beta` absorbs.
+  """
+  rate = np.asarray(strain_rate, dtype=float)
+  threshold = float(threshold)
+  if not np.isfinite(threshold) or threshold <= 0.0: raise ValueError("threshold must be finite and positive")
+  if not 0.0 < float(floor) <= 1.0: raise ValueError("floor must lie in (0, 1]")
+  if not np.isfinite(steepness) or float(steepness) <= 0.0: raise ValueError("steepness must be finite and positive")
+  if not np.all(np.isfinite(rate)): raise ValueError("strain_rate must be finite")
+
+  # expit, not 1/(1+exp(-x)): the argument runs to -inf as the rate grows, and the naive
+  # form overflows there rather than saturating at the floor
+  logistic = expit(float(steepness) * (threshold - np.abs(rate)) / threshold)
+  return float(floor) + (1.0 - float(floor)) * logistic
+
+def weighted_deviation(deviation, weights):
+  """Turn weights into standard deviations (eqn 12 at `beta = 1`): `sigma^2 = sigma0^2 / w`.
+
+  The result drops straight into `FieldObservation.standard_deviation`, which already
+  accepts a per-sample array, so the weighting needs no change to the likelihood itself.
+  """
+  weights = np.asarray(weights, dtype=float)
+  if np.any(weights <= 0.0): raise ValueError("weights must be positive")
+  return np.asarray(deviation, dtype=float) / np.sqrt(weights)
+
+def elliptical_gate(strain, strain_rate, strain_threshold, strain_rate_threshold):
+  """Keep samples outside the ellipse of eqn 6 -- a boolean mask, `True` to retain.
+
+  `(strain/strain_th)^2 + (rate/rate_th)^2 >= 1` drops near-equilibrium samples that carry
+  little information about the constitutive model while still contributing noise.
+  """
+  strain = np.asarray(strain, dtype=float)
+  rate = np.asarray(strain_rate, dtype=float)
+  for name, value in (("strain_threshold", strain_threshold), ("strain_rate_threshold", strain_rate_threshold)):
+    if not np.isfinite(value) or float(value) <= 0.0: raise ValueError(f"{name} must be finite and positive")
+  return (strain / float(strain_threshold)) ** 2 + (rate / float(strain_rate_threshold)) ** 2 >= 1.0
+
+def beta_quadrature(*, minimum=0.05, maximum=10.0, count=200):
+  """Nodes and normalized prior weights for the half-Cauchy noise scale (eqns 16-18).
+
+  `P(beta) = (2/pi) / (1 + beta^2)` on a uniform grid, integrated by the trapezoidal rule
+  and renormalized so the weights sum to one.
+
+  The default range is the paper's [0.05, 10]. It describes that range as holding over
+  99.9% of the prior mass; for the scale-1 half-Cauchy of eqn 16 the exact mass is
+  `(2/pi)(atan(10) - atan(0.05)) = 0.9047`, so the figure does not follow. Nothing here
+  depends on it: renormalizing makes this the prior *conditioned* on the range, which is a
+  proper prior either way. The consequence is only that `beta > 10` is excluded rather
+  than negligible, and a fit driven to that boundary should be read as a warning.
+  """
+  if not 0.0 < minimum < maximum: raise ValueError("require 0 < minimum < maximum")
+  if int(count) < 2: raise ValueError("count must be at least 2")
+
+  nodes = np.linspace(float(minimum), float(maximum), int(count))
+  density = (2.0 / np.pi) / (1.0 + nodes**2)
+  spacing = nodes[1] - nodes[0]
+  rule = np.full(nodes.shape, spacing)
+  rule[0] = rule[-1] = 0.5 * spacing
+  weights = density * rule
+  return nodes, weights / weights.sum()
+
+def marginal_log_likelihood(chi_squared, count, *, nodes=None, weights=None, normalization=0.0):
+  """Marginalize the noise scale out of a Gaussian likelihood (eqn 17).
+
+  `beta` scales every variance, so its effect on the log-likelihood depends on the data
+  only through `chi_squared = sum(r^2 / sigma^2)` at `beta = 1` and the number of samples:
+
+      log L(beta) = -0.5 * (chi_squared / beta^2 + count * log(beta^2) + normalization)
+
+  The forward model never re-enters, so marginalizing costs one pass over the grid rather
+  than one solve per node. `normalization` is `sum(log(2 pi sigma^2))` -- constant in
+  `beta`, so it may be left at zero when only differences matter.
+  """
+  chi_squared, count = float(chi_squared), int(count)
+  if chi_squared < 0.0: raise ValueError("chi_squared must be non-negative")
+  if count <= 0: raise ValueError("count must be positive")
+  if (nodes is None) != (weights is None): raise ValueError("pass both nodes and weights, or neither")
+  if nodes is None: nodes, weights = beta_quadrature()
+
+  nodes = np.asarray(nodes, dtype=float)
+  weights = np.asarray(weights, dtype=float)
+  if np.any(nodes <= 0.0): raise ValueError("beta nodes must be positive")
+
+  terms = np.log(weights) - 0.5 * (chi_squared / nodes**2 + count * np.log(nodes**2))
+  peak = float(np.max(terms))
+  return float(peak + np.log(np.sum(np.exp(terms - peak)))) - 0.5 * float(normalization)
+
+def marginalize_evaluation(evaluation, **options):
+  """Marginal log-likelihood for a `LikelihoodEvaluation` from `pyimr.inference`.
+
+  The stored residual is already whitened by the per-sample deviations, so its sum of
+  squares is exactly the `chi_squared` the marginalization needs -- no re-solve, and no
+  import of the inference module.
+
+  Note this returns the marginal *without* the `sum(log(2 pi sigma^2))` offset that
+  `evaluation.log_likelihood` carries, so the two are comparable only up to that constant.
+  Pass it as `normalization` when an absolute value is wanted.
+  """
+  residual = np.asarray(evaluation.residual, dtype=float).ravel()
+  return marginal_log_likelihood(float(residual @ residual), residual.size, **options)

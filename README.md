@@ -455,6 +455,26 @@ choosing the scheme is a separate decision from choosing the resolution -- the
 default makes only the first. Both cost/accuracy tables are in
 **[docs/discretization.md](docs/discretization.md)**.
 
+### Choosing solver tolerances
+
+Observables do not converge at the same rate, so the right tolerance depends on which one
+you fit. Relative error against `rtol=1e-11`, coupled thermal:
+
+| `rtol` | radius | wall velocity | internal pressure | stress integral | temperature |
+|---|---|---|---|---|---|
+| 1e-9 | 1.5e-10 | 2.1e-09 | 1.0e-08 | 2.2e-09 | 1.7e-09 |
+| 1e-7 | 1.3e-08 | 2.5e-07 | 1.6e-06 | 2.8e-07 | 2.1e-07 |
+| 1e-6 | 3.4e-07 | 4.4e-06 | 2.8e-05 | 4.8e-06 | 3.7e-06 |
+
+Internal pressure is roughly 80x less accurate than radius at the same setting, so fitting
+it needs about two orders tighter for the same relative accuracy.
+
+For likelihood evaluation against experimental radius data, `rtol=1e-6, atol=1e-8` is
+ample: 3.4e-07 against measurement noise nearer 2e-02, and model selection on real data is
+unchanged from `1e-9` -- same winners, same chi-squared per sample. Keep `1e-10, 1e-12` for
+sensitivities, where derivatives amplify error, and `1e-9` or tighter when validating
+against reference trajectories.
+
 ## Model selection
 
 Constitutive models for soft matter nest -- `NHKV` is `qKV` at zero strain stiffening and

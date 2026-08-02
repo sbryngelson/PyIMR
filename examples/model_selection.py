@@ -35,6 +35,11 @@ from pyimr.selection import (
   solve_grid,
 )
 
+# Solver tolerance. Adjustable: raise for validation work, lower for speed. At 1e-6 the
+# worst observable (internal pressure) carries 2.8e-05 relative error and the radius 3.4e-07,
+# against experimental noise of ~2e-02 -- and the model selection is unchanged against 1e-9.
+RTOL, ATOL = 1e-6, 1e-8
+
 R0, REQ = 2.25e-4, 5.0e-5
 GRID_COUNT = 12
 TRUTH_MODEL = "SLS"
@@ -51,7 +56,7 @@ TRUTH = {"mu": _node("mu", 8), "g": _node("g", 5), "lambda1": _node("lambda1", 7
 def solve(material):
   result = pyimr.simulate(
     np.linspace(0.0, WINDOW, SAMPLES),
-    pyimr.SimulationConfig(R0, REQ, material, rtol=1e-9, atol=1e-11),
+    pyimr.SimulationConfig(R0, REQ, material, rtol=RTOL, atol=ATOL),
   )
   return result.radius_ratio, result.stress_integral_pa
 

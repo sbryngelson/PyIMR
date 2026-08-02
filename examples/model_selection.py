@@ -89,8 +89,8 @@ def main():
   print(f"\n{solves} solves in {time.perf_counter() - start:.1f} s\n")
   # scientific notation: losing models sit far below what fixed decimals can show
   print(f"  {'model':10s} {'posterior':>12s}   Bayes factor vs best")
-  best = max(posterior, key=posterior.get)
-  for name in sorted(posterior, key=posterior.get, reverse=True):
+  best = max(posterior, key=lambda name: posterior[name])
+  for name in sorted(posterior, key=lambda n: posterior[n], reverse=True):
     mark = "   <- truth" if name == TRUTH_MODEL else ""
     print(f"  {name:10s} {posterior[name]:12.3e}   "
           f"{np.exp(evidences[best] - evidences[name]):10.3g}{mark}")

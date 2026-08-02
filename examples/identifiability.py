@@ -75,8 +75,8 @@ def main():
       if name == TRUTH_MODEL: truth_fit = chi_squared.min() / observed.size
 
     posterior, flat_posterior = compare(evidences), compare(ablated)
-    winner = max(posterior, key=posterior.get)
-    flat_winner = max(flat_posterior, key=flat_posterior.get)
+    winner = max(posterior, key=lambda n: posterior[n])
+    flat_winner = max(flat_posterior, key=lambda n: flat_posterior[n])
     factor = float(np.exp(evidences[winner] - evidences[TRUTH_MODEL]))
     mark = "  <- truth recovered" if winner == TRUTH_MODEL else ""
     print(f"  {fraction:10.1e} {winner:>8s} {posterior[winner]:11.3e} {posterior[TRUTH_MODEL]:11.3e} "

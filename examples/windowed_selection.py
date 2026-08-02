@@ -37,6 +37,7 @@ from pyimr.selection import STANDARD_MODELS, compare, log_evidence, redundancy_o
 
 DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 GRID_COUNT = 10
+_MAX_RATIO = 1.05  # R* cannot exceed the maximum it is normalized by, beyond tracking noise
 
 # name -> (file, R_max [m], R_max/R_inf) from the paper's dataset table
 DATASETS = {
@@ -49,6 +50,18 @@ def load(name):
   filename, maximum_radius, stretch = DATASETS[name]
   table = np.loadtxt(DATA / filename, delimiter=",", ndmin=2)
   return table[:, 0], table[:, 1:].T, maximum_radius, maximum_radius / stretch
+
+def screen(trials):
+  """Samples to keep: physically possible, and carrying information.
+
+  Two failures, both handled by dropping rather than by inflating an error bar. A trial
+  reading above its own maximum radius is a tracking failure, seen only in the last few
+  percent of these records. A sample where every trial agrees exactly is the t*=0 point,
+  where R/R_max is 1 by construction -- that is a definition, not a measurement, and
+  flooring its spread would invent an uncertainty and let it constrain the fit.
+  """
+  spread = trials.std(axis=0, ddof=1)
+  return ~(trials > _MAX_RATIO).any(axis=0) & (spread > 0.0)
 
 def collapse_windows(trace, times):
   """Split at the local maxima between collapses, so each window holds one collapse."""
@@ -69,14 +82,17 @@ def main():
   characteristic = characteristic_time(maximum_radius)
   times = nondimensional_time * characteristic
 
+  usable = screen(trials)
+  dropped = int((~usable).sum())
+  nondimensional_time, trials, times = nondimensional_time[usable], trials[:, usable], times[usable]
   mean_trace = trials.mean(axis=0)
   spread = trials.std(axis=0, ddof=1)
-  # a floor: at t=0 every trial is normalized to 1 by construction, so the spread is zero
-  spread = np.maximum(spread, np.median(spread) * 0.1)
 
   print(f"{name}: {trials.shape[0]} trials, {trials.shape[1]} samples, "
         f"Rmax={maximum_radius * 1e6:.0f} um, Rmax/Req={maximum_radius / equilibrium:.2f}")
-  print(f"  measured spread: median {np.median(spread):.4f}, max {spread.max():.4f} of Rmax\n")
+  print(f"  measured spread: median {np.median(spread):.4f}, max {spread.max():.4f} of Rmax")
+  print(f"  screened out {dropped} of {dropped + int(usable.sum())} samples "
+        f"(unphysical R* or zero spread)\n")
 
   def solve(material):
     result = pyimr.simulate(times, pyimr.SimulationConfig(maximum_radius, equilibrium, material, rtol=1e-9, atol=1e-11))

@@ -64,11 +64,21 @@ def stress_scale(stress, *, floor=_SCALE_FLOOR):
   spread = float(np.median(np.abs(stress - np.median(stress))))
   return max(_NORMAL_CONSISTENCY * spread / level, float(floor))
 
-def relative_mismatch(parent_stress, child_stress, weights=None):
+def _alignment(parent, child, weights):
+  """Least-squares rescaling of the child onto the parent under the weighted inner product."""
+  scale = np.ones_like(parent) if weights is None else weights
+  denominator = float(np.sum(scale * child**2))
+  if denominator <= 0.0: return 1.0
+  return float(np.sum(scale * parent * child) / denominator)
+
+def relative_mismatch(parent_stress, child_stress, weights=None, *, align=True):
   """Weighted relative stress mismatch between a model and one it contains (eqn 22).
 
-  `||S_P - S_C||_w / ||S_P||_w`. Zero means the parent is doing nothing its child does not
-  already do at these parameters.
+  `||S_P - c* S_C||_w / ||S_P||_w`, where `c*` is the least-squares amplitude alignment.
+  Zero means the parent produces nothing its child cannot, up to overall magnitude.
+
+  Without `align` a parent whose stress is a pure rescaling of its child's counts as
+  distinguishable, which is what the alignment exists to prevent.
   """
   parent = np.asarray(parent_stress, dtype=float).ravel()
   child = np.asarray(child_stress, dtype=float).ravel()
@@ -77,7 +87,8 @@ def relative_mismatch(parent_stress, child_stress, weights=None):
 
   denominator = _weighted_norm(parent, weights)
   if denominator <= 0.0: raise ValueError("parent stress history is identically zero")
-  return _weighted_norm(parent - child, weights) / denominator
+  factor = _alignment(parent, child, weights) if align else 1.0
+  return _weighted_norm(parent - factor * child, weights) / denominator
 
 def redundancy_factor(mismatch, scale, *, exponent=2):
   """Map a mismatch onto `[0, 1)` against the resolvable scale (eqn 23).
@@ -95,7 +106,7 @@ def redundancy_factor(mismatch, scale, *, exponent=2):
   numerator = mismatch ** int(exponent)
   return float(numerator / (numerator + scale ** int(exponent)))
 
-def redundancy_weight(parent_stress, child_stresses, *, weights=None, scale=None, exponent=2):
+def redundancy_weight(parent_stress, child_stresses, *, weights=None, scale=None, exponent=2, align=True):
   """Redundancy against the *most* similar contained model (eqn 24).
 
   The minimum over children, not a product or a mean: a parent that can emulate any one
@@ -107,7 +118,10 @@ def redundancy_weight(parent_stress, child_stresses, *, weights=None, scale=None
   children = [np.asarray(item, dtype=float).ravel() for item in child_stresses]
   if not children: return 1.0
   if scale is None: scale = stress_scale(parent_stress)
-  return min(redundancy_factor(relative_mismatch(parent_stress, child, weights), scale, exponent=exponent) for child in children)
+  return min(
+    redundancy_factor(relative_mismatch(parent_stress, child, weights, align=align), scale, exponent=exponent)
+    for child in children
+  )
 
 def normalize_log_coordinates(values, lower, upper):
   """Map parameters onto `[0, 1]` in log coordinates, making the prior range-invariant.

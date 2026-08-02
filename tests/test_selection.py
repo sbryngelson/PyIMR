@@ -91,7 +91,10 @@ def test_a_model_identical_to_its_child_is_fully_redundant(measured):
 
 def test_a_model_that_differs_from_its_child_keeps_its_prior():
   points, _, _, stresses = solve_grid(STANDARD_MODELS["NHKV"], _sensitive, count=3)
-  divergent = lambda _material: (_GRID, -_GRID * 50.0)  # noqa: E731
+  # a flat child: a different SHAPE, since eqn 22 aligns amplitudes and would score a pure
+  # rescaling as redundant. Flat also keeps the child's own stress scale tiny, so the
+  # difference is well above what it can resolve and the penalty is not earned.
+  divergent = lambda _material: (_GRID, np.ones_like(_GRID))  # noqa: E731
   assert np.all(redundancy_over_grid(STANDARD_MODELS["NHKV"], STANDARD_MODELS, points, stresses, divergent) > 0.9)
 
 

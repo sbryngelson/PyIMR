@@ -12,6 +12,8 @@ from scipy.integrate import quad
 
 from pyimr.noise import (
   beta_quadrature,
+  characteristic_time,
+  hencky_strain_rate,
   elliptical_gate,
   marginal_log_likelihood,
   marginalize_evaluation,
@@ -167,3 +169,30 @@ def test_it_marginalizes_a_real_likelihood_evaluation(measured):
   # marginalizing must not simply reproduce the beta = 1 likelihood
   assert value != pytest.approx(-0.5 * chi_squared, rel=1e-6)
   measured("marginalized evaluation", f"chi2={chi_squared:.1f} over {residual.size} samples -> {value:.3f}")
+
+
+def test_the_characteristic_time_and_strain_rate_are_consistent(measured):
+  """Both feed `strain_rate_weights`, which is only meaningful in nondimensional rate."""
+  scale = characteristic_time(277e-6)
+  assert scale == pytest.approx(277e-6 * np.sqrt(998.0 / 101325.0))
+  assert characteristic_time(554e-6) == pytest.approx(2.0 * scale), "linear in the radius"
+
+  times = np.linspace(0.0, 1.0, 400)
+  rate = hencky_strain_rate(np.exp(-0.5 * times), times, 1.0)
+  measured("Hencky rate", f"t_c(277um)={scale * 1e6:.2f} us, d(lnR)/dt={rate[200]:.4f}")
+  assert rate[200] == pytest.approx(-0.5, abs=1e-4), "d(ln R)/dt of exp(-t/2) is -1/2"
+  np.testing.assert_allclose(hencky_strain_rate(np.exp(-0.5 * times), times, 3.0), 3.0 * rate)
+
+
+@pytest.mark.parametrize(
+  ("call", "message"),
+  [
+    (lambda: characteristic_time(0.0), "maximum_radius must be finite and positive"),
+    (lambda: characteristic_time(1e-4, density=0.0), "must be positive"),
+    (lambda: hencky_strain_rate(np.ones(3), np.ones(4), 1.0), "same shape"),
+    (lambda: hencky_strain_rate(np.array([1.0, 0.0]), np.array([0.0, 1.0]), 1.0), "must be positive"),
+  ],
+)
+def test_the_nondimensionalization_helpers_refuse_bad_input(call, message):
+  with pytest.raises(ValueError, match=message):
+    call()

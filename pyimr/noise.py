@@ -18,13 +18,42 @@ import numpy as np
 from scipy.special import expit
 
 __all__ = [
+  "ATMOSPHERIC_PRESSURE",
+  "WATER_DENSITY",
   "beta_quadrature",
+  "characteristic_time",
+  "hencky_strain_rate",
   "elliptical_gate",
   "marginal_log_likelihood",
   "marginalize_evaluation",
   "strain_rate_weights",
   "weighted_deviation",
 ]
+
+WATER_DENSITY, ATMOSPHERIC_PRESSURE = 998.0, 101325.0
+
+def characteristic_time(maximum_radius, *, density=WATER_DENSITY, ambient_pressure=ATMOSPHERIC_PRESSURE):
+  """Inertial collapse time `R_max sqrt(rho / p_inf)` -- the usual nondimensionalization.
+
+  Multiply `STRAIN_RATE_THRESHOLD_PER_S` by this to get the threshold `strain_rate_weights`
+  expects, since the weighting works in nondimensional rate.
+  """
+  maximum_radius = float(maximum_radius)
+  if not np.isfinite(maximum_radius) or maximum_radius <= 0.0: raise ValueError("maximum_radius must be finite and positive")
+  if float(density) <= 0.0 or float(ambient_pressure) <= 0.0: raise ValueError("density and ambient_pressure must be positive")
+  return maximum_radius * np.sqrt(float(density) / float(ambient_pressure))
+
+def hencky_strain_rate(radius_ratio, times, characteristic):
+  """Nondimensional logarithmic strain rate, `d(ln R)/dt * t_c`.
+
+  Logarithmic rather than engineering strain because the wall stretch spans a factor of
+  several during a collapse, where the two disagree badly.
+  """
+  radius_ratio = np.asarray(radius_ratio, dtype=float)
+  times = np.asarray(times, dtype=float)
+  if radius_ratio.shape != times.shape: raise ValueError("radius_ratio and times must have the same shape")
+  if np.any(radius_ratio <= 0.0): raise ValueError("radius_ratio must be positive")
+  return np.gradient(radius_ratio, times) / radius_ratio * float(characteristic)
 
 STRAIN_RATE_THRESHOLD_PER_S = 1e5
 """Onset of the high-strain-rate regime (eqn 5). Multiply by the characteristic time to

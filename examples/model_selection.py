@@ -18,7 +18,14 @@ import time
 import numpy as np
 
 import pyimr
-from pyimr.noise import elliptical_gate, strain_rate_weights, weighted_deviation
+from pyimr.noise import (
+  STRAIN_RATE_THRESHOLD_PER_S,
+  characteristic_time,
+  elliptical_gate,
+  hencky_strain_rate,
+  strain_rate_weights,
+  weighted_deviation,
+)
 from pyimr.selection import (
   PARAMETER_BOUNDS,
   STANDARD_MODELS,
@@ -34,8 +41,6 @@ TRUTH_MODEL = "SLS"
 TRIALS, NOISE_FRACTION, SEED = 8, 1e-3, 0
 WINDOW, SAMPLES = 20e-6, 120
 
-DENSITY, AMBIENT_PRESSURE = 998.0, 101325.0
-STRAIN_RATE_THRESHOLD = 1e5  # per second, the onset of the high-strain-rate regime
 
 def _node(name, index):
   lower, upper = PARAMETER_BOUNDS[name]
@@ -54,9 +59,9 @@ def main():
   times = np.linspace(0.0, WINDOW, SAMPLES)
   clean, _ = solve(STANDARD_MODELS[TRUTH_MODEL].build(TRUTH))
 
-  characteristic_time = R0 * np.sqrt(DENSITY / AMBIENT_PRESSURE)
-  threshold = STRAIN_RATE_THRESHOLD * characteristic_time
-  rate = np.gradient(clean, times) / np.maximum(clean, 1e-12) * characteristic_time
+  characteristic = characteristic_time(R0)
+  threshold = STRAIN_RATE_THRESHOLD_PER_S * characteristic
+  rate = hencky_strain_rate(clean, times, characteristic)
   strain = np.log(np.maximum(clean, 1e-12) / (REQ / R0))
 
   keep = elliptical_gate(strain, rate, 0.1 * np.max(np.abs(strain)), threshold)
@@ -67,7 +72,7 @@ def main():
   rng = np.random.default_rng(SEED)
   observed = (clean[None, :] + rng.normal(0.0, sigma, size=(TRIALS, SAMPLES)))[:, keep]
   print(f"truth {TRUTH_MODEL} {({k: float(f'{v:.4g}') for k, v in TRUTH.items()})}  "
-        f"De={TRUTH['lambda1'] / characteristic_time:.2f}  sigma/Rmax={NOISE_FRACTION:.0e}")
+        f"De={TRUTH['lambda1'] / characteristic:.2f}  sigma/Rmax={NOISE_FRACTION:.0e}")
   print(f"{TRIALS} trials, {int(keep.sum())}/{SAMPLES} samples pass the gate\n")
 
   evidences, start, solves = {}, time.perf_counter(), 0

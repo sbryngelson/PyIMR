@@ -455,6 +455,35 @@ choosing the scheme is a separate decision from choosing the resolution -- the
 default makes only the first. Both cost/accuracy tables are in
 **[docs/discretization.md](docs/discretization.md)**.
 
+## Model selection
+
+Constitutive models for soft matter nest -- `NHKV` is `qKV` at zero strain stiffening and
+`SLS` at zero relaxation time -- so comparing best fits always favours the flexible ones.
+`pyimr.selection` scores them by evidence instead.
+
+```python
+from pyimr.selection import STANDARD_MODELS, compare, log_evidence, redundancy_over_grid, solve_grid
+
+evidences = {}
+for candidate in STANDARD_MODELS.values():
+    points, normalized, radii, stresses = solve_grid(candidate, solve, count=12)
+    redundancies = redundancy_over_grid(candidate, STANDARD_MODELS, points, stresses, solve)
+    evidences[candidate.name], _ = log_evidence(
+        radii, normalized, redundancies, observed, deviations, dimension=candidate.dimension
+    )
+posterior = compare(evidences)
+```
+
+`pyimr.noise` supplies the strain-rate weighting and the marginalized noise scale;
+`pyimr.prior` the redundancy and Occam penalties. Use ONE grid `count` for every model
+compared -- mixed resolutions let grid luck decide which lands nearest the truth.
+
+Always report the best chi-squared per sample alongside the posterior. Model selection
+only means something where some candidate actually fits; otherwise the winner is the
+least-bad member of an inadequate set, and the posteriors look just as confident.
+
+Worked studies are in `examples/`.
+
 ## Trace estimators
 
 `pyimr.data` covers the step before inference: getting from a measured `R(t)`

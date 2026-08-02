@@ -17,20 +17,14 @@ import time
 
 import numpy as np
 
-from model_selection import (
-  DENSITY,
-  AMBIENT_PRESSURE,
-  GRID_COUNT,
-  R0,
-  SAMPLES,
-  STRAIN_RATE_THRESHOLD,
-  TRIALS,
-  TRUTH,
-  TRUTH_MODEL,
-  WINDOW,
-  solve,
+from model_selection import GRID_COUNT, R0, SAMPLES, TRIALS, TRUTH, TRUTH_MODEL, WINDOW, solve
+from pyimr.noise import (
+  STRAIN_RATE_THRESHOLD_PER_S,
+  characteristic_time,
+  hencky_strain_rate,
+  strain_rate_weights,
+  weighted_deviation,
 )
-from pyimr.noise import strain_rate_weights, weighted_deviation
 from pyimr.selection import STANDARD_MODELS, compare, log_evidence, redundancy_over_grid, solve_grid
 
 NOISE_FRACTIONS = (1e-2, 3e-3, 1e-3, 3e-4, 1e-4)
@@ -40,12 +34,10 @@ def main():
   times = np.linspace(0.0, WINDOW, SAMPLES)
   clean, _ = solve(STANDARD_MODELS[TRUTH_MODEL].build(TRUTH))
 
-  characteristic_time = R0 * np.sqrt(DENSITY / AMBIENT_PRESSURE)
-  threshold = STRAIN_RATE_THRESHOLD * characteristic_time
-  rate = np.gradient(clean, times) / np.maximum(clean, 1e-12) * characteristic_time
-  weights = strain_rate_weights(rate, threshold)
+  characteristic = characteristic_time(R0)
+  weights = strain_rate_weights(hencky_strain_rate(clean, times, characteristic), STRAIN_RATE_THRESHOLD_PER_S * characteristic)
   print(f"truth {TRUTH_MODEL} {({k: float(f'{v:.4g}') for k, v in TRUTH.items()})}  "
-        f"De = {TRUTH['lambda1'] / characteristic_time:.2f}\n")
+        f"De = {TRUTH['lambda1'] / characteristic:.2f}\n")
 
   # nothing below depends on the noise, so it is computed once
   cached, start, solves = {}, time.perf_counter(), 0

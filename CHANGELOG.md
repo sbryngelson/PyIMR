@@ -5,6 +5,25 @@ while the major version is `0`, breaking changes move the minor version.
 
 ## 0.3.0 — unreleased
 
+### Bayesian constitutive model selection
+
+Choosing a constitutive model is a model-selection problem, not a fitting one: the
+candidates nest, so a best-fit comparison prefers the flexible ones for free.
+
+- `pyimr.noise` — heteroscedastic strain-rate weighting and a noise scale marginalized
+  under a half-Cauchy prior. Marginalizing is cheap: the scale enters only through
+  chi-squared and the sample count, so the forward model never re-enters.
+- `pyimr.prior` — redundancy prior that down-weights parameters where a model merely
+  reproduces a simpler one it contains, plus a BIC-style model prior and normalized
+  posteriors over a model set.
+- `pyimr.selection` — the nested model family `STANDARD_MODELS`, its parameter grid, and
+  the evidence quadrature tying the above together.
+- `LinearMaxwell` — a Maxwell fluid, `Zener` without the parallel spring.
+
+Studies live in `examples/`. Two measured limits are worth knowing before using this:
+identifying a relaxation time needed radius precision better than ~1e-3 of the maximum
+radius, and the redundancy prior changed no selected model at any noise level tested.
+
 Everything merged after `0.2.0` was set (PR #7). Several changes are breaking in
 the way that matters most for a solver: **the same call returns different
 numbers**, with no error and no deprecation path.

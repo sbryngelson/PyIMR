@@ -24,6 +24,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -50,6 +51,10 @@ DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 RTOL, ATOL = 1e-6, 1e-8
 
 GRID_COUNT = 10
+# Rayleigh-Plesset. Almost certainly the wrong choice for laser cavitation, which is
+# compressible, but radial=2 exhausts the step budget at some grid points and needs
+# per-point failure handling first. Kept at 1 so this knob changes nothing yet.
+_RADIAL = int(os.environ.get('PYIMR_RADIAL', '1'))
 _CHUNK = 120  # grid points per work unit; keeps the uneven model sizes load-balanced
 _MAX_RATIO = 1.05  # R* cannot exceed the maximum it is normalized by, beyond tracking noise
 
@@ -90,7 +95,7 @@ def collapse_windows(trace, times):
   windows["full record"] = np.ones(len(trace), dtype=bool)
   return windows
 
-def setup(dataset, thermal_nodes):
+def setup(dataset, thermal_nodes, radial=_RADIAL):
   """Per-dataset state, rebuilt from picklable arguments alone.
 
   Workers cannot receive a closure, so they reconstruct this from the dataset name. The
@@ -104,7 +109,10 @@ def setup(dataset, thermal_nodes):
   weights = strain_rate_weights(
     hencky_strain_rate(trials.mean(axis=0), times, characteristic), STRAIN_RATE_THRESHOLD_PER_S * characteristic
   )
-  options = dict(bubtherm=1, thermal="spectral", Nt=thermal_nodes) if thermal_nodes else {}
+  # annotated: an inferred dict[str, int | str] makes every SimulationConfig field
+  # int | str through the **options splat, which pyright rejects across the board
+  options: dict[str, Any] = {"radial": radial}
+  if thermal_nodes: options |= {"bubtherm": 1, "thermal": "spectral", "Nt": thermal_nodes}
 
   def solve(material):
     result = pyimr.simulate(

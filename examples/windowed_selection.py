@@ -14,7 +14,7 @@ Every model is simulated once over the full record from the bubble maximum; only
 samples entering the likelihood change between windows. That isolates the window effect
 from the separate problem of how to re-initialize a model partway through an event.
 
-Run: .venv/bin/python examples/windowed_selection.py <dataset>
+Run: .venv/bin/python examples/windowed_selection.py <dataset> [thermal Nt]
 """
 
 from __future__ import annotations
@@ -83,6 +83,9 @@ def collapse_windows(trace, times):
 
 def main():
   name = sys.argv[1] if len(sys.argv) > 1 else "gelatin_15C"
+  # optional second argument: bubble-thermal node count. Accuracy saturates by Nt = 9
+  # (agreement to ~1e-9 against Nt = 60), so there is no reason to go finer -- see #181.
+  thermal_nodes = int(sys.argv[2]) if len(sys.argv) > 2 else 0
   nondimensional_time, trials, maximum_radius, equilibrium = load(name)
   characteristic = characteristic_time(maximum_radius)
   times = nondimensional_time * characteristic
@@ -94,13 +97,18 @@ def main():
   spread = trials.std(axis=0, ddof=1)
 
   print(f"{name}: {trials.shape[0]} trials, {trials.shape[1]} samples, "
-        f"Rmax={maximum_radius * 1e6:.0f} um, Rmax/Req={maximum_radius / equilibrium:.2f}")
+        f"Rmax={maximum_radius * 1e6:.0f} um, Rmax/Req={maximum_radius / equilibrium:.2f}, "
+        f"{'bubble-thermal Nt=%d' % thermal_nodes if thermal_nodes else 'cold'}")
   print(f"  measured spread: median {np.median(spread):.4f}, max {spread.max():.4f} of Rmax")
   print(f"  screened out {dropped} of {dropped + int(usable.sum())} samples "
         f"(unphysical R* or zero spread)\n")
 
+  options = dict(bubtherm=1, thermal="spectral", Nt=thermal_nodes) if thermal_nodes else {}
+
   def solve(material):
-    result = pyimr.simulate(times, pyimr.SimulationConfig(maximum_radius, equilibrium, material, rtol=RTOL, atol=ATOL))
+    result = pyimr.simulate(
+      times, pyimr.SimulationConfig(maximum_radius, equilibrium, material, rtol=RTOL, atol=ATOL, **options)
+    )
     return result.radius_ratio, result.stress_integral_pa
 
   rate = hencky_strain_rate(mean_trace, times, characteristic)

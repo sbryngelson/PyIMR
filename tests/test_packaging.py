@@ -7,6 +7,8 @@ import types
 from importlib.metadata import version
 from pathlib import Path
 
+import numpy as np
+
 import pytest
 
 import pyimr
@@ -81,3 +83,36 @@ def test_documentation_links_resolve():
     if not (page.parent / target).exists()
   ]
   assert not broken, f"unresolved documentation links: {broken}"
+
+
+def test_a_parameter_sweep_reuses_one_compiled_program():
+  """`p` is passed to the compiled program, not baked into it, so a sweep compiles once.
+
+  Baking it in made the cache key depend on the parameter VALUES: a 20-point sweep cost
+  27.3 s against 0.04 s of solving, one fresh XLA compile per point (#163). The closed-form
+  materials reach the solve only through `p`, so their fields are keyed by type alone --
+  which is safe exactly as long as distinct parameters still give distinct answers, and
+  that is asserted here rather than assumed.
+  """
+  import pyimr
+  from pyimr import _jax
+
+  times = np.linspace(0.0, 20e-6, 40)
+
+  def radius(modulus, viscosity=0.1):
+    material = pyimr.NeoHookeanKelvinVoigt(modulus, viscosity)
+    return pyimr.simulate(times, pyimr.SimulationConfig(225e-6, 225e-6 / 6, material)).radius_ratio
+
+  _jax._COMPILED.clear()
+  traces = [radius(modulus) for modulus in (2000.0, 2250.0, 2500.0, 2750.0, 3000.0)]
+  assert len(_jax._COMPILED) == 1, f"a sweep should compile once; cached {len(_jax._COMPILED)} programs"
+
+  for earlier, later in zip(traces[:-1], traces[1:], strict=True):
+    assert np.abs(np.asarray(earlier) - np.asarray(later)).max() > 1e-6, "sharing a program must not share an answer"
+
+  # a different material type, and a different flag, must not reuse it
+  before = len(_jax._COMPILED)
+  radius(2500.0, viscosity=0.2)
+  assert len(_jax._COMPILED) == before, "viscosity also travels through p"
+  pyimr.simulate(times, pyimr.SimulationConfig(225e-6, 225e-6 / 6, pyimr.Zener(2500.0, 0.1, 40e-6, 8e-6)))
+  assert len(_jax._COMPILED) > before, "a different material type needs its own program"

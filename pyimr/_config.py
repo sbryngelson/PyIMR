@@ -404,10 +404,15 @@ class PreparedProblem:
   def solve_sweep(self, tv, parameters, values) -> SweepResult:
     """Solve one traced program at many parameter sets at once.
 
-    A grid or sample campaign is the case this exists for. `simulate` in a loop pays a
-    fresh solve per point; this traces once and `vmap`s, which measured 144.6 ms a point
-    at width 1 against 45.7 ms at width 256 on the coupled model -- 3.2x, on top of no
-    longer recompiling per parameter set.
+    A grid or sample campaign is the case this exists for: it traces once and `vmap`s,
+    rather than paying a fresh solve per point.
+
+    Whether that is FASTER depends on the solver, and the direction reverses. With an
+    explicit solver (`thermal="fd"`) batching won: 144.6 ms a point at width 1 against
+    45.7 ms at width 256. With the implicit solver `thermal="spectral"` selects, batching
+    LOST: 1572 ms at width 1 against 3927 at width 8 and 2797 at width 32. Under `vmap`
+    the Newton solves batch together and one member needing small steps imposes them on
+    all. Measure at your configuration; for coupled spectral, prefer separate processes.
 
     `parameters` are paths as `solve_with_sensitivities` takes them; `values` is
     `(point, parameter)` in DIMENSIONAL units.

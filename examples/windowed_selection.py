@@ -36,6 +36,11 @@ from pyimr.noise import (
 from pyimr.selection import STANDARD_MODELS, compare, log_evidence, redundancy_over_grid, solve_grid
 
 DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
+# Solver tolerance. Adjustable: raise for validation work, lower for speed. At 1e-6 the
+# worst observable (internal pressure) carries 2.8e-05 relative error and the radius 3.4e-07,
+# against experimental noise of ~2e-02 -- and the model selection is unchanged against 1e-9.
+RTOL, ATOL = 1e-6, 1e-8
+
 GRID_COUNT = 10
 _MAX_RATIO = 1.05  # R* cannot exceed the maximum it is normalized by, beyond tracking noise
 
@@ -95,7 +100,7 @@ def main():
         f"(unphysical R* or zero spread)\n")
 
   def solve(material):
-    result = pyimr.simulate(times, pyimr.SimulationConfig(maximum_radius, equilibrium, material, rtol=1e-9, atol=1e-11))
+    result = pyimr.simulate(times, pyimr.SimulationConfig(maximum_radius, equilibrium, material, rtol=RTOL, atol=ATOL))
     return result.radius_ratio, result.stress_integral_pa
 
   rate = hencky_strain_rate(mean_trace, times, characteristic)

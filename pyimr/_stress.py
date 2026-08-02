@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from ._materials import (
+  LinearMaxwell,
   Bingham,
   CarreauYasuda,
   Cross,
@@ -215,6 +216,15 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
       - 2 * ax / Ca * Rd / R * (Rst**8 + Rst**5 + 2 * Rst**2 + 2 / Rst)
     )
     return S, Sdot, None, 4.0 / Re8
+  if isinstance(material, LinearMaxwell):
+    # Zener with Ca infinite, so the elastic target is zero and the memory decays to it.
+    # `acceleration_coefficient` is 0, not 4/Re8: S = Z1/R^3 carries no instantaneous Rd,
+    # so no R-ddot term moves to the left-hand side of Keller-Miksis.
+    Z1 = Z[0]
+    S = Z1 / R**3
+    Z1d = -Z1 / De - 4.0 / (Re8 * De) * R**2 * Rd
+    Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1
+    return S, Sdot, xp.array([Z1d]), 0.0
   if isinstance(material, Zener):
     Z1 = Z[0]
     S = Z1 / R**3 - 4 * LAM / Re8 * Rd / R

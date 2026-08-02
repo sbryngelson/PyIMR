@@ -235,3 +235,61 @@ def test_yield_stress_needs_no_suppression(label, viscous, measured):
   radius = np.asarray(result.radius_ratio)
   measured(f"{label} no suppression", f"min R/R0={radius.min():.4f}")
   assert np.all(np.isfinite(radius))
+
+
+_MAXWELL_VISCOSITY = 0.1
+
+
+@pytest.mark.parametrize("radial", (1, 2))
+def test_linear_maxwell_reduces_to_newtonian_as_relaxation_vanishes(radial, measured):
+  """A Maxwell fluid with no memory is a Newtonian one. Convergence must be first order
+  in the relaxation time with no floor -- a floor would mean a term that survives the
+  limit, which is how the `Zener` coefficient bug in #174 shows up.
+
+  This also validates `LinearMaxwell`'s `acceleration_coefficient` of 0, which is only
+  live at `radial >= 2`: `S = Z1/R^3` carries no instantaneous `Rd`, so no `R-ddot` term
+  moves to the left of Keller-Miksis. The Newtonian reference declares `4/Re8`, and the
+  two still agree because in the stiff limit that coupling re-emerges through `Z1`'s ODE.
+  """
+  # First collapse and rebound only, not `reference_times()`. The two models differ at
+  # O(relaxation) by construction, and over the full 120 us reference window that seed
+  # difference is amplified across repeated collapses -- a max-norm there measures chaotic
+  # divergence, not the limit. Tests that compare algebraically identical formulations can
+  # use the full window; this one cannot.
+  times = np.linspace(0.0, 20e-6, 200)
+  newtonian = solve_radius(times, pyimr.NeoHookeanKelvinVoigt(1e-6, _MAXWELL_VISCOSITY), radial=radial, **_EQUIVALENCE)
+
+  errors = []
+  for relaxation in (1e-7, 1e-8, 1e-9):
+    radius = solve_radius(times, pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, relaxation), radial=radial, **_EQUIVALENCE)
+    errors.append(float(np.max(np.abs(radius - newtonian))))
+
+  measured(f"Maxwell -> Newtonian radial={radial}", "  ".join(f"{e:.2e}" for e in errors))
+  for coarse, fine in zip(errors, errors[1:]):
+    assert coarse / fine > 8.0, f"{coarse:.3e} -> {fine:.3e} is not first-order decay"
+  assert errors[-1] < 1e-5, f"error floor at {errors[-1]:.3e} means a term survives the limit"
+
+
+def test_linear_maxwell_is_zener_without_the_parallel_spring(measured):
+  """`Zener` is `LinearMaxwell` plus an elastic branch, so removing the modulus must
+  recover it. Pinned at `radial=1` only: at `radial=2` this limit stalls at 1.57e-03
+  because `Zener` drops `LAM` from its acceleration coefficient (#174). Extend this to
+  `radial=2` when that is fixed -- it is the test that catches it.
+  """
+  times = reference_times()
+  maxwell = solve_radius(times, pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, 2e-6), **_EQUIVALENCE)
+
+  errors = []
+  for modulus in (1e0, 1e-2, 1e-4):
+    zener = solve_radius(times, pyimr.Zener(modulus, _MAXWELL_VISCOSITY, 2e-6, 0.0), **_EQUIVALENCE)
+    errors.append(float(np.max(np.abs(zener - maxwell))))
+
+  measured("Zener(G->0) -> Maxwell", "  ".join(f"{e:.2e}" for e in errors))
+  for coarse, fine in zip(errors, errors[1:]):
+    assert coarse / fine > 80.0, f"{coarse:.3e} -> {fine:.3e} is not first-order in the modulus"
+  assert errors[-1] < 1e-7
+
+
+def test_linear_maxwell_refuses_a_missing_relaxation_time():
+  with pytest.raises(ValueError):
+    pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, 0.0)

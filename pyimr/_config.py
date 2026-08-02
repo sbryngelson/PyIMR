@@ -19,6 +19,7 @@ from ._materials import (
   OldroydB,
   QuadraticKelvinVoigt,
   QuadraticZener,
+  LinearMaxwell,
   Zener,
   _finite_positive,
   _stress_state_count,
@@ -204,7 +205,7 @@ class SimulationConfig:
   def __post_init__(self) -> None:
     if not isinstance(
       self.material,
-      (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, InstantaneousMaterial, Giesekus, LinearPTT),
+      (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, InstantaneousMaterial, Giesekus, LinearPTT, LinearMaxwell),
     ):
       raise TypeError("material must be a supported material model")
     if not isinstance(self.physics, PhysicalParameters): raise TypeError("physics must be PhysicalParameters")
@@ -511,7 +512,7 @@ def _readonly_float_array(values) -> np.ndarray:
 
 def _readonly_optional(values) -> np.ndarray | None: return None if values is None else _readonly_float_array(values)
 
-_MATERIALS = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, InstantaneousMaterial, Giesekus, LinearPTT)
+_MATERIALS = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, InstantaneousMaterial, Giesekus, LinearPTT, LinearMaxwell)
 
 def _validate_config(config) -> None:
   c = config

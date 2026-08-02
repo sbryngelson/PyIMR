@@ -27,6 +27,7 @@ from ._config import (
 )
 from ._materials import (
   Giesekus,
+  LinearMaxwell,
   InstantaneousMaterial,
   LinearPTT,
   NeoHookeanKelvinVoigt,
@@ -64,11 +65,14 @@ def _material_scales(material):
     modulus = material.shear_modulus_pa
   else:
     modulus = 0.0
-  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)):
+  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT, LinearMaxwell)):
     viscosity = material.viscosity_pa_s
   else:
     viscosity = 0.0
-  if isinstance(material, (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)):
+  if isinstance(material, LinearMaxwell):
+    # no parallel spring and no retardation: the memory relaxes toward zero
+    relaxation, retardation = material.relaxation_time_s, 0.0
+  elif isinstance(material, (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)):
     relaxation = material.relaxation_time_s
     retardation = material.retardation_time_s
   else:

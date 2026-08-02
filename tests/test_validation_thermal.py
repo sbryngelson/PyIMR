@@ -149,3 +149,24 @@ def test_the_traced_root_derivative_is_exact(measured):
 
   measured("traced root derivative", f"rel={worst:.2e}")
   assert worst < 1e-9, f"implicit derivative off by {worst:.2e} relative"
+
+
+def test_the_bisection_hands_newton_a_bracket_it_can_finish(measured):
+  """`_HALVINGS` is a cost/accuracy trade on the RHS hot path, so pin the reasoning.
+
+  Bisection exists only to give the polish steps a bracket Newton can converge from
+  quadratically. Eight halvings leave 3.9e-03, which three polish steps drive below
+  double-precision roundoff. Six leave 1.6e-02 and reach only ~3.6e-15, which is not
+  below roundoff -- so 8 is the cheapest sufficient setting, not a tuned one.
+  """
+  from pyimr._thermal import _HALVINGS, _POLISH
+
+  width = 1.0 / 2.0**_HALVINGS
+  error = width
+  for _ in range(_POLISH):
+    error = error**2  # Newton is quadratic near a simple root
+  measured("root-find margin", f"bracket={width:.1e} -> {error:.1e} after {_POLISH} polish")
+  assert error < 1e-16, f"{_HALVINGS} halvings and {_POLISH} polish reach only {error:.1e}, not below roundoff"
+
+  # and the setting must still be cheap: one polish step costs about 4x one halving
+  assert _HALVINGS <= 12, "more halvings than the polish steps need is wasted work on the hot path"

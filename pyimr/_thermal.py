@@ -37,7 +37,17 @@ _NSTATE_TAIT = 7.15
 _HUGONIOT_S = 1.65
 _NOG = (_NSTATE_TAIT - 1.0) / 2.0
 _KV_EPS = 1e-13
-_HALVINGS = 20
+# 8, not 20. Bisection is only there to hand the polish steps a bracket good enough for
+# Newton to converge quadratically from, and 8 halvings leave a width of 3.9e-03, which
+# three polish steps drive to 5.4e-20 -- below double-precision roundoff, so the setting is
+# roundoff-limited rather than iteration-limited. 6 halvings reach only 3.6e-15 and are
+# marginal. A polish step costs about 4x a halving (measured 8.3 us against 1.93 us), so
+# the cheapest sufficient split favours halvings over polish up to that point.
+#
+# This is on the RHS's hot path: the wall closure was ~59% of the coupled RHS wall time and
+# 75% of its op count, and the RHS is multiplied through every Newton iteration of every
+# ESDIRK stage. Measured 1.53x on a coupled spectral solve, agreeing to 6.8e-15.
+_HALVINGS = 8
 _POLISH = 3
 _DOMAIN_FLOOR = 1e-12  # keeps sqrt/log arguments defined at unphysical trial states (#133)
 

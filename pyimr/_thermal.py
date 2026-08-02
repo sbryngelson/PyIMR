@@ -220,13 +220,18 @@ def _wall_theta_bw_full(
   alpha_m = kv_end_stale * alpha_v + (1.0 - kv_end_stale) * alpha_g
   beta_m = kv_end_stale * beta_v + (1.0 - kv_end_stale) * beta_g
 
+  # Hoisted: these three contractions do not depend on `kv`, and the root find evaluates
+  # `resid` ~29 times per RHS call. Left inside, the Nt- and Mt-length dot products were
+  # recomputed every iteration; everything that actually varies with `kv` is scalar.
+  flux_fixed = xp.sum(grad_Tm[1:] * Tm_tail) + xp.sum(grad_Trans[1:] * theta_tail)
+  carrier_fixed = xp.sum(grad_C[1:] * kv_tail)
+
   def resid(kv):
     Tw = _T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale, xp=xp)
     theta_bw = kirchhoff_theta(Tw, alpha_m, beta_m)
-    flux = grad_Tm[0] * Tw + xp.sum(grad_Tm[1:] * Tm_tail)
-    flux = flux + grad_Trans[0] * theta_bw + xp.sum(grad_Trans[1:] * theta_tail)
+    flux = grad_Tm[0] * Tw + grad_Trans[0] * theta_bw + flux_fixed
     denominator = (kv * Rva_diff + Rg_star) * Tw * (1.0 - kv)
-    return denominator * flux + P * (grad_C[0] * kv + xp.sum(grad_C[1:] * kv_tail))
+    return denominator * flux + P * (grad_C[0] * kv + carrier_fixed)
 
   kv = _bracketed_root(resid, xp=xp)
   return kirchhoff_theta(_T_of_kv(kv, P, T8, Rvg_ratio, pressure_scale, xp=xp), alpha_m, beta_m)

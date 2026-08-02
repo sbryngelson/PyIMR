@@ -2260,8 +2260,22 @@ range 1.008-1.022, unanimous over 12 pairs".
 
 ### A microbenchmark of a component does not predict the system
 
-The wall root-find is 75% of the coupled RHS op count, and one jitted RHS call drops from
-105.6 us to 62.5 us when it is cut. The end-to-end solve moved by **2%**. Whatever
-dominates a step, it is not what the isolated RHS timing suggests, and the chain
-"RHS -> jacfwd is 5.4x RHS -> per-iteration cost" does NOT predict end-to-end behaviour.
-Do not infer a system speedup from a component measurement; measure the system.
+Demonstrated twice, on independent changes, both measured end to end under `taskset -c 0`
+with a paired design:
+
+| change to the RHS | isolated jitted RHS | end-to-end solve |
+|---|---|---|
+| wall root-find 20 halvings -> 8 | **1.69x faster** | 1.020x |
+| hoist the kv-independent contractions out of `resid` | **1.39x faster** | **0.998x** |
+
+Both are large in isolation and nothing at the system level. The op count of a standalone
+`jax.jit(rhs)` does not determine solve time: inside `diffeqsolve` the RHS is inlined into
+the compiled loop, where XLA performs its own common-subexpression elimination and
+loop-invariant hoisting, so hand-optimising the traced RHS repeats work the compiler has
+already done. (That is the plausible reading of two consistent results, not something
+established directly.)
+
+The practical rule: **do not reduce op count expecting speed.** Measure the system, under
+the regime above, with a paired design. And the corollary for `_thermal.py` -- the `resid`
+closure looks wasteful, recomputing three Nt/Mt-length dot products on each of ~29
+iterations, and hoisting them by hand changes nothing.

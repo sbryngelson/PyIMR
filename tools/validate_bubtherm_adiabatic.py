@@ -38,7 +38,7 @@ print("=" * 72)
 def _shadow_polytropic(p, rtol, atol):
   """bubtherm=0 RHS form, but using p['Pb'] as given (bubtherm=1's Pb)."""
   tn = tv / p["t0"]
-  y0 = [1.0, 0.0] + [0.0] * F._nZ(material)
+  y0 = [1.0, 0.0] + [0.0] * F._stress_state_count(material)
   s = solve_ivp(
     _rhs,
     (tn[0], tn[-1]),

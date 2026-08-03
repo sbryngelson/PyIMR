@@ -15,7 +15,7 @@ from scipy.stats import qmc
 
 from ._config import SimulationConfig, SolverStats
 from ._solver import prepare
-from .sensitivity import SensitivityParameter, _normalize_parameters
+from .sensitivity import SensitivityParameter, _normalize_parameters, _path_parts, _path_value
 
 __all__ = [
   "InferenceParameter",
@@ -28,18 +28,6 @@ __all__ = [
 ]
 
 from ._config import _freeze_array as _readonly
-
-def _path_parts(path):
-  parts = path.split(".")
-  if not parts or any(not part.isidentifier() for part in parts): raise ValueError(f"invalid inference parameter path: {path!r}")
-  return parts
-
-def _path_value(root, parts, full_path):
-  value = root
-  for part in parts:
-    if not hasattr(value, part): raise ValueError(f"unknown inference parameter path: {full_path!r}")
-    value = getattr(value, part)
-  return value
 
 def _replace_path(root, parts, value):
   if len(parts) == 1: return replace(root, **{parts[0]: value})
@@ -56,7 +44,7 @@ class InferenceParameter:
   transform: str = "linear"
 
   def __post_init__(self):
-    _path_parts(self.path)
+    _path_parts(self.path, "inference")
     if not np.isfinite(self.lower) or not np.isfinite(self.upper) or self.lower >= self.upper:
       raise ValueError("inference bounds must be finite and increasing")
     if self.transform not in ("linear", "log"): raise ValueError("inference transform must be 'linear' or 'log'")
@@ -226,7 +214,7 @@ class PreparedInference:
     paths = [parameter.path for parameter in parameters]
     if len(set(paths)) != len(paths): raise ValueError("inference parameter paths must be unique")
     for parameter in parameters:
-      value = _path_value(self.config, _path_parts(parameter.path), parameter.path)
+      value = _path_value(self.config, _path_parts(parameter.path, "inference"), parameter.path, "inference")
       if not np.isscalar(value) or not np.isfinite(value): raise ValueError(f"{parameter.path!r} must identify a finite scalar field")
       _normalize_parameters(self.config, (SensitivityParameter(parameter.path),))
     object.__setattr__(self, "_problem", prepare(self.config))
@@ -248,7 +236,7 @@ class PreparedInference:
     physical = self.physical_parameters(unit_parameters)
     config = self.config
     for parameter, value in zip(self.parameters, physical, strict=True):
-      config = _replace_path(config, _path_parts(parameter.path), value)
+      config = _replace_path(config, _path_parts(parameter.path, "inference"), value)
     return config
 
   def _stack_residual(self, result):

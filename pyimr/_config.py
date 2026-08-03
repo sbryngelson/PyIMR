@@ -254,27 +254,39 @@ class StateLayout:
   size: int
 
   @classmethod
-  def from_config(cls, config: SimulationConfig) -> StateLayout:
+  def of(cls, bubtherm, Nt, medtherm, Mt, masstrans, stress_states) -> StateLayout:
+    """Where each block sits in the state vector, from the flags that decide it.
+
+    `_rhs` slices the same vector and takes its flags as arguments rather than from a
+    config -- the collapse precursor runs a reduced state under a config that asks for
+    more -- so the layout has to be reachable from flags, not just from a config.
+    """
     cursor = 2
     pressure = None
     bubble_thermal = None
     medium_thermal = None
     vapor_fraction = None
-    if config.bubtherm:
+    if bubtherm:
       pressure = cursor
       cursor += 1
-      bubble_thermal = slice(cursor, cursor + config.Nt)
-      cursor += config.Nt
-      if config.medtherm:
-        medium_thermal = slice(cursor, cursor + config.Mt)
-        cursor += config.Mt
-      if config.masstrans:
-        vapor_fraction = slice(cursor, cursor + config.Nt)
-        cursor += config.Nt
-    stress = slice(cursor, cursor + _stress_state_count(config.material))
-    cursor = stress.stop
+      bubble_thermal = slice(cursor, cursor + Nt)
+      cursor += Nt
+      if medtherm:
+        medium_thermal = slice(cursor, cursor + Mt)
+        cursor += Mt
+      if masstrans:
+        vapor_fraction = slice(cursor, cursor + Nt)
+        cursor += Nt
+    stress = slice(cursor, cursor + stress_states)
     return cls(
-      pressure=pressure, bubble_thermal=bubble_thermal, medium_thermal=medium_thermal, vapor_fraction=vapor_fraction, stress=stress, size=cursor
+      pressure=pressure, bubble_thermal=bubble_thermal, medium_thermal=medium_thermal, vapor_fraction=vapor_fraction,
+      stress=stress, size=stress.stop
+    )
+
+  @classmethod
+  def from_config(cls, config: SimulationConfig) -> StateLayout:
+    return cls.of(
+      config.bubtherm, config.Nt, config.medtherm, config.Mt, config.masstrans, _stress_state_count(config.material)
     )
 
 @dataclass(frozen=True, slots=True)

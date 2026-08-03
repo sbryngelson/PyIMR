@@ -195,6 +195,26 @@ def test_an_inadequate_grid_is_not_accepted(measured):
   measured("grid selection", f"target 1e-07 -> Nt={ladder[loose]}, 1e-08 -> Nt={ladder[tight]}")
 
 
+def test_loosest_tolerance_meets_target_and_the_next_looser_entry_does_not():
+  """`_loosest_tolerance` must return the loosest ladder rtol that still meets `target`,
+  not merely some rtol that meets it and not the tightest available either.
+  """
+  from pyimr.resolution import _reference, _loosest_tolerance, _at, _solve, _deviation
+
+  ladder, rtol_ladder, target = (5, 9), (1e-8, 1e-6, 1e-4), 1e-5
+  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), target, ladder)
+  chosen = _loosest_tolerance(_config(), _TIMES, ("radius_ratio",), target, reference, "spectral", 5, rtol_ladder)
+
+  at_chosen = _solve(_at(_config(), "spectral", 5, chosen, chosen * 1e-2), _TIMES, ("radius_ratio",))
+  assert _deviation(at_chosen, reference) <= target
+
+  looser = rtol_ladder[rtol_ladder.index(chosen) + 1:]
+  assert looser, "test fixture must leave a next looser entry to check against"
+  next_looser = looser[0]
+  at_next_looser = _solve(_at(_config(), "spectral", 5, next_looser, next_looser * 1e-2), _TIMES, ("radius_ratio",))
+  assert _deviation(at_next_looser, reference) > target, "a looser entry also met the target"
+
+
 def test_it_returns_a_setting_that_meets_the_target(measured):
   from pyimr.resolution import choose_resolution
 
@@ -239,4 +259,5 @@ def test_multiple_fields_must_all_meet_the_target():
                              nt_ladder=ladder, rtol_ladder=tolerances)
   both = choose_resolution(_config(), _TIMES, 1e-3, field=("radius_ratio", "internal_pressure_pa"),
                            nt_ladder=ladder, rtol_ladder=tolerances)
-  assert both.rtol <= radius.rtol and both.Nt >= radius.Nt
+  assert both.rtol < radius.rtol
+  assert both.Nt >= radius.Nt

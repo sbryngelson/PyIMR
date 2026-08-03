@@ -362,21 +362,39 @@ def test_an_unreachable_target_is_reported_not_approximated(measured):
   measured("unreachable target", "raises rather than returning the best available")
 
 
-def test_both_discretizations_are_tried():
-  """fd must be reachable. The spectral preference in this package was measured at one
-  configuration and at tight accuracy, neither of which holds in the usual regime.
+def test_fd_is_genuinely_evaluated_not_just_offered():
+  """The spectral preference in this package was measured at one configuration and at
+  tight accuracy, neither of which holds in the usual regime, so fd has to be a real
+  candidate. Asserting the winner is one of two names would pass without fd ever running.
   """
-  from pyimr.resolution import _choose_discretization, _reference
+  from pyimr.resolution import _reference, _smallest_adequate
 
-  ladder = (5, 9)
+  ladder = (5, 9, 13)
   reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
-  thermal, nt = _choose_discretization(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, ladder)
-  assert thermal in ("spectral", "fd") and nt in ladder
+  index = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, "fd", ladder)
+  assert index is not None, "fd could not meet a loose target at any ladder entry"
+  assert ladder[index] in ladder
+
+
+def test_an_inadequate_grid_is_not_accepted(measured):
+  """The concrete failure this module was built around: Nt = 5 over a multi-collapse
+  record carries 2.07e-02 discretization error, as large as the experimental noise it was
+  supposed to sit beneath, while looking free against a reference computed at Nt = 5.
+  """
+  from pyimr.resolution import _reference, _smallest_adequate
+
+  ladder = (5, 9, 13)
+  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-4, ladder)
+  loose = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, "spectral", ladder)
+  tight = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-6, reference, "spectral", ladder)
+  assert loose is not None and tight is not None
+  assert tight >= loose, "a tighter target must never select a coarser grid"
+  measured("grid selection", f"target 1e-2 -> Nt={ladder[loose]}, 1e-6 -> Nt={ladder[tight]}")
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `.venv/bin/pytest tests/test_resolution.py -q -k "smallest or unreachable or discretizations"`
+Run: `.venv/bin/pytest tests/test_resolution.py -q -k "smallest or unreachable or fd_is or inadequate"`
 Expected: FAIL, `ImportError: cannot import name '_smallest_adequate'`
 
 - [ ] **Step 3: Write minimal implementation**
@@ -420,7 +438,7 @@ def _choose_discretization(config, times, fields, target, reference, nt_ladder):
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_resolution.py -q`
-Expected: PASS, 12 passed
+Expected: PASS, 13 passed
 
 - [ ] **Step 5: Commit**
 
@@ -536,7 +554,7 @@ def choose_resolution(config, times, target, *, field="radius_ratio",
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `.venv/bin/pytest tests/test_resolution.py -q`
-Expected: PASS, 16 passed
+Expected: PASS, 17 passed
 
 - [ ] **Step 5: Verify lint and types**
 

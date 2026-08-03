@@ -40,7 +40,10 @@ No change to `pyimr/__init__.py`. Sibling modules `noise`, `prior` and `selectio
 
 **Interfaces:**
 - Consumes: `pyimr.SimulationConfig` (frozen dataclass; fields `thermal`, `Nt`, `Mt`, `medtherm`, `rtol`, `atol`).
-- Produces: `NT_LADDER`, `RTOL_LADDER`, `Resolution(thermal: str, Nt: int, rtol: float, atol: float, achieved: float, seconds: float)` with `.apply(config) -> SimulationConfig`; and `_at(config, thermal, nt, rtol, atol) -> SimulationConfig`.
+- Produces: `__all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution"]` — declare only what exists;
+  `choose_resolution` joins it in Task 5, where it is defined. A forward declaration fails
+  pyright's `reportUnsupportedDunderAll`, which `# noqa: F822` does not suppress.
+  `NT_LADDER`, `RTOL_LADDER`, `Resolution(thermal: str, Nt: int, rtol: float, atol: float, achieved: float, seconds: float)` with `.apply(config) -> SimulationConfig`; and `_at(config, thermal, nt, rtol, atol) -> SimulationConfig`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -117,7 +120,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-__all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution", "choose_resolution"]
+__all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution"]
 
 NT_LADDER = (5, 7, 9, 13, 17, 25, 33)
 RTOL_LADDER = (1e-10, 1e-8, 1e-6, 1e-4, 1e-3)
@@ -515,6 +518,14 @@ Run: `.venv/bin/pytest tests/test_resolution.py -q -k "returns_a_setting or repr
 Expected: FAIL, `ImportError: cannot import name 'choose_resolution'`
 
 - [ ] **Step 3: Write minimal implementation**
+
+First extend the module's public surface, now that the symbol exists:
+
+```python
+__all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution", "choose_resolution"]
+```
+
+Then add:
 
 ```python
 def _loosest_tolerance(config, times, fields, target, reference, thermal, nt, rtol_ladder):

@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from dataclasses import replace
 from pyimr import data
 import pyimr
 from _validation_support import NHKV, R0, REQ
@@ -60,6 +61,22 @@ def test_thermal_grid_convergence(measured):
   errors = [error for _, error in convergence]
   measured("thermal grid convergence", " ".join(f"{error:.1e}" for error in errors))
   assert errors[0] > errors[1] > errors[2] == 0.0
+
+
+def test_a_bare_node_count_moves_the_medium_grid_only_when_the_medium_runs(measured):
+  """The disagreement #187 was about: `Mt = Nt` unconditionally rewrites a grid that is
+  not being solved, which is a silent change to a configuration the caller did not ask
+  about. `pyimr.resolution` guards it; this shares that code rather than repeating it.
+  """
+  times = np.linspace(0, 20e-6, 40)
+  cold = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, Nt=10, Mt=17)
+  assert [grid for grid, _ in data.resolution_convergence(cold, times, [7, 11])] == [(7, 17), (11, 17)]
+
+  coupled = replace(cold, medtherm=1, thermal="fd")
+  assert [grid for grid, _ in data.resolution_convergence(coupled, times, [7, 11])] == [(7, 7), (11, 11)]
+  # an explicit pair is an instruction, and is honoured either way
+  assert [grid for grid, _ in data.resolution_convergence(cold, times, [(7, 5), (11, 5)])] == [(7, 5), (11, 5)]
+  measured("Mt follows Nt", "only under medtherm; explicit pairs honoured")
 
 
 @pytest.fixture(scope="module")

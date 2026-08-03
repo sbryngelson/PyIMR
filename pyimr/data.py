@@ -7,7 +7,6 @@ from dataclasses import replace
 import numpy as np
 from scipy.optimize import brentq
 
-import pyimr
 from pyimr import C8, KAPPA, P8, RHO, SURF, pvsat
 
 __all__ = ["collapse_features", "equilibrium_radius", "natural_frequency", "resolution_convergence", "saturated_vapor_pressure"]
@@ -84,15 +83,28 @@ def collapse_features(time_s, radius_m, *, refine=True):
   return collapse, peaks[:, 1], peaks[:, 0]
 
 def resolution_convergence(config, times_s, resolutions, *, field="radius_ratio"):
-  """Self-convergence of a configuration under thermal grid refinement."""
-  grids = [tuple(r) if isinstance(r, tuple | list) else (r, r) for r in resolutions]
-  if len(grids) < 2: raise ValueError("need at least two resolutions to compare")
-  solved = []
-  for nt, mt in grids:
-    solution = pyimr.simulate(times_s, replace(config, Nt=nt, Mt=mt))
-    solved.append(np.asarray(getattr(solution, field), dtype=float))
+  """Self-convergence of a configuration under thermal grid refinement.
+
+  A table for a ladder you supply, where `pyimr.resolution` searches for a setting; the
+  two agree on the two things they could disagree about, by sharing the code. A bare `Nt`
+  moves `Mt` with it only when the medium runs, since rewriting an unused medium grid is
+  a silent change -- pass `(Nt, Mt)` to set both. Deviations are relative to the field's
+  own peak, because observables do not converge together.
+
+  Returned grids report what was solved, which for a bare `Nt` is the config's own `Mt`.
+  """
+  from .resolution import _at, _deviation, _solve
+
+  if len(resolutions) < 2: raise ValueError("need at least two resolutions to compare")
+  grids, solved = [], []
+  for entry in resolutions:
+    nt, mt = entry if isinstance(entry, tuple | list) else (entry, None)
+    at = _at(config, config.thermal, nt, config.rtol, config.atol)
+    if mt is not None: at = replace(at, Mt=int(mt))
+    grids.append((int(nt), int(at.Mt)))
+    solved.append(_solve(at, times_s, (field,)))
   finest = solved[-1]
-  return tuple((grid, float(np.nanmax(np.abs(values - finest)))) for grid, values in zip(grids, solved))
+  return tuple((grid, _deviation(values, finest)) for grid, values in zip(grids, solved))
 
 def saturated_vapor_pressure(temperature_k):
   """Saturated vapour pressure in Pa; thin wrapper over the solver's fit."""

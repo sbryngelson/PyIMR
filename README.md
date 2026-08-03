@@ -551,7 +551,7 @@ omega_n, beta = data.natural_frequency(R0_m, Req, 2500.0, 0.1)
 collapse_times_s, peak_radii_m, peak_times_s = data.collapse_features(
     measured_time_s, measured_radius_m
 )
-data.resolution_convergence(config, times_s, [(10, 10), (20, 20), (40, 40)])
+data.resolution_convergence(config, times_s, [10, 20, 40])
 ```
 
 `equilibrium_radius` inverts the solver's own pressure/radius relation exactly.
@@ -559,7 +559,10 @@ data.resolution_convergence(config, times_s, [(10, 10), (20, 20), (40, 40)])
 medium; it reproduces Minnaert exactly in the gas-only limit and matches the
 simulated rebound frequency to 2.7%. `collapse_features` locates interior
 extrema with sub-sample parabolic refinement, replacing the manual index
-windows of IMR-vanilla `calc_3tmins_3Rmaxs`.
+windows of IMR-vanilla `calc_3tmins_3Rmaxs`. `resolution_convergence` reports a
+table for a ladder you supply, where `pyimr.resolution` searches for a setting;
+both scale deviations by the field's own peak and both move `Mt` with `Nt` only
+when the medium is actually solved. Pass `(Nt, Mt)` pairs to set both.
 
 IMR-vanilla's `calc_omega_N` is deliberately not ported: it is a scratch script
 whose formula treats the gas pressure at `Rmax` as the equilibrium value,

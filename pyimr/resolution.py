@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-__all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution"]
+__all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution", "choose_resolution"]
 
 NT_LADDER = (5, 7, 9, 13, 17, 25, 33)
 RTOL_LADDER = (1e-10, 1e-8, 1e-6, 1e-4, 1e-3)
@@ -123,3 +123,37 @@ def _choose_discretization(config, times, fields, target, reference, nt_ladder):
       f"raise the Nt ladder or loosen target"
     )
   return best[1], best[2]
+
+
+def _loosest_tolerance(config, times, fields, target, reference, thermal, nt, rtol_ladder):
+  """The loosest ladder tolerance still meeting `target`. Error rises with `rtol`, so this
+  keeps the last passing entry and stops at the first failure."""
+  chosen = rtol_ladder[0]
+  for rtol in rtol_ladder:
+    candidate = _at(config, thermal, nt, rtol, rtol * 1e-2)
+    if _deviation(_solve(candidate, times, fields), reference) > target: break
+    chosen = rtol
+  return chosen
+
+
+def choose_resolution(config, times, target, *, field: str | tuple[str, ...] = "radius_ratio",
+                      nt_ladder=NT_LADDER, rtol_ladder=RTOL_LADDER):
+  """Cheapest `(thermal, Nt, rtol)` whose error meets `target`, measured on this problem.
+
+  `target` is a deviation relative to each field's own peak magnitude. `field` may be one
+  name or several, and every one named must meet it. Costs roughly ten to twelve solves,
+  which pays for itself across a sampling or sensitivity campaign and not otherwise.
+  """
+  target = float(target)
+  if target <= 0.0: raise ValueError("target must be positive")
+  if not config.bubtherm: raise ValueError("resolution calibration needs bubtherm=1; nothing to choose otherwise")
+
+  fields = (field,) if isinstance(field, str) else tuple(field)
+  reference, _ = _reference(config, times, fields, target, nt_ladder)
+  thermal, nodes = _choose_discretization(config, times, fields, target, reference, nt_ladder)
+  rtol = _loosest_tolerance(config, times, fields, target, reference, thermal, nodes, rtol_ladder)
+
+  final = _at(config, thermal, nodes, rtol, rtol * 1e-2)
+  seconds, values = _timed(final, times, fields)
+  return Resolution(thermal, int(nodes), float(rtol), float(rtol * 1e-2),
+                    _deviation(values, reference), seconds)

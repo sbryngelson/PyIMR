@@ -193,3 +193,50 @@ def test_an_inadequate_grid_is_not_accepted(measured):
   assert loose is not None and tight is not None
   assert tight > loose, "a tighter target must select a finer grid"
   measured("grid selection", f"target 1e-07 -> Nt={ladder[loose]}, 1e-08 -> Nt={ladder[tight]}")
+
+
+def test_it_returns_a_setting_that_meets_the_target(measured):
+  from pyimr.resolution import choose_resolution
+
+  setting = choose_resolution(_config(), _TIMES, 1e-2, nt_ladder=(5, 9), rtol_ladder=(1e-8, 1e-6, 1e-4))
+  assert setting.achieved <= 1e-2
+  assert setting.thermal in ("spectral", "fd") and setting.Nt in (5, 9)
+  assert setting.atol == pytest.approx(setting.rtol * 1e-2)
+  assert setting.seconds > 0.0
+  measured("chosen setting", f"{setting.thermal} Nt={setting.Nt} rtol={setting.rtol:.0e} "
+                             f"achieved {setting.achieved:.2e} in {setting.seconds * 1e3:.1f} ms")
+
+
+def test_the_returned_setting_reproduces_its_reported_error():
+  """A setting whose own config does not reproduce the achieved error is not a setting."""
+  from pyimr.resolution import _reference, _solve, choose_resolution
+
+  ladder = (5, 9)
+  setting = choose_resolution(_config(), _TIMES, 1e-2, nt_ladder=ladder, rtol_ladder=(1e-8, 1e-6))
+  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
+  from pyimr.resolution import _deviation
+
+  again = _solve(setting.apply(_config()), _TIMES, ("radius_ratio",))
+  assert _deviation(again, reference) == pytest.approx(setting.achieved, rel=1e-9)
+
+
+def test_a_tighter_target_never_returns_a_looser_tolerance():
+  from pyimr.resolution import choose_resolution
+
+  loose = choose_resolution(_config(), _TIMES, 1e-2, nt_ladder=(5, 9), rtol_ladder=(1e-8, 1e-6, 1e-4))
+  tight = choose_resolution(_config(), _TIMES, 1e-5, nt_ladder=(5, 9), rtol_ladder=(1e-8, 1e-6, 1e-4))
+  assert tight.rtol <= loose.rtol
+
+
+def test_multiple_fields_must_all_meet_the_target():
+  """Internal pressure runs about 80x looser than radius at identical settings, so adding
+  it can only make the requirement harder, never easier.
+  """
+  from pyimr.resolution import choose_resolution
+
+  ladder, tolerances = (5, 9), (1e-8, 1e-6, 1e-4)
+  radius = choose_resolution(_config(), _TIMES, 1e-3, field="radius_ratio",
+                             nt_ladder=ladder, rtol_ladder=tolerances)
+  both = choose_resolution(_config(), _TIMES, 1e-3, field=("radius_ratio", "internal_pressure_pa"),
+                           nt_ladder=ladder, rtol_ladder=tolerances)
+  assert both.rtol <= radius.rtol and both.Nt >= radius.Nt

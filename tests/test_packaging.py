@@ -24,6 +24,20 @@ def _package_modules():
   return sorted(f"pyimr.{path.stem}" for path in _PACKAGE.glob("*.py") if path.stem != "__init__")
 
 
+def test_every_declared_dependency_is_actually_imported():
+  """A dependency nobody imports still gets installed. `numba` outlived the migration
+  that used it by long enough to ship in every install.
+  """
+  import tomllib
+
+  root = Path(__file__).resolve().parent.parent
+  declared = tomllib.loads((root / "pyproject.toml").read_text())["project"]["dependencies"]
+  sources = "\n".join(p.read_text() for p in (root / "pyimr").glob("*.py"))
+  imported = set(re.findall(r"^\s*(?:import|from)\s+([A-Za-z_][A-Za-z0-9_]*)", sources, re.M))
+  unused = [d for d in declared if re.split(r"[><=!\[]", d)[0].strip() not in imported]
+  assert not unused, f"declared but never imported: {unused}"
+
+
 @pytest.mark.slow
 def test_the_wheel_ships_every_package_module():
   """The package sits at the repo root, so the suite imports the source tree and a

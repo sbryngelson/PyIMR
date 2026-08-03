@@ -107,5 +107,13 @@ def resolution_convergence(config, times_s, resolutions, *, field="radius_ratio"
   return tuple((grid, _deviation(values, finest)) for grid, values in zip(grids, solved))
 
 def saturated_vapor_pressure(temperature_k):
-  """Saturated vapour pressure in Pa; thin wrapper over the solver's fit."""
+  """Saturated vapour pressure in Pa; thin wrapper over the solver's fit.
+
+  The fit is `exp(-5200/T)`, which is finite and innocuous-looking at negative T -- 3.9e18
+  Pa at -300 K. The solver's own `pvsat` runs under tracing and cannot check; this is the
+  public entry point, so it does.
+  """
+  temperature = np.asarray(temperature_k, dtype=float)
+  if np.any(~np.isfinite(temperature)) or np.any(temperature <= 0.0):
+    raise ValueError("temperature_k must be finite and above absolute zero")
   return pvsat(temperature_k)

@@ -55,6 +55,15 @@ upstream implementation exists to pin against.
 
 [Back to the README](../README.md)
 
+- **`calc_omega_N` (IMR-vanilla) treats the gas pressure at `Rmax` as the
+  equilibrium value.** That inflates the linearised stiffness by
+  `alpha**(-3*kappa)` and overpredicts the natural frequency by 42x on the
+  reference case, which is why PyIMR's `data.natural_frequency` is a
+  reimplementation rather than a port.
+- **`radial = 6` (Gilmore/Mie-Gruneisen) returns complex radii.** Upstream
+  reaches `max|imag(R/R0)| = 4.069` without raising, from a wrong root of the
+  Mie-Gruneisen density quadratic.
+
 ## Which branches replicate upstream, and which correct it
 
 Moved here from the package docstring, where four of its claims had gone stale
@@ -94,3 +103,14 @@ comes from a coupled root-find (`_wall_theta_bw_full`) that enforces
 vapour-mass-flux continuity alongside heat flux; no closed form exists there,
 because the vapour fraction puts `Tw` inside `pvsat`. `alpha_m` in that solve
 uses the stale `kv[-1]` too, same lag. Forward sensitivities cover it.
+
+## Deliberate numerical divergence
+
+`Zener` and `QuadraticZener` use `4*LAM/Re8` for the acceleration coefficient
+where IMRv2 uses `4/Re8`. On compressible trajectories with differing
+retardation and relaxation times the two differ by roughly 5e-02. IMRv2's own
+stress carries `-4*LAM/Re8*Rdot/R`, so the coefficient it pairs with that stress
+is internally inconsistent, and the reduction limit to `LinearMaxwell` converges
+only with the `LAM` factor restored. Three Zener reference trajectories were
+regenerated from PyIMR as a result, and pin regressions rather than
+cross-checking upstream (#174, IMRv2#18).

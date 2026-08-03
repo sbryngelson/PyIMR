@@ -4,8 +4,23 @@ from __future__ import annotations
 
 import numpy as np
 
+from ._materials import (
+  LinearMaxwell,
+  NeoHookeanKelvinVoigt,
+  NoStress,
+  OldroydB,
+  QuadraticKelvinVoigt,
+  QuadraticZener,
+  Zener,
+)
 
-__all__ = ["integrate"]
+
+__all__ = ["THROUGH_GROUPS", "integrate"]
+
+# Materials whose fields reach the solve ONLY through the nondimensional groups, so the
+# compiled program can be keyed by type and a whole parameter sweep compiles once (#163).
+# Everything else is keyed by content: one compile per distinct parameter set.
+THROUGH_GROUPS = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, LinearMaxwell)
 
 def integrate(rhs, times, initial, *, args, rtol, atol, failure, label="", max_step=None, config=None):
   """Run `rhs` over `times`, returning `(states, stats)` and raising on failure."""
@@ -20,19 +35,8 @@ def integrate(rhs, times, initial, *, args, rtol, atol, failure, label="", max_s
   # So their numeric fields must not key the program either, or the sweep recompiles
   # anyway. `InstantaneousMaterial` and the distributed models DO read their own fields,
   # so those keep a full content key.
-  from ._materials import (
-    NeoHookeanKelvinVoigt,
-    NoStress,
-    OldroydB,
-    QuadraticKelvinVoigt,
-    QuadraticZener,
-    LinearMaxwell,
-    Zener,
-  )
-
-  through_groups = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, LinearMaxwell)
   material = args.material
-  material_key = type(material).__name__ if isinstance(material, through_groups) else _content_key(material)
+  material_key = type(material).__name__ if isinstance(material, THROUGH_GROUPS) else _content_key(material)
   groups = args.p
   key = (
     tuple(sorted(groups)), groups["wave_type"], material_key, _content_key(args._replace(p=None, material=None)),

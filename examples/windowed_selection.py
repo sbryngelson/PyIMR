@@ -14,11 +14,17 @@ Every model is simulated once over the full record from the bubble maximum; only
 samples entering the likelihood change between windows. That isolates the window effect
 from the separate problem of how to re-initialize a model partway through an event.
 
-The answer is yes for two of the three temperatures, and it survives compressibility:
-with Keller-Miksis the winner still changes between windows at 23 and 33 C, though the
-absolute fits improve everywhere (worst chi-squared per sample 7.3 to 3.5) and 15 C
-becomes consistent. Compressibility is therefore not the explanation for the drift, but
-it is large enough that an incompressible answer should not be quoted.
+The answer is yes at 23 and 33 C, and it has now survived two explanations that would
+have dissolved it. Compressibility is not it: Keller-Miksis improves every fit but leaves
+the drift. An inadequate candidate set is not it either: against fifteen candidates --
+five strain-stiffening laws, three viscoelastic fluids, and stiffening combined with
+relaxation -- the winner still changes between the collapse and the rebound.
+
+What the wider set did fix is the misfit. `qSLS` (quadratic Zener: stiffening AND
+relaxation, which nothing in the original set offered together) wins the full record at
+all three temperatures with chi-squared per sample 1.4, 1.3 and 1.2, against 2.9, 1.8 and
+2.6 before. Fitted whole, the three temperatures agree; fitted in pieces, two of them do
+not.
 
 Run: .venv/bin/python examples/windowed_selection.py <dataset> [thermal Nt] [workers]
 """
@@ -54,6 +60,13 @@ from pyimr.selection import (
 DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 
 GRID_COUNT = 10
+# Every candidate except the two the compile cache cannot serve. `Giesekus` and
+# `LinearPTT` are keyed by content, so each of their 10^4 grid points is a fresh XLA
+# compile at ~1.2-1.9 s -- 25 to 40 minutes apiece, per dataset, almost none of it
+# solving. The 2- and 3-axis content-keyed models pay the same rate over far fewer
+# points and stay affordable. See the compile-key issue.
+_PROHIBITIVE = ("giesekus", "ptt")
+MODELS = {name: m for name, m in STANDARD_MODELS.items() if name not in _PROHIBITIVE}
 # Keller-Miksis. Laser cavitation is compressible; PYIMR_RADIAL=1 recovers the
 # incompressible Rayleigh-Plesset results for comparison.
 _RADIAL = int(os.environ.get('PYIMR_RADIAL', '2'))
@@ -151,7 +164,7 @@ def solve_chunk(payload):
   os.environ.setdefault("OMP_NUM_THREADS", "1")
   dataset, thermal_nodes, model, low, high = payload
   _, times, weights, solve, _, _ = setup(dataset, thermal_nodes)
-  candidate = STANDARD_MODELS[model]
+  candidate = MODELS[model]
   points = parameter_grid(candidate.axes, GRID_COUNT)[0][low:high]
   solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
 
@@ -186,7 +199,7 @@ def main():
 
   payloads = [
     (name, thermal_nodes, model.name, low, min(low + _CHUNK, GRID_COUNT**model.dimension))
-    for model in STANDARD_MODELS.values()
+    for model in MODELS.values()
     for low in range(0, GRID_COUNT**model.dimension, _CHUNK)
   ]
   start = time.perf_counter()
@@ -196,7 +209,7 @@ def main():
     results = [solve_chunk(item) for item in payloads]
 
   cached, solves, lost = {}, 0, []
-  for candidate in STANDARD_MODELS.values():
+  for candidate in MODELS.values():
     parts = sorted((low, radii, red) for model, low, radii, red in results if model == candidate.name)
     radii = np.concatenate([r for _, r, _ in parts])
     redundancies = np.concatenate([w for _, _, w in parts])

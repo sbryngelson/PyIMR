@@ -89,6 +89,16 @@ def test_a_model_identical_to_its_child_is_fully_redundant(measured):
   assert np.all(redundancies < 1e-9)
 
 
+def test_an_unsolvable_child_leaves_the_weight_alone():
+  """A child that will not integrate is no evidence of redundancy, so it must not be
+  scored as either redundant or distinguishable.
+  """
+  points, _, _, stresses = solve_grid(STANDARD_MODELS["NHKV"], _sensitive, count=3)
+  identical = lambda _material: (_GRID, _GRID)  # noqa: E731
+  assert np.all(redundancy_over_grid(STANDARD_MODELS["NHKV"], STANDARD_MODELS, points, stresses, identical) < 1.0)
+  assert np.all(redundancy_over_grid(STANDARD_MODELS["NHKV"], STANDARD_MODELS, points, stresses, lambda _m: None) == 1.0)
+
+
 def test_a_model_that_differs_from_its_child_keeps_its_prior():
   points, _, _, stresses = solve_grid(STANDARD_MODELS["NHKV"], _sensitive, count=3)
   # a flat child: a different SHAPE, since eqn 22 aligns amplitudes and would score a pure

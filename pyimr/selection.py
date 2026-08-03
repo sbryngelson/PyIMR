@@ -94,12 +94,17 @@ def redundancy_over_grid(candidate, models, points, stresses, solve, *, weights=
   Children are solved at the parent's parameters, not looked up in their own grid: log
   grids of different lengths share only endpoints, so a lookup misses nearly everywhere
   and silently leaves the weight at 1.
+
+  `solve` may return `None` for a material it cannot integrate; a child that will not run
+  cannot demonstrate redundancy, so that point keeps the weight it already has.
   """
   redundancies = np.ones(len(points))
   for child in (models[name] for name in candidate.contains):
     for index, row in enumerate(points):
       theta = dict(zip(candidate.axes, row))
-      _, stress = solve(child.build({a: theta[a] for a in child.axes}))
+      solved = solve(child.build({a: theta[a] for a in child.axes}))
+      if solved is None: continue
+      _, stress = solved
       redundancies[index] = min(
         redundancies[index],
         redundancy_weight(stresses[index], [stress], weights=weights, scale=stress_scale(stress)),

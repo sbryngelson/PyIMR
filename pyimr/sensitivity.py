@@ -68,6 +68,7 @@ _NONDIFFERENTIABLE_FIELDS = {
   "extent",
   "rtol",
   "atol",
+  "max_steps",
   "collapse",
 }
 

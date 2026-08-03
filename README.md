@@ -475,6 +475,12 @@ unchanged from `1e-9` -- same winners, same chi-squared per sample. Keep `1e-10,
 sensitivities, where derivatives amplify error, and `1e-9` or tighter when validating
 against reference trajectories.
 
+Tolerance does not bound how long one solve can take: a parameter set whose bubble
+collapses to a fraction of a percent of its maximum and then creeps rather than rebounds
+takes hundreds of thousands of steps at any tolerance. `max_steps` (default `1_000_000`)
+turns that into a `SimulationError` at a point of your choosing, which is what makes a
+grid sweep affordable -- the healthy points of the same sweep finish in under 7e3 steps.
+
 ### Choosing a resolution
 
 `Nt` and tolerance requirements depend on record length, material stiffness and which

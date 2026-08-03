@@ -14,6 +14,12 @@ Every model is simulated once over the full record from the bubble maximum; only
 samples entering the likelihood change between windows. That isolates the window effect
 from the separate problem of how to re-initialize a model partway through an event.
 
+The answer is yes for two of the three temperatures, and it survives compressibility:
+with Keller-Miksis the winner still changes between windows at 23 and 33 C, though the
+absolute fits improve everywhere (worst chi-squared per sample 7.3 to 3.5) and 15 C
+becomes consistent. Compressibility is therefore not the explanation for the drift, but
+it is large enough that an incompressible answer should not be quoted.
+
 Run: .venv/bin/python examples/windowed_selection.py <dataset> [thermal Nt] [workers]
 """
 
@@ -51,10 +57,16 @@ DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 RTOL, ATOL = 1e-6, 1e-8
 
 GRID_COUNT = 10
-# Rayleigh-Plesset. Almost certainly the wrong choice for laser cavitation, which is
-# compressible, but radial=2 exhausts the step budget at some grid points and needs
-# per-point failure handling first. Kept at 1 so this knob changes nothing yet.
-_RADIAL = int(os.environ.get('PYIMR_RADIAL', '1'))
+# Keller-Miksis. Laser cavitation is compressible; PYIMR_RADIAL=1 recovers the
+# incompressible Rayleigh-Plesset results for comparison.
+_RADIAL = int(os.environ.get('PYIMR_RADIAL', '2'))
+# Step budget per solve. Points that collapse to a fraction of a percent of R_max and
+# creep instead of rebounding run to any ceiling they are given; the healthy points of
+# the same grid finish under 7e3 steps. Against the 1e6 default this runs 6.3x faster
+# (205 s to 33 s) and drops 9.4% of the SLS grid rather than 4.4%; every winner and
+# every best chi-squared is unchanged, and the losing posteriors move by about 10%
+# relative -- on models already 30 or more orders below the winner.
+_MAX_STEPS = int(os.environ.get('PYIMR_MAX_STEPS', '50000'))
 _CHUNK = 120  # grid points per work unit; keeps the uneven model sizes load-balanced
 _MAX_RATIO = 1.05  # R* cannot exceed the maximum it is normalized by, beyond tracking noise
 
@@ -115,9 +127,20 @@ def setup(dataset, thermal_nodes, radial=_RADIAL):
   if thermal_nodes: options |= {"bubtherm": 1, "thermal": "spectral", "Nt": thermal_nodes}
 
   def solve(material):
-    result = pyimr.simulate(
-      times, pyimr.SimulationConfig(maximum_radius, equilibrium, material, rtol=RTOL, atol=ATOL, **options)
-    )
+    """`(radius, stress)`, or `None` for a point this solver cannot integrate.
+
+    A grid point that will not run drops out of the parameter prior rather than taking
+    the study down with it, so the count of drops is a reported number (below).
+    """
+    try:
+      result = pyimr.simulate(
+        times,
+        pyimr.SimulationConfig(
+          maximum_radius, equilibrium, material, rtol=RTOL, atol=ATOL, max_steps=_MAX_STEPS, **options
+        ),
+      )
+    except pyimr.SimulationError:
+      return None
     return result.radius_ratio, result.stress_integral_pa
 
   return trials, times, weights, solve, usable, (maximum_radius, equilibrium)
@@ -130,13 +153,20 @@ def solve_chunk(payload):
   """
   os.environ.setdefault("OMP_NUM_THREADS", "1")
   dataset, thermal_nodes, model, low, high = payload
-  _, _, weights, solve, _, _ = setup(dataset, thermal_nodes)
+  _, times, weights, solve, _, _ = setup(dataset, thermal_nodes)
   candidate = STANDARD_MODELS[model]
   points = parameter_grid(candidate.axes, GRID_COUNT)[0][low:high]
   solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
-  stresses = np.array([s for _, s in solved])
-  redundancies = redundancy_over_grid(candidate, STANDARD_MODELS, points, stresses, solve, weights=weights)
-  return model, low, np.array([r for r, _ in solved]), redundancies
+
+  ok = np.array([item is not None for item in solved])
+  radii, redundancies = np.full((len(points), len(times)), np.nan), np.zeros(len(points))
+  if ok.any():
+    kept = [item for item in solved if item is not None]
+    radii[ok] = [r for r, _ in kept]
+    redundancies[ok] = redundancy_over_grid(
+      candidate, STANDARD_MODELS, points[ok], np.array([s for _, s in kept]), solve, weights=weights
+    )
+  return model, low, radii, redundancies
 
 def main():
   name = sys.argv[1] if len(sys.argv) > 1 else "gelatin_15C"
@@ -168,16 +198,19 @@ def main():
   else:
     results = [solve_chunk(item) for item in payloads]
 
-  cached, solves = {}, 0
+  cached, solves, lost = {}, 0, []
   for candidate in STANDARD_MODELS.values():
     parts = sorted((low, radii, red) for model, low, radii, red in results if model == candidate.name)
     radii = np.concatenate([r for _, r, _ in parts])
-    cached[candidate.name] = (
-      radii, parameter_grid(candidate.axes, GRID_COUNT)[1],
-      np.concatenate([w for _, _, w in parts]), candidate.dimension,
-    )
+    redundancies = np.concatenate([w for _, _, w in parts])
+    failed = int(np.isnan(radii).any(axis=1).sum())
+    if failed: lost.append(f"{candidate.name} {failed}/{len(radii)}")
+    # a model no point of which integrates has no prior to normalize, so it leaves the set
+    if failed == len(radii): continue
+    cached[candidate.name] = (radii, parameter_grid(candidate.axes, GRID_COUNT)[1], redundancies, candidate.dimension)
     solves += len(radii) * (1 + len(candidate.contains))
-  print(f"{solves} solves in {time.perf_counter() - start:.1f} s on {workers} worker(s)\n")
+  print(f"{solves} solves in {time.perf_counter() - start:.1f} s on {workers} worker(s)")
+  print(f"  grid points that would not integrate: {', '.join(lost) if lost else 'none'}\n")
 
   windows = collapse_windows(mean_trace, times)
   names = list(cached)
@@ -189,7 +222,7 @@ def main():
       evidences[name], chi_squared = log_evidence(
         radii[:, mask], normalized, redundancies, trials[:, mask], deviations, dimension=dimension
       )
-      fits[name] = chi_squared.min() / trials[:, mask].size
+      fits[name] = np.nanmin(chi_squared) / trials[:, mask].size  # dropped points are NaN, not zero
     posterior = compare(evidences)
     winner = max(posterior, key=lambda n: posterior[n])
     row = "  ".join(f"{posterior[n]:9.2e}" for n in names)

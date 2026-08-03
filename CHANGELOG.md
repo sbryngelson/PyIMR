@@ -49,9 +49,16 @@ candidates nest, so a best-fit comparison prefers the flexible ones for free.
   the evidence quadrature tying the above together.
 - `LinearMaxwell` — a Maxwell fluid, `Zener` without the parallel spring.
 
-Studies live in `examples/`. Two measured limits are worth knowing before using this:
+Studies live in `examples/`. Three measured limits are worth knowing before using this:
 identifying a relaxation time needed radius precision better than ~1e-3 of the maximum
-radius, and the redundancy prior changed no selected model at any noise level tested.
+radius; the redundancy prior changed no selected model at any noise level tested; and on
+real gelatin data the selected model depends on which part of the record is fitted, at
+two of three temperatures, whether or not the momentum equation is compressible.
+
+`SimulationConfig.max_steps` bounds the integrator's step count, which a parameter sweep
+needs: a point whose bubble collapses to a fraction of a percent of its maximum and then
+creeps rather than rebounds will spend any budget it is given, while the healthy points
+around it finish in under 7e3 steps.
 
 Everything merged after `0.2.0` was set (PR #7). Several changes are breaking in
 the way that matters most for a solver: **the same call returns different

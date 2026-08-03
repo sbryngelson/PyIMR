@@ -30,18 +30,16 @@ rather than skipped.
 | W4 radial 6 | done -- resolved with a measurement |
 | W5 IMR-vanilla estimators | done -- now `pyimr/data.py` |
 | W6 solver control surface | done -- 86-option audit, `max_step_s` added |
-| W7 tinygrad style | done except the three formatter-blocked items below |
+| W7 tinygrad style | done -- the formatter items closed by re-measurement, see the end |
 | W8 measured collapse gaps | done -- stubs, plus the Zener offset quantified |
 | W9 fix upstream defects here | done -- Mie-Gruneisen root; `radial = 6` now works |
 | W10 thermal collocation | done -- spectral(25) matches fd(400); no plateau |
 | W11 JAX backend | done -- all five stages; numba removed |
 
-What is actually open, as of 2026-08-03:
-
-- Three W7 style items, all blocked on the formatter: collapsing blank lines
-  toward 3-4%, folding one-line function bodies onto the `def`, and adding
-  `.git-blame-ignore-revs` for the reformat commit.
-- Everything else lives in GitHub issues, not here.
+What is actually open, as of 2026-08-03: **nothing here.** The last three W7
+items were formatter-dependent and were closed by re-measuring -- the source is
+now denser than `ruff format` output, so adopting it would add 604 lines. See
+the correction at the end of this file. Everything else lives in GitHub issues.
 
 Superseded by later work, despite unticked boxes: the W2 and W10 collocation
 items (delivered by "W2 (revised)" and W10 itself), the W3 viscosity laws
@@ -801,8 +799,10 @@ current 82.
       `_imr_materials.py` (436 lines), registered in `pyproject.toml` and the
       W0 leak test. **2683 -> 2214 lines.**
 - [x] Re-measure and record.
-- [ ] Collapse blank lines from 10.7% toward 3-4%. **Blocked by the formatter**
-      -- see trade-off below.
+- [x] Collapse blank lines from 10.7% toward 3-4%. **Closed as wrong on
+      2026-08-03**: the blank *share* was measuring exploded call sites, not
+      whitespace, and the source has since out-densified the formatter -- see
+      the correction below.
 - [x] Two further splits of `pyimr.py`, both AST-driven and bitwise-verified:
       `_imr_stress.py` (359) takes the constitutive evaluation -- material plus
       kinematic state in, stress and rate out, with no dependency on the RHS --
@@ -857,9 +857,10 @@ current 82.
          `finite_diff_mat` from `pyimr`, breaking
          `validate_bubtherm_adiabatic.py`, which nothing in CI ran. Those two
          standalone scripts are now covered by `tests/test_api.py`.
-- [ ] Fold one-line function bodies onto the `def` line -- see trade-off below.
-- [ ] Add `.git-blame-ignore-revs` for the reformat commit when this is
-      committed.
+- [x] Fold one-line function bodies onto the `def` line. Already the house
+      style, written by hand; `ruff format` would undo it.
+- [x] Add `.git-blame-ignore-revs` for the reformat commit. Moot -- there is no
+      reformat commit, because the formatter is not adopted.
 
 ### Measured
 
@@ -2297,3 +2298,30 @@ The practical rule: **do not reduce op count expecting speed.** Measure the syst
 the regime above, with a paired design. And the corollary for `_thermal.py` -- the `resid`
 closure looks wasteful, recomputing three Nt/Mt-length dot products on each of ~29
 iterations, and hoisting them by hand changes nothing.
+
+## Correction: the formatter, re-measured 2026-08-03
+
+The decision recorded above -- adopt `ruff format` with
+`skip-magic-trailing-comma`, on the grounds that it recovers most of tinygrad's
+density -- no longer holds, and would now make things worse.
+
+| | lines | blank |
+|---|---:|---:|
+| `pyimr/` as written | 5178 | 686 (13.2%) |
+| after `ruff format --config skip-magic-trailing-comma` | **5782** | 928 (16.0%) |
+
+**+604 lines, +11.7%.** `ruff format` always expands `if x: return y`, one-line
+`def` bodies and semicolon statements -- exactly the idioms `E701`/`E702`/`E703`
+are ignored to permit -- and this codebase now uses them everywhere. The source
+has out-densified the formatter since that measurement was taken.
+
+`[tool.ruff.format] skip-magic-trailing-comma = true` is set anyway, so that
+anyone who does run the formatter loses less. `ruff check` remains the enforced
+gate; `ruff format` is not run in CI and should not be adopted without
+re-measuring.
+
+State of the style targets at the time of writing: 1.9% comment-only lines
+(tinygrad 1.2%), 13 docstrings on private names totalling 20 lines against 133
+on the public API, 9 functions over 50 lines out of 283, 2 multi-line signatures
+that would fit on one line, 1 definition referenced nowhere. There is no
+mechanical fat left; further gains are design changes, such as #194.

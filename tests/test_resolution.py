@@ -120,3 +120,76 @@ def test_the_reference_guard_uses_target_divided_by_10(measured):
   with pytest.raises(ValueError, match="reference is not converged"):
     _reference(_config(), _TIMES, ("radius_ratio",), target, (5, 7))
   measured("target/10 margin", "guard rejects when target/10 < gap < target")
+
+
+def test_it_finds_the_smallest_adequate_node_count():
+  """Bisection over the ladder relies on discretization error falling with Nt."""
+  from pyimr.resolution import _reference, _smallest_adequate, _at, _solve, _deviation
+
+  ladder = (5, 9, 13)
+  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
+  index = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, "spectral", ladder)
+  assert index is not None
+  at_index = _solve(_at(_config(), "spectral", ladder[index], 1e-10, 1e-12), _TIMES, ("radius_ratio",))
+  assert _deviation(at_index, reference) <= 1e-2, "entry at index must meet the target"
+  if index > 0:
+    below = _solve(_at(_config(), "spectral", ladder[index - 1], 1e-10, 1e-12), _TIMES, ("radius_ratio",))
+    assert _deviation(below, reference) > 1e-2, "a smaller ladder entry also met the target"
+
+
+def test_an_unreachable_target_is_reported_not_approximated(measured):
+  """Returning the best of an inadequate set is the same failure as an unconverged
+  reference: a number that looks like success.
+  """
+  from pyimr.resolution import _choose_discretization, _reference
+
+  ladder = (5, 7)
+  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
+  with pytest.raises(ValueError, match="no discretization in the ladder"):
+    _choose_discretization(_config(), _TIMES, ("radius_ratio",), 1e-16, reference, ladder)
+  measured("unreachable target", "raises rather than returning the best available")
+
+
+def test_choose_discretization_returns_the_faster_candidate():
+  """The winner is picked by measured time, not by any analytic cost proxy."""
+  from pyimr.resolution import _reference, _choose_discretization, _smallest_adequate, _at, _timed
+
+  ladder = (5, 9)
+  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
+  timings = {}
+  for thermal in ("spectral", "fd"):
+    index = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, thermal, ladder)
+    if index is not None:
+      timings[thermal] = _timed(_at(_config(), thermal, ladder[index], 1e-10, 1e-12), _TIMES, ("radius_ratio",))[0]
+  assert timings, "neither discretization met a loose target"
+  chosen, _nodes = _choose_discretization(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, ladder)
+  assert chosen == min(timings, key=lambda name: timings[name])
+
+
+def test_fd_is_genuinely_evaluated_not_just_offered():
+  """The spectral preference in this package was measured at one configuration and at
+  tight accuracy, neither of which holds in the usual regime, so fd has to be a real
+  candidate. Asserting the winner is one of two names would pass without fd ever running.
+  """
+  from pyimr.resolution import _reference, _smallest_adequate
+
+  ladder = (5, 9, 13)
+  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
+  index = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, "fd", ladder)
+  assert index is not None, "fd could not meet a loose target at any ladder entry"
+
+
+def test_an_inadequate_grid_is_not_accepted(measured):
+  """The concrete failure this module was built around: Nt = 5 over a multi-collapse
+  record carries 2.07e-02 discretization error, as large as the experimental noise it was
+  supposed to sit beneath, while looking free against a reference computed at Nt = 5.
+  """
+  from pyimr.resolution import _reference, _smallest_adequate
+
+  ladder = (5, 9, 13)
+  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-3, ladder)
+  loose = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-07, reference, "spectral", ladder)
+  tight = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-08, reference, "spectral", ladder)
+  assert loose is not None and tight is not None
+  assert tight > loose, "a tighter target must select a finer grid"
+  measured("grid selection", f"target 1e-07 -> Nt={ladder[loose]}, 1e-08 -> Nt={ladder[tight]}")

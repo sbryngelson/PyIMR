@@ -83,3 +83,43 @@ def _reference(config, times, fields, target, nt_ladder):
       f"above target/10 = {target / 10.0:.2e}. Raise the Nt ladder or loosen target."
     )
   return finer, gap
+
+
+def _smallest_adequate(config, times, fields, target, reference, thermal, nt_ladder):
+  """Index of the smallest ladder entry meeting `target`, or None. Bisection, since
+  discretization error falls with `Nt` even though cost does not rise smoothly."""
+  low, high = 0, len(nt_ladder) - 1
+
+  def misses(index):
+    candidate = _at(config, thermal, nt_ladder[index], _REFERENCE_RTOL, _REFERENCE_ATOL)
+    return _deviation(_solve(candidate, times, fields), reference) > target
+
+  if misses(high):
+    return None
+  while low < high:
+    middle = (low + high) // 2
+    if misses(middle):
+      low = middle + 1
+    else:
+      high = middle
+  return low
+
+
+def _choose_discretization(config, times, fields, target, reference, nt_ladder):
+  """The cheapest `(thermal, Nt)` meeting `target`, ranked by measured time."""
+  best = None
+  for thermal in ("spectral", "fd"):
+    index = _smallest_adequate(config, times, fields, target, reference, thermal, nt_ladder)
+    if index is None:
+      continue
+    nodes = nt_ladder[index]
+    seconds, _ = _timed(_at(config, thermal, nodes, _REFERENCE_RTOL, _REFERENCE_ATOL), times, fields)
+    if best is None or seconds < best[0]:
+      best = (seconds, thermal, nodes)
+
+  if best is None:
+    raise ValueError(
+      f"no discretization in the ladder reaches target={target:.2e}; "
+      f"raise the Nt ladder or loosen target"
+    )
+  return best[1], best[2]

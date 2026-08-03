@@ -5,6 +5,14 @@ while the major version is `0`, breaking changes move the minor version.
 
 ## 0.3.0 — unreleased
 
+### Resolution calibration
+
+`pyimr.resolution.choose_resolution` picks `thermal`, `Nt` and tolerance from a requested
+accuracy by measuring on the caller's problem. Requirements depend on record length,
+material stiffness and the observable being fitted, so the settings that were adequate for
+one collapse were 4x wrong over five, and the preference for spectral over fd had only
+been measured at one configuration and at tight accuracy.
+
 ### Breaking: Zener acceleration coefficient corrected, diverging from IMRv2
 
 `Zener` and `QuadraticZener` now return `4*LAM/Re8` as their acceleration coefficient

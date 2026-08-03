@@ -475,6 +475,34 @@ unchanged from `1e-9` -- same winners, same chi-squared per sample. Keep `1e-10,
 sensitivities, where derivatives amplify error, and `1e-9` or tighter when validating
 against reference trajectories.
 
+### Choosing a resolution
+
+`Nt` and tolerance requirements depend on record length, material stiffness and which
+observable is fitted, so a setting that is adequate for one collapse can be badly wrong
+over five. `pyimr.resolution` measures on your own problem rather than guessing.
+
+```python
+from pyimr.resolution import choose_resolution
+
+setting = choose_resolution(config, times, target=1e-3, field="radius_ratio")
+# Resolution(thermal='fd', Nt=5, rtol=1e-06, atol=1e-08,
+#            achieved=3.9e-05, seconds=0.0037)
+
+config = setting.apply(config)
+```
+
+It builds a reference and checks it is converged, searches both `spectral` and `fd` for
+the cheapest grid meeting `target`, then loosens tolerance as far as that grid allows.
+Roughly ten to twelve solves, which is worth paying before a sampling or sensitivity
+campaign and not worth paying for a single run.
+
+`target` is relative to each field's own peak magnitude, and `field` accepts several
+names. That matters because observables do not converge together: at identical settings
+relative error was 3.4e-07 for radius and 2.8e-05 for internal pressure.
+
+It raises rather than guessing if the reference is not converged or the target is out of
+reach, since a number built on either is indistinguishable from a real answer.
+
 ## Model selection
 
 Constitutive models for soft matter nest -- `NHKV` is `qKV` at zero strain stiffening and

@@ -45,8 +45,9 @@ from .prior import (
 )
 
 __all__ = [
-  "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateModel", "compare", "grid_ready", "log_evidence",
-  "parameter_grid", "redundancy_over_grid", "solve_grid",
+  "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateModel", "bounds_for_invariant", "compare", "grid_ready",
+  "log_evidence",
+  "parameter_grid", "redundancy_over_grid", "solve_grid", "strain_invariant",
 ]
 
 # Deliberately loose, and log-spaced: a boundary-pinned optimum is charged by the
@@ -63,6 +64,19 @@ PARAMETER_BOUNDS = {
 }
 
 _NEGLIGIBLE = 1e-9
+# How many e-foldings of Fung stiffening are allowed across the strain range the record
+# covers, and how far above its divergence limit Gent must sit to be integrable at all.
+#
+# Gent's floor is not a safety margin, it is where the model stops being Gent. Measured on
+# a record of stretch 7.09 (span 47.6): every Jm below 1000x span fails to integrate, and
+# a 40x larger step budget does not change that, so it is the trajectory and not the
+# budget. At 1000x span Gent differs from Neo-Hookean by 1.7e-04 of Rmax, against
+# measurement noise near 2e-02 -- 120x below what the data can see. So on records like
+# these Gent is either unintegrable or indistinguishable from the simpler model it
+# contains, and the redundancy prior is left to say so by driving its weight to zero
+# rather than the bound pretending otherwise (#199).
+_GENT_MARGIN = (1e3, 1e5)
+_FUNG_EFOLDS = (1e-3, 5.0)
 
 @dataclass(frozen=True, slots=True)
 class CandidateModel:
@@ -131,6 +145,35 @@ def grid_ready(models=None):
   return frozenset(
     name for name, c in models.items() if isinstance(c.build({a: centre(a) for a in c.axes}), THROUGH_GROUPS)
   )
+
+def strain_invariant(radius_ratio, equilibrium_ratio):
+  """`I1 - 3` at the deepest point of a trace, which is what the stiffening laws see.
+
+  `_elastic_integrand` uses `lam**-4 + 2*lam**2 - 3`, so COMPRESSION governs: at the
+  collapse `lam**-4` runs away, while the expansion at `Rmax` contributes a few tens. On
+  the gelatin records the collapse gives 24 to 119 where the expansion form gives 44 to 52,
+  and reading the wrong one is what made the first attempt at these bounds miss (#199).
+  """
+  lam = float(np.min(radius_ratio)) / float(equilibrium_ratio)
+  if lam <= 0.0: raise ValueError("radius ratio must stay positive")
+  return lam**-4 + 2.0 * lam**2 - 3.0
+
+def bounds_for_invariant(span, bounds=None):
+  """`PARAMETER_BOUNDS` with the divergence-limited axes placed against `span = I1 - 3`.
+
+  Gent locks up as `I1 - 3 -> Jm` and Fung grows as `exp(b*(I1 - 3))`, so what either can
+  take is set by how far the material is actually driven, not by a constant. Pass
+  `strain_invariant` of the measured trace.
+
+  Both axes become a multiple of the span, so the normalized coordinate the prior sees
+  means one thing across datasets, which an absolute `Jm` never did.
+  """
+  span = float(span)
+  if span <= 0.0: raise ValueError("the strain invariant must be positive")
+  bounds = dict(PARAMETER_BOUNDS if bounds is None else bounds)
+  bounds["gent_jm"] = (_GENT_MARGIN[0] * span, _GENT_MARGIN[1] * span)
+  bounds["fung_b"] = (_FUNG_EFOLDS[0] / span, _FUNG_EFOLDS[1] / span)
+  return bounds
 
 def parameter_grid(axes, count, bounds=None):
   """Cartesian product of log-spaced axes, plus the same points in `[0, 1]`.

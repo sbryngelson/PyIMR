@@ -7,11 +7,12 @@ from typing import NamedTuple
 import numpy as np
 
 from ._arrays import at_set
+from ._config import StateLayout
 from ._materials import _stress_state_count
 from ._stress import _distributed_stress, _stress
 from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
 
-__all__ = ["RhsArgs", "_nZ", "_pinf", "_rhs", "_rhs_args", "_sampled_pressure"]
+__all__ = ["RhsArgs", "_pinf", "_rhs", "_rhs_args", "_sampled_pressure"]
 
 def _sampled_pressure(tn, forcing, *, xp=np):
   """The PCHIP forcing history, without a Python branch on the integration time."""
@@ -43,8 +44,6 @@ def _pinf(tn, p, forcing=None, *, xp=np):
   if wt == 3:  # Heaviside step
     return -ee * xp.where(tn > tw, 0.0, 1.0), 0.0 * tn
   raise ValueError(f"wave_type={wt} not supported")
-
-def _nZ(material): return _stress_state_count(material)
 
 class RhsArgs(NamedTuple):
   """What `_rhs` takes after `(tn, y)`, in that order, so `*args` still splats.
@@ -109,26 +108,24 @@ def _rhs(
   theta = None
   Tm = None
   T = None
+  # one layout, shared with `StateLayout`: this used to recompute the same offsets by
+  # hand, and a disagreement would have read the wrong block rather than raising
+  layout = StateLayout.of(bubtherm, ygrid.size if ygrid is not None else 0, medtherm,
+                          mt.xi.size if mt is not None else 0, masstrans, _stress_state_count(material))
   if bubtherm:
     assert D1 is not None and D2 is not None and ygrid is not None
-    P = y[2]
-    Nt = ygrid.size
-    theta = y[3 : 3 + Nt].copy()
-    idx = 3 + Nt
+    P = y[layout.pressure]
+    theta = y[layout.bubble_thermal].copy()
     if medtherm:
       assert mt is not None
-      Tm = y[idx : idx + mt.xi.size].copy()
-      idx += mt.xi.size
+      Tm = y[layout.medium_thermal].copy()
     if masstrans:
-      kv = y[idx : idx + Nt].copy()
-      idx += Nt
+      kv = y[layout.vapor_fraction].copy()
     theta, Tm, kv, T, alpha_m = _apply_thermal_boundaries(theta, Tm, kv, P, p, mt, masstrans, xp=xp)
-    Zstart = idx
   else:
     P = (p["Pb"] - Pv) * R ** (-3 * kappa) + Pv  # f_imr_fd.m:412
-    Zstart = 2
-  nz = _nZ(material)
-  Z = y[Zstart : Zstart + nz] if nz else None
+  nz = layout.stress.stop - layout.stress.start
+  Z = y[layout.stress] if nz else None
   if distributed_stress is None:
     S, Sdot, dZ, acceleration_coefficient = _stress(material, p, R, Rd, Z, instantaneous_material, radial != 1, xp=xp)
   else:
@@ -229,18 +226,12 @@ def _rhs(
     if kvdot is not None: out.extend(list(kvdot))
     if dZ is not None: out.extend(list(dZ))
     return out
+  # written through the same layout the state was read with, rather than walking the
+  # cursor a second time -- the read and the write have to agree, and now they cannot not
   out = at_set(at_set(xp.zeros_like(y), 0, Rd), 1, Rdd)
-  cursor = 2
   if thetadot is not None:
-    out = at_set(out, cursor, Pdot)
-    cursor += 1
-    out = at_set(out, slice(cursor, cursor + thetadot.size), thetadot)
-    cursor += thetadot.size
-  if Tmdot is not None:
-    out = at_set(out, slice(cursor, cursor + Tmdot.size), Tmdot)
-    cursor += Tmdot.size
-  if kvdot is not None:
-    out = at_set(out, slice(cursor, cursor + kvdot.size), kvdot)
-    cursor += kvdot.size
-  if dZ is not None: out = at_set(out, slice(cursor, cursor + dZ.size), dZ)
+    out = at_set(at_set(out, layout.pressure, Pdot), layout.bubble_thermal, thetadot)
+  if Tmdot is not None: out = at_set(out, layout.medium_thermal, Tmdot)
+  if kvdot is not None: out = at_set(out, layout.vapor_fraction, kvdot)
+  if dZ is not None: out = at_set(out, layout.stress, dZ)
   return out

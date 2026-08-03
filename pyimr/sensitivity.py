@@ -74,15 +74,17 @@ _NONDIFFERENTIABLE_FIELDS = {
   "collapse",
 }
 
-def _path_parts(path):
+def _path_parts(path, kind="sensitivity"):
   parts = path.split(".")
-  if any(not part.isidentifier() for part in parts): raise ValueError(f"invalid sensitivity parameter path: {path!r}")
+  if any(not part.isidentifier() for part in parts): raise ValueError(f"invalid {kind} parameter path: {path!r}")
   return parts
 
-def _path_value(root, parts, full_path):
+def _path_value(root, parts, full_path, kind="sensitivity"):
+  """Walk a dotted path. `kind` only names the caller in the error -- `inference` and
+  `sensitivity` had a copy each, identical but for that noun."""
   value = root
   for part in parts:
-    if not hasattr(value, part): raise ValueError(f"unknown sensitivity parameter path: {full_path!r}")
+    if not hasattr(value, part): raise ValueError(f"unknown {kind} parameter path: {full_path!r}")
     value = getattr(value, part)
   return value
 

@@ -170,6 +170,32 @@ _STRUCTURE_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float
   ("mass transfer diffusivity", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.mass_diffusivity_m2_s",), 1e-05),
 ]
 
+def test_the_state_layout_names_the_blocks_the_solver_actually_writes():
+  """`_rhs` used to walk the state cursor by hand, beside `StateLayout` doing the same.
+  Comparing the two to each other is now circular -- they share the code -- so this
+  checks the blocks against physics: temperatures are in kelvin, a mass fraction is not,
+  and swapping two slices leaves both finite and still integrating.
+  """
+  from pyimr._config import StateLayout
+
+  config = pyimr.SimulationConfig(
+    R0=R0, Req=REQ, material=zener(), bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=7, thermal="fd"
+  )
+  layout = StateLayout.from_config(config)
+  assert layout.size == pyimr.prepare(config).initial_state.size
+
+  result = pyimr.simulate(np.linspace(0.0, 2e-5, 12), config)
+  assert result.bubble_temperature_k is not None and result.medium_temperature_k is not None
+  assert result.vapor_mass_fraction is not None
+  assert result.bubble_temperature_k.shape[1] == config.Nt
+  assert result.medium_temperature_k.shape[1] == config.Mt
+  assert result.vapor_mass_fraction.shape[1] == config.Nt
+  # the gas heats far above the far field; the liquid barely moves; a mass fraction is O(1)
+  assert result.bubble_temperature_k.max() > 1.5 * config.T8
+  assert config.T8 * 0.99 <= result.medium_temperature_k.min() and result.medium_temperature_k.max() < 1.5 * config.T8
+  assert 0.0 <= result.vapor_mass_fraction.min() and result.vapor_mass_fraction.max() <= 1.0
+
+
 def test_the_rhs_argument_names_match_the_rhs_signature():
   """`_rhs_args` is splatted into `_rhs` positionally, so the two orders are one
   coupling with nothing declaring it. Reordering either used to be silent -- and the

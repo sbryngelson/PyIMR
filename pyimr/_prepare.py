@@ -50,7 +50,7 @@ __all__ = [
 ]
 
 def _material_scales(material):
-  if isinstance(material, NoStress): return 0.0, 0.0, 0.0, 0.0, 0.0
+  if isinstance(material, NoStress): return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
   if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener)):
     modulus = material.shear_modulus_pa
   else:
@@ -69,7 +69,11 @@ def _material_scales(material):
     relaxation = 0.0
     retardation = 0.0
   stiffening = material.stiffening if isinstance(material, (QuadraticKelvinVoigt, QuadraticZener)) else 0.0
-  return modulus, viscosity, relaxation, retardation, stiffening
+  # the one own-field the distributed models read in the hot path; through `p` it stops
+  # keying the compiled program, so a sweep over it compiles once rather than per point
+  nonlinear = getattr(material, "mobility", None)
+  if nonlinear is None: nonlinear = getattr(material, "extensibility", 0.0)
+  return modulus, viscosity, relaxation, retardation, stiffening, float(nonlinear)
 
 def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0, masstrans=0, physics=None, *, xp=np, scales=None):
   physics = PhysicalParameters() if physics is None else physics
@@ -80,7 +84,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   Uc = xp.sqrt(P8_value / density)
   t0 = R0 / Uc
   concrete = _material_scales(material)
-  G, mu, lam1, lam2, alphax = concrete if scales is None else scales
+  G, mu, lam1, lam2, alphax, nlx = concrete if scales is None else scales
   relaxing = concrete[2] > 0.0
   Ca = P8_value / G if concrete[0] > 0 else xp.inf
   Re8 = P8_value * R0 / (mu * Uc) if concrete[1] > 0 else xp.inf
@@ -135,6 +139,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
     LAM=(lam2 / lam1 if relaxing else 0.0),
     Cstar=Cstar,
     alphax=alphax,
+    nlx=nlx,
     tait_gamma=tait_gamma,
     tait_sam=tait_sam,
     tait_no=tait_no,

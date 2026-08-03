@@ -60,13 +60,7 @@ from pyimr.selection import (
 DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 
 GRID_COUNT = 10
-# Every candidate except the two the compile cache cannot serve. `Giesekus` and
-# `LinearPTT` are keyed by content, so each of their 10^4 grid points is a fresh XLA
-# compile at ~1.2-1.9 s -- 25 to 40 minutes apiece, per dataset, almost none of it
-# solving. The 2- and 3-axis content-keyed models pay the same rate over far fewer
-# points and stay affordable. See the compile-key issue.
-_PROHIBITIVE = ("giesekus", "ptt")
-MODELS = {name: m for name, m in STANDARD_MODELS.items() if name not in _PROHIBITIVE}
+MODELS = STANDARD_MODELS  # every candidate: #196 made the distributed pair affordable
 # Keller-Miksis. Laser cavitation is compressible; PYIMR_RADIAL=1 recovers the
 # incompressible Rayleigh-Plesset results for comparison.
 _RADIAL = int(os.environ.get('PYIMR_RADIAL', '2'))

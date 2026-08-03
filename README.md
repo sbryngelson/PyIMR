@@ -22,7 +22,11 @@ worth seeing.
 
 | file | purpose |
 |---|---|
-| `pyimr/__init__.py` | forward solver, material models, and strict result API |
+| `pyimr/__init__.py` | the public surface: every name below is re-exported here |
+| `pyimr/_solver.py` | the prepared problem, the integration call, and the result types |
+| `pyimr/_config.py`, `_prepare.py` | validated inputs; the grids and operators a solve is built from |
+| `pyimr/resolution.py` | measures the cheapest `Nt` and tolerance meeting a stated target |
+| `pyimr/noise.py`, `prior.py`, `selection.py` | strain-rate weighting, the redundancy prior, and Bayesian model comparison |
 | `pyimr/sensitivity.py` | production-RHS forward sensitivities |
 | `pyimr/inference.py` | prepared likelihood, batch, and multistart tools |
 | `pyimr/pymc_op.py` | PyMC bridge: NUTS on the exact tangents, plus SMC for model comparison. Needs `pip install 'PyIMR[inference]'` |
@@ -31,6 +35,7 @@ worth seeing.
 | `pyimr/optimize.py` | Bayesian optimization, and expected-information-gain design search on top of it |
 | `pyimr/data.py` | trace-side estimators: equilibrium radius, natural frequency, collapse features |
 | `pyimr/thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
+| `docs/accuracy.md` | what error each tolerance and discretization actually buys |
 | `tests/test_validation_*.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
 | `CHANGELOG.md` | released versions and every breaking change |
 | API reference | `pip install 'PyIMR[docs]'` then `python -m pdoc pyimr pyimr.sensitivity pyimr.inference pyimr.data pyimr.design pyimr.pymc_op` |
@@ -38,23 +43,6 @@ worth seeing.
 | `docs/validation.md` | what the suite pins, and the per-case deviations from IMRv2 |
 | `docs/upstream.md` | defects found in IMRv2, and what PyIMR does instead |
 | `benchmarks/run.py` | reproducible timings; `--json` and `--baseline` to compare runs |
-
-## Upgrading from 0.2.0
-
-`0.3.0` changes results for two configurations. Neither raises; both silently
-return different numbers from the same call. See `CHANGELOG.md` for the full
-list.
-
-- **`radial = 5`** (KM enthalpy / Mie-Gruneisen) now takes the correct root of
-  the Mie-Gruneisen density quadratic. Collapse depth moves from
-  `R/R0 = 0.0536` to `0.0818`, which is a `4.8e-01` pointwise change. The new
-  value agrees with the Tait branch to `3e-4`; the old one did not. **Numbers
-  published from `radial = 5` under 0.2.0 carry the upstream defect.**
-- **`Giesekus` and `LinearPTT`** default to `points = 240` with
-  `quadrature = "gauss"` instead of `points = 480` with trapezoid. Results move
-  by ~`1.6e-02` because the old default was that far from converged; the new
-  one is accurate to `2.2e-07` against a 1920-point reference. Pass
-  `points=480, quadrature="trapezoid"` to reproduce 0.2.0.
 
 ## Solver scope
 
@@ -64,7 +52,7 @@ list.
 |---|---|
 | radial dynamics | Rayleigh-Plesset; Keller-Miksis pressure; KM enthalpy/Tait; Gilmore/Tait; KM enthalpy/Mie-Gruneisen; Gilmore/Mie-Gruneisen |
 | bubble thermodynamics | polytropic closure or a gas thermal PDE |
-| thermal discretization | second-order finite difference (default) or Chebyshev collocation |
+| thermal discretization | Chebyshev collocation (default) or second-order finite difference |
 | medium thermodynamics | optional liquid thermal layer |
 | mass transfer | optional vapor transport |
 | forcing | constant offset, Gaussian, histotripsy, Heaviside step, or sampled pressure history |
@@ -288,7 +276,8 @@ equations -- there are no spatial derivatives -- so the only spatial
 approximation is the quadrature for the stress integral. `quadrature="gauss"`
 (the default, 240 points) places the material points at Gauss-Legendre nodes
 and converges spectrally; it is about five orders of magnitude more accurate
-than the 480-point `quadrature="trapezoid"` grid it replaced, and 1.4x faster.
+than the trapezoid grid it replaced, and cheaper; the table is in
+**[docs/discretization.md](docs/discretization.md)**.
 See [docs/discretization.md](docs/discretization.md).
 
 At zero mobility or zero extensibility, the distributed models converge to the
@@ -370,39 +359,13 @@ reference implementation and augmented sparse BDF structure where appropriate.
 
 ### Gradient accuracy
 
-Tangent accuracy is not uniform across configurations, and the difference is
-large enough to matter for anything built on the gradients. Measured against
-centered differences on the production RHS:
-
-| configuration | relative error | limited by |
-|---|---|---|
-| mechanical, `radial = 1`–`5` | ~7e-07 | the finite-difference check |
-| coupled heat/mass transfer, `thermal = "spectral"` | ~5e-05 | time integration |
-| coupled heat/mass transfer, `thermal = "fd"` | ~8e-05 | time integration |
-
-The thermal tangents are **correct, not defective**: their error is flat in the
-finite-difference step across a 16x range, which rules out truncation in the
-check, and it responds to the integrator tolerance, which an error in the
-tangent equations would not. What bounds them is the accuracy to which the
-augmented state/tangent system is integrated. On the coupled fd case at
-`h = 0.05`:
-
-| `rtol` / `atol` | relative error |
-|---|---|
-| `1e-9` / `1e-11` (default) | 8.43e-05 |
-| `1e-12` / `1e-14` | 1.53e-06 |
-
-So three orders of tolerance buys a factor of about 55, at a large cost in
-runtime — the coupled tangent solve is already the slowest operation in the
-package. Tightening further stops helping, because the centered-difference
-reference becomes round-off limited before the tangent does.
-
-The mechanical tangents show clean `h^2` convergence before reaching their
-noise floor; the thermal ones do not, because they are already at it.
-
-Gradient-based optimizers and Laplace/EIG calculations on coupled thermal
-models are therefore working with about four to five significant digits, not
-the seven the mechanical path gives.
+Tangent accuracy is not uniform across configurations. The mechanical path is
+limited by the finite-difference check it is measured against; the coupled
+thermal paths are limited by how accurately the augmented state/tangent system
+is integrated, which is a real bound on anything built on those gradients rather
+than a defect in the tangent equations. Measured error by configuration, and
+what tightening tolerance buys, are in
+**[docs/accuracy.md](docs/accuracy.md)**.
 
 Prepared inference uses normalized bounded coordinates, dimensional Gaussian
 radius likelihoods, analytic sensitivity Jacobians, deterministic
@@ -457,29 +420,16 @@ default makes only the first. Both cost/accuracy tables are in
 
 ### Choosing solver tolerances
 
-Observables do not converge at the same rate, so the right tolerance depends on which one
-you fit. Relative error against `rtol=1e-11`, coupled thermal:
+Observables do not converge at the same rate, so the right tolerance depends on
+which one you fit -- internal pressure is roughly two orders behind radius at the
+same setting. `rtol=1e-6, atol=1e-8` is ample for likelihood evaluation against
+experimental radius data; keep `1e-10, 1e-12` for sensitivities and `1e-9` or
+tighter for validation. The per-observable table is in
+**[docs/accuracy.md](docs/accuracy.md)**.
 
-| `rtol` | radius | wall velocity | internal pressure | stress integral | temperature |
-|---|---|---|---|---|---|
-| 1e-9 | 1.5e-10 | 2.1e-09 | 1.0e-08 | 2.2e-09 | 1.7e-09 |
-| 1e-7 | 1.3e-08 | 2.5e-07 | 1.6e-06 | 2.8e-07 | 2.1e-07 |
-| 1e-6 | 3.4e-07 | 4.4e-06 | 2.8e-05 | 4.8e-06 | 3.7e-06 |
-
-Internal pressure is roughly 80x less accurate than radius at the same setting, so fitting
-it needs about two orders tighter for the same relative accuracy.
-
-For likelihood evaluation against experimental radius data, `rtol=1e-6, atol=1e-8` is
-ample: 3.4e-07 against measurement noise nearer 2e-02, and model selection on real data is
-unchanged from `1e-9` -- same winners, same chi-squared per sample. Keep `1e-10, 1e-12` for
-sensitivities, where derivatives amplify error, and `1e-9` or tighter when validating
-against reference trajectories.
-
-Tolerance does not bound how long one solve can take: a parameter set whose bubble
-collapses to a fraction of a percent of its maximum and then creeps rather than rebounds
-takes hundreds of thousands of steps at any tolerance. `max_steps` (default `1_000_000`)
-turns that into a `SimulationError` at a point of your choosing, which is what makes a
-grid sweep affordable -- the healthy points of the same sweep finish in under 7e3 steps.
+Tolerance does not bound how long one solve can take. `max_steps` (default
+`1_000_000`) turns a trajectory that will not finish into a `SimulationError` at
+a point of your choosing, which is what makes a grid sweep affordable.
 
 ### Choosing a resolution
 
@@ -557,7 +507,7 @@ data.resolution_convergence(config, times_s, [10, 20, 40])
 `equilibrium_radius` inverts the solver's own pressure/radius relation exactly.
 `natural_frequency` linearises Rayleigh-Plesset about `Req` in a Kelvin-Voigt
 medium; it reproduces Minnaert exactly in the gas-only limit and matches the
-simulated rebound frequency to 2.7%. `collapse_features` locates interior
+simulated rebound frequency closely. `collapse_features` locates interior
 extrema with sub-sample parabolic refinement, replacing the manual index
 windows of IMR-vanilla `calc_3tmins_3Rmaxs`. `resolution_convergence` reports a
 table for a ladder you supply, where `pyimr.resolution` searches for a setting;
@@ -566,8 +516,8 @@ when the medium is actually solved. Pass `(Nt, Mt)` pairs to set both.
 
 IMR-vanilla's `calc_omega_N` is deliberately not ported: it is a scratch script
 whose formula treats the gas pressure at `Rmax` as the equilibrium value,
-inflating the stiffness by `alpha**(-3*kappa)` and overpredicting by 42x on the
-reference case. Video processing (`calcRofT/`) is also out of scope -- that is
+inflating the stiffness by `alpha**(-3*kappa)`; see
+[docs/upstream.md](docs/upstream.md). Video processing (`calcRofT/`) is also out of scope -- that is
 image analysis, and scikit-image covers it.
 
 ## Validation
@@ -592,7 +542,7 @@ and the argument behind that split are in
   Public dimensional outputs carry units in their names or documentation.
 - `radial = 6` (Gilmore/Mie-Gruneisen) **is supported here**, and is the one
   configuration IMRv2 cannot run at all -- upstream returns complex radii
-  (`max|imag(R/R0)| = 4.069`) without raising. The cause is a wrong root of the
+  without raising. The cause is a wrong root of the
   Mie-Gruneisen density quadratic; see [docs/upstream.md](docs/upstream.md).
 - `radial = 5` and `radial = 6` **deliberately diverge from IMRv2**. Upstream's
   Mie-Gruneisen branch is physically wrong; the corrections are validated
@@ -605,13 +555,9 @@ and the argument behind that split are in
 
 ## Reference implementation
 
-PyIMR reproduces IMRv2 except in one deliberate place. `Zener` and `QuadraticZener` use
-`4*LAM/Re8` for the acceleration coefficient where IMRv2 uses `4/Re8`, which changes
-compressible trajectories by roughly 5e-02 when the retardation and relaxation times
-differ. IMRv2's own stress carries `-4*LAM/Re8*Rdot/R`, so the coefficient it pairs with
-that stress is internally inconsistent; the reduction limit to `LinearMaxwell` converges
-only with the `LAM` factor restored. Three Zener reference trajectories were regenerated
-from PyIMR as a result and pin regressions rather than cross-checking upstream (#174).
+PyIMR reproduces IMRv2 except where upstream is wrong. One divergence is numerical
+rather than a defect fix: the `Zener` acceleration coefficient, which makes three
+Zener reference trajectories regression pins rather than cross-checks (#174).
 
 PyIMR diverges from IMRv2 in several places, always deliberately. Eight
 defects were found at `dea31cd`, each reproduced with MATLAB R2025a via

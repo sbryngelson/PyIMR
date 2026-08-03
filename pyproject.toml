@@ -23,12 +23,11 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Physics",
 ]
-# 3.12 because jax requires it, and jax is not optional. See PLAN.md W11 stage 5.
+# 3.12 because jax requires it, and jax is not optional.
 requires-python = ">=3.12"
 dependencies = [
     "diffrax>=0.6",
     "jax>=0.4",
-    "numba>=0.63",
     "numpy>=2.0",
     # >=1.15 for `rng=` on scipy.stats.qmc; `seed=` is a deprecated alias (#142).
     "scipy>=1.15",
@@ -42,7 +41,7 @@ Issues = "https://github.com/sbryngelson/PyIMR/issues"
 
 [project.optional-dependencies]
 # Optional on purpose: PyMC pulls pytensor, arviz, pandas and xarray, which is a
-# large addition to a core install of numpy/scipy/numba. `pyimr.pymc_op`
+# large addition to a core install of numpy/scipy/jax. `pyimr.pymc_op`
 # is the only module that needs it, and it imports lazily so the rest of the package works
 # without it. See #25.
 inference = [

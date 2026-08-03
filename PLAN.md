@@ -16,21 +16,39 @@ independent and cheap. W3--W6 are independent of each other.
 
 ## Progress
 
+Every workstream is complete. The checklists below are the historical record of
+how each was scoped and what the measurements said -- they are not a live task
+list, and boxes left unticked inside a finished workstream were superseded
+rather than skipped.
+
 | workstream | status |
 |---|---|
-| W0 API hygiene | **done** |
-| W1 validation coverage | **done** -- outcome reshaped W2, W3, W4 |
-| W2 spectral quadrature | **done** -- reframed; default now Gauss-Legendre |
-| W3 viscosity parity | **done** -- rescoped to original work |
-| W4 radial 6 | **done** -- resolved with a measurement |
-| W5 IMR-vanilla estimators | **done** -- new `imr_data.py` |
-| W6 solver control surface | **done** -- 86-option audit, `max_step_s` added |
-| W7 tinygrad style | **done** -- config, indent, docstrings, six splits, formatter settled |
-| W8 measured collapse gaps | **done** -- stubs, plus the Zener offset quantified |
-| W9 fix upstream defects here | **done** -- Mie-Gruneisen root; `radial = 6` now works |
-| W10 thermal collocation | **done** -- spectral(25) matches fd(400); no plateau |
+| W0 API hygiene | done |
+| W1 validation coverage | done -- outcome reshaped W2, W3, W4 |
+| W2 spectral quadrature | done -- reframed; default now Gauss-Legendre |
+| W3 viscosity parity | done -- rescoped to original work |
+| W4 radial 6 | done -- resolved with a measurement |
+| W5 IMR-vanilla estimators | done -- now `pyimr/data.py` |
+| W6 solver control surface | done -- 86-option audit, `max_step_s` added |
+| W7 tinygrad style | done except the three formatter-blocked items below |
+| W8 measured collapse gaps | done -- stubs, plus the Zener offset quantified |
+| W9 fix upstream defects here | done -- Mie-Gruneisen root; `radial = 6` now works |
+| W10 thermal collocation | done -- spectral(25) matches fd(400); no plateau |
+| W11 JAX backend | done -- all five stages; numba removed |
 
-Revised priority after W1: **W8 -> W3 -> W5 -> W6 -> W2 -> W7.**
+What is actually open, as of 2026-08-03:
+
+- Three W7 style items, all blocked on the formatter: collapsing blank lines
+  toward 3-4%, folding one-line function bodies onto the `def`, and adding
+  `.git-blame-ignore-revs` for the reformat commit.
+- Everything else lives in GitHub issues, not here.
+
+Superseded by later work, despite unticked boxes: the W2 and W10 collocation
+items (delivered by "W2 (revised)" and W10 itself), the W3 viscosity laws
+(`PowellEyring`, `ModifiedPowellEyring`, `Cross` and `CarreauYasuda` all ship;
+plain `Carreau` and the Cross variants were deliberately not added as separate
+names), the W4 README entry (that measurement moved to `docs/upstream.md`), and
+the W11 stages.
 
 ---
 

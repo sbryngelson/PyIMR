@@ -18,6 +18,7 @@ import time
 import numpy as np
 
 import pyimr
+from _common import ATOL, RTOL
 from pyimr.noise import (
   STRAIN_RATE_THRESHOLD_PER_S,
   characteristic_time,
@@ -35,10 +36,6 @@ from pyimr.selection import (
   solve_grid,
 )
 
-# Solver tolerance. Adjustable: raise for validation work, lower for speed. At 1e-6 the
-# worst observable (internal pressure) carries 2.8e-05 relative error and the radius 3.4e-07,
-# against experimental noise of ~2e-02 -- and the model selection is unchanged against 1e-9.
-RTOL, ATOL = 1e-6, 1e-8
 
 R0, REQ = 2.25e-4, 5.0e-5
 GRID_COUNT = 12

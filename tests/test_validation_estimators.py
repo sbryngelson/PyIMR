@@ -63,6 +63,15 @@ def test_thermal_grid_convergence(measured):
   assert errors[0] > errors[1] > errors[2] == 0.0
 
 
+@pytest.mark.parametrize("bad", [-300.0, 0.0, float("nan")])
+def test_vapour_pressure_refuses_a_temperature_below_absolute_zero(bad):
+  """`exp(-5200/T)` is finite at negative T, so the fit returns 3.9e18 Pa rather than
+  complaining -- a number that looks like a pressure and travels.
+  """
+  with pytest.raises(ValueError, match="above absolute zero"):
+    data.saturated_vapor_pressure(bad)
+
+
 def test_a_bare_node_count_moves_the_medium_grid_only_when_the_medium_runs(measured):
   """The disagreement #187 was about: `Mt = Nt` unconditionally rewrites a grid that is
   not being solved, which is a silent change to a configuration the caller did not ask

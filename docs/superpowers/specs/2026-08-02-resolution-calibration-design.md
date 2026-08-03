@@ -41,7 +41,8 @@ setting = choose_resolution(config, times, target=1e-3, field="radius_ratio")
 cfg = setting.apply(config)
 ```
 
-Cost is 6 to 10 solves, amortized against thousands.
+Cost is roughly 10 to 12 solves: 2 for the reference and its check, about 3 per
+discretization in stage 1, about 3 in stage 2. Amortized against thousands.
 
 ## Search
 
@@ -49,9 +50,13 @@ Two stages, not a grid. The two error sources are close to independent: at Nt = 
 was 5.09e-03 at rtol = 1e-8 and 5.24e-03 at rtol = 1e-6, so tolerance contributed almost
 nothing while discretization dominated.
 
-1. Tolerance held tight. Search `(thermal, Nt)` jointly over both discretizations for the
-   cheapest that meets `target`.
-2. That discretization held fixed. Loosen tolerance until error starts to move.
+1. Tolerance held at the reference's (`rtol = 1e-10`, `atol = 1e-12`), so only
+   discretization error is in play. For each of `thermal in ("spectral", "fd")`, bisect
+   over `Nt` in `NT_LADDER = (5, 7, 9, 13, 17, 25, 33)` for the smallest meeting `target`.
+   Keep whichever `(thermal, Nt)` measured faster.
+2. That `(thermal, Nt)` held fixed. Step `rtol` up through
+   `RTOL_LADDER = (1e-10, 1e-8, 1e-6, 1e-4, 1e-3)` with `atol = rtol * 1e-2`, and keep the
+   loosest whose total error still meets `target`.
 
 Both discretizations are searched because which one wins is exactly the question the
 helper exists to answer empirically. If spectral does dominate, it will keep being chosen,
@@ -77,8 +82,9 @@ looser. Calibrating for a pressure fit must give a different answer than for a r
 
 ## Reference
 
-Solve at the `Nt` ceiling and tight tolerance, then again one refinement finer, and
-compare. If they disagree by more than `target / 10`, raise rather than return.
+Solve at `NT_LADDER[-1]` with `rtol = 1e-10, atol = 1e-12`, then again at `Nt` doubled and
+`rtol = 1e-12`, and compare on every requested field. If they disagree by more than
+`target / 10`, raise rather than return.
 
 This guard is the point, not a nicety. Everything downstream inherits the reference's error
 silently, and a reference that shares the error being measured reports success. That
@@ -97,7 +103,8 @@ that is a caller's judgement rather than a heuristic worth guessing at.
 
 ## Testing
 
-- A problem with a known-adequate setting is found, and a known-inadequate one is rejected.
+- A problem with a known-adequate setting is found, and a known-inadequate one is
+  rejected. Nt = 5 on a five-collapse record is a ready-made negative case at 2.07e-02.
 - An unconverged reference raises rather than returning.
 - An unreachable target raises rather than returning the best available.
 - Per-field targets select different settings for radius against internal pressure.

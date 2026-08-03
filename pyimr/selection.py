@@ -83,7 +83,11 @@ def parameter_grid(axes, count, bounds=None):
   return points, normalized
 
 def solve_grid(candidate, solve, *, count, bounds=None):
-  """Evaluate a candidate over its grid. `solve(material)` returns `(radius, stress)`."""
+  """Evaluate a candidate over its grid. `solve(material)` returns `(radius, stress)`.
+
+  Every point must solve. A sweep whose points can fail wants its own loop, marking the
+  failures so they can be dropped from the prior -- `examples/windowed_selection.py`.
+  """
   points, normalized = parameter_grid(candidate.axes, count, bounds)
   solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
   return points, normalized, np.array([r for r, _ in solved]), np.array([s for _, s in solved])

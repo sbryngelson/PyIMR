@@ -83,7 +83,11 @@ def parameter_grid(axes, count, bounds=None):
   return points, normalized
 
 def solve_grid(candidate, solve, *, count, bounds=None):
-  """Evaluate a candidate over its grid. `solve(material)` returns `(radius, stress)`."""
+  """Evaluate a candidate over its grid. `solve(material)` returns `(radius, stress)`.
+
+  Every point must solve. A sweep whose points can fail wants its own loop, marking the
+  failures so they can be dropped from the prior -- `examples/windowed_selection.py`.
+  """
   points, normalized = parameter_grid(candidate.axes, count, bounds)
   solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
   return points, normalized, np.array([r for r, _ in solved]), np.array([s for _, s in solved])
@@ -94,12 +98,17 @@ def redundancy_over_grid(candidate, models, points, stresses, solve, *, weights=
   Children are solved at the parent's parameters, not looked up in their own grid: log
   grids of different lengths share only endpoints, so a lookup misses nearly everywhere
   and silently leaves the weight at 1.
+
+  `solve` may return `None` for a material it cannot integrate; a child that will not run
+  cannot demonstrate redundancy, so that point keeps the weight it already has.
   """
   redundancies = np.ones(len(points))
   for child in (models[name] for name in candidate.contains):
     for index, row in enumerate(points):
       theta = dict(zip(candidate.axes, row))
-      _, stress = solve(child.build({a: theta[a] for a in child.axes}))
+      solved = solve(child.build({a: theta[a] for a in child.axes}))
+      if solved is None: continue
+      _, stress = solved
       redundancies[index] = min(
         redundancies[index],
         redundancy_weight(stresses[index], [stress], weights=weights, scale=stress_scale(stress)),

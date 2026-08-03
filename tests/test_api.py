@@ -14,6 +14,7 @@ from pyimr import (
   PhysicalParameters,
   SampledForcing,
   SimulationConfig,
+  SimulationError,
   SimulationResult,
   Zener,
   prepare,
@@ -199,6 +200,17 @@ def test_max_step_forces_finer_integration():
 def test_max_step_rejects_invalid(bad):
   with pytest.raises(ValueError, match="max_step_s"):
     base_config(max_step_s=bad)
+
+
+def test_step_budget_is_honoured_after_an_unbounded_solve():
+  """The budget is static to the compiled program, so it has to key the compile cache:
+  running the default first must not let a later tight budget reuse that program.
+  """
+  times = np.linspace(0.0, 60e-6, 200)
+  spent = simulate(times, base_config()).stats.nfev
+  assert simulate(times, base_config(max_steps=10 * spent)).stats.nfev == spent
+  with pytest.raises(SimulationError, match="maximum number of solver steps"):
+    simulate(times, base_config(max_steps=10))
 
 
 @pytest.mark.parametrize("script", ["validate_thermal_fd.py", "validate_bubtherm_adiabatic.py"])

@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from numbers import Integral
-from types import MappingProxyType
-from typing import Mapping
 
 import numpy as np
 
@@ -35,7 +33,6 @@ __all__ = [
   "PreparedDistributedStress",
   "PreparedForcing",
   "PreparedInstantaneousMaterial",
-  "PreparedProblem",
   "RHO",
   "SURF",
   "SampledForcing",
@@ -312,158 +309,6 @@ class PreparedDistributedStress:
 class PreparedInstantaneousMaterial:
   interval_nodes: np.ndarray
   interval_weights: np.ndarray
-
-@dataclass(frozen=True, slots=True)
-class PreparedProblem:
-  """Reusable static data for repeated simulations of one configuration."""
-
-  config: SimulationConfig
-  parameters: Mapping[str, float]
-  layout: StateLayout
-  initial_state: np.ndarray
-  bubble_grid: np.ndarray | None = None
-  bubble_D1: np.ndarray | None = None
-  bubble_D2: np.ndarray | None = None
-  medium: MediumOperators | None = None
-  forcing: PreparedForcing | None = None
-  instantaneous_material: PreparedInstantaneousMaterial | None = None
-  distributed_stress: PreparedDistributedStress | None = None
-  collapse_stats: CollapseStats | None = None
-
-  # `parameters` is a mappingproxy, which pickle refuses. Without these, every
-  # `workers > 1` path -- `evaluate_batch`, `fit_multistart`, `design_information` --
-  # dies with "cannot pickle 'mappingproxy' object" before running any work.
-  def __getstate__(self):
-    state = {item.name: getattr(self, item.name) for item in fields(self)}
-    state["parameters"] = dict(state["parameters"])
-    return state
-
-  def __setstate__(self, state):
-    for name, value in state.items():
-      object.__setattr__(self, name, MappingProxyType(value) if name == "parameters" else value)
-
-  def solve(self, tv) -> SimulationResult:
-    from pyimr import _solve_prepared
-
-    return _solve_prepared(self, tv)
-
-  def solve_states(self, tv, state=None) -> np.ndarray:
-    """The raw internal trajectory, shaped `(time, state)`.
-
-    `solve` returns physical histories; ensemble and assimilation code needs the
-    vector the integrator actually advances, and `solve_from` needs one back.
-    """
-    from pyimr import _integrate_prepared
-
-    _, states, _ = _integrate_prepared(self, tv, state)
-    return _freeze_array(np.asarray(states).T)
-
-  def solve_ensemble(self, members, tv, *, drop_failures: bool = False, chunk: int | None = None):
-    """`(states, ok)` for a batch of initial states, advanced together.
-
-    One `vmap` over the whole ensemble rather than a loop of solves, so the members share
-    a compiled program. `ok[i]` says whether member `i` integrated successfully: an
-    ensemble is drawn from a distribution and its tails do diverge, and because the whole
-    batch shares one program a single failure would otherwise take all of it down.
-
-    Raises if any member failed, unless `drop_failures`, in which case the survivors are
-    returned and `ok` records who they were.
-
-    `chunk` splits the batch and solves the pieces in turn. Per-member cost is not
-    monotone in batch width -- measured 20 ms at 32 members and 74-94 ms at 36-48, with
-    the same members duplicated into a wider batch reproducing it, so it is the width and
-    not the draw (#162). Chunking at 32 was 1.8-2.6x faster for 64-256 members on one
-    machine. It is not the default because that number is a fact about that machine: XLA
-    picks kernels per shape and 34 was fast where 33 and 36 were not. Measure before
-    setting it. Chunking is not exactly a no-op: full-width pieces come back
-    bit-identical, but a remainder piece has a different width and so a different kernel
-    and summation order -- measured 1.0e-15 absolute, three orders below the solver rtol.
-    """
-    from pyimr import _validate_state
-
-    from ._jax import ensemble_states_jax
-
-    times = _validate_inputs(tv, self.config)
-    batch = np.asarray(members, dtype=float)
-    if batch.ndim != 2: raise ValueError(f"members must be a 2-D array of states; got shape {batch.shape}")
-    stacked = np.stack([_validate_state(self, row) for row in batch])
-    if chunk is None:
-      states, ok = ensemble_states_jax(self, times, stacked)
-    else:
-      if not isinstance(chunk, Integral) or chunk < 1: raise ValueError("chunk must be a positive integer")
-      pieces = [ensemble_states_jax(self, times, stacked[start : start + int(chunk)]) for start in range(0, len(stacked), int(chunk))]
-      states = np.concatenate([piece[0] for piece in pieces])
-      ok = np.concatenate([piece[1] for piece in pieces])
-    if not ok.all() and not drop_failures:
-      failed = np.flatnonzero(~ok)
-      raise SimulationError(f"{failed.size} of {ok.size} ensemble members failed to integrate: {failed[:8].tolist()}")
-    keep = np.ones(ok.size, dtype=bool) if not drop_failures else ok
-    return _freeze_array(states[keep]), _freeze_array(ok).astype(bool)
-
-  def solve_sweep(self, tv, parameters, values) -> SweepResult:
-    """Solve one traced program at many parameter sets at once.
-
-    A grid or sample campaign is the case this exists for: it traces once and `vmap`s,
-    rather than paying a fresh solve per point.
-
-    Whether that is FASTER depends on the solver, and the direction reverses. With an
-    explicit solver (`thermal="fd"`) batching won: 144.6 ms a point at width 1 against
-    45.7 ms at width 256. With the implicit solver `thermal="spectral"` selects, batching
-    LOST: 1572 ms at width 1 against 3927 at width 8 and 2797 at width 32. Under `vmap`
-    the Newton solves batch together and one member needing small steps imposes them on
-    all. Measure at your configuration; for coupled spectral, prefer separate processes.
-
-    `parameters` are paths as `solve_with_sensitivities` takes them; `values` is
-    `(point, parameter)` in DIMENSIONAL units.
-    """
-    from ._jax import _DERIVED_ORDER, sensitivities_jax
-
-    times = _validate_inputs(tv, self.config)
-    paths = tuple(parameters)
-    if not paths: raise ValueError("solve_sweep needs at least one parameter path")
-    grid = np.atleast_2d(np.asarray(values, dtype=float))
-    if grid.ndim != 2 or grid.shape[1] != len(paths):
-      raise ValueError(f"values must be (point, {len(paths)}) to match the paths given; got {grid.shape}")
-    if not np.all(np.isfinite(grid)): raise ValueError("values must be finite")
-
-    outputs, _ = sensitivities_jax(self, times, list(paths), at=grid, values_only=True)
-    derived = np.asarray(outputs.derived)
-    fields = {name: _freeze_array(derived[:, :, index]) for index, name in enumerate(_DERIVED_ORDER)}
-    return SweepResult(
-      parameters=paths, values=_freeze_array(grid), time_s=_freeze_array(times),
-      state=_freeze_array(np.asarray(outputs.states)),
-      steps=_freeze_array(np.atleast_1d(np.asarray(outputs.steps))),
-      **fields,
-    )
-
-  def state_tangents(self, tv, state=None):
-    """`(states, jacobian)` where `jacobian[k]` is `d state(t_k) / d state(t_0)`.
-
-    The tangent linear operator of the flow. `jacobian[0]` is the identity by
-    construction, and `jacobian[k] @ v` propagates a perturbation `v` to `t_k`.
-    """
-    from pyimr import _validate_state
-
-    from ._jax import state_tangents_jax
-
-    times = _validate_inputs(tv, self.config)
-    start = self.initial_state if state is None else _validate_state(self, state)
-    return state_tangents_jax(self, times, start)
-
-  def solve_from(self, state, tv) -> SimulationResult:
-    """Solve from an arbitrary state rather than the configured initial one.
-
-    `state` is the raw internal vector, laid out as `self.layout` describes and
-    nondimensionalised the same way `initial_state` is -- not physical units.
-    """
-    from pyimr import _solve_prepared
-
-    return _solve_prepared(self, tv, state)
-
-  def solve_with_sensitivities(self, tv, parameters):
-    from .sensitivity import solve_with_sensitivities
-
-    return solve_with_sensitivities(self, tv, parameters)
 
 @dataclass(frozen=True, slots=True)
 class SweepResult:

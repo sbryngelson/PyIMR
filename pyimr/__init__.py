@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 
-from dataclasses import replace
-
-import numpy as np
-
 
 __all__ = [
   "ArrudaBoyce",
@@ -58,7 +54,6 @@ __all__ = [
   "simulate_with_sensitivities",
 ]
 
-from ._integrate import integrate as _integrate
 from ._config import (  # noqa: F401
   C8,
   CollapseInitialization,
@@ -71,7 +66,6 @@ from ._config import (  # noqa: F401
   PreparedDistributedStress,
   PreparedForcing,
   PreparedInstantaneousMaterial,
-  PreparedProblem,
   RHO,
   SURF,
   SampledForcing,
@@ -171,7 +165,6 @@ from ._prepare import (  # noqa: F401
   _prepare_instantaneous_material,
   _thermal_state,
   params,
-  prepare,
 )
 
 from ._rhs import (  # noqa: F401
@@ -182,98 +175,14 @@ from ._rhs import (  # noqa: F401
   _sampled_pressure,
 )
 
-
-def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
-  config = problem.config
-  if not config.bubtherm: return None, None, None
-  layout = problem.layout
-  p = problem.parameters
-  count = states.shape[0]
-  bubble_temperature = np.empty((count, config.Nt))
-  medium_temperature = np.empty((count, config.Mt)) if config.medtherm else None
-  vapor_fraction = np.empty((count, config.Nt)) if config.masstrans else None
-  for index, state in enumerate(states):
-    theta = state[layout.bubble_thermal].copy()
-    Tm = state[layout.medium_thermal].copy() if layout.medium_thermal is not None else None
-    kv = state[layout.vapor_fraction].copy() if layout.vapor_fraction is not None else None
-    *_, temperature, _ = _apply_thermal_boundaries(theta, Tm, kv, state[layout.pressure], p, problem.medium, config.masstrans)
-    bubble_temperature[index] = config.T8 * temperature
-    if medium_temperature is not None and Tm is not None: medium_temperature[index] = config.T8 * Tm
-    if vapor_fraction is not None: vapor_fraction[index] = kv
-  return bubble_temperature, medium_temperature, vapor_fraction
-
-def _build_result(problem: PreparedProblem, time_s: np.ndarray, states, stats: SolverStats) -> SimulationResult:
-  config = problem.config
-  p = problem.parameters
-  layout = problem.layout
-  states = np.asarray(states).T
-  radius_ratio = states[:, 0]
-  velocity = states[:, 1]
-  Uc = p["Uc"]
-  pressure_scale = p["P8"]
-  kappa = p["kappa"]
-  if layout.pressure is None:
-    pressure = (p["Pb"] - p["Pv"]) * radius_ratio ** (-3 * kappa) + p["Pv"]
-  else:
-    pressure = states[:, layout.pressure]
-  stress_integral = np.empty(states.shape[0])
-  for index, state in enumerate(states):
-    stress_state = state[layout.stress] if layout.stress.stop > layout.stress.start else None
-    if problem.distributed_stress is None:
-      stress_integral[index] = _stress(config.material, p, state[0], state[1], stress_state, problem.instantaneous_material, False)[0]
-    else:
-      stress_integral[index] = _distributed_stress_integral(problem.distributed_stress, p, state[0], state[1], stress_state)
-  bubble_temperature, medium_temperature, vapor_fraction = _thermal_outputs(problem, states)
-  internal_stress_state = states[:, layout.stress] if layout.stress.stop > layout.stress.start else None
-  return SimulationResult(
-    time_s=_freeze_array(time_s),
-    radius_ratio=_freeze_array(radius_ratio),
-    wall_velocity_m_s=_freeze_array(Uc * velocity),
-    internal_pressure_pa=_freeze_array(pressure_scale * pressure),
-    stress_integral_pa=_freeze_array(pressure_scale * stress_integral),
-    bubble_temperature_k=_readonly_optional(bubble_temperature),
-    medium_temperature_k=_readonly_optional(medium_temperature),
-    vapor_mass_fraction=_readonly_optional(vapor_fraction),
-    stress_state=_readonly_optional(internal_stress_state),
-    stress_reference_radius_ratio=(problem.distributed_stress.reference_radius if problem.distributed_stress is not None else None),
-    stats=stats,
-    config=config,
-  )
-
-def _validate_state(problem: PreparedProblem, state):
-  """A restart state has to match the layout the problem was prepared for."""
-  values = np.asarray(state, dtype=float)
-  expected = problem.initial_state.size
-  if values.shape != (expected,):
-    raise ValueError(f"state must have shape ({expected},) for this configuration; got {values.shape}")
-  if not np.all(np.isfinite(values)): raise ValueError("state must contain only finite values")
-  return values
-
-def _integrate_prepared(problem: PreparedProblem, tv, state=None):
-  config = problem.config
-  time_s = _validate_inputs(tv, config)
-  p = problem.parameters
-  tn = time_s / p["t0"]
-  args = _rhs_args(problem, p, medium=problem.medium)
-  start = problem.initial_state if state is None else _validate_state(problem, state)
-  states, stats = _integrate(
-    _rhs, tn, start, args=args,
-    rtol=config.rtol, atol=config.atol, failure="IMR integration failed", config=config,
-    max_step=None if config.max_step_s is None else config.max_step_s / p["t0"],
-  )
-  return time_s, states, stats
-
-def _solve_prepared(problem: PreparedProblem, tv, state=None) -> SimulationResult:
-  time_s, states, stats = _integrate_prepared(problem, tv, state)
-  try:
-    return _build_result(problem, time_s, states, stats)
-  except _MaterialDomainError as error:
-    raise SimulationError(f"IMR integration failed: {error}", replace(stats, success=False, message=str(error))) from error
-
-def simulate(tv, config: SimulationConfig) -> SimulationResult:
-  """Run one simulation and return immutable physical histories."""
-  return prepare(config).solve(tv)
-
-def simulate_with_sensitivities(tv, config: SimulationConfig, parameters):
-  """Run one simulation with forward sensitivities."""
-  return prepare(config).solve_with_sensitivities(tv, parameters)
+from ._solver import (  # noqa: F401
+  PreparedProblem,
+  prepare,
+  _build_result,
+  _integrate_prepared,
+  _solve_prepared,
+  _thermal_outputs,
+  _validate_state,
+  simulate,
+  simulate_with_sensitivities,
+)

@@ -13,6 +13,8 @@ from typing import Any
 
 import numpy as np
 
+from ._solver import simulate
+
 __all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution", "choose_resolution"]
 
 NT_LADDER = (5, 7, 9, 13, 17, 25, 33)
@@ -45,8 +47,6 @@ def _at(config, thermal, nt, rtol, atol):
 
 
 def _solve(config, times, fields):
-  from . import simulate
-
   result = simulate(times, config)
   return {name: np.asarray(getattr(result, name), dtype=float) for name in fields}
 

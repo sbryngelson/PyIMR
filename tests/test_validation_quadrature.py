@@ -71,7 +71,7 @@ def test_the_distributed_stress_rate_is_the_time_derivative(quadrature, measured
   equal `dS/dR * Rd + dS/dZ . dZ`, which a centered difference in the direction the state
   is actually moving reproduces without needing either partial separately.
   """
-  from pyimr._prepare import prepare
+  from pyimr._solver import prepare
   from pyimr._stress import _distributed_stress
 
   material = pyimr.Giesekus(0.1, 2 * T0, 0.4 * T0, 0.2, points=64, quadrature=quadrature)

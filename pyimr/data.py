@@ -7,7 +7,9 @@ from dataclasses import replace
 import numpy as np
 from scipy.optimize import brentq
 
-from pyimr import C8, KAPPA, P8, RHO, SURF, pvsat
+from ._config import C8, KAPPA, P8, RHO, SURF
+from ._thermal import pvsat
+from .resolution import _at, _deviation, _solve
 
 __all__ = ["collapse_features", "equilibrium_radius", "natural_frequency", "resolution_convergence", "saturated_vapor_pressure"]
 
@@ -93,8 +95,6 @@ def resolution_convergence(config, times_s, resolutions, *, field="radius_ratio"
 
   Returned grids report what was solved, which for a bare `Nt` is the config's own `Mt`.
   """
-  from .resolution import _at, _deviation, _solve
-
   if len(resolutions) < 2: raise ValueError("need at least two resolutions to compare")
   grids, solved = [], []
   for entry in resolutions:

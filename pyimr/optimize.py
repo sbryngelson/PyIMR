@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+
+from .design import expected_information_gain
 from scipy.optimize import minimize
 from scipy.special import erf
 
@@ -150,7 +152,6 @@ def optimize_design(build_inference, bounds, *, draws=64, evaluations=24, initia
   caller decides what a design *is* -- pulse amplitude, observation window, radii, or any
   mixture. The EIG error bar is passed through to the surrogate as observation noise.
   """
-  from .design import expected_information_gain
 
   def objective(design):
     evaluation = expected_information_gain(build_inference(design), draws=draws, seed=seed, workers=workers)

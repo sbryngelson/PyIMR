@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Callable, cast
 
 import copy
-from types import MappingProxyType
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -14,15 +13,11 @@ from scipy.optimize import brentq
 
 from ._config import (
   CollapseStats,
-  MediumOperators,
   PhysicalParameters,
   PreparedDistributedStress,
   PreparedForcing,
   PreparedInstantaneousMaterial,
-  PreparedProblem,
-  SimulationConfig,
   SimulationError,
-  StateLayout,
   _freeze_array,
 )
 from ._materials import (
@@ -40,12 +35,8 @@ from ._materials import (
   _stress_state_count,
 )
 from ._rhs import _rhs
-import pyimr as _solver
 from ._arrays import at_set
-from ._thermal import _far_field_singular_index, _mie_F, _mu_of_A, kirchhoff_theta, mixture_kirchhoff, pvsat
-from .thermal_fd import finite_diff_mat
-from .thermal_spectral import chebyshev_diff_mat
-from .thermal_spectral import nodes as chebyshev_nodes
+from ._thermal import _mie_F, _mu_of_A, kirchhoff_theta, mixture_kirchhoff, pvsat
 
 __all__ = [
   "_collapse_memory_state",
@@ -56,7 +47,6 @@ __all__ = [
   "_prepare_instantaneous_material",
   "_thermal_state",
   "params",
-  "prepare",
 ]
 
 def _material_scales(material):
@@ -230,7 +220,7 @@ def forcing_with_parameters(forcing, p, reference, *, xp=np):
     prepared[row] * ((pressure_reference / t0_reference**degree) * (p["t0"] ** degree / p["P8"]))
     for row, degree in enumerate((3, 2, 1, 0))
   ]
-  return _solver.PreparedForcing(knots=knots, coefficients=xp.stack(rows) if hasattr(xp, "stack") else np.array(rows))
+  return PreparedForcing(knots=knots, coefficients=xp.stack(rows) if hasattr(xp, "stack") else np.array(rows))
 
 def initial_state_vector(config, layout, p, collapse_state, *, xp=np, initial=None):
   """The state the solve starts from, in whichever arithmetic `p` is built in."""
@@ -360,113 +350,3 @@ def _collapse_memory_state(config, instantaneous_material, distributed_stress):
     stress_state=memory_state,
   )
   return memory_state, stats
-
-def prepare(config: SimulationConfig) -> PreparedProblem:
-  """Prepare reusable grids, operators, parameters, and state layout."""
-  if not isinstance(config, SimulationConfig): raise TypeError("config must be a SimulationConfig")
-  p = params(
-    config.R0,
-    config.Req,
-    config.material,
-    config.vapor,
-    config.T8,
-    config.pA,
-    config.omega,
-    config.TW,
-    config.DT,
-    config.mn,
-    config.wave_type,
-    config.bubtherm,
-    config.masstrans,
-    config.physics,
-  )
-  instantaneous_material = _prepare_instantaneous_material(config.material)
-  distributed_stress = _prepare_distributed_stress(config.material)
-  collapse_state, collapse_stats = _collapse_memory_state(config, instantaneous_material, distributed_stress)
-  initial = config.initial
-  if initial.internal_pressure_pa is not None: p["Pb"] = initial.internal_pressure_pa / p["P8"]
-  layout = StateLayout.from_config(config)
-  if initial.bubble_temperature_k is not None and not config.bubtherm: raise ValueError("initial bubble temperature requires bubtherm=1")
-  if initial.medium_temperature_k is not None and not config.medtherm: raise ValueError("initial medium temperature requires medtherm=1")
-  if initial.vapor_mass_fraction is not None and not config.masstrans: raise ValueError("initial vapor mass fraction requires masstrans=1")
-  # saturation ties these two. Setting one alone leaves the vapour out of equilibrium with the
-  # temperature it is supposed to be saturated at -- kv0 is saturation at T8, so a bubble
-  # temperature of 300 K against T8=298.15 K starts 0.144 off. Demand both so the choice is
-  # deliberate rather than inherited from a default (#133).
-  if config.masstrans and (initial.bubble_temperature_k is None) != (initial.vapor_mass_fraction is None):
-    raise ValueError(
-      "masstrans=1 couples initial.bubble_temperature_k and initial.vapor_mass_fraction through saturation; "
-      "set both or neither"
-    )
-  stress_width = layout.stress.stop - layout.stress.start
-  if initial.stress_state is not None and len(initial.stress_state) != stress_width:
-    raise ValueError(f"initial stress_state requires exactly {stress_width} values")
-  initial_state = initial_state_vector(config, layout, p, collapse_state)
-  bubble_grid = None
-  bubble_D1 = None
-  bubble_D2 = None
-  medium = None
-  if config.bubtherm:
-    spectral = config.thermal == "spectral"
-    _diff = chebyshev_diff_mat if spectral else finite_diff_mat
-    bubble_y = chebyshev_nodes(config.Nt, 0) if spectral else np.linspace(0.0, 1.0, config.Nt)
-    bubble_first = _diff(config.Nt, 1, 0)
-    bubble_grid = _freeze_array(bubble_y)
-    bubble_D1 = _freeze_array(bubble_first)
-    bubble_D2 = _freeze_array(_diff(config.Nt, 2, 0))
-    if config.medtherm:
-      Nm = config.Mt - 1
-      deltaYm = -2.0 / Nm
-      xi = chebyshev_nodes(config.Mt, 1) if spectral else np.linspace(1.0, -1.0, config.Mt)
-      _far_field_singular_index(xi)
-      stretched = np.empty_like(xi)
-      stretched[:-1] = 2.0 / (xi[:-1] + 1.0)
-      stretched[-1] = np.inf
-      yT = (stretched - 1.0) * p["Lt"] + 1.0
-      yT2, yT3 = yT**2, yT**3
-      iyT3, iyT4, iyT6 = yT**-3, yT**-4, yT**-6
-      coeff = np.array([-1.5, 2.0, -0.5])
-      deltaY = 1.0 / (config.Nt - 1)
-      medium_first = _diff(config.Mt, 1, 1)
-
-      def _pad(values, length):
-        padded = np.zeros(length)
-        padded[: values.size] = values
-        return padded
-
-      bubble_wall_stencil = bubble_first[-1, ::-1] if spectral else _pad(-coeff / deltaY, config.Nt)
-      medium_wall_stencil = medium_first[0] if spectral else _pad(coeff / deltaYm, config.Mt)
-      medium = MediumOperators(
-        xi=_freeze_array(xi),
-        yT=_freeze_array(yT),
-        yT2=_freeze_array(yT2),
-        yT3=_freeze_array(yT3),
-        iyT3=_freeze_array(iyT3),
-        iyT4=_freeze_array(iyT4),
-        iyT6=_freeze_array(iyT6),
-        D1=_freeze_array(medium_first),
-        D2=_freeze_array(_diff(config.Mt, 2, 1)),
-        grad_Tm=_freeze_array(
-          2 * p["chi"] * p["iota"] * medium_first[0] if spectral else _pad(2 * p["chi"] * p["iota"] / deltaYm * coeff, config.Mt)
-        ),
-        grad_Trans=_freeze_array(p["chi"] * bubble_first[-1, ::-1] if spectral else _pad(-coeff * p["chi"] / deltaY, config.Nt)),
-        grad_C=_freeze_array(
-          p["Fom"] * p["L_heat_star"] * bubble_first[-1, ::-1] if spectral else _pad(-coeff * p["Fom"] * p["L_heat_star"] / deltaY, config.Nt)
-        ),
-        bubble_wall_stencil=_freeze_array(bubble_wall_stencil),
-        medium_wall_stencil=_freeze_array(medium_wall_stencil),
-      )
-  return PreparedProblem(
-    config=config,
-    parameters=MappingProxyType(p),
-    layout=layout,
-    initial_state=_freeze_array(initial_state),
-    bubble_grid=bubble_grid,
-    bubble_D1=bubble_D1,
-    bubble_D2=bubble_D2,
-    medium=medium,
-    forcing=_prepare_forcing(config, p),
-    instantaneous_material=instantaneous_material,
-    distributed_stress=distributed_stress,
-    collapse_stats=collapse_stats,
-  )

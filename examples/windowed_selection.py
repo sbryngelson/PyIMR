@@ -14,11 +14,17 @@ Every model is simulated once over the full record from the bubble maximum; only
 samples entering the likelihood change between windows. That isolates the window effect
 from the separate problem of how to re-initialize a model partway through an event.
 
-The answer is yes for two of the three temperatures, and it survives compressibility:
-with Keller-Miksis the winner still changes between windows at 23 and 33 C, though the
-absolute fits improve everywhere (worst chi-squared per sample 7.3 to 3.5) and 15 C
-becomes consistent. Compressibility is therefore not the explanation for the drift, but
-it is large enough that an incompressible answer should not be quoted.
+The answer is yes at 23 and 33 C, and it has now survived two explanations that would
+have dissolved it. Compressibility is not it: Keller-Miksis improves every fit but leaves
+the drift. An inadequate candidate set is not it either: against fifteen candidates --
+five strain-stiffening laws, three viscoelastic fluids, and stiffening combined with
+relaxation -- the winner still changes between the collapse and the rebound.
+
+What the wider set did fix is the misfit. `qSLS` (quadratic Zener: stiffening AND
+relaxation, which nothing in the original set offered together) wins the full record at
+all three temperatures with chi-squared per sample 1.4, 1.3 and 1.2, against 2.9, 1.8 and
+2.6 before. Fitted whole, the three temperatures agree; fitted in pieces, two of them do
+not.
 
 Run: .venv/bin/python examples/windowed_selection.py <dataset> [thermal Nt] [workers]
 """

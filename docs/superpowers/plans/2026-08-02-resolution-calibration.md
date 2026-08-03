@@ -666,3 +666,45 @@ git commit -m "Document resolution calibration"
 - [ ] `.venv/bin/ruff check pyimr tests examples` passes
 - [ ] `.venv/bin/python tools/pyright_baseline.py` reports no new type errors
 - [ ] `tests/test_resolution.py` runs in under 30 seconds on its own
+
+---
+
+## Amendments during execution
+
+Recorded rather than silently rewritten, because the defects here are the interesting part.
+
+**Task 1 — `__all__`.** The plan mandated the module's final `__all__` in Task 1, including
+`choose_resolution`, which Task 5 defines. A forward declaration fails pyright's
+`reportUnsupportedDunderAll`, and `# noqa: F822` suppresses ruff but not pyright, so
+following the plan broke the Global Constraint that pyright stay clean. Task 1 now declares
+only what it defines and Task 5 extends the list. The implementer flagged this on its own
+first and was overruled; it was right.
+
+**Task 4 — two tests could not fail.** Both came from this plan verbatim. Proven by mutation,
+not inspection:
+
+- `test_it_finds_the_smallest_adequate_node_count` asserted only that the returned index was
+  non-`None` and in range. An implementation that always returned the ladder ceiling — the
+  opposite of "smallest" — passed it. Replaced with a check that the entry at `index` is
+  adequate and the entry at `index - 1` is not.
+- `_choose_discretization`'s measured-time winner comparison was never executed by any test,
+  because the only caller used an unreachable target. Reversing `seconds < best[0]` to
+  `seconds > best[0]` — inverting the task's headline behaviour — left the suite green. A
+  happy-path test on a reachable target now covers it.
+- `assert tight >= loose` was non-strict and held when both collapsed to the ceiling. Took
+  two further rounds to make discriminating: ladder `(5, 9, 13)` with targets `1e-7` and
+  `1e-8`, which genuinely select `Nt=5` and `Nt=9`.
+
+**Task 5 — same defect class.** `test_multiple_fields_must_all_meet_the_target` passed when
+`choose_resolution` was mutated to drop every field but the first, because `both` then became
+identical to `radius` and the non-strict assertions held. Now strict on `rtol`.
+
+Also added a direct `_loosest_tolerance` contract test. The review asked for one separating
+`break` from `continue`; that was declined deliberately, since error grows monotonically with
+`rtol` here and the two are the same function under that assumption. Testing the contract —
+the returned tolerance meets target, the next looser does not — is honest where testing the
+control flow would not be.
+
+**Task 6 — the README example was wrong.** The plan's example claimed
+`thermal='spectral', Nt=9`. Running it returns `thermal='fd', Nt=5`. The documentation for a
+module built to replace the spectral-is-better folklore had asserted that folklore.

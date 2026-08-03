@@ -9,17 +9,14 @@ from typing import Mapping
 
 import numpy as np
 
+from typing import get_args
+
 from ._materials import (
   Giesekus,
-  InstantaneousMaterial,
   LinearPTT,
   MaterialModel,
-  NeoHookeanKelvinVoigt,
-  NoStress,
   OldroydB,
-  QuadraticKelvinVoigt,
   QuadraticZener,
-  LinearMaxwell,
   Zener,
   _finite_positive,
   _stress_state_count,
@@ -57,7 +54,6 @@ __all__ = [
   "_MWV",
   "_RU",
   "_freeze_array",
-  "_readonly_float_array",
   "_readonly_optional",
   "_validate_inputs",
 ]
@@ -83,6 +79,11 @@ class SimulationError(RuntimeError):
   def __init__(self, message: str, stats: SolverStats | None = None):
     super().__init__(message)
     self.stats = stats
+
+# The union in `_materials` is the declaration; this is it at runtime. Written out by hand
+# it was three lists -- the union, this, and an inline `isinstance` -- that nothing kept in
+# step, so adding a material could leave the type error and the validator disagreeing.
+_MATERIALS = get_args(MaterialModel)
 
 @dataclass(frozen=True, slots=True)
 class PhysicalParameters:
@@ -204,11 +205,7 @@ class SimulationConfig:
   collapse: CollapseInitialization | None = None
 
   def __post_init__(self) -> None:
-    if not isinstance(
-      self.material,
-      (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, InstantaneousMaterial, Giesekus, LinearPTT, LinearMaxwell),
-    ):
-      raise TypeError("material must be a supported material model")
+    if not isinstance(self.material, _MATERIALS): raise TypeError("material must be a supported material model")
     if not isinstance(self.physics, PhysicalParameters): raise TypeError("physics must be PhysicalParameters")
     if not isinstance(self.initial, InitialState): raise TypeError("initial must be InitialState")
     if self.sampled_forcing is not None and not isinstance(self.sampled_forcing, SampledForcing):
@@ -506,14 +503,7 @@ class SimulationResult:
     radius.setflags(write=False)
     return radius
 
-def _readonly_float_array(values) -> np.ndarray:
-  array = np.array(values, dtype=float, copy=True)
-  array.setflags(write=False)
-  return array
-
-def _readonly_optional(values) -> np.ndarray | None: return None if values is None else _readonly_float_array(values)
-
-_MATERIALS = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, InstantaneousMaterial, Giesekus, LinearPTT, LinearMaxwell)
+def _readonly_optional(values) -> np.ndarray | None: return None if values is None else _freeze_array(values)
 
 def _validate_config(config) -> None:
   c = config
@@ -545,6 +535,9 @@ def _validate_inputs(tv, config) -> np.ndarray:
   return times
 
 def _freeze_array(values) -> np.ndarray:
-  array = np.asarray(values, dtype=float)
+  """A read-only float copy. The copy is the point: `asarray` on a float64 array returns
+  that same array, so freezing without it froze the CALLER's array -- `solve_sweep` was
+  handing back a `times` the caller could no longer write to."""
+  array = np.array(values, dtype=float, copy=True)
   array.setflags(write=False)
   return array

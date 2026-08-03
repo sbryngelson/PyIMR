@@ -118,13 +118,7 @@ class SensitivityResult:
   medium_temperature_k: np.ndarray | None = None
   vapor_mass_fraction: np.ndarray | None = None
 
-def _readonly(values):
-  result = np.asarray(values, dtype=float)
-  result.setflags(write=False)
-  return result
-
-def _readonly_optional(values):
-  return None if values is None else _readonly(values)
+from ._config import _freeze_array as _readonly, _readonly_optional
 
 def _jax_sensitivities(problem, time_s, normalized):
   from ._jax import CONFIG_PATHS, INITIAL_PATHS, PHYSICS_PATHS, SCALE_PATHS, sensitivities_jax

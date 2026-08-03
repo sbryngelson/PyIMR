@@ -90,7 +90,6 @@ from ._config import (  # noqa: F401
   _MWV,
   _RU,
   _freeze_array,
-  _readonly_float_array,
   _readonly_optional,
   _validate_inputs,
 )
@@ -227,11 +226,11 @@ def _build_result(problem: PreparedProblem, time_s: np.ndarray, states, stats: S
   bubble_temperature, medium_temperature, vapor_fraction = _thermal_outputs(problem, states)
   internal_stress_state = states[:, layout.stress] if layout.stress.stop > layout.stress.start else None
   return SimulationResult(
-    time_s=_readonly_float_array(time_s),
-    radius_ratio=_readonly_float_array(radius_ratio),
-    wall_velocity_m_s=_readonly_float_array(Uc * velocity),
-    internal_pressure_pa=_readonly_float_array(pressure_scale * pressure),
-    stress_integral_pa=_readonly_float_array(pressure_scale * stress_integral),
+    time_s=_freeze_array(time_s),
+    radius_ratio=_freeze_array(radius_ratio),
+    wall_velocity_m_s=_freeze_array(Uc * velocity),
+    internal_pressure_pa=_freeze_array(pressure_scale * pressure),
+    stress_integral_pa=_freeze_array(pressure_scale * stress_integral),
     bubble_temperature_k=_readonly_optional(bubble_temperature),
     medium_temperature_k=_readonly_optional(medium_temperature),
     vapor_mass_fraction=_readonly_optional(vapor_fraction),

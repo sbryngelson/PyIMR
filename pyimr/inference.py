@@ -26,10 +26,7 @@ __all__ = [
   "prepare_inference",
 ]
 
-def _readonly(values):
-  array = np.array(values, dtype=float, copy=True)
-  array.setflags(write=False)
-  return array
+from ._config import _freeze_array as _readonly
 
 def _path_parts(path):
   parts = path.split(".")

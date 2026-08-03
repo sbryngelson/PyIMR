@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 from ._materials import (
+  Giesekus,
   LinearMaxwell,
+  LinearPTT,
   NeoHookeanKelvinVoigt,
   NoStress,
   OldroydB,
@@ -20,7 +22,14 @@ __all__ = ["THROUGH_GROUPS", "integrate"]
 # Materials whose fields reach the solve ONLY through the nondimensional groups, so the
 # compiled program can be keyed by type and a whole parameter sweep compiles once (#163).
 # Everything else is keyed by content: one compile per distinct parameter set.
-THROUGH_GROUPS = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, LinearMaxwell)
+# `Giesekus` and `LinearPTT` belong here since #196 routed mobility and extensibility
+# through `p` as well. Their structural fields -- points, extent, quadrature -- still get
+# their own program without being named here, because they change the PREPARED arrays,
+# which the argument content key already covers.
+THROUGH_GROUPS = (
+  NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, LinearMaxwell,
+  Giesekus, LinearPTT,
+)
 
 def integrate(rhs, times, initial, *, args, rtol, atol, failure, label="", max_step=None, config=None):
   """Run `rhs` over `times`, returning `(states, stats)` and raising on failure."""

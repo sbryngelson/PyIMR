@@ -259,7 +259,7 @@ def _distributed_stress(material, prepared, p, R, Rd, state, need_rate, *, xp=np
   strain_rate = Rd * R**2 * inverse_radius_cubed
   polymer_viscosity = (1.0 - p["LAM"]) / p["Re8"]
   if isinstance(material, Giesekus):
-    nonlinear_scale = material.mobility / polymer_viscosity
+    nonlinear_scale = p["nlx"] / polymer_viscosity
     radial_rate = (
       -radial_stress / p["De"]
       - 4.0 * strain_rate * radial_stress
@@ -270,7 +270,7 @@ def _distributed_stress(material, prepared, p, R, Rd, state, need_rate, *, xp=np
       -hoop_stress / p["De"] + 2.0 * strain_rate * hoop_stress - nonlinear_scale * hoop_stress**2 + 2.0 * polymer_viscosity * strain_rate / p["De"]
     )
   else:
-    nonlinear_scale = material.extensibility / polymer_viscosity
+    nonlinear_scale = p["nlx"] / polymer_viscosity
     trace_factor = 1.0 + nonlinear_scale * (radial_stress + 2.0 * hoop_stress)
     radial_rate = -trace_factor * radial_stress / p["De"] - 4.0 * strain_rate * radial_stress - 4.0 * polymer_viscosity * strain_rate / p["De"]
     hoop_rate = -trace_factor * hoop_stress / p["De"] + 2.0 * strain_rate * hoop_stress + 2.0 * polymer_viscosity * strain_rate / p["De"]

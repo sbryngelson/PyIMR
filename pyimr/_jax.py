@@ -254,6 +254,8 @@ SCALE_PATHS = {
   "material.relaxation_time_s": 2,
   "material.retardation_time_s": 3,
   "material.stiffening": 4,
+  "material.mobility": 5,
+  "material.extensibility": 5,
 }
 
 CONFIG_PATHS = ("R0", "Req", "T8", "pA", "omega", "TW", "DT", "mn")

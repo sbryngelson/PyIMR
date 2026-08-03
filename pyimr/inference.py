@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import get_context
 from dataclasses import dataclass, field, replace
 from itertools import repeat
 from numbers import Integral
@@ -13,6 +11,7 @@ from scipy.linalg import solve_triangular
 from scipy.optimize import least_squares
 from scipy.stats import qmc
 
+from .parallel import worker_pool
 from ._config import SimulationConfig, SolverStats
 from ._solver import prepare
 from .sensitivity import SensitivityParameter, _normalize_parameters, _path_parts, _path_value
@@ -380,7 +379,7 @@ class PreparedInference:
     # configuration, so the per-point route missed the compile cache every time and
     # retraced: 1053 ms against 6.9 ms batched (#129).
     if workers == 1: return self._evaluate_batched(points)
-    with ProcessPoolExecutor(max_workers=workers, mp_context=get_context("spawn")) as executor:
+    with worker_pool(workers) as executor:
       return tuple(executor.map(_evaluate_worker, repeat(self), points))
 
   def _evaluate_batched(self, points):
@@ -414,7 +413,7 @@ class PreparedInference:
     if workers == 1:
       endpoints = tuple(_fit_worker(argument) for argument in arguments)
     else:
-      with ProcessPoolExecutor(max_workers=workers, mp_context=get_context("spawn")) as executor:
+      with worker_pool(workers) as executor:
         endpoints = tuple(executor.map(_fit_worker, arguments))
     return MultistartResult(endpoints=endpoints)
 

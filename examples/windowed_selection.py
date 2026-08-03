@@ -38,10 +38,19 @@ import time
 from pathlib import Path
 from typing import Any
 
+# Before importing anything that pulls in XLA. Its CPU backend sizes its thread pool from
+# the AFFINITY MASK, so 16 spawn workers on a 128-core host took ~400 threads each: 6500
+# threads over 128 cores, thrashing this run and every other job on the machine. Measured
+# per process: 397 threads unrestricted, 270 with the XLA thread flags, 4 pinned to one
+# core. Only affinity actually works, so `_pin` below is the control and these are belt.
+for _name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+  os.environ.setdefault(_name, "1")
+
 import numpy as np
 
 import pyimr
 from _common import ATOL, RTOL
+from pyimr.parallel import pin_worker
 from pyimr.noise import (
   STRAIN_RATE_THRESHOLD_PER_S,
   characteristic_time,
@@ -155,7 +164,6 @@ def solve_chunk(payload):
   Module level and picklable-only because JAX deadlocks under `fork`, so `spawn` is
   required, and `spawn` cannot pickle a closure.
   """
-  os.environ.setdefault("OMP_NUM_THREADS", "1")
   dataset, thermal_nodes, model, low, high = payload
   _, times, weights, solve, _, _ = setup(dataset, thermal_nodes)
   candidate = MODELS[model]
@@ -198,7 +206,8 @@ def main():
   ]
   start = time.perf_counter()
   if workers > 1:
-    with mp.get_context("spawn").Pool(workers) as pool: results = pool.map(solve_chunk, payloads)
+    with mp.get_context("spawn").Pool(workers, initializer=pin_worker, initargs=(workers,)) as pool:
+      results = pool.map(solve_chunk, payloads)
   else:
     results = [solve_chunk(item) for item in payloads]
 

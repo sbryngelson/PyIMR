@@ -64,3 +64,22 @@ def _deviation(candidate, reference):
     scale = float(np.max(np.abs(truth))) or 1.0
     worst = max(worst, float(np.max(np.abs(candidate[name] - truth))) / scale)
   return worst
+
+
+def _reference(config, times, fields, target, nt_ladder):
+  """A converged solve, plus proof that it is converged.
+
+  Solves at the ladder ceiling and again at doubled `Nt`. The finer one is the reference;
+  their gap must be under `target / 10` or there is nothing to measure against.
+  """
+  ceiling = int(nt_ladder[-1])
+  coarse = _solve(_at(config, "spectral", ceiling, _REFERENCE_RTOL, _REFERENCE_ATOL), times, fields)
+  finer = _solve(_at(config, "spectral", 2 * ceiling, _CHECK_RTOL, _CHECK_ATOL), times, fields)
+
+  gap = _deviation(coarse, finer)
+  if gap > target / 10.0:
+    raise ValueError(
+      f"reference is not converged: Nt={ceiling} and Nt={2 * ceiling} differ by {gap:.2e}, "
+      f"above target/10 = {target / 10.0:.2e}. Raise the Nt ladder or loosen target."
+    )
+  return finer, gap

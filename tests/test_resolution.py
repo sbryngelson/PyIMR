@@ -80,3 +80,25 @@ def test_solve_returns_only_the_requested_fields():
   values = _solve(_at(_config(), "spectral", 5, 1e-6, 1e-8), _TIMES, ("radius_ratio",))
   assert set(values) == {"radius_ratio"}
   assert values["radius_ratio"].shape == _TIMES.shape
+
+
+def test_the_reference_refuses_when_it_is_not_converged(measured):
+  """The guard this module exists around. Everything downstream inherits the reference's
+  error silently, and a reference sharing the error under test reports success -- that is
+  how Nt = 5 was measured against an Nt = 5 reference and looked free at 2.07e-02.
+  """
+  from pyimr.resolution import _reference
+
+  with pytest.raises(ValueError, match="reference is not converged"):
+    # target/10 = 1e-30 is unreachable, so any real gap trips the guard
+    _reference(_config(), _TIMES, ("radius_ratio",), 1e-29, (5, 7))
+  measured("reference guard", "unreachable target/10 raises rather than returning")
+
+
+def test_the_reference_returns_the_finer_solve_when_converged():
+  from pyimr.resolution import _reference, _at, _solve
+
+  reference, gap = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, (5, 9))
+  assert gap <= 1e-3
+  finer = _solve(_at(_config(), "spectral", 18, 1e-12, 1e-14), _TIMES, ("radius_ratio",))
+  np.testing.assert_allclose(reference["radius_ratio"], finer["radius_ratio"], rtol=0, atol=1e-12)

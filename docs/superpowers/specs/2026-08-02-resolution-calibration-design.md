@@ -41,8 +41,9 @@ setting = choose_resolution(config, times, target=1e-3, field="radius_ratio")
 cfg = setting.apply(config)
 ```
 
-Cost is roughly 10 to 12 solves: 2 for the reference and its check, about 3 per
-discretization in stage 1, about 3 in stage 2. Amortized against thousands.
+Cost is roughly 18 solves with the default ladders: 2 for the reference and its check, 5
+for spectral and 5 for fd in stage 1, 5 for rtol in stage 2, plus 1 final solve. Amortized
+against thousands.
 
 ## Search
 

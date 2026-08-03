@@ -22,9 +22,72 @@ def _config(**kwargs):
   return pyimr.SimulationConfig(R0, REQ, NHKV, bubtherm=1, **kwargs)
 
 
+@pytest.fixture(scope="module")
+def reference_for():
+  """Cache `_reference` by (ladder, fields) so tests that just need a converged reference
+  for the same problem share the solves. `target` only gates whether `_reference` raises,
+  not what it returns, so one loose target serves every entry."""
+  from pyimr.resolution import _reference
+
+  cache = {}
+
+  def get(ladder, fields=("radius_ratio",)):
+    key = (tuple(ladder), fields)
+    if key not in cache:
+      cache[key] = _reference(_config(), _TIMES, fields, 1.0, ladder)
+    return cache[key]
+
+  return get
+
+
 def test_the_ladders_are_ascending():
   assert list(NT_LADDER) == sorted(NT_LADDER)
   assert list(RTOL_LADDER) == sorted(RTOL_LADDER)
+
+
+def test_choose_resolution_rejects_a_non_ascending_nt_ladder():
+  """A descending `nt_ladder` used to build the reference at the coarsest, not finest,
+  entry -- measuring against a reference that shares the error under test."""
+  from pyimr.resolution import choose_resolution
+
+  with pytest.raises(ValueError, match="nt_ladder"):
+    choose_resolution(_config(), _TIMES, 1e-2, nt_ladder=(13, 9, 5))
+
+
+def test_choose_resolution_rejects_a_non_ascending_rtol_ladder():
+  from pyimr.resolution import choose_resolution
+
+  with pytest.raises(ValueError, match="rtol_ladder"):
+    choose_resolution(_config(), _TIMES, 1e-2, rtol_ladder=(1e-4, 1e-6, 1e-8))
+
+
+def test_choose_resolution_rejects_an_empty_nt_ladder():
+  from pyimr.resolution import choose_resolution
+
+  with pytest.raises(ValueError, match="nt_ladder"):
+    choose_resolution(_config(), _TIMES, 1e-2, nt_ladder=())
+
+
+def test_choose_resolution_rejects_an_empty_rtol_ladder():
+  from pyimr.resolution import choose_resolution
+
+  with pytest.raises(ValueError, match="rtol_ladder"):
+    choose_resolution(_config(), _TIMES, 1e-2, rtol_ladder=())
+
+
+def test_choose_resolution_rejects_a_nonpositive_target():
+  from pyimr.resolution import choose_resolution
+
+  with pytest.raises(ValueError, match="target must be positive"):
+    choose_resolution(_config(), _TIMES, 0.0)
+
+
+def test_choose_resolution_requires_bubtherm():
+  from pyimr.resolution import choose_resolution
+
+  config = pyimr.SimulationConfig(R0, REQ, NHKV, bubtherm=0)
+  with pytest.raises(ValueError, match="bubtherm"):
+    choose_resolution(config, _TIMES, 1e-2)
 
 
 def test_apply_substitutes_only_the_resolution_fields():
@@ -82,6 +145,21 @@ def test_solve_returns_only_the_requested_fields():
   assert values["radius_ratio"].shape == _TIMES.shape
 
 
+def test_timed_measures_actual_wall_clock(monkeypatch):
+  """A `_timed` that stopped measuring (e.g. `return 0.5, values`) would pass every other
+  test in this file, since none of them check `seconds` against a known bound."""
+  import time as time_module
+  import pyimr.resolution as resolution_module
+
+  def slow_solve(config, times, fields):
+    time_module.sleep(0.05)
+    return {"radius_ratio": np.zeros(2)}
+
+  monkeypatch.setattr(resolution_module, "_solve", slow_solve)
+  seconds, _ = resolution_module._timed(_config(), _TIMES, ("radius_ratio",))
+  assert 0.03 < seconds < 0.3
+
+
 def test_the_reference_refuses_when_it_is_not_converged(measured):
   """The guard this module exists around. Everything downstream inherits the reference's
   error silently, and a reference sharing the error under test reports success -- that is
@@ -95,11 +173,10 @@ def test_the_reference_refuses_when_it_is_not_converged(measured):
   measured("reference guard", "unreachable target/10 raises rather than returning")
 
 
-def test_the_reference_returns_the_finer_solve_when_converged():
-  from pyimr.resolution import _reference, _at, _solve
+def test_the_reference_returns_the_finer_solve_when_converged(reference_for):
+  from pyimr.resolution import _at, _solve
 
-  reference, gap = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, (5, 9))
-  assert gap <= 1e-3
+  reference, _gap = reference_for((5, 9))
   finer = _solve(_at(_config(), "spectral", 18, 1e-12, 1e-14), _TIMES, ("radius_ratio",))
   np.testing.assert_allclose(reference["radius_ratio"], finer["radius_ratio"], rtol=0, atol=1e-12)
 
@@ -122,12 +199,12 @@ def test_the_reference_guard_uses_target_divided_by_10(measured):
   measured("target/10 margin", "guard rejects when target/10 < gap < target")
 
 
-def test_it_finds_the_smallest_adequate_node_count():
+def test_it_finds_the_smallest_adequate_node_count(reference_for):
   """Bisection over the ladder relies on discretization error falling with Nt."""
-  from pyimr.resolution import _reference, _smallest_adequate, _at, _solve, _deviation
+  from pyimr.resolution import _smallest_adequate, _at, _solve, _deviation
 
   ladder = (5, 9, 13)
-  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
+  reference, _ = reference_for(ladder)
   index = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, "spectral", ladder)
   assert index is not None
   at_index = _solve(_at(_config(), "spectral", ladder[index], 1e-10, 1e-12), _TIMES, ("radius_ratio",))
@@ -137,25 +214,25 @@ def test_it_finds_the_smallest_adequate_node_count():
     assert _deviation(below, reference) > 1e-2, "a smaller ladder entry also met the target"
 
 
-def test_an_unreachable_target_is_reported_not_approximated(measured):
+def test_an_unreachable_target_is_reported_not_approximated(measured, reference_for):
   """Returning the best of an inadequate set is the same failure as an unconverged
   reference: a number that looks like success.
   """
-  from pyimr.resolution import _choose_discretization, _reference
+  from pyimr.resolution import _choose_discretization
 
   ladder = (5, 7)
-  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
+  reference, _ = reference_for(ladder)
   with pytest.raises(ValueError, match="no discretization in the ladder"):
     _choose_discretization(_config(), _TIMES, ("radius_ratio",), 1e-16, reference, ladder)
   measured("unreachable target", "raises rather than returning the best available")
 
 
-def test_choose_discretization_returns_the_faster_candidate():
+def test_choose_discretization_returns_the_faster_candidate(reference_for):
   """The winner is picked by measured time, not by any analytic cost proxy."""
-  from pyimr.resolution import _reference, _choose_discretization, _smallest_adequate, _at, _timed
+  from pyimr.resolution import _choose_discretization, _smallest_adequate, _at, _timed
 
   ladder = (5, 9)
-  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
+  reference, _ = reference_for(ladder)
   timings = {}
   for thermal in ("spectral", "fd"):
     index = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, thermal, ladder)
@@ -166,28 +243,28 @@ def test_choose_discretization_returns_the_faster_candidate():
   assert chosen == min(timings, key=lambda name: timings[name])
 
 
-def test_fd_is_genuinely_evaluated_not_just_offered():
+def test_fd_is_genuinely_evaluated_not_just_offered(reference_for):
   """The spectral preference in this package was measured at one configuration and at
   tight accuracy, neither of which holds in the usual regime, so fd has to be a real
   candidate. Asserting the winner is one of two names would pass without fd ever running.
   """
-  from pyimr.resolution import _reference, _smallest_adequate
+  from pyimr.resolution import _smallest_adequate
 
   ladder = (5, 9, 13)
-  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
+  reference, _ = reference_for(ladder)
   index = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, "fd", ladder)
   assert index is not None, "fd could not meet a loose target at any ladder entry"
 
 
-def test_an_inadequate_grid_is_not_accepted(measured):
+def test_an_inadequate_grid_is_not_accepted(measured, reference_for):
   """The concrete failure this module was built around: Nt = 5 over a multi-collapse
   record carries 2.07e-02 discretization error, as large as the experimental noise it was
   supposed to sit beneath, while looking free against a reference computed at Nt = 5.
   """
-  from pyimr.resolution import _reference, _smallest_adequate
+  from pyimr.resolution import _smallest_adequate
 
   ladder = (5, 9, 13)
-  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-3, ladder)
+  reference, _ = reference_for(ladder)
   loose = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-07, reference, "spectral", ladder)
   tight = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-08, reference, "spectral", ladder)
   assert loose is not None and tight is not None
@@ -195,14 +272,14 @@ def test_an_inadequate_grid_is_not_accepted(measured):
   measured("grid selection", f"target 1e-07 -> Nt={ladder[loose]}, 1e-08 -> Nt={ladder[tight]}")
 
 
-def test_loosest_tolerance_meets_target_and_the_next_looser_entry_does_not():
+def test_loosest_tolerance_meets_target_and_the_next_looser_entry_does_not(reference_for):
   """`_loosest_tolerance` must return the loosest ladder rtol that still meets `target`,
   not merely some rtol that meets it and not the tightest available either.
   """
-  from pyimr.resolution import _reference, _loosest_tolerance, _at, _solve, _deviation
+  from pyimr.resolution import _loosest_tolerance, _at, _solve, _deviation
 
   ladder, rtol_ladder, target = (5, 9), (1e-8, 1e-6, 1e-4), 1e-5
-  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), target, ladder)
+  reference, _ = reference_for(ladder)
   chosen = _loosest_tolerance(_config(), _TIMES, ("radius_ratio",), target, reference, "spectral", 5, rtol_ladder)
 
   at_chosen = _solve(_at(_config(), "spectral", 5, chosen, chosen * 1e-2), _TIMES, ("radius_ratio",))
@@ -215,6 +292,18 @@ def test_loosest_tolerance_meets_target_and_the_next_looser_entry_does_not():
   assert _deviation(at_next_looser, reference) > target, "a looser entry also met the target"
 
 
+def test_loosest_tolerance_raises_rather_than_returning_the_tightest_entry(reference_for):
+  """The bug this guards: `rtol_ladder[0]` missing `target` used to be returned anyway.
+  Measured: target=1e-7 against rtol_ladder=(1e-4,) used to return achieved=2.011e-04.
+  """
+  from pyimr.resolution import _loosest_tolerance
+
+  reference, _ = reference_for((5, 9))
+  with pytest.raises(ValueError, match="no tolerance in the ladder"):
+    _loosest_tolerance(_config(), _TIMES, ("radius_ratio",), 1e-7, reference, "spectral", 5, (1e-4,))
+
+
+@pytest.mark.slow
 def test_it_returns_a_setting_that_meets_the_target(measured):
   from pyimr.resolution import choose_resolution
 
@@ -227,19 +316,31 @@ def test_it_returns_a_setting_that_meets_the_target(measured):
                              f"achieved {setting.achieved:.2e} in {setting.seconds * 1e3:.1f} ms")
 
 
-def test_the_returned_setting_reproduces_its_reported_error():
+@pytest.mark.slow
+def test_choose_resolution_raises_when_the_ladder_cannot_reach_target():
+  """The bug this guards, at the public entry point: target=1e-7 against
+  rtol_ladder=(1e-4,) used to return achieved=2.011e-04 -- 2000x over target -- silently.
+  """
+  from pyimr.resolution import choose_resolution
+
+  with pytest.raises(ValueError, match="no tolerance in the ladder"):
+    choose_resolution(_config(), _TIMES, 1e-7, nt_ladder=(5, 9), rtol_ladder=(1e-4,))
+
+
+@pytest.mark.slow
+def test_the_returned_setting_reproduces_its_reported_error(reference_for):
   """A setting whose own config does not reproduce the achieved error is not a setting."""
-  from pyimr.resolution import _reference, _solve, choose_resolution
+  from pyimr.resolution import _solve, _deviation, choose_resolution
 
   ladder = (5, 9)
   setting = choose_resolution(_config(), _TIMES, 1e-2, nt_ladder=ladder, rtol_ladder=(1e-8, 1e-6))
-  reference, _ = _reference(_config(), _TIMES, ("radius_ratio",), 1e-2, ladder)
-  from pyimr.resolution import _deviation
+  reference, _ = reference_for(ladder)
 
   again = _solve(setting.apply(_config()), _TIMES, ("radius_ratio",))
   assert _deviation(again, reference) == pytest.approx(setting.achieved, rel=1e-9)
 
 
+@pytest.mark.slow
 def test_a_tighter_target_never_returns_a_looser_tolerance():
   from pyimr.resolution import choose_resolution
 
@@ -248,6 +349,7 @@ def test_a_tighter_target_never_returns_a_looser_tolerance():
   assert tight.rtol <= loose.rtol
 
 
+@pytest.mark.slow
 def test_multiple_fields_must_all_meet_the_target():
   """Internal pressure runs about 80x looser than radius at identical settings, so adding
   it can only make the requirement harder, never easier.

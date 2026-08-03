@@ -128,12 +128,28 @@ def _choose_discretization(config, times, fields, target, reference, nt_ladder):
 def _loosest_tolerance(config, times, fields, target, reference, thermal, nt, rtol_ladder):
   """The loosest ladder tolerance still meeting `target`. Error rises with `rtol`, so this
   keeps the last passing entry and stops at the first failure."""
-  chosen = rtol_ladder[0]
+  chosen = None
   for rtol in rtol_ladder:
     candidate = _at(config, thermal, nt, rtol, rtol * 1e-2)
     if _deviation(_solve(candidate, times, fields), reference) > target: break
     chosen = rtol
+
+  if chosen is None:
+    raise ValueError(
+      f"no tolerance in the ladder reaches target={target:.2e} at Nt={nt}; "
+      f"tighten the rtol ladder or loosen target"
+    )
   return chosen
+
+
+def _ascending(name, ladder):
+  """`ladder` as a tuple, or raise naming `name` if it is empty or not ascending."""
+  values = tuple(ladder)
+  if not values:
+    raise ValueError(f"{name} must not be empty")
+  if list(values) != sorted(values):
+    raise ValueError(f"{name} must be ascending, got {values}")
+  return values
 
 
 def choose_resolution(config, times, target, *, field: str | tuple[str, ...] = "radius_ratio",
@@ -141,12 +157,15 @@ def choose_resolution(config, times, target, *, field: str | tuple[str, ...] = "
   """Cheapest `(thermal, Nt, rtol)` whose error meets `target`, measured on this problem.
 
   `target` is a deviation relative to each field's own peak magnitude. `field` may be one
-  name or several, and every one named must meet it. Costs roughly ten to twelve solves,
-  which pays for itself across a sampling or sensitivity campaign and not otherwise.
+  name or several, and every one named must meet it. Costs roughly 18 solves with the
+  default ladders, which pays for itself across a sampling or sensitivity campaign and
+  not otherwise.
   """
   target = float(target)
   if target <= 0.0: raise ValueError("target must be positive")
   if not config.bubtherm: raise ValueError("resolution calibration needs bubtherm=1; nothing to choose otherwise")
+  nt_ladder = _ascending("nt_ladder", nt_ladder)
+  rtol_ladder = _ascending("rtol_ladder", rtol_ladder)
 
   fields = (field,) if isinstance(field, str) else tuple(field)
   reference, _ = _reference(config, times, fields, target, nt_ladder)
@@ -155,5 +174,6 @@ def choose_resolution(config, times, target, *, field: str | tuple[str, ...] = "
 
   final = _at(config, thermal, nodes, rtol, rtol * 1e-2)
   seconds, values = _timed(final, times, fields)
-  return Resolution(thermal, int(nodes), float(rtol), float(rtol * 1e-2),
-                    _deviation(values, reference), seconds)
+  achieved = _deviation(values, reference)
+  assert achieved <= target, f"achieved={achieved:.2e} exceeds target={target:.2e}"
+  return Resolution(thermal, int(nodes), float(rtol), float(rtol * 1e-2), achieved, seconds)

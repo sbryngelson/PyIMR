@@ -493,7 +493,7 @@ config = setting.apply(config)
 
 It builds a reference and checks it is converged, searches both `spectral` and `fd` for
 the cheapest grid meeting `target`, then loosens tolerance as far as that grid allows.
-Roughly ten to twelve solves, which is worth paying before a sampling or sensitivity
+Roughly 18 solves, which is worth paying before a sampling or sensitivity
 campaign and not worth paying for a single run.
 
 `target` is relative to each field's own peak magnitude, and `field` accepts several

@@ -152,7 +152,7 @@ def test_params_branches_only_on_concrete_configuration():
 
   def build(traced):
     p = params(R0, REQ, NHKV, 1, traced[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, pyimr.PhysicalParameters(), xp=jnp,
-               scales=(2500.0, traced[1], 0.0, 0.0, 0.0))
+               scales=(2500.0, traced[1], 0.0, 0.0, 0.0, 0.0))
     return jnp.asarray([p["kv0"], p["De"], p["LAM"], p["Pv"], p["chi"]])
 
   jax.jit(build)(jnp.asarray([298.15, 0.1]))
@@ -169,6 +169,38 @@ _STRUCTURE_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float
   ("mass transfer latent heat", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.latent_heat_j_kg",), 1e-05),
   ("mass transfer diffusivity", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.mass_diffusivity_m2_s",), 1e-05),
 ]
+
+@pytest.mark.parametrize(
+  ("build", "knob"),
+  [(pyimr.Giesekus, "mobility"), (pyimr.LinearPTT, "extensibility")],
+)
+def test_a_distributed_sweep_compiles_once_but_still_answers_differently(build, knob, measured):
+  """These reach the solve through the groups like the closed-form materials, so only the
+  fields that set array shapes may key the program. Sharing one program is safe exactly
+  as long as distinct parameters still give distinct answers -- asserted, not assumed.
+  """
+  times = np.linspace(0.0, 2e-5, 30)
+
+  def radius(value, points=24):
+    material = build(0.1, 80e-6, 16e-6, value, points=points)
+    return pyimr.simulate(times, pyimr.SimulationConfig(R0=R0, Req=REQ, material=material)).radius_ratio
+
+  _jax._COMPILED.clear()
+  traces = [radius(v) for v in (0.05, 0.1, 0.2, 0.3, 0.4)]
+  measured(f"{build.__name__} sweep", f"{len(_jax._COMPILED)} program(s) for 5 points")
+  assert len(_jax._COMPILED) == 1, f"a {knob} sweep should compile once; got {len(_jax._COMPILED)}"
+
+  for earlier, later in zip(traces[:-1], traces[1:], strict=True):
+    assert np.abs(np.asarray(earlier) - np.asarray(later)).max() > 1e-9, "one program must not mean one answer"
+
+  # the structural knobs change the PREPARED arrays, which the argument content key
+  # covers, so each must still get its own program without being named in the material key
+  for options in ({"points": 32}, {"extent": 80.0}, {"quadrature": "trapezoid"}):
+    before = len(_jax._COMPILED)
+    material = build(0.1, 80e-6, 16e-6, 0.2, **{"points": 24, **options})
+    pyimr.simulate(times, pyimr.SimulationConfig(R0=R0, Req=REQ, material=material))
+    assert len(_jax._COMPILED) > before, f"{options} must not share a program"
+
 
 def test_the_state_layout_names_the_blocks_the_solver_actually_writes():
   """`_rhs` used to walk the state cursor by hand, beside `StateLayout` doing the same.

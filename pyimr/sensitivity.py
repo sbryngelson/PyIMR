@@ -7,7 +7,9 @@ from numbers import Real
 
 import numpy as np
 
-import pyimr as _solver
+from ._config import SimulationResult, SolverStats, _validate_inputs
+from ._solver import PreparedProblem, _build_result, prepare
+
 
 __all__ = ["SensitivityParameter", "SensitivityResult", "simulate_with_sensitivities", "solve_with_sensitivities"]
 
@@ -106,7 +108,7 @@ def _normalize_parameters(config, parameters):
 class SensitivityResult:
   """Simulation and dimensional derivatives at every requested output time."""
 
-  simulation: _solver.SimulationResult
+  simulation: SimulationResult
   parameters: tuple[SensitivityParameter, ...]
   state: np.ndarray
   radius_ratio: np.ndarray
@@ -118,13 +120,7 @@ class SensitivityResult:
   medium_temperature_k: np.ndarray | None = None
   vapor_mass_fraction: np.ndarray | None = None
 
-def _readonly(values):
-  result = np.asarray(values, dtype=float)
-  result.setflags(write=False)
-  return result
-
-def _readonly_optional(values):
-  return None if values is None else _readonly(values)
+from ._config import _freeze_array as _readonly, _readonly_optional
 
 def _jax_sensitivities(problem, time_s, normalized):
   from ._jax import CONFIG_PATHS, INITIAL_PATHS, PHYSICS_PATHS, SCALE_PATHS, sensitivities_jax
@@ -138,11 +134,11 @@ def _jax_sensitivities(problem, time_s, normalized):
   values, tangents = sensitivities_jax(problem, time_s, paths)
   assert tangents is not None  # noqa: S101 - only `values_only=True` returns None, and this asks for tangents
   derived_tangent = tangents.derived
-  stats = _solver.SolverStats(
+  stats = SolverStats(
     backend="jax-tsit5-forward", success=True, message="jacfwd through the diffrax solve",
     nfev=0, njev=0, nlu=0, elapsed_s=0.0,
   )
-  simulation = _solver._build_result(problem, time_s, values.states.T, stats)
+  simulation = _build_result(problem, time_s, values.states.T, stats)
   return SensitivityResult(
     simulation=simulation,
     parameters=normalized,
@@ -159,11 +155,11 @@ def _jax_sensitivities(problem, time_s, normalized):
 
 def solve_with_sensitivities(problem, tv, parameters):
   """Solve one prepared problem and all requested forward sensitivities."""
-  if not isinstance(problem, _solver.PreparedProblem): raise TypeError("problem must be a PreparedProblem")
-  time_s = _solver._validate_inputs(tv, problem.config)
+  if not isinstance(problem, PreparedProblem): raise TypeError("problem must be a PreparedProblem")
+  time_s = _validate_inputs(tv, problem.config)
   normalized, _values, _scales = _normalize_parameters(problem.config, parameters)
   return _jax_sensitivities(problem, time_s, normalized)
 
 def simulate_with_sensitivities(tv, config, parameters):
   """Prepare and solve a configuration with forward sensitivities."""
-  return solve_with_sensitivities(_solver.prepare(config), tv, parameters)
+  return solve_with_sensitivities(prepare(config), tv, parameters)

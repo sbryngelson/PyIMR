@@ -49,6 +49,44 @@ def test_structured_result_arrays_are_read_only():
       array.flat[0] = 2.0
 
 
+def test_the_accepted_materials_are_exactly_the_declared_union():
+  """One declaration, checked. The union in `_materials` is what the type checker reads
+  and what `_config` admits at runtime; when those were separate hand-written lists,
+  adding a material could leave them disagreeing with no test able to see it.
+  """
+  from typing import get_args
+
+  from pyimr import _config
+  from pyimr._materials import MaterialModel
+
+  declared = get_args(MaterialModel)
+  assert set(_config._MATERIALS) == set(declared) and len(declared) > 5
+  for material in declared:
+    assert isinstance(material, type), f"{material} is not a class the isinstance check can use"
+
+
+def test_no_entry_point_freezes_the_arrays_it_was_handed():
+  """Results are read-only; the caller's own inputs must not become read-only with them.
+
+  `np.asarray` on a float64 array returns that same array, so freezing without copying
+  reached back through the call: `solve_sweep` used to hand `times` back unwritable.
+  """
+  problem = prepare(base_config())
+  entries = (
+    lambda t: simulate(t, base_config()),
+    lambda t: problem.solve(t),
+    lambda t: problem.solve_states(t),
+    lambda t: problem.state_tangents(t),
+    lambda t: problem.solve_sweep(t, ("material.shear_modulus_pa",), [[2000.0], [3000.0]]),
+    lambda t: problem.solve_with_sensitivities(t, ("material.shear_modulus_pa",)),
+  )
+  for index, entry in enumerate(entries):
+    times = np.linspace(0.0, 2e-5, 12)
+    entry(times)
+    assert times.flags.writeable, f"entry point {index} froze the caller's time grid"
+    times[0] = 0.0  # the failure this actually causes downstream
+
+
 def test_prepared_problem_is_reusable_and_returns_active_fields():
   times = np.linspace(0.0, 2e-5, 25)
   config = base_config(material=Zener(2500.0, 0.1, relaxation_time_s=1e-6), bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=7)

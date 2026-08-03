@@ -54,6 +54,13 @@ from pyimr.selection import (
 DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 
 GRID_COUNT = 10
+# Every candidate except the two the compile cache cannot serve. `Giesekus` and
+# `LinearPTT` are keyed by content, so each of their 10^4 grid points is a fresh XLA
+# compile at ~1.2-1.9 s -- 25 to 40 minutes apiece, per dataset, almost none of it
+# solving. The 2- and 3-axis content-keyed models pay the same rate over far fewer
+# points and stay affordable. See the compile-key issue.
+_PROHIBITIVE = ("giesekus", "ptt")
+MODELS = {name: m for name, m in STANDARD_MODELS.items() if name not in _PROHIBITIVE}
 # Keller-Miksis. Laser cavitation is compressible; PYIMR_RADIAL=1 recovers the
 # incompressible Rayleigh-Plesset results for comparison.
 _RADIAL = int(os.environ.get('PYIMR_RADIAL', '2'))
@@ -151,7 +158,7 @@ def solve_chunk(payload):
   os.environ.setdefault("OMP_NUM_THREADS", "1")
   dataset, thermal_nodes, model, low, high = payload
   _, times, weights, solve, _, _ = setup(dataset, thermal_nodes)
-  candidate = STANDARD_MODELS[model]
+  candidate = MODELS[model]
   points = parameter_grid(candidate.axes, GRID_COUNT)[0][low:high]
   solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
 
@@ -186,7 +193,7 @@ def main():
 
   payloads = [
     (name, thermal_nodes, model.name, low, min(low + _CHUNK, GRID_COUNT**model.dimension))
-    for model in STANDARD_MODELS.values()
+    for model in MODELS.values()
     for low in range(0, GRID_COUNT**model.dimension, _CHUNK)
   ]
   start = time.perf_counter()
@@ -196,7 +203,7 @@ def main():
     results = [solve_chunk(item) for item in payloads]
 
   cached, solves, lost = {}, 0, []
-  for candidate in STANDARD_MODELS.values():
+  for candidate in MODELS.values():
     parts = sorted((low, radii, red) for model, low, radii, red in results if model == candidate.name)
     radii = np.concatenate([r for _, r, _ in parts])
     redundancies = np.concatenate([w for _, _, w in parts])

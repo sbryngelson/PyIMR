@@ -15,12 +15,22 @@ from dataclasses import dataclass
 import numpy as np
 
 from ._materials import (
+  ArrudaBoyce,
+  Fung,
+  Gent,
+  Giesekus,
   InstantaneousMaterial,
+  LinearPTT,
   LinearMaxwell,
+  MooneyRivlin,
   NeoHookean,
   NeoHookeanKelvinVoigt,
   Newtonian,
+  OldroydB,
+  PowerLaw,
   QuadraticKelvinVoigt,
+  QuadraticZener,
+  Yeoh,
   Zener,
 )
 from .noise import marginal_log_likelihood
@@ -35,11 +45,22 @@ from .prior import (
 )
 
 __all__ = [
-  "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateModel", "compare", "log_evidence",
+  "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateModel", "compare", "grid_ready", "log_evidence",
   "parameter_grid", "redundancy_over_grid", "solve_grid",
 ]
 
-PARAMETER_BOUNDS = {"mu": (1e-4, 1.0), "g": (1e2, 1e5), "lambda1": (1e-7, 1e-3), "alpha": (1e-3, 10.0)}
+# Deliberately loose, and log-spaced: a boundary-pinned optimum is charged by the
+# harmonic bottleneck, so a range that is too tight makes a model look worse than it is.
+# `lam` is the retardation/relaxation RATIO -- the solver's own `LAM` -- because the
+# absolute retardation time must stay strictly below the relaxation time, and a free
+# absolute axis would put most of the grid outside what the material will construct.
+PARAMETER_BOUNDS = {
+  "mu": (1e-4, 1.0), "g": (1e2, 1e5), "lambda1": (1e-7, 1e-3), "alpha": (1e-3, 10.0),
+  "lam": (1e-3, 9e-1), "mobility": (1e-3, 9e-1), "ptt_eps": (1e-3, 1.0),
+  "gent_jm": (1e-1, 1e3), "fung_b": (1e-2, 1e2), "ab_n": (1.1, 1e3),
+  "c01": (1e2, 1e5), "yeoh_c2": (1e0, 1e5), "yeoh_c3": (1e0, 1e5),
+  "pl_k": (1e-4, 1e1), "pl_n": (1e-2, 2.0),
+}
 
 _NEGLIGIBLE = 1e-9
 
@@ -64,8 +85,52 @@ STANDARD_MODELS: dict[str, CandidateModel] = {
     CandidateModel("linmax", lambda t: LinearMaxwell(t["mu"], t["lambda1"]), ("mu", "lambda1"), ("newtonian",)),
     CandidateModel("qKV", lambda t: QuadraticKelvinVoigt(t["g"], t["mu"], t["alpha"]), ("mu", "g", "alpha"), ("NHKV", "qNH")),
     CandidateModel("SLS", lambda t: Zener(t["g"], t["mu"], t["lambda1"], 0.0), ("mu", "g", "lambda1"), ("NHKV", "linmax")),
+    # strain-stiffening elastics: four different answers to what happens at extreme
+    # strain, where the quadratic term in `qNH`/`qKV` is the only shape on offer
+    CandidateModel("gent", lambda t: InstantaneousMaterial(elastic=Gent(t["g"], t["gent_jm"])), ("g", "gent_jm"), ("NH",)),
+    CandidateModel("fung", lambda t: InstantaneousMaterial(elastic=Fung(t["g"], t["fung_b"])), ("g", "fung_b"), ("NH",)),
+    CandidateModel("arruda", lambda t: InstantaneousMaterial(elastic=ArrudaBoyce(t["g"], t["ab_n"])), ("g", "ab_n"), ("NH",)),
+    CandidateModel("mooney", lambda t: InstantaneousMaterial(elastic=MooneyRivlin(t["g"], t["c01"])), ("g", "c01"), ("NH",)),
+    CandidateModel("yeoh", lambda t: InstantaneousMaterial(elastic=Yeoh(t["g"], t["yeoh_c2"], t["yeoh_c3"])), ("g", "yeoh_c2", "yeoh_c3"), ("NH",)),
+    CandidateModel(
+      "powerlaw", lambda t: InstantaneousMaterial(elastic=NeoHookean(t["g"]), viscous=PowerLaw(t["pl_k"], t["pl_n"])),
+      ("g", "pl_k", "pl_n"), ("NH",),
+    ),
+    # memory models the set was missing: stiffening WITH relaxation, and the fluids
+    CandidateModel(
+      "qSLS", lambda t: QuadraticZener(t["g"], t["mu"], t["lambda1"], 0.0, t["alpha"]),
+      ("mu", "g", "lambda1", "alpha"), ("qKV", "SLS"),
+    ),
+    CandidateModel(
+      "oldroydb", lambda t: OldroydB(t["mu"], t["lambda1"], t["lam"] * t["lambda1"]), ("mu", "lambda1", "lam"), ("linmax",)
+    ),
+    CandidateModel(
+      "giesekus", lambda t: Giesekus(t["mu"], t["lambda1"], t["lam"] * t["lambda1"], t["mobility"]),
+      ("mu", "lambda1", "lam", "mobility"), ("oldroydb",),
+    ),
+    CandidateModel(
+      "ptt", lambda t: LinearPTT(t["mu"], t["lambda1"], t["lam"] * t["lambda1"], t["ptt_eps"]),
+      ("mu", "lambda1", "lam", "ptt_eps"), ("oldroydb",),
+    ),
   )
 }
+
+def grid_ready(models=None):
+  """Names of models whose whole grid shares one compiled program.
+
+  A material whose fields reach the solve only through the nondimensional groups is keyed
+  by type, so a sweep compiles once (#163). `InstantaneousMaterial` and the distributed
+  models read their own fields, are keyed by content, and compile once PER GRID POINT --
+  measured at 1.2-1.8 s a point against 9-58 ms for the rest, which is the difference
+  between a grid study and an overnight run.
+  """
+  from ._integrate import THROUGH_GROUPS
+
+  models = STANDARD_MODELS if models is None else models
+  centre = lambda a: float(np.sqrt(PARAMETER_BOUNDS[a][0] * PARAMETER_BOUNDS[a][1]))  # noqa: E731
+  return frozenset(
+    name for name, c in models.items() if isinstance(c.build({a: centre(a) for a in c.axes}), THROUGH_GROUPS)
+  )
 
 def parameter_grid(axes, count, bounds=None):
   """Cartesian product of log-spaced axes, plus the same points in `[0, 1]`.

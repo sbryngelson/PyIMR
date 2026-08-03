@@ -7,6 +7,7 @@ unreachable target must raise rather than return a plausible number.
 """
 
 import numpy as np
+import pytest
 
 import pyimr
 from pyimr.resolution import NT_LADDER, RTOL_LADDER, Resolution, _at
@@ -50,3 +51,32 @@ def test_at_builds_the_same_config_apply_would():
   assert (built.thermal, built.Nt, built.Mt, built.rtol, built.atol) == ("fd", 9, 9, 1e-7, 1e-9)
   setting = Resolution(thermal="fd", Nt=9, rtol=1e-7, atol=1e-9, achieved=0.0, seconds=0.0)
   assert setting.apply(config) == built
+
+
+def test_deviation_is_relative_to_each_field_own_peak(measured):
+  """Observables do not converge together -- at identical settings, relative error was
+  3.4e-07 for radius against 2.8e-05 for internal pressure, about 80x looser. Scaling by
+  each field's own peak is what keeps one target meaningful across fields.
+  """
+  from pyimr.resolution import _deviation
+
+  reference = {"a": np.array([0.0, 2.0]), "b": np.array([0.0, 200.0])}
+  candidate = {"a": np.array([0.0, 2.2]), "b": np.array([0.0, 220.0])}
+  # both are 10% of their own peak, so both must report 0.1 rather than 0.2 and 20.0
+  assert _deviation(candidate, reference) == pytest.approx(0.1)
+  measured("per-field scaling", "10% of peak reads 0.1 for peaks 2 and 200 alike")
+
+
+def test_deviation_reports_the_worst_field():
+  from pyimr.resolution import _deviation
+
+  reference = {"a": np.array([1.0]), "b": np.array([1.0])}
+  assert _deviation({"a": np.array([1.01]), "b": np.array([1.5])}, reference) == pytest.approx(0.5)
+
+
+def test_solve_returns_only_the_requested_fields():
+  from pyimr.resolution import _solve
+
+  values = _solve(_at(_config(), "spectral", 5, 1e-6, 1e-8), _TIMES, ("radius_ratio",))
+  assert set(values) == {"radius_ratio"}
+  assert values["radius_ratio"].shape == _TIMES.shape

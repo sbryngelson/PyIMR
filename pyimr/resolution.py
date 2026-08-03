@@ -7,8 +7,11 @@ reports what it achieved.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, replace
 from typing import Any
+
+import numpy as np
 
 __all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution"]
 
@@ -39,3 +42,25 @@ def _at(config, thermal, nt, rtol, atol):
   fields: dict[str, Any] = {"thermal": thermal, "Nt": int(nt), "rtol": float(rtol), "atol": float(atol)}
   if config.medtherm: fields["Mt"] = int(nt)
   return replace(config, **fields)
+
+
+def _solve(config, times, fields):
+  from . import simulate
+
+  result = simulate(times, config)
+  return {name: np.asarray(getattr(result, name), dtype=float) for name in fields}
+
+
+def _timed(config, times, fields):
+  start = time.perf_counter()
+  values = _solve(config, times, fields)
+  return time.perf_counter() - start, values
+
+
+def _deviation(candidate, reference):
+  """Worst per-field deviation, each scaled by that field's own peak magnitude."""
+  worst = 0.0
+  for name, truth in reference.items():
+    scale = float(np.max(np.abs(truth))) or 1.0
+    worst = max(worst, float(np.max(np.abs(candidate[name] - truth))) / scale)
+  return worst

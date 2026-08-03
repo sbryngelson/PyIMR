@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
-__all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution"]
+__all__ = ["NT_LADDER", "RTOL_LADDER", "Resolution", "choose_resolution"]  # noqa: F822
 
 NT_LADDER = (5, 7, 9, 13, 17, 25, 33)
 RTOL_LADDER = (1e-10, 1e-8, 1e-6, 1e-4, 1e-3)

@@ -48,3 +48,5 @@ def test_at_builds_the_same_config_apply_would():
   config = _config(medtherm=1)
   built = _at(config, "fd", 9, 1e-7, 1e-9)
   assert (built.thermal, built.Nt, built.Mt, built.rtol, built.atol) == ("fd", 9, 9, 1e-7, 1e-9)
+  setting = Resolution(thermal="fd", Nt=9, rtol=1e-7, atol=1e-9, achieved=0.0, seconds=0.0)
+  assert setting.apply(config) == built

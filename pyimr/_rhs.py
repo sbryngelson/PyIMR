@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 import numpy as np
 
 from ._arrays import at_set
@@ -9,7 +11,7 @@ from ._materials import _stress_state_count
 from ._stress import _distributed_stress, _stress
 from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
 
-__all__ = ["_nZ", "_pinf", "_rhs", "_rhs_args", "_sampled_pressure"]
+__all__ = ["RhsArgs", "_nZ", "_pinf", "_rhs", "_rhs_args", "_sampled_pressure"]
 
 def _sampled_pressure(tn, forcing, *, xp=np):
   """The PCHIP forcing history, without a Python branch on the integration time."""
@@ -44,10 +46,33 @@ def _pinf(tn, p, forcing=None, *, xp=np):
 
 def _nZ(material): return _stress_state_count(material)
 
+class RhsArgs(NamedTuple):
+  """What `_rhs` takes after `(tn, y)`, in that order, so `*args` still splats.
+
+  A plain tuple here meant callers reached in by index -- `args[8]` for the medium,
+  `(merged, *args[1:8], rebuilt, *args[9:])` to substitute two of them. Reordering
+  `_rhs`'s parameters would have left that arithmetic pointing at the wrong fields
+  with nothing to catch it.
+  """
+
+  p: dict
+  material: object
+  radial: int
+  bubtherm: int
+  D1: object
+  D2: object
+  ygrid: object
+  medtherm: int
+  mt: object
+  masstrans: int
+  forcing: object
+  instantaneous_material: object
+  distributed_stress: object
+
 def _rhs_args(problem, p, *, medium):
   """The positional arguments `_rhs` takes, for a prepared problem."""
   config = problem.config
-  return (
+  return RhsArgs(
     p, config.material, config.radial, config.bubtherm, problem.bubble_D1, problem.bubble_D2, problem.bubble_grid,
     config.medtherm, medium, config.masstrans, problem.forcing, problem.instantaneous_material,
     problem.distributed_stress,

@@ -103,9 +103,9 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   # 44 entries, and a branch on a tracer is an error rather than a slow path.
   from ._prepare import medium_with_parameters
 
-  static = {"wave_type": args[0]["wave_type"]}
-  dynamic = {name: float(value) for name, value in args[0].items() if name not in static}
-  medium = args[8]
+  static = {"wave_type": args.p["wave_type"]}
+  dynamic = {name: float(value) for name, value in args.p.items() if name not in static}
+  medium = args.mt
 
   def program(chosen):
     def solve(grid, start, values):
@@ -113,7 +113,7 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
       # `medium`'s wall weights are built FROM p, so they have to be rebuilt for the
       # traced values rather than reused from preparation.
       rebuilt = None if medium is None else medium_with_parameters(medium, merged, xp=jnp)
-      inner = (merged, *args[1:8], rebuilt, *args[9:])
+      inner = args._replace(p=merged, mt=rebuilt)
       return diffrax.diffeqsolve(
         diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *inner, xp=jnp))), chosen,
         t0=grid[0], t1=grid[-1], dt0=None, y0=start,
@@ -362,7 +362,7 @@ def sensitivities_jax(problem, times, paths, at=None, values_only=False):
     start = initial_state_vector(config, layout, p, collapse, xp=jnp, initial=initial)
     medium = medium_with_parameters(problem.medium, p, xp=jnp)
     args = _rhs_args(problem, p, medium=medium)
-    args = (*args[:10], forcing_with_parameters(problem.forcing, p, forcing_reference, xp=jnp), *args[11:])
+    args = args._replace(forcing=forcing_with_parameters(problem.forcing, p, forcing_reference, xp=jnp))
     grid = grid_s / p["t0"]
     solution = diffrax.diffeqsolve(
       diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), _solver_for(config, diffrax)[0],

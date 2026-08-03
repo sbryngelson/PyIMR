@@ -170,6 +170,21 @@ _STRUCTURE_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float
   ("mass transfer diffusivity", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.mass_diffusivity_m2_s",), 1e-05),
 ]
 
+def test_the_rhs_argument_names_match_the_rhs_signature():
+  """`_rhs_args` is splatted into `_rhs` positionally, so the two orders are one
+  coupling with nothing declaring it. Reordering either used to be silent -- and the
+  backend substitutes fields by name now, which is only correct if they line up.
+  """
+  import inspect
+
+  from pyimr._rhs import RhsArgs, _rhs
+
+  parameters = list(inspect.signature(_rhs).parameters)
+  assert parameters[:2] == ["tn", "y"], "the state arguments come first"
+  positional = [name for name in parameters[2:] if name != "xp"]
+  assert positional == list(RhsArgs._fields), f"{positional} != {list(RhsArgs._fields)}"
+
+
 def test_the_traced_path_covers_every_differentiable_scalar_field():
   """The gate on deleting the numpy sensitivity route, asserted rather than assumed."""
   import dataclasses

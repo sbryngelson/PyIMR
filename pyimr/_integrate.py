@@ -31,11 +31,11 @@ def integrate(rhs, times, initial, *, args, rtol, atol, failure, label="", max_s
   )
 
   through_groups = (NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, LinearMaxwell)
-  material = args[1]
+  material = args.material
   material_key = type(material).__name__ if isinstance(material, through_groups) else _content_key(material)
-  groups = args[0]
+  groups = args.p
   key = (
-    tuple(sorted(groups)), groups["wave_type"], material_key, _content_key(args[2:]),
+    tuple(sorted(groups)), groups["wave_type"], material_key, _content_key(args._replace(p=None, material=None)),
     len(times), float(times[0]), float(times[-1]), np.shape(initial), rtol, atol, label, max_step,
     None if config is None else config.max_steps,  # static to the compiled program, so it keys it
   )

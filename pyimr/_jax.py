@@ -93,6 +93,7 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   from time import perf_counter
 
   solver, solver_name = (diffrax.Tsit5(), "tsit5") if config is None else _solver_for(config, diffrax, differentiating=False)
+  budget = 1_000_000 if config is None else int(config.max_steps)
 
   # The nondimensional groups are traced ARGUMENTS, not constants closed over. Baking them
   # in made the cache key depend on their values, so every distinct parameter set was a
@@ -117,7 +118,7 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
         diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *inner, xp=jnp))), chosen,
         t0=grid[0], t1=grid[-1], dt0=None, y0=start,
         stepsize_controller=diffrax.PIDController(rtol=rtol, atol=atol, dtmax=max_step),
-        saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, throw=False,
+        saveat=diffrax.SaveAt(ts=grid), max_steps=budget, throw=False,
       )
 
     return jax.jit(solve)
@@ -212,7 +213,7 @@ def _collapse_tangents(problem, paths, base_values, base_scales):
     solution = diffrax.diffeqsolve(
       diffrax.ODETerm(rhs), diffrax.Tsit5(), t0=0.0, t1=event_time, dt0=None, y0=start,
       stepsize_controller=diffrax.PIDController(rtol=min(config.rtol, 1e-9), atol=min(config.atol, 1e-11)),
-      saveat=diffrax.SaveAt(t1=True), max_steps=1_000_000, adjoint=diffrax.ForwardMode(),
+      saveat=diffrax.SaveAt(t1=True), max_steps=config.max_steps, adjoint=diffrax.ForwardMode(),
     )
     end = solution.ys[-1]
     return end, rhs(event_time, end, None)
@@ -280,7 +281,7 @@ def _traced_flow(problem, times, *, throw=True):
       diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), _solver_for(config, diffrax)[0],
       t0=grid[0], t1=grid[-1], dt0=None, y0=y0,
       stepsize_controller=diffrax.PIDController(rtol=config.rtol, atol=config.atol),
-      saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, adjoint=diffrax.ForwardMode(), throw=throw,
+      saveat=diffrax.SaveAt(ts=grid), max_steps=config.max_steps, adjoint=diffrax.ForwardMode(), throw=throw,
     )
 
   return jax, solve, grid
@@ -367,7 +368,7 @@ def sensitivities_jax(problem, times, paths, at=None, values_only=False):
       diffrax.ODETerm(lambda t, y, _a: jnp.asarray(_rhs(t, y, *args, xp=jnp))), _solver_for(config, diffrax)[0],
       t0=grid[0], t1=grid[-1], dt0=None, y0=start,
       stepsize_controller=diffrax.PIDController(rtol=config.rtol, atol=config.atol),
-      saveat=diffrax.SaveAt(ts=grid), max_steps=1_000_000, adjoint=diffrax.ForwardMode(),
+      saveat=diffrax.SaveAt(ts=grid), max_steps=config.max_steps, adjoint=diffrax.ForwardMode(),
     )
     states = solution.ys
     radius, velocity = states[:, 0], states[:, 1]

@@ -37,6 +37,7 @@ def integrate(rhs, times, initial, *, args, rtol, atol, failure, label="", max_s
   key = (
     tuple(sorted(groups)), groups["wave_type"], material_key, _content_key(args[2:]),
     len(times), float(times[0]), float(times[-1]), np.shape(initial), rtol, atol, label, max_step,
+    None if config is None else config.max_steps,  # static to the compiled program, so it keys it
   )
   return integrate_jax(
     rhs, times, initial, args=args, rtol=rtol, atol=atol, failure=failure, label=label, max_step=max_step,

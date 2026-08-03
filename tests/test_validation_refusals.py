@@ -40,6 +40,8 @@ _CONFIG_REFUSALS = [
    lambda: _config(bubtherm=1, thermal="chebyshev")),
   ("max step", ValueError, "max_step_s must be finite and positive",
    lambda: _config(max_step_s=0.0)),
+  ("step budget", ValueError, "max_steps must be an integer >= 1",
+   lambda: _config(max_steps=0)),
   ("sampled plus analytic", ValueError, "sampled_forcing cannot be combined with analytic forcing",
    lambda: _config(sampled_forcing=_FORCING, wave_type=1, pA=1e4)),
   ("collapse needs memory", ValueError, "collapse initialization requires a material with memory",

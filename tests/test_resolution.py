@@ -102,3 +102,21 @@ def test_the_reference_returns_the_finer_solve_when_converged():
   assert gap <= 1e-3
   finer = _solve(_at(_config(), "spectral", 18, 1e-12, 1e-14), _TIMES, ("radius_ratio",))
   np.testing.assert_allclose(reference["radius_ratio"], finer["radius_ratio"], rtol=0, atol=1e-12)
+
+
+def test_the_reference_guard_uses_target_divided_by_10(measured):
+  """Regression guard: ensures the convergence check uses target/10, not target.
+  If the /10 margin is dropped, this test fails but the others pass -- the gap exceeds
+  target/10 but not target, discriminating which boundary is checked.
+  """
+  from pyimr.resolution import _reference, _at, _solve, _deviation
+
+  coarse = _solve(_at(_config(), "spectral", 7, 1e-10, 1e-12), _TIMES, ("radius_ratio",))
+  finer = _solve(_at(_config(), "spectral", 14, 1e-12, 1e-14), _TIMES, ("radius_ratio",))
+  gap = _deviation(coarse, finer)
+
+  target = 5.0 * gap
+
+  with pytest.raises(ValueError, match="reference is not converged"):
+    _reference(_config(), _TIMES, ("radius_ratio",), target, (5, 7))
+  measured("target/10 margin", "guard rejects when target/10 < gap < target")

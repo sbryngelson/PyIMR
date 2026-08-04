@@ -10,6 +10,8 @@ import pytest
 
 from pyimr.selection import (
   PARAMETER_BOUNDS,
+  bounds_for_invariant,
+  strain_invariant,
   STANDARD_MODELS,
   CandidateModel,
   compare,
@@ -58,6 +60,39 @@ def test_the_grid_is_log_spaced_and_normalized(measured):
   ratios = distinct[1:] / distinct[:-1]
   measured("grid spacing", f"ratio spread {ratios.max() - ratios.min():.2e}")
   assert np.allclose(ratios, ratios[0])
+
+
+def test_the_strain_invariant_reads_the_collapse_not_the_expansion():
+  """`_elastic_integrand` uses `lam**-4 + 2*lam**2 - 3`, so the deepest COMPRESSION governs.
+  Reading the expansion instead is what made the first attempt at these bounds miss: on
+  gelatin it gives 44-52 where the collapse gives 24-119 (#199).
+  """
+  equilibrium = 1.0 / 7.09
+  trace = np.array([1.0, 0.5, 0.056, 0.4])
+  span = strain_invariant(trace, equilibrium)
+  lam = 0.056 / equilibrium
+  assert span == pytest.approx(lam**-4 + 2 * lam**2 - 3)
+  assert span > (1.0 / equilibrium) ** 2 + 2 * equilibrium - 3 - 20, "compression must dominate here"
+
+
+@pytest.mark.parametrize("span", [24.0, 37.4, 118.7])
+def test_the_divergence_limited_bounds_scale_with_the_invariant(span, measured):
+  """Both axes are multiples of the span, so the normalized coordinate the prior sees means
+  one thing across datasets -- which an absolute `Jm` never did.
+  """
+  bounds = bounds_for_invariant(span)
+  assert bounds["gent_jm"][0] > span, "the smallest Jm must exceed the lock-up limit"
+  assert bounds["gent_jm"][0] / span == pytest.approx(bounds_for_invariant(24.0)["gent_jm"][0] / 24.0)
+  assert bounds["fung_b"][1] * span == pytest.approx(bounds_for_invariant(24.0)["fung_b"][1] * 24.0)
+  measured(f"span {span}", f"Jm floor {bounds['gent_jm'][0]:.4g}")
+
+  for axis in ("mu", "g", "lambda1", "alpha"):
+    assert bounds[axis] == PARAMETER_BOUNDS[axis]
+
+
+def test_bounds_for_invariant_refuses_a_non_positive_span():
+  with pytest.raises(ValueError, match="strain invariant must be positive"):
+    bounds_for_invariant(0.0)
 
 
 @pytest.mark.parametrize(

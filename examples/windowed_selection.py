@@ -60,6 +60,8 @@ from pyimr.noise import (
 )
 from pyimr.selection import (
   STANDARD_MODELS,
+  bounds_for_invariant,
+  strain_invariant,
   compare,
   log_evidence,
   parameter_grid,
@@ -156,7 +158,10 @@ def setup(dataset, thermal_nodes, radial=_RADIAL):
       return None
     return result.radius_ratio, result.stress_integral_pa
 
-  return trials, times, weights, solve, usable, (maximum_radius, equilibrium)
+  # the stiffening laws lock up against the deepest COMPRESSION, which only the trace
+  # knows, so their bounds come from it rather than from a constant (#199)
+  bounds = bounds_for_invariant(strain_invariant(trials.min(axis=0), equilibrium / maximum_radius))
+  return trials, times, weights, solve, usable, (maximum_radius, equilibrium), bounds
 
 def solve_chunk(payload):
   """One model over a slice of its grid, plus the children that slice needs.
@@ -165,9 +170,9 @@ def solve_chunk(payload):
   required, and `spawn` cannot pickle a closure.
   """
   dataset, thermal_nodes, model, low, high = payload
-  _, times, weights, solve, _, _ = setup(dataset, thermal_nodes)
+  _, times, weights, solve, _, _, bounds = setup(dataset, thermal_nodes)
   candidate = MODELS[model]
-  points = parameter_grid(candidate.axes, GRID_COUNT)[0][low:high]
+  points = parameter_grid(candidate.axes, GRID_COUNT, bounds)[0][low:high]
   solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
 
   ok = np.array([item is not None for item in solved])
@@ -187,7 +192,7 @@ def main():
   thermal_nodes = int(sys.argv[2]) if len(sys.argv) > 2 else 0
   workers = int(sys.argv[3]) if len(sys.argv) > 3 else 1
 
-  trials, times, weights, _, usable, (maximum_radius, equilibrium) = setup(name, thermal_nodes)
+  trials, times, weights, _, usable, (maximum_radius, equilibrium), bounds = setup(name, thermal_nodes)
   mean_trace = trials.mean(axis=0)
   spread = trials.std(axis=0, ddof=1)
   dropped = int((~usable).sum())
@@ -220,7 +225,7 @@ def main():
     if failed: lost.append(f"{candidate.name} {failed}/{len(radii)}")
     # a model no point of which integrates has no prior to normalize, so it leaves the set
     if failed == len(radii): continue
-    cached[candidate.name] = (radii, parameter_grid(candidate.axes, GRID_COUNT)[1], redundancies, candidate.dimension)
+    cached[candidate.name] = (radii, parameter_grid(candidate.axes, GRID_COUNT, bounds)[1], redundancies, candidate.dimension)
     solves += len(radii) * (1 + len(candidate.contains))
   print(f"{solves} solves in {time.perf_counter() - start:.1f} s on {workers} worker(s)")
   print(f"  grid points that would not integrate: {', '.join(lost) if lost else 'none'}\n")

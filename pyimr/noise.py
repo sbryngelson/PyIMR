@@ -14,8 +14,12 @@ inflating its own error bars is penalized rather than rewarded.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 from scipy.special import expit
+
+from ._config import SimulationError
 
 __all__ = [
   "ATMOSPHERIC_PRESSURE",
@@ -26,6 +30,7 @@ __all__ = [
   "elliptical_gate",
   "marginal_log_likelihood",
   "marginalize_evaluation",
+  "predicted_spread",
   "strain_rate_weights",
   "weighted_deviation",
 ]
@@ -157,6 +162,38 @@ def marginal_log_likelihood(chi_squared, count, *, nodes=None, weights=None, nor
   terms = np.log(weights) - 0.5 * (chi_squared / nodes**2 + count * np.log(nodes**2))
   peak = float(np.max(terms))
   return float(peak + np.log(np.sum(np.exp(terms - peak)))) - 0.5 * float(normalization)
+
+def predicted_spread(config, times, *, relative=0.01, samples=5, field="radius_ratio"):
+  """The trial-to-trial spread this configuration PREDICTS, given preparation scatter.
+
+  A repeated experiment does not repeat its initial radius exactly, so a model implies a
+  spread across trials. Comparing that with the measured spread is a test the usual
+  chi-squared cannot make: it uses the scatter as a prediction target rather than only as
+  a noise scale.
+
+  It matters where the forward map is ill-conditioned. A quadratic Zener at strong
+  stiffening amplifies a 1e-9 change in `R0` into 1e-3 of the trajectory, and predicts a
+  spread 300 to 400 times what the gelatin records actually show -- so the data exclude
+  those parameters whatever their chi-squared, and their integration failures are
+  co-located with a region that was never admissible (#203).
+
+  Returns the median over time of the across-sample standard deviation, in the same units
+  as `field`. `None` if any sample cannot be integrated, since a spread over a subset of
+  an ensemble is not the ensemble's spread.
+  """
+  from ._solver import simulate
+
+  if samples < 2: raise ValueError("samples must be at least 2 to have a spread")
+  if not 0.0 < relative < 1.0: raise ValueError("relative scatter must lie in (0, 1)")
+  traces = []
+  for index in range(int(samples)):
+    bump = relative * (2.0 * index / (samples - 1) - 1.0)  # a sweep, not a draw: reproducible
+    try:
+      result = simulate(times, replace(config, R0=config.R0 * (1.0 + bump)))
+    except SimulationError:
+      return None
+    traces.append(np.asarray(getattr(result, field), dtype=float))
+  return float(np.median(np.std(np.array(traces), axis=0, ddof=1)))
 
 def marginalize_evaluation(evaluation, **options):
   """Marginal log-likelihood for a `LikelihoodEvaluation` from `pyimr.inference`.

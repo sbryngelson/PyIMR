@@ -196,3 +196,36 @@ def test_the_characteristic_time_and_strain_rate_are_consistent(measured):
 def test_the_nondimensionalization_helpers_refuse_bad_input(call, message):
   with pytest.raises(ValueError, match=message):
     call()
+
+
+def test_predicted_spread_separates_a_conditioned_model_from_a_chaotic_one(measured):
+  """The scatter is data, not just a noise scale. A quadratic Zener at strong stiffening
+  amplifies preparation scatter into an absurd spread, and the measured records -- which
+  repeat to about 2% -- exclude it whatever its chi-squared (#203).
+  """
+  import pyimr
+  from pyimr.noise import predicted_spread
+
+  times = np.linspace(0.0, 1.4e-4, 201)
+
+  def spread(alpha):
+    material = pyimr.QuadraticZener(4640.0, 1e-4, 2.78e-7, 0.0, alpha)
+    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2, rtol=1e-4, atol=1e-6, max_steps=200_000)
+    return predicted_spread(config, times)
+
+  conditioned, chaotic = spread(0.0215), spread(3.594)
+  assert conditioned is not None and chaotic is not None, "both samples must integrate for the comparison"
+  measured("predicted spread", f"alpha=0.02 -> {conditioned:.4f}, alpha=3.6 -> {chaotic:.2f}")
+  # gelatin repeats to a spread near 0.02 of Rmax; the conditioned model predicts less
+  assert conditioned < 0.02, "a well-conditioned model must not predict more scatter than was observed"
+  assert chaotic > 1.0, "the sensitive region must predict an absurd spread, which is what excludes it"
+
+
+@pytest.mark.parametrize(("options", "message"), [({"samples": 1}, "at least 2"), ({"relative": 0.0}, "must lie in")])
+def test_predicted_spread_refuses_a_meaningless_request(options, message):
+  import pyimr
+  from pyimr.noise import predicted_spread
+
+  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1))
+  with pytest.raises(ValueError, match=message):
+    predicted_spread(config, np.linspace(0.0, 2e-5, 10), **options)

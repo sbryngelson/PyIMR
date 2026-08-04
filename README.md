@@ -1,5 +1,11 @@
 # PyIMR
 
+[![CI](https://github.com/sbryngelson/PyIMR/actions/workflows/ci.yml/badge.svg)](https://github.com/sbryngelson/PyIMR/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/sbryngelson/PyIMR/branch/master/graph/badge.svg)](https://codecov.io/gh/sbryngelson/PyIMR)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 Fast, validated solvers for **inertial microcavitation rheometry (IMR)** with a
 typed, dimensional material API.
 

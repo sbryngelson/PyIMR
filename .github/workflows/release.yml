@@ -1,27 +1,62 @@
 name: Release
 
-# Publishing is triggered by a GitHub release, so one tag produces the release, the Zenodo
-# record and the upload together rather than three things that can disagree.
+# Publishing follows the version in `pyproject.toml`. A merge to master that changes it
+# builds, uploads to PyPI, and cuts the matching GitHub release; a merge that does not
+# change it does nothing. The version is the single trigger, so the tag, the release, the
+# Zenodo record and the upload cannot disagree about what was shipped.
 #
-# `workflow_dispatch` sends the same artifacts to TestPyPI instead. Worth using before any
-# first upload: a PyPI version is immutable, so a broken `0.1.0` can be yanked but never
-# replaced.
+# There is deliberately one path to PyPI. Publishing on `release: published` as well would
+# give two, and both could fire for the same version.
+#
+# `workflow_dispatch` sends the same artifacts to TestPyPI instead. A PyPI version is
+# immutable -- it can be yanked but never replaced -- so a dry run is the only chance to
+# see the artifacts before they are permanent.
 on:
-  release:
-    types: [published]
+  push:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  version:
+    # Decides whether this push ships anything. Everything downstream keys off `publish`.
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.check.outputs.publish }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # the previous commit's pyproject, and the existing tags
+
+      - id: check
+        name: Publish only when the version changed and is not already released
+        run: |
+          version=$(sed -nE 's/^version = "([^"]+)"/\1/p' pyproject.toml)
+          previous=$(git show HEAD~1:pyproject.toml 2>/dev/null | sed -nE 's/^version = "([^"]+)"/\1/p' || true)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "pyproject $previous -> $version"
+
+          if [ "$version" = "$previous" ]; then
+            echo "unchanged; nothing to publish"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            # a re-merge or a revert-and-restore could otherwise try to ship a live version
+            echo "::error::v$version is already tagged; bump the version to publish again"
+            exit 1
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: version
+    if: needs.version.outputs.publish == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
-          # setuptools-scm is not in use, but a shallow clone also hides the tag from any
-          # future switch to it, and the cost here is seconds
           fetch-depth: 0
 
       - uses: actions/setup-python@v6
@@ -36,13 +71,12 @@ jobs:
       - name: Check metadata renders on PyPI
         run: python -m twine check --strict dist/*
 
-      - name: The version must match the tag it is released from
-        if: github.event_name == 'release'
+      - name: The built version must match the version being released
+        if: needs.version.outputs.publish == 'true'
         run: |
           built=$(ls dist/*.whl | sed -E 's/.*-([0-9][^-]*)-py.*/\1/')
-          tagged=${GITHUB_REF_NAME#v}
-          echo "built $built against tag $tagged"
-          test "$built" = "$tagged"
+          echo "built $built against ${{ needs.version.outputs.version }}"
+          test "$built" = "${{ needs.version.outputs.version }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -68,8 +102,8 @@ jobs:
           skip-existing: true
 
   pypi:
-    if: github.event_name == 'release'
-    needs: build
+    needs: [version, build]
+    if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-latest
     environment: pypi   # must match the environment named in the PyPI pending publisher
     permissions:
@@ -80,3 +114,28 @@ jobs:
           name: distributions
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github_release:
+    # After the upload, because PyPI is the irreversible half. A release without the upload
+    # is one command to fix; an upload without the release cannot be undone either way.
+    needs: [version, pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the tag and the release
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" dist/* \
+            --title "v$VERSION" \
+            --generate-notes \
+            --target "$GITHUB_SHA"

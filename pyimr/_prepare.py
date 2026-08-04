@@ -21,6 +21,8 @@ from ._config import (
   _freeze_array,
 )
 from ._materials import (
+  LAW_WIDTH,
+  law_values,
   Giesekus,
   LinearMaxwell,
   InstantaneousMaterial,
@@ -85,6 +87,8 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   t0 = R0 / Uc
   concrete = _material_scales(material)
   G, mu, lam1, lam2, alphax, nlx = concrete if scales is None else scales
+  elastic_values = law_values(getattr(material, "elastic", None)) or (0.0,) * LAW_WIDTH
+  viscous_values = law_values(getattr(material, "viscous", None)) or (0.0,) * LAW_WIDTH
   relaxing = concrete[2] > 0.0
   Ca = P8_value / G if concrete[0] > 0 else xp.inf
   Re8 = P8_value * R0 / (mu * Uc) if concrete[1] > 0 else xp.inf
@@ -140,6 +144,10 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
     Cstar=Cstar,
     alphax=alphax,
     nlx=nlx,
+    # An InstantaneousMaterial's laws reach the solve only through these, so the compiled
+    # program can be keyed by law TYPE and a whole grid shares one compile (#196).
+    **{f"el{i}": v for i, v in enumerate(elastic_values)},
+    **{f"vi{i}": v for i, v in enumerate(viscous_values)},
     tait_gamma=tait_gamma,
     tait_sam=tait_sam,
     tait_no=tait_no,

@@ -5,6 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 from ._materials import (
+  LAW_WIDTH,
+  law_values,
+  law_with_values,
   LinearMaxwell,
   Bingham,
   CarreauYasuda,
@@ -172,25 +175,34 @@ def _viscosity_and_tangent(model, shear_rate, *, xp=np):
   return viscosity, tangent
 
 def _instantaneous_stress(material, prepared, p, R, Rd, need_rate, *, xp=np):
+  # The laws' parameters arrive through `p` so the program can be keyed by law type; the
+  # dispatch below still reads `model.field`, off a clone carrying the traced values.
+  # `law_values` returning None means the law cannot be carried that way (Ogden), and it
+  # keeps its baked-in values and its content key.
+  elastic, viscous = material.elastic, material.viscous
+  if elastic is not None and law_values(elastic) is not None:
+    elastic = law_with_values(elastic, [p[f"el{i}"] for i in range(LAW_WIDTH)])
+  if viscous is not None and law_values(viscous) is not None:
+    viscous = law_with_values(viscous, [p[f"vi{i}"] for i in range(LAW_WIDTH)])
   stress_integral = 0.0
   explicit_rate = 0.0
   acceleration_coefficient = 0.0
-  if material.elastic is not None:
+  if elastic is not None:
     wall_stretch = R / p["req"]
     half_interval = 0.5 * (wall_stretch - 1.0)
     stretch = 1.0 + half_interval * (prepared.interval_nodes + 1.0)
-    integrand = _elastic_integrand(material.elastic, stretch, p["P8"], xp=xp)
+    integrand = _elastic_integrand(elastic, stretch, p["P8"], xp=xp)
     stress_integral += half_interval * xp.dot(prepared.interval_weights, integrand)
     if need_rate:
-      wall_integrand = _elastic_integrand(material.elastic, wall_stretch, p["P8"], xp=xp)
+      wall_integrand = _elastic_integrand(elastic, wall_stretch, p["P8"], xp=xp)
       if isinstance(wall_integrand, np.ndarray): wall_integrand = wall_integrand.item()
       explicit_rate += wall_integrand * Rd / p["req"]
-  if material.viscous is not None:
+  if viscous is not None:
     quadrature_radius = 0.5 * (prepared.interval_nodes + 1.0)
     quadrature_weights = 0.5 * prepared.interval_weights
     strain_rate = Rd / R
     shear_rate = 2.0 * xp.sqrt(3.0) * abs(strain_rate) / p["t0"] * quadrature_radius**3
-    viscosity, tangent = _viscosity_and_tangent(material.viscous, shear_rate, xp=xp)
+    viscosity, tangent = _viscosity_and_tangent(viscous, shear_rate, xp=xp)
     weighted_radius = quadrature_radius**2 * quadrature_weights
     viscosity_integral = xp.dot(weighted_radius, viscosity)
     stress_integral += -12.0 * strain_rate * viscosity_integral / p["viscosity_scale"]

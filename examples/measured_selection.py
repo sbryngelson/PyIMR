@@ -1,32 +1,10 @@
-"""Does the selected constitutive model depend on the fitting window?
-
-Inferred IMR parameters are known to drift with the window they are fitted over, which is
-read as evidence that a constant-parameter model cannot describe a whole cavitation event.
-That work fixes the model and watches the parameters move. This asks the sharper question:
-whether the *model choice itself* moves. If the collapse and the rebound select different
-models, then "which constitutive model describes this material" is not well posed without
-naming a window.
+"""Which constitutive model do measured cavitation records actually prefer?
 
 Real laser-induced cavitation data, many trials per condition. The noise is estimated from
-the trial-to-trial spread at each time, so it is measured rather than assumed.
+the trial-to-trial spread at each time, so it is measured rather than assumed, and the
+comparison runs the full candidate set against the whole record.
 
-Every model is simulated once over the full record from the bubble maximum; only the
-samples entering the likelihood change between windows. That isolates the window effect
-from the separate problem of how to re-initialize a model partway through an event.
-
-The answer is yes at 23 and 33 C, and it has now survived two explanations that would
-have dissolved it. Compressibility is not it: Keller-Miksis improves every fit but leaves
-the drift. An inadequate candidate set is not it either: against fifteen candidates --
-five strain-stiffening laws, three viscoelastic fluids, and stiffening combined with
-relaxation -- the winner still changes between the collapse and the rebound.
-
-What the wider set did fix is the misfit. `qSLS` (quadratic Zener: stiffening AND
-relaxation, which nothing in the original set offered together) wins the full record at
-all three temperatures with chi-squared per sample 1.4, 1.3 and 1.2, against 2.9, 1.8 and
-2.6 before. Fitted whole, the three temperatures agree; fitted in pieces, two of them do
-not.
-
-Run: .venv/bin/python examples/windowed_selection.py <dataset> [thermal Nt] [workers]
+Run: .venv/bin/python examples/measured_selection.py <dataset> [thermal Nt] [workers]
 """
 
 from __future__ import annotations
@@ -109,19 +87,6 @@ def screen(trials):
   spread = trials.std(axis=0, ddof=1)
   return ~(trials > _MAX_RATIO).any(axis=0) & (spread > 0.0)
 
-def collapse_windows(trace, times):
-  """Split at the local maxima between collapses, so each window holds one collapse."""
-  interior = np.where((trace[1:-1] > trace[:-2]) & (trace[1:-1] >= trace[2:]))[0] + 1
-  peaks = [p for p in interior if trace[p] > 0.15]
-  edges = [0, *peaks, len(trace)]
-  windows = {}
-  for index in range(min(len(edges) - 1, 3)):
-    mask = np.zeros(len(trace), dtype=bool)
-    mask[edges[index]:edges[index + 1]] = True
-    if mask.sum() >= 10: windows[f"collapse {index + 1}"] = mask
-  windows["full record"] = np.ones(len(trace), dtype=bool)
-  return windows
-
 def setup(dataset, thermal_nodes, radial=_RADIAL):
   """Per-dataset state, rebuilt from picklable arguments alone.
 
@@ -193,7 +158,6 @@ def main():
   workers = int(sys.argv[3]) if len(sys.argv) > 3 else 1
 
   trials, times, weights, _, usable, (maximum_radius, equilibrium), bounds = setup(name, thermal_nodes)
-  mean_trace = trials.mean(axis=0)
   spread = trials.std(axis=0, ddof=1)
   dropped = int((~usable).sum())
 
@@ -230,24 +194,18 @@ def main():
   print(f"{solves} solves in {time.perf_counter() - start:.1f} s on {workers} worker(s)")
   print(f"  grid points that would not integrate: {', '.join(lost) if lost else 'none'}\n")
 
-  windows = collapse_windows(mean_trace, times)
-  names = list(cached)
-  print(f"  {'window':14s} {'samples':>7s}  " + "  ".join(f"{n:>9s}" for n in names))
-  for label, mask in windows.items():
-    deviations = weighted_deviation(spread[mask], weights[mask])
-    evidences, fits = {}, {}
-    for name, (radii, normalized, redundancies, dimension) in cached.items():
-      evidences[name], chi_squared = log_evidence(
-        radii[:, mask], normalized, redundancies, trials[:, mask], deviations, dimension=dimension
-      )
-      fits[name] = np.nanmin(chi_squared) / trials[:, mask].size  # dropped points are NaN, not zero
-    posterior = compare(evidences)
-    winner = max(posterior, key=lambda n: posterior[n])
-    row = "  ".join(f"{posterior[n]:9.2e}" for n in names)
-    # best chi2/N is the check that any of this means anything: if no model reaches ~1 the
-    # candidates are all wrong and the "winner" is only the least-bad of a bad set
-    print(f"  {label:14s} {int(mask.sum()):7d}  {row}   <- {winner}  "
-          f"[best chi2/N {min(fits.values()):.1f}, winner {fits[winner]:.1f}]")
+  deviations = weighted_deviation(spread, weights)
+  evidences, fits = {}, {}
+  for name, (radii, normalized, redundancies, dimension) in cached.items():
+    evidences[name], chi_squared = log_evidence(radii, normalized, redundancies, trials, deviations, dimension=dimension)
+    fits[name] = np.nanmin(chi_squared) / trials.size  # dropped points are NaN, not zero
+  posterior = compare(evidences)
+
+  print(f"  {'model':10s} {'posterior':>12s} {'best chi2/N':>12s}")
+  # best chi2/N is the check that any of this means anything: if no model reaches ~1 the
+  # candidates are all wrong and the "winner" is only the least-bad of a bad set
+  for name in sorted(posterior, key=lambda n: posterior[n], reverse=True):
+    print(f"  {name:10s} {posterior[name]:12.3e} {fits[name]:12.2f}")
 
 if __name__ == "__main__":
   main()

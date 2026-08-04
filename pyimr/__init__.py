@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+  __version__ = version("pyimr")
+except PackageNotFoundError:  # a source tree that was never installed
+  __version__ = "0.0.0+unknown"
 
 
 __all__ = [
@@ -49,6 +55,7 @@ __all__ = [
   "ViscousModel",
   "Yeoh",
   "Zener",
+  "__version__",
   "prepare",
   "simulate",
   "simulate_with_sensitivities",

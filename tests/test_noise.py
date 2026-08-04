@@ -208,12 +208,21 @@ def test_predicted_spread_separates_a_conditioned_model_from_a_chaotic_one(measu
 
   times = np.linspace(0.0, 1.4e-4, 201)
 
-  def spread(alpha):
+  def spread(alpha, guard=50.0):
     material = pyimr.QuadraticZener(4640.0, 1e-4, 2.78e-7, 0.0, alpha)
-    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2, rtol=1e-4, atol=1e-6, max_steps=200_000)
+    config = pyimr.SimulationConfig(
+      277e-6, 277e-6 / 7.09, material, radial=2, rtol=1e-4, atol=1e-6, max_steps=200_000, max_radius_ratio=guard
+    )
     return predicted_spread(config, times)
 
-  conditioned, chaotic = spread(0.0215), spread(3.594)
+  # The strong-stiffening case is now refused outright: it expands to R/R0 = 2132 after
+  # collapse, which is the model failing rather than merely being sensitive. That is a
+  # stronger exclusion than the spread argument, and it comes first.
+  assert spread(3.594) is None, "a runaway must not reach the spread estimator at all"
+
+  # With the guard off, the estimator still has to separate the two, which is what this
+  # test is for. Disabling it here endorses nothing about the model.
+  conditioned, chaotic = spread(0.0215), spread(3.594, guard=None)
   assert conditioned is not None and chaotic is not None, "both samples must integrate for the comparison"
   measured("predicted spread", f"alpha=0.02 -> {conditioned:.4f}, alpha=3.6 -> {chaotic:.2f}")
   # gelatin repeats to a spread near 0.02 of Rmax; the conditioned model predicts less

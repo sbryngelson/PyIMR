@@ -195,6 +195,7 @@ class SimulationConfig:
   atol: float = 1e-10
   max_step_s: float | None = None
   max_steps: int = 1_000_000
+  max_radius_ratio: float | None = 50.0
   thermal: str = "spectral"
   physics: PhysicalParameters = field(default_factory=PhysicalParameters)
   sampled_forcing: SampledForcing | None = None
@@ -377,6 +378,8 @@ def _validate_config(config) -> None:
   for name, value in (("Nt", c.Nt), ("Mt", c.Mt)):
     if not isinstance(value, Integral) or value < 3: raise ValueError(f"{name} must be an integer >= 3")
   if not isinstance(c.max_steps, Integral) or c.max_steps < 1: raise ValueError("max_steps must be an integer >= 1")
+  if c.max_radius_ratio is not None and not (np.isfinite(c.max_radius_ratio) and c.max_radius_ratio > 1.0):
+    raise ValueError("max_radius_ratio must be finite and greater than 1, or None to disable")
   if c.medtherm and not c.bubtherm: raise ValueError("medtherm=1 requires bubtherm=1")
   if c.masstrans and not c.bubtherm: raise ValueError("masstrans=1 requires bubtherm=1")
   if c.masstrans and not c.vapor: raise ValueError("masstrans=1 requires vapor=1")

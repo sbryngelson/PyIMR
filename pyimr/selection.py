@@ -187,7 +187,14 @@ def parameter_grid(axes, count, bounds=None):
 
   spans = [np.logspace(np.log10(bounds[a][0]), np.log10(bounds[a][1]), int(count)) for a in axes]
   points = np.column_stack([m.ravel() for m in np.meshgrid(*spans, indexing="ij")])
-  normalized = np.column_stack([normalize_log_coordinates(points[:, i], *bounds[a]) for i, a in enumerate(axes)])
+  # `logspace` does not reproduce its own endpoints exactly -- through log10 and back, a
+  # bound of 24002.829853450417 comes out 1.1e-11 low, which normalizes to -3.9e-16 and
+  # trips the prior's non-negativity guard. Every default bound is a power of ten and
+  # round-trips exactly, so this only appeared once bounds were derived from data. The
+  # points ARE the bounds by construction, so the excursion is round-off, not signal.
+  normalized = np.clip(
+    np.column_stack([normalize_log_coordinates(points[:, i], *bounds[a]) for i, a in enumerate(axes)]), 0.0, 1.0
+  )
   return points, normalized
 
 def solve_grid(candidate, solve, *, count, bounds=None):

@@ -49,6 +49,22 @@ def test_every_model_builds_from_exactly_its_own_axes():
     assert candidate.build(theta) is not None
 
 
+def test_the_grid_normalizes_inside_the_unit_box_for_bounds_that_are_not_round(measured):
+  """`logspace` does not reproduce its own endpoints: through log10 and back, a bound of
+  24002.829853450417 comes out 1.1e-11 low and normalizes to -3.9e-16, which the prior's
+  non-negativity guard rejects. Latent until bounds came from data, because every default
+  bound is a power of ten and round-trips exactly.
+  """
+  awkward = {"gent_jm": (24002.829853450417, 2400282.985345042), "g": (1e2, 1e5)}
+  points, normalized = parameter_grid(("gent_jm", "g"), 10, awkward)
+  measured("awkward bounds", f"min {normalized.min():.2e}, max {normalized.max():.6f}")
+  assert normalized.min() >= 0.0 and normalized.max() <= 1.0
+  # and still spans the box rather than being clipped into uselessness
+  assert normalized.min() == pytest.approx(0.0, abs=1e-12)
+  assert normalized.max() == pytest.approx(1.0, abs=1e-12)
+  assert points[:, 0].min() == pytest.approx(awkward["gent_jm"][0])
+
+
 def test_the_grid_is_log_spaced_and_normalized(measured):
   points, normalized = parameter_grid(("mu", "g"), 5)
   assert points.shape == (25, 2) and normalized.shape == (25, 2)

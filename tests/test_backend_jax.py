@@ -44,6 +44,7 @@ _COVERAGE_CASES = [
 
 _TANGENT_FIELDS = ("radius_ratio", "radius_m", "wall_velocity_m_s", "internal_pressure_pa", "stress_integral_pa")
 
+
 def test_jax_sensitivities_refuse_only_what_is_not_a_scalar_field():
   """Everything this test used to list is covered now."""
   times = np.linspace(0.0, 20e-6, 40)
@@ -52,6 +53,7 @@ def test_jax_sensitivities_refuse_only_what_is_not_a_scalar_field():
     pyimr.sensitivity.solve_with_sensitivities(problem, times, ("initial.stress_state",))
   with pytest.raises(ValueError, match="unknown sensitivity parameter path"):
     pyimr.sensitivity.solve_with_sensitivities(problem, times, ("physics.not_a_field",))
+
 
 def test_the_traced_bisection_stays_inside_the_physical_bracket(measured):
   """`_traced_root`'s counterpart to `test_thermal_grid`'s admissibility check."""
@@ -65,33 +67,58 @@ def test_the_traced_bisection_stays_inside_the_physical_bracket(measured):
   assert 0.0 < found < 1.0
   assert abs(found - root) < 1e-14
 
+
 def test_traced_and_brentq_roots_agree_on_the_shipped_closure(measured):
-  """The two solvers on one captured wall state, so a disagreement shows up here"""
+  """The two solvers on one captured wall state, so a disagreement shows up here.
+
+  The closure is rebuilt with `jnp` rather than reused from the numpy path. `_traced_root`
+  differentiates its residual through `lax.custom_root`, so a residual whose internals are
+  numpy cannot be traced at all. Replaying each recorded state through the shipped
+  `_wall_theta_bw_full` keeps the closure the shipped one, instead of a copy here that
+  could drift from it.
+  """
   _, jnp, _ = _jax._jax()
 
   from pyimr import _thermal
 
-  captured = []
-  original = _thermal._bracketed_root
+  states = []
+  wall, root = _thermal._wall_theta_bw_full, _thermal._bracketed_root
 
-  def record(residual, **options):
-    if options.get("xp", np) is np: captured.append(residual)
-    return original(residual, **options)
+  def record_state(*args, xp=np):
+    if xp is np:
+      states.append(args)
+    return wall(*args, xp=xp)
 
-  _thermal._bracketed_root = record
+  _thermal._wall_theta_bw_full = record_state
   try:
     config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd")
     pyimr.simulate(np.linspace(0.0, 20e-6, 60), config)
   finally:
-    _thermal._bracketed_root = original
+    _thermal._wall_theta_bw_full = wall
+
+  sampled = states[::29]
+  assert sampled, "no numpy-path wall states were recorded"
+
+  captured = []
+
+  def record_residual(residual, **options):
+    captured.append(residual)
+    return root(residual, **options)
+
+  _thermal._bracketed_root = record_residual
+  try:
+    for args in sampled:
+      wall(*args, xp=jnp)
+  finally:
+    _thermal._bracketed_root = root
 
   bracket = (_thermal._KV_EPS, 1.0 - _thermal._KV_EPS)
   worst = 0.0
-  for residual in captured[::29]:
-    brent = float(original(residual, bracket=bracket))
+  for residual in captured:
+    brent = float(root(residual, bracket=bracket))
     traced = float(_thermal._traced_root(residual, bracket, jnp))
     worst = max(worst, abs(brent - traced))
-  measured("traced vs brentq root", f"max |dkv| = {worst:.2e} over {len(captured[::29])} states")
+  measured("traced vs brentq root", f"max |dkv| = {worst:.2e} over {len(captured)} states")
   assert worst < 1e-12
 
 
@@ -123,6 +150,7 @@ _CONFIG_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float]] 
   ("mass transfer R0", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("R0",), 1e-04),
 ]
 
+
 def test_traced_sensitivities_are_compiled_once(measured):
   """`integrate_jax` caches a `jax.jit`; `sensitivities_jax` did not, so every call"""
   from pyimr import _jax
@@ -142,6 +170,7 @@ def test_traced_sensitivities_are_compiled_once(measured):
   assert first_tangent is not None and second_tangent is not None
   assert np.array_equal(first_tangent.derived, second_tangent.derived), "cached call returned a different tangent"
 
+
 def test_params_branches_only_on_concrete_configuration():
   """Two guards inside `params` tested values that the traced path differentiates."""
   import jax  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
@@ -151,8 +180,24 @@ def test_params_branches_only_on_concrete_configuration():
   _, jnp, _ = _jax._jax()
 
   def build(traced):
-    p = params(R0, REQ, NHKV, 1, traced[0], 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, pyimr.PhysicalParameters(), xp=jnp,
-               scales=(2500.0, traced[1], 0.0, 0.0, 0.0, 0.0))
+    p = params(
+      R0,
+      REQ,
+      NHKV,
+      1,
+      traced[0],
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0,
+      0,
+      0,
+      pyimr.PhysicalParameters(),
+      xp=jnp,
+      scales=(2500.0, traced[1], 0.0, 0.0, 0.0, 0.0),
+    )
     return jnp.asarray([p["kv0"], p["De"], p["LAM"], p["Pv"], p["chi"]])
 
   jax.jit(build)(jnp.asarray([298.15, 0.1]))
@@ -165,15 +210,23 @@ _STRUCTURE_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float
   ("mechanical surface tension", dict(radial=2), ("physics.surface_tension_n_m",), 1e-05),
   ("mechanical sound speed", dict(radial=2), ("physics.sound_speed_m_s",), 1e-05),
   ("mechanical initial velocity", dict(radial=2), ("initial.wall_velocity_m_s",), 1e-05),
-  ("mass transfer conductivity", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.medium_conductivity_w_m_k",), 1e-05),
+  (
+    "mass transfer conductivity",
+    dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"),
+    ("physics.medium_conductivity_w_m_k",),
+    1e-05,
+  ),
   ("mass transfer latent heat", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.latent_heat_j_kg",), 1e-05),
-  ("mass transfer diffusivity", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"), ("physics.mass_diffusivity_m2_s",), 1e-05),
+  (
+    "mass transfer diffusivity",
+    dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"),
+    ("physics.mass_diffusivity_m2_s",),
+    1e-05,
+  ),
 ]
 
-@pytest.mark.parametrize(
-  ("build", "knob"),
-  [(pyimr.Giesekus, "mobility"), (pyimr.LinearPTT, "extensibility")],
-)
+
+@pytest.mark.parametrize(("build", "knob"), [(pyimr.Giesekus, "mobility"), (pyimr.LinearPTT, "extensibility")])
 def test_a_distributed_sweep_compiles_once_but_still_answers_differently(build, knob, measured):
   """These reach the solve through the groups like the closed-form materials, so only the
   fields that set array shapes may key the program. Sharing one program is safe exactly
@@ -257,9 +310,7 @@ def test_the_state_layout_names_the_blocks_the_solver_actually_writes():
   """
   from pyimr._config import StateLayout
 
-  config = pyimr.SimulationConfig(
-    R0=R0, Req=REQ, material=zener(), bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=7, thermal="fd"
-  )
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=zener(), bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=9, Mt=7, thermal="fd")
   layout = StateLayout.from_config(config)
   assert layout.size == pyimr.prepare(config).initial_state.size
 
@@ -294,17 +345,17 @@ def test_the_traced_path_covers_every_differentiable_scalar_field():
   """The gate on deleting the numpy sensitivity route, asserted rather than assumed."""
   import dataclasses
 
-  config = pyimr.SimulationConfig(
-    R0=R0, Req=REQ, material=NHKV, pA=1e4, wave_type=2, omega=2 * np.pi / 2e-5, DT=3e-5, mn=2.0, TW=1e-5, vapor=1
-  )
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, pA=1e4, wave_type=2, omega=2 * np.pi / 2e-5, DT=3e-5, mn=2.0, TW=1e-5, vapor=1)
   candidates = []
   for field in dataclasses.fields(config):
     value = getattr(config, field.name)
-    if isinstance(value, (int, float)) and not isinstance(value, bool): candidates.append(field.name)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+      candidates.append(field.name)
   for group in ("physics", "initial", "material"):
     for field in dataclasses.fields(getattr(config, group)):
       value = getattr(getattr(config, group), field.name)
-      if isinstance(value, (int, float)) and not isinstance(value, bool): candidates.append(f"{group}.{field.name}")
+      if isinstance(value, (int, float)) and not isinstance(value, bool):
+        candidates.append(f"{group}.{field.name}")
 
   covered = set(_jax.SCALE_PATHS) | set(_jax.CONFIG_PATHS) | set(_jax.PHYSICS_PATHS) | set(_jax.INITIAL_PATHS)
 
@@ -332,10 +383,23 @@ _TANGENT_CASES: list[tuple[str, str, dict[str, Any], str, float]] = [
   ("bubtherm G", "material.shear_modulus_pa", dict(bubtherm=1, Nt=13, thermal="fd"), "bubble_temperature_k", 5e-05),
   ("coupled T8", "T8", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), "bubble_temperature_k", 5e-04),
   ("coupled medium", "physics.medium_conductivity_w_m_k", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), "medium_temperature_k", 5e-04),
-  ("mass transfer G", "material.shear_modulus_pa", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), "vapor_mass_fraction", 5e-05),
-  ("mass transfer latent heat", "physics.latent_heat_j_kg", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), "radius_ratio", 5e-05),
+  (
+    "mass transfer G",
+    "material.shear_modulus_pa",
+    dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd"),
+    "vapor_mass_fraction",
+    5e-05,
+  ),
+  (
+    "mass transfer latent heat",
+    "physics.latent_heat_j_kg",
+    dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=11, Mt=11, thermal="fd"),
+    "radius_ratio",
+    5e-05,
+  ),
   ("spectral G", "material.shear_modulus_pa", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="spectral"), "radius_ratio", 5e-05),
 ]
+
 
 @pytest.mark.parametrize("label,path,options,field,bound", _TANGENT_CASES, ids=[c[0] for c in _TANGENT_CASES])
 def test_traced_tangents_match_a_central_difference(label, path, options, field, bound, measured):
@@ -347,9 +411,7 @@ def test_traced_tangents_match_a_central_difference(label, path, options, field,
 
 def test_the_collapse_tangent_matches_a_central_difference(measured):
   """Tightened tolerances, because at the default this reads 2.8e-02 and is"""
-  config = pyimr.SimulationConfig(
-    R0=R0, Req=REQ, material=zener(), collapse=pyimr.CollapseInitialization(), rtol=1e-12, atol=1e-12
-  )
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=zener(), collapse=pyimr.CollapseInitialization(), rtol=1e-12, atol=1e-12)
   deviation = tangent_deviation(config, "Req", np.linspace(0.0, 25e-6, 60), "radius_ratio", relative_step=1e-4)
   measured("traced vs difference, collapse Req", f"rel={deviation:.1e}")
   assert deviation < 1e-05, deviation
@@ -363,7 +425,8 @@ def test_the_sampled_forcing_tangent_matches_a_central_difference(measured):
     time_s=tuple(knots), pressure_pa=tuple(6e4 * np.sin(2 * np.pi * knots / 1.5e-5) + 1e4 * rng.standard_normal(knots.size))
   )
   config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, sampled_forcing=history, rtol=1e-10, atol=1e-10)
-  worst = {p: tangent_deviation(config, p, np.linspace(0.0, 20e-6, 60), "radius_ratio", relative_step=1e-3)
-           for p in ("R0", "physics.far_field_pressure_pa")}
+  worst = {
+    p: tangent_deviation(config, p, np.linspace(0.0, 20e-6, 60), "radius_ratio", relative_step=1e-3) for p in ("R0", "physics.far_field_pressure_pa")
+  }
   measured("traced vs difference, sampled forcing", "  ".join(f"{k.split('.')[-1]}={v:.1e}" for k, v in worst.items()))
   assert max(worst.values()) < 1e-03, worst

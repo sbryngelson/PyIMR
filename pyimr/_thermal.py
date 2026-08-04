@@ -148,29 +148,38 @@ def _value(x):
 def _traced_root(residual, bracket, xp, *, halvings=_HALVINGS, polish=_POLISH):
   """The bracketed solve again, for a namespace that cannot branch on a value.
 
-  This differentiates the finite-difference `slope` where `_bracketed_root` freezes it
-  with `_value`. That asymmetry is a constraint, not a decision: `_value` is there so
-  scipy's `brentq` receives a plain float, and this path has no such requirement.
+  The tangent comes from the implicit function theorem via `lax.custom_root`, not from
+  differentiating the iteration. For `F(r; p) = 0` it is `dr/dp = -(dF/dp) / (dF/dr)`,
+  exact for any iteration count, so the primal only has to satisfy its own accuracy.
 
-  It is immaterial at the settings above. Differentiating the slope adds a term scaled
-  by `residual(root)`, and 20 halvings leave a residual near 1e-06, so the two agree to
-  machine precision -- measured 2e-16 or better against an analytic implicit derivative.
-  It stops being immaterial if `_HALVINGS` or `_POLISH` are cut, which is what
-  `test_the_traced_root_derivative_is_exact` pins (#161).
+  That decoupling is the point. Differentiating the iteration made the tangent exact only
+  because 20 halvings drove `residual(root)` to ~1e-6 and killed the term the finite
+  difference contributed -- exact by margin, and it silently degraded if the iteration
+  budget was cut (#161, #181). Newton polish now uses an AD slope, one `value_and_grad`
+  rather than three residual evaluations per step.
   """
-  low, high = bracket
-  below = residual(low) >= 0.0
-  for _ in range(halvings):
-    middle = 0.5 * (low + high)
-    left = (residual(middle) >= 0.0) == below
-    low = xp.where(left, middle, low)
-    high = xp.where(left, high, middle)
-  root = 0.5 * (low + high)
-  for _ in range(polish):
-    step = 1e-7 * root
-    slope = (residual(root + step) - residual(root - step)) / (2.0 * step)
-    root = root - residual(root) / slope
-  return root
+  import jax
+
+  low0, high0 = bracket
+
+  def solve(function, guess):
+    low, high = low0 * xp.ones_like(guess), high0 * xp.ones_like(guess)
+    below = function(low) >= 0.0
+    for _ in range(halvings):
+      middle = 0.5 * (low + high)
+      left = (function(middle) >= 0.0) == below
+      low = xp.where(left, middle, low)
+      high = xp.where(left, high, middle)
+    root = 0.5 * (low + high)
+    for _ in range(polish):
+      value, slope = jax.value_and_grad(function)(root)
+      root = root - value / slope
+    return root
+
+  def tangent_solve(linearized, y):
+    return y / linearized(xp.ones_like(y))
+
+  return jax.lax.custom_root(residual, xp.asarray(0.5 * (low0 + high0)), solve, tangent_solve)
 
 def _bracketed_root(residual, *, bracket=(_KV_EPS, 1.0 - _KV_EPS), xp=np):
   """Solve `residual(kv) = 0` on a bracket, then attach the exact tangent."""

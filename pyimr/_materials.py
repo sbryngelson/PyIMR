@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from numbers import Integral
 
@@ -328,6 +329,36 @@ class LinearPTT:
 MaterialModel = (
   NoStress | NeoHookeanKelvinVoigt | QuadraticKelvinVoigt | Zener | QuadraticZener | OldroydB | InstantaneousMaterial | Giesekus | LinearPTT | LinearMaxwell
 )
+
+LAW_WIDTH = 5
+
+def law_values(model):
+  """A law's float fields in declaration order, padded to `LAW_WIDTH`.
+
+  `None` when the law has a field a fixed-width float vector cannot carry -- `Ogden`,
+  whose moduli and exponents are variable-length tuples. Those stay baked into the
+  compiled program and keyed by content (#196).
+  """
+  if model is None: return (0.0,) * LAW_WIDTH
+  values = []
+  for field in dataclasses.fields(model):
+    value = getattr(model, field.name)
+    if not isinstance(value, float): return None
+    values.append(value)
+  if len(values) > LAW_WIDTH: return None
+  return (*values, *(0.0,) * (LAW_WIDTH - len(values)))
+
+def law_with_values(model, values):
+  """`model` with its float fields replaced, built WITHOUT running validation.
+
+  The validation already ran on the concrete object; here the values are tracers, which
+  `np.isfinite` would reject. `object.__new__` keeps the type, so every `isinstance`
+  branch in `_stress` dispatches exactly as before.
+  """
+  clone = object.__new__(type(model))
+  for field, value in zip(dataclasses.fields(model), values, strict=False):
+    object.__setattr__(clone, field.name, value)
+  return clone
 
 def _is_distributed_stress(material) -> bool: return isinstance(material, (Giesekus, LinearPTT))
 

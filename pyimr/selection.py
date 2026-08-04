@@ -132,18 +132,16 @@ STANDARD_MODELS: dict[str, CandidateModel] = {
 def grid_ready(models=None):
   """Names of models whose whole grid shares one compiled program.
 
-  A material whose fields reach the solve only through the nondimensional groups is keyed
-  by type, so a sweep compiles once (#163). `InstantaneousMaterial` and the distributed
-  models read their own fields, are keyed by content, and compile once PER GRID POINT --
-  measured at 1.2-1.8 s a point against 9-58 ms for the rest, which is the difference
-  between a grid study and an overnight run.
+  A material whose numbers all travel through the nondimensional groups is keyed by type,
+  so a sweep compiles once (#163, #196). What is left is `Ogden`, whose variable-length
+  tuples cannot travel that way: it is keyed by content and compiles once per grid point.
   """
-  from ._integrate import THROUGH_GROUPS
+  from ._integrate import shares_one_program
 
   models = STANDARD_MODELS if models is None else models
   centre = lambda a: float(np.sqrt(PARAMETER_BOUNDS[a][0] * PARAMETER_BOUNDS[a][1]))  # noqa: E731
   return frozenset(
-    name for name, c in models.items() if isinstance(c.build({a: centre(a) for a in c.axes}), THROUGH_GROUPS)
+    name for name, c in models.items() if shares_one_program(c.build({a: centre(a) for a in c.axes}))
   )
 
 def strain_invariant(radius_ratio, equilibrium_ratio):

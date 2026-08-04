@@ -202,6 +202,53 @@ def test_a_distributed_sweep_compiles_once_but_still_answers_differently(build, 
     assert len(_jax._COMPILED) > before, f"{options} must not share a program"
 
 
+def test_an_instantaneous_sweep_compiles_once_but_still_answers_differently(measured):
+  """The laws' numbers travel in `p` now, so only their types and the quadrature size key
+  the program. Sharing one program is safe exactly as long as distinct parameters still
+  give distinct answers.
+  """
+  times = np.linspace(0.0, 2e-5, 30)
+
+  def radius(extensibility):
+    material = pyimr.InstantaneousMaterial(elastic=pyimr.Gent(2500.0, extensibility), viscous=pyimr.Newtonian(0.1))
+    return pyimr.simulate(times, pyimr.SimulationConfig(R0=R0, Req=REQ, material=material)).radius_ratio
+
+  _jax._COMPILED.clear()
+  traces = [radius(v) for v in (4e4, 5e4, 6e4, 7e4, 8e4)]
+  measured("instantaneous sweep", f"{len(_jax._COMPILED)} program(s) for 5 points")
+  assert len(_jax._COMPILED) == 1, f"a Gent sweep should compile once; got {len(_jax._COMPILED)}"
+  for earlier, later in zip(traces[:-1], traces[1:], strict=True):
+    assert np.abs(np.asarray(earlier) - np.asarray(later)).max() > 1e-9, "one program must not mean one answer"
+
+
+def test_ogden_keeps_its_own_program_because_a_float_vector_cannot_carry_it():
+  """`Ogden`'s moduli and exponents are variable-length tuples, so its numbers cannot
+  travel in `p` and it stays keyed by content. Sharing a program across them would be
+  wrong, not slow.
+  """
+  times = np.linspace(0.0, 2e-5, 20)
+  _jax._COMPILED.clear()
+  traces = []
+  for modulus in (1000.0, 2000.0, 3000.0):
+    material = pyimr.InstantaneousMaterial(elastic=pyimr.Ogden((modulus,), (2.0,)))
+    traces.append(pyimr.simulate(times, pyimr.SimulationConfig(R0=R0, Req=REQ, material=material)).radius_ratio)
+  assert len(_jax._COMPILED) == 3, "Ogden must not share a program across parameter sets"
+  assert len({float(t[-1]) for t in traces}) == 3
+
+
+def test_grid_ready_agrees_with_the_cache_key_it_describes():
+  """`grid_ready` reported a model as per-point while the cache was already sharing a
+  program for it -- two statements of one fact, which is how they drift.
+  """
+  from pyimr._integrate import shares_one_program
+  from pyimr.selection import PARAMETER_BOUNDS, STANDARD_MODELS, grid_ready
+
+  ready = grid_ready()
+  for name, candidate in STANDARD_MODELS.items():
+    theta = {a: float(np.sqrt(PARAMETER_BOUNDS[a][0] * PARAMETER_BOUNDS[a][1])) for a in candidate.axes}
+    assert (name in ready) == shares_one_program(candidate.build(theta)), name
+
+
 def test_the_state_layout_names_the_blocks_the_solver_actually_writes():
   """`_rhs` used to walk the state cursor by hand, beside `StateLayout` doing the same.
   Comparing the two to each other is now circular -- they share the code -- so this

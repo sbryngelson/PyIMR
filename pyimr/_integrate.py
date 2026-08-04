@@ -6,6 +6,7 @@ import numpy as np
 
 from ._materials import (
   Giesekus,
+  InstantaneousMaterial,
   LinearMaxwell,
   LinearPTT,
   NeoHookeanKelvinVoigt,
@@ -14,10 +15,11 @@ from ._materials import (
   QuadraticKelvinVoigt,
   QuadraticZener,
   Zener,
+  law_values,
 )
 
 
-__all__ = ["THROUGH_GROUPS", "integrate"]
+__all__ = ["THROUGH_GROUPS", "integrate", "shares_one_program"]
 
 # Materials whose fields reach the solve ONLY through the nondimensional groups, so the
 # compiled program can be keyed by type and a whole parameter sweep compiles once (#163).
@@ -26,6 +28,18 @@ __all__ = ["THROUGH_GROUPS", "integrate"]
 # through `p` as well. Their structural fields -- points, extent, quadrature -- still get
 # their own program without being named here, because they change the PREPARED arrays,
 # which the argument content key already covers.
+def shares_one_program(material) -> bool:
+  """Whether a sweep over this material's numbers reuses one compiled program.
+
+  True when every number the solve reads travels through `p`. False for `Ogden`, whose
+  variable-length tuples a fixed-width vector cannot carry, so it is keyed by content and
+  compiles once per parameter set (#196).
+  """
+  if isinstance(material, THROUGH_GROUPS): return True
+  if not isinstance(material, InstantaneousMaterial): return False
+  return law_values(material.elastic) is not None and law_values(material.viscous) is not None
+
+
 THROUGH_GROUPS = (
   NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, LinearMaxwell,
   Giesekus, LinearPTT,
@@ -45,7 +59,15 @@ def integrate(rhs, times, initial, *, args, rtol, atol, failure, label="", max_s
   # anyway. `InstantaneousMaterial` and the distributed models DO read their own fields,
   # so those keep a full content key.
   material = args.material
-  material_key = type(material).__name__ if isinstance(material, THROUGH_GROUPS) else _content_key(material)
+  if isinstance(material, THROUGH_GROUPS): material_key = type(material).__name__
+  elif isinstance(material, InstantaneousMaterial) and shares_one_program(material):
+    # the laws' numbers travel in `p`; only their TYPES and the quadrature size, which
+    # sets array shapes, still have to key the program (#196)
+    material_key = (
+      "InstantaneousMaterial", type(material.elastic).__name__, type(material.viscous).__name__,
+      material.quadrature_points,
+    )
+  else: material_key = _content_key(material)
   groups = args.p
   key = (
     tuple(sorted(groups)), groups["wave_type"], material_key, _content_key(args._replace(p=None, material=None)),

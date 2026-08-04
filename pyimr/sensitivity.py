@@ -71,6 +71,7 @@ _NONDIFFERENTIABLE_FIELDS = {
   "rtol",
   "atol",
   "max_steps",
+  "max_radius_ratio",
   "collapse",
 }
 

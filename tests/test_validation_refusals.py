@@ -206,3 +206,69 @@ def test_masstrans_refuses_a_half_specified_thermal_start():
 
   # without masstrans there is no saturation coupling, so a lone bubble temperature is fine
   pyimr.prepare(_config(bubtherm=1, initial=pyimr.InitialState(bubble_temperature_k=300.0)))
+
+
+_RUNAWAY_TIMES = np.linspace(0.0, 1.4e-4, 4001)
+_RUNAWAY_R0, _RUNAWAY_REQ = 277e-6, 277e-6 / 7.09
+
+
+def _runaway_config(material, **overrides):
+  options = {"radial": 2, "rtol": 1e-4, "atol": 1e-6, "max_steps": 3_000_000} | overrides
+  return pyimr.SimulationConfig(_RUNAWAY_R0, _RUNAWAY_REQ, material, **options)
+
+
+@pytest.mark.parametrize("rtol", [1e-3, 1e-4, 1e-5])
+def test_a_radius_runaway_is_refused_rather_than_returned(rtol, measured):
+  """qSLS at strong stiffening with relaxation near the bubble period expands to
+  R/R0 = 2132 after its collapse -- identically at every tolerance here, so a converged
+  property of the equations rather than an artifact. It used to return without raising,
+  which is the dangerous shape: inference, design and selection all treat a returned
+  result as usable, and a 40,000-point grid sweep would absorb it silently.
+  """
+  material = pyimr.QuadraticZener(4640.0, 1e-4, 2.78e-7, 0.0, 3.59)
+  with pytest.raises(pyimr.SimulationError, match="ran away") as caught:
+    pyimr.simulate(_RUNAWAY_TIMES, _runaway_config(material, rtol=rtol, atol=rtol * 1e-2))
+  if rtol == 1e-4: measured("runaway refusal", str(caught.value)[:58])
+
+
+@pytest.mark.parametrize(
+  "label,material",
+  [
+    ("SLS", pyimr.Zener(4640.0, 1e-4, 2.78e-7, 0.0)),
+    ("qKV", pyimr.QuadraticKelvinVoigt(4640.0, 1e-4, 3.59)),
+    ("qSLS a=0.5", pyimr.QuadraticZener(4640.0, 1e-4, 2.78e-7, 0.0, 0.5)),
+  ],
+)
+def test_physical_trajectories_are_not_refused(label, material):
+  """All three peak at exactly R/R0 = 1: the bubble starts at its maximum. A failure here
+  means the threshold is wrong, not that the physics changed.
+  """
+  result = pyimr.simulate(_RUNAWAY_TIMES, _runaway_config(material, rtol=1e-6, atol=1e-8))
+  assert np.asarray(result.radius_ratio).max() <= 1.0 + 1e-9, label
+
+
+def test_a_strongly_forced_bubble_started_at_equilibrium_is_not_refused(measured):
+  """This is why the threshold is 50 and not 10.
+
+  Starting at the equilibrium radius rather than the maximum, hard acoustic forcing grows
+  the bubble by more than 10x -- measured 11.256 here -- which a bound of 10 would have
+  refused as a runaway. The bound has to clear legitimate forced growth while still
+  catching the qSLS runaway at 2132, and 50 sits between them with margin on both sides.
+  """
+  material = pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1)
+  equilibrium = 277e-6 / 7.09
+  config = pyimr.SimulationConfig(
+    equilibrium, equilibrium, material, radial=2, rtol=1e-6, atol=1e-8, max_steps=3_000_000,
+    wave_type=1, pA=1e6, TW=5e-6, DT=2e-5,
+  )
+  largest = float(np.asarray(pyimr.simulate(_RUNAWAY_TIMES, config).radius_ratio).max())
+  measured("forced growth from equilibrium", f"max R/R0 = {largest:.3f}")
+  assert largest > 10.0, "this case must exceed 10 or it does not test the threshold choice"
+
+
+def test_the_guard_can_be_disabled_and_reconfigured():
+  material = pyimr.QuadraticZener(4640.0, 1e-4, 2.78e-7, 0.0, 3.59)
+  loose = pyimr.simulate(_RUNAWAY_TIMES, _runaway_config(material, max_radius_ratio=None))
+  assert np.asarray(loose.radius_ratio).max() > 100.0, "disabling the guard must return the runaway"
+  with pytest.raises(ValueError, match="max_radius_ratio"):
+    pyimr.prepare(_runaway_config(material, max_radius_ratio=0.5))

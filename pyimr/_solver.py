@@ -216,6 +216,23 @@ def _thermal_outputs(problem: PreparedProblem, states: np.ndarray):
     if vapor_fraction is not None: vapor_fraction[index] = kv
   return bubble_temperature, medium_temperature, vapor_fraction
 
+def _reject_runaway(config, radius_ratio, stats):
+  """The bubble starts at its maximum radius, so growth far past it is the model failing.
+
+  qSLS at strong stiffening with relaxation near the bubble period reaches R/R0 = 2132,
+  identically at rtol 1e-3, 1e-4 and 1e-5 -- a converged property of the equations, not a
+  tolerance artifact -- and returns without raising. Silent is the danger: inference,
+  design and model selection all treat a returned result as usable.
+  """
+  if config.max_radius_ratio is None: return
+  largest = float(np.max(radius_ratio))
+  if largest > config.max_radius_ratio:
+    raise SimulationError(
+      f"radius ran away to R/R0 = {largest:.4g}, above max_radius_ratio "
+      f"{config.max_radius_ratio:g}; the model is not physical here",
+      replace(stats, success=False, message="radius runaway"),
+    )
+
 def _build_result(problem: PreparedProblem, time_s: np.ndarray, states, stats: SolverStats) -> SimulationResult:
   config = problem.config
   p = problem.parameters
@@ -223,6 +240,7 @@ def _build_result(problem: PreparedProblem, time_s: np.ndarray, states, stats: S
   states = np.asarray(states).T
   radius_ratio = states[:, 0]
   velocity = states[:, 1]
+  _reject_runaway(config, radius_ratio, stats)
   Uc = p["Uc"]
   pressure_scale = p["P8"]
   kappa = p["kappa"]

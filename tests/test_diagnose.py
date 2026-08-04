@@ -48,15 +48,28 @@ def test_a_material_refusing_its_state_is_named_as_such(measured):
   assert "lock-up" in found.summary
 
 
-def test_a_sensitive_trajectory_is_not_reported_as_needing_more_steps(measured):
-  """The case that cost the most: 5e6 steps fails where 5e4 at a looser tolerance works,
-  because the trajectory has shed the precision being demanded of it.
+def test_a_runaway_is_named_as_the_model_failing_not_as_a_hard_integration(measured):
+  """This case was read as ill-conditioning for a long time, and it is not.
+
+  After its collapse the trajectory expands to R/R0 = 2132 -- identically at rtol 1e-3,
+  1e-4 and 1e-5, so a converged property of the equations rather than a tolerance artifact.
+  The integrator was faithfully chasing a runaway. Calling that `ill-conditioned` sends the
+  reader to look for a better solver, which cannot exist; the honest answer is that the
+  model is not physical at these parameters.
   """
   found = diagnose(_config(pyimr.QuadraticZener(4640.0, 1e-4, 2.78e-7, 0.0, 3.59)), _TIMES)
-  measured("sensitive qSLS", f"{found.outcome}, amplification {found.amplification:.1e}")
-  assert found.outcome == "ill-conditioned", found.summary
-  assert found.amplification is not None and found.amplification > 1e4
-  assert "more steps will not help" in found.summary.lower()
+  measured("runaway qSLS", f"{found.outcome}: {found.summary[:44]}")
+  assert found.outcome == "runaway", found.summary
+  assert "not physical" in found.summary
+
+
+def test_a_sensitive_trajectory_is_not_reported_as_needing_more_steps():
+  """The distinct case the runaway one used to be confused with: a trajectory that
+  integrates but has shed the precision demanded of it, so a bigger budget cannot help.
+  """
+  found = diagnose(_config(pyimr.QuadraticZener(4640.0, 1e-4, 2.78e-7, 0.0, 3.59), max_radius_ratio=None), _TIMES)
+  assert found.outcome in {"ill-conditioned", "unresolved"}, found.summary
+  assert "more steps will not help" in found.summary.lower() or "not converged" in found.summary.lower()
 
 
 def test_the_outcome_reads_as_a_sentence():

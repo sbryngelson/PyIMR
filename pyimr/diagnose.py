@@ -84,10 +84,18 @@ def _domain_failure(config, floor=0.02):
   return None
 
 
+def _runaway(error):
+  """A runaway only surfaces once a solve actually completes, so it can appear at any rung
+  of the ladder -- at a tight tolerance the step budget dies first and hides it."""
+  if error and "ran away" in error:
+    return Diagnosis("runaway", f"the model is not physical here, so no tolerance or solver will help -- {error}")
+  return None
+
+
 def diagnose(config: SimulationConfig, times) -> Diagnosis:
   """Classify why `config` fails over `times`, or whether a success can be trusted.
 
-  Outcomes: `ok`, `ill-conditioned`, `domain`, `budget`, `unresolved`.
+  Outcomes: `ok`, `runaway`, `ill-conditioned`, `domain`, `budget`, `unresolved`.
   """
   result, error = _solve(config, times)
   if result is not None:
@@ -101,17 +109,21 @@ def diagnose(config: SimulationConfig, times) -> Diagnosis:
       )
     return Diagnosis("ok", f"integrates in {result.stats.nfev} steps", steps=result.stats.nfev, amplification=growth)
 
+  if runaway := _runaway(error): return runaway
+
   if "domain" in (error or "").lower() or "lock-up" in (error or "").lower():
     return Diagnosis("domain", f"the material refused the state it was driven to -- {error}")
 
-  bigger, _ = _solve(config, times, max_steps=int(config.max_steps) * _BUDGET_FACTOR)
+  bigger, bigger_error = _solve(config, times, max_steps=int(config.max_steps) * _BUDGET_FACTOR)
+  if runaway := _runaway(bigger_error): return runaway
   if bigger is not None:
     return Diagnosis(
       "budget", f"a {_BUDGET_FACTOR}x budget succeeds in {bigger.stats.nfev} steps; it was expensive, not ill-posed",
       steps=bigger.stats.nfev,
     )
 
-  loose, _ = _solve(config, times, rtol=_LOOSE[0], atol=_LOOSE[1], max_steps=int(config.max_steps) * _BUDGET_FACTOR)
+  loose, loose_error = _solve(config, times, rtol=_LOOSE[0], atol=_LOOSE[1], max_steps=int(config.max_steps) * _BUDGET_FACTOR)
+  if runaway := _runaway(loose_error): return runaway
   if loose is None:
     if domain := _domain_failure(config):
       return Diagnosis("domain", f"the material refuses a state a collapse reaches -- {domain}")

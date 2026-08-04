@@ -173,9 +173,13 @@ def predicted_spread(config, times, *, relative=0.01, samples=5, field="radius_r
 
   It matters where the forward map is ill-conditioned. A quadratic Zener at strong
   stiffening amplifies a 1e-9 change in `R0` into 1e-3 of the trajectory, and predicts a
-  spread 300 to 400 times what the gelatin records actually show -- so the data exclude
-  those parameters whatever their chi-squared, and their integration failures are
-  co-located with a region that was never admissible (#203).
+  spread far beyond what the gelatin records show, so the data exclude those parameters
+  whatever their chi-squared.
+
+  That region is now excluded for a stronger and simpler reason: after its collapse the
+  trajectory expands to R/R0 = 2132, identically at rtol 1e-3, 1e-4 and 1e-5, so
+  `max_radius_ratio` refuses it before it reaches this function at all. The spread argument
+  stands on its own for models that are sensitive but physical (#203).
 
   Returns the median over time of the across-sample standard deviation, in the same units
   as `field`. `None` if any sample cannot be integrated, since a spread over a subset of

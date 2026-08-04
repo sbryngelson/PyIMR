@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "PyIMR"
-version = "0.3.0"
+version = "0.1.0"
 description = "Fast, validated solvers for inertial microcavitation rheometry"
 readme = "README.md"
 authors = [{ name = "Spencer Bryngelson", email = "sbryngelson@gmail.com" }]
@@ -36,7 +36,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/sbryngelson/PyIMR"
 Repository = "https://github.com/sbryngelson/PyIMR"
-Changelog = "https://github.com/sbryngelson/PyIMR/blob/master/CHANGELOG.md"
+Changelog = "https://github.com/sbryngelson/PyIMR/releases"
 Issues = "https://github.com/sbryngelson/PyIMR/issues"
 
 [project.optional-dependencies]

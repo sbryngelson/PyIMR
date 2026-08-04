@@ -1,0 +1,41 @@
+cff-version: 1.2.0
+title: "PyIMR: fast, validated solvers for inertial microcavitation rheometry"
+message: "If you use this software, please cite it."
+type: software
+authors:
+  - family-names: Bryngelson
+    given-names: Spencer
+    email: sbryngelson@gmail.com
+repository-code: "https://github.com/sbryngelson/PyIMR"
+license: MIT
+version: 0.1.0
+keywords:
+  - cavitation
+  - rheometry
+  - bubble dynamics
+  - inverse problems
+  - jax
+abstract: >-
+  Solvers for inertial microcavitation rheometry with a typed, dimensional material API,
+  built for inference campaigns that need many forward evaluations. Covers six radial
+  equations, bubble and medium thermal transport, vapour transport, and closed-form,
+  composable and distributed constitutive models. Includes forward sensitivities through
+  the production right-hand side, Bayesian constitutive model selection, and resolution
+  and conditioning diagnostics measured on the caller's own problem rather than assumed.
+references:
+  - type: article
+    authors:
+      - family-names: Estrada
+        given-names: "Jonathan B."
+      - family-names: Barajas
+        given-names: Carlos
+      - family-names: Henann
+        given-names: "David L."
+      - family-names: Johnsen
+        given-names: Eric
+      - family-names: Franck
+        given-names: Christian
+    title: "High strain-rate soft material characterization via inertial cavitation"
+    journal: "Journal of the Mechanics and Physics of Solids"
+    year: 2018
+    doi: 10.1016/j.jmps.2017.12.006

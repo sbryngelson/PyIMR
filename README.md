@@ -43,7 +43,7 @@ worth seeing.
 | `pyimr/thermal_fd.py`, `thermal_spectral.py` | finite-difference and Chebyshev operators for the thermal PDEs |
 | `docs/accuracy.md` | what error each tolerance and discretization actually buys |
 | `tests/test_validation_*.py` | IMRv2 trajectories, closed forms, reduction limits, and derivative checks |
-| `CHANGELOG.md` | released versions and every breaking change |
+| [releases](https://github.com/sbryngelson/PyIMR/releases) | what changed per version, including every breaking change |
 | API reference | `pip install 'PyIMR[docs]'` then `python -m pdoc pyimr pyimr.sensitivity pyimr.inference pyimr.data pyimr.design pyimr.pymc_op` |
 | `docs/discretization.md` | stress quadrature and the two thermal backends, with cost/accuracy measurements |
 | `docs/validation.md` | what the suite pins, and the per-case deviations from IMRv2 |
@@ -413,7 +413,7 @@ discard alternative basins.
 
 ### Thermal discretization
 
-`thermal="spectral"` -- the default since 0.3.0 -- puts both the gas and liquid
+`thermal="spectral"` -- the default -- puts both the gas and liquid
 grids on Chebyshev collocation. `thermal="fd"` is the cheaper second-order
 finite difference, and is what every pinned IMRv2 trajectory was generated
 against, so the pinned suite sets it explicitly regardless of the default.

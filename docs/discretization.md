@@ -3,7 +3,7 @@
 Two spatial discretizations matter, and they matter for opposite reasons.
 The distributed stress needs only a quadrature rule, because its constitutive
 equations carry no spatial derivatives at all. The thermal fields need a real
-operator. Both defaults changed in 0.3.0, and both changes are measured here
+operator. Both defaults are measured here
 rather than asserted.
 
 ## Distributed stress quadrature
@@ -85,7 +85,7 @@ Ten times more accurate than `fd(400)` at a fortieth of the cost.
 
 ### Which to use
 
-`thermal="spectral"` is the **default** since 0.3.0 (#26). The case for it is
+`thermal="spectral"` is the **default** (#26). The case for it is
 stronger on the fully coupled model than on `bubtherm` alone. Against a
 converged reference, on `bubtherm + medtherm + masstrans + vapor`, max
 deviation in `R/R0`:
@@ -110,8 +110,8 @@ is step count, not per-step work: RHS evaluations go from 9,986 to 51,428 on
 the coupled case, because the Chebyshev second-derivative operator has
 eigenvalues scaling like `N**4` against `N**2` for finite difference.
 
-Pass `thermal="fd"` when you want the cheaper scheme, or to reproduce numbers
-published under 0.2.0. It is also what every pinned IMRv2 trajectory was
+Pass `thermal="fd"` when you want the cheaper scheme. It is also what every
+pinned IMRv2 trajectory was
 generated against — IMRv2 is a finite-difference code and has no spectral
 branch — so the pinned suite sets it explicitly regardless of the default.
 

@@ -60,7 +60,7 @@ def test_former_trapezoid_default_was_not_converged(measured):
   """The trapezoid rule at the former default carries percent-level error,"""
   worst = _error(480, "trapezoid")
   measured("former default trapezoid(480)", f"max|dR|={worst:.2e}")
-  assert worst > 1e-3, "if this ever drops, the 0.3.0 default change no longer has a justification"
+  assert worst > 1e-3, "if this ever drops, the default quadrature no longer has a justification"
 
 
 @pytest.mark.parametrize("quadrature", ["gauss", "trapezoid"])

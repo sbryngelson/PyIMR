@@ -99,7 +99,7 @@ include = ["pyimr", "tests", "tools", "benchmarks"]
 # who runs `python -m build` before the type check sees every diagnostic twice
 # and the baseline reports a flood of "new" errors. CI happens to build after
 # type checking, which is why this went unnoticed.
-exclude = ["build", "dist", ".venv", "**/__pycache__"]
+exclude = ["build", "dist", ".venv", "**/__pycache__", "docs/writeup"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

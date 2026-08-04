@@ -1,0 +1,82 @@
+name: Release
+
+# Publishing is triggered by a GitHub release, so one tag produces the release, the Zenodo
+# record and the upload together rather than three things that can disagree.
+#
+# `workflow_dispatch` sends the same artifacts to TestPyPI instead. Worth using before any
+# first upload: a PyPI version is immutable, so a broken `0.1.0` can be yanked but never
+# replaced.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # setuptools-scm is not in use, but a shallow clone also hides the tag from any
+          # future switch to it, and the cost here is seconds
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"   # the floor of `requires-python`; the wheel is pure Python
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+
+      - name: Check metadata renders on PyPI
+        run: python -m twine check --strict dist/*
+
+      - name: The version must match the tag it is released from
+        if: github.event_name == 'release'
+        run: |
+          built=$(ls dist/*.whl | sed -E 's/.*-([0-9][^-]*)-py.*/\1/')
+          tagged=${GITHUB_REF_NAME#v}
+          echo "built $built against tag $tagged"
+          test "$built" = "$tagged"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+  testpypi:
+    # Manual only. A dry run of the exact artifacts a release would upload.
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write   # trusted publishing: an OIDC token, not a stored secret
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  pypi:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi   # must match the environment named in the PyPI pending publisher
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

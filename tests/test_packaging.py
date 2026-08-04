@@ -50,9 +50,7 @@ def test_the_wheel_ships_every_package_module():
   import zipfile
 
   with tempfile.TemporaryDirectory() as out:
-    build = subprocess.run(
-      [sys.executable, "-m", "build", "--wheel", "-o", out], cwd=_ROOT, capture_output=True, text=True, timeout=600
-    )
+    build = subprocess.run([sys.executable, "-m", "build", "--wheel", "-o", out], cwd=_ROOT, capture_output=True, text=True, timeout=600)
     assert build.returncode == 0, build.stdout[-2000:] + build.stderr[-2000:]
     wheel = next(Path(out).glob("*.whl"))
     shipped = {Path(n).stem for n in zipfile.ZipFile(wheel).namelist() if n.startswith("pyimr/") and n.endswith(".py")}
@@ -61,6 +59,18 @@ def test_the_wheel_ships_every_package_module():
   on_disk = {path.stem for path in _PACKAGE.glob("*.py")}
   assert on_disk - shipped == set(), f"modules missing from the wheel: {sorted(on_disk - shipped)}"
   assert tops == {"pyimr", f"pyimr-{version('PyIMR')}.dist-info"}, f"wheel ships extra top-level entries: {sorted(tops)}"
+
+
+def test_the_exposed_version_matches_the_one_that_would_be_released():
+  """Reads `pyproject.toml`, not the installed metadata -- comparing `__version__` to
+  `importlib.metadata` is the same source twice and cannot fail. The release workflow
+  refuses a tag that disagrees with the built wheel; this catches the same drift here,
+  where it is still fixable, because a PyPI version cannot be replaced once uploaded.
+  """
+  import tomllib
+
+  declared = tomllib.loads((_ROOT / "pyproject.toml").read_text())["project"]["version"]
+  assert pyimr.__version__ == declared, f"__version__ is {pyimr.__version__}, pyproject says {declared}"
 
 
 @pytest.mark.parametrize("module", _package_modules())

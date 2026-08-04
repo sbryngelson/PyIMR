@@ -11,7 +11,6 @@ except PackageNotFoundError:  # a source tree that was never installed
 
 
 __all__ = [
-  "__version__",
   "ArrudaBoyce",
   "Bingham",
   "C8",
@@ -56,6 +55,7 @@ __all__ = [
   "ViscousModel",
   "Yeoh",
   "Zener",
+  "__version__",
   "prepare",
   "simulate",
   "simulate_with_sensitivities",

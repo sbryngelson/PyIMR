@@ -208,7 +208,7 @@ def test_predicted_spread_separates_a_conditioned_model_from_a_chaotic_one(measu
 
   times = np.linspace(0.0, 1.4e-4, 201)
 
-  def spread(alpha, guard=50.0):
+  def spread(alpha, guard: float | None = 50.0):
     material = pyimr.QuadraticZener(4640.0, 1e-4, 2.78e-7, 0.0, alpha)
     config = pyimr.SimulationConfig(
       277e-6, 277e-6 / 7.09, material, radial=2, rtol=1e-4, atol=1e-6, max_steps=200_000, max_radius_ratio=guard

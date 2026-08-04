@@ -7,6 +7,7 @@ authors:
     given-names: Spencer
     email: sbryngelson@gmail.com
 repository-code: "https://github.com/sbryngelson/PyIMR"
+doi: 10.5281/zenodo.21792446
 license: MIT
 version: 0.1.0
 keywords:

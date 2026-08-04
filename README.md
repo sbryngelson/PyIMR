@@ -5,6 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![DOI](https://zenodo.org/badge/1311535002.svg)](https://doi.org/10.5281/zenodo.21792446)
 
 Fast, validated solvers for **inertial microcavitation rheometry (IMR)** with a
 typed, dimensional material API.

@@ -10,7 +10,7 @@ import os
 
 import pytest
 
-from pyimr.parallel import pin_worker, worker_pool
+from pyimr.parallel import cores_are_committed, default_workers, map_work, pin_worker, worker_pool
 
 SECTION = "18. Worker pools"
 
@@ -64,3 +64,95 @@ def _affinity(_):
 def test_pin_worker_is_a_no_op_where_the_platform_has_no_affinity_control(monkeypatch):
   monkeypatch.delattr(os, "sched_setaffinity", raising=False)
   pin_worker(4)  # must not raise
+
+
+# module level so a spawned worker can import them; a closure or a __main__ function
+# cannot be pickled and the pool dies with BrokenProcessPool
+_CALLS = []
+
+
+def _double(value):
+  return value * 2
+
+
+def _committed(_):
+  return cores_are_committed()
+
+
+def _pid(_):
+  return os.getpid()
+
+
+def test_cheap_work_stays_serial_and_expensive_work_is_pooled():
+  """The decision, forced through the thresholds rather than through wall time, so the
+  test cannot go flaky on a loaded machine.
+
+  Sizing by item COUNT was the tempting rule and it is wrong: 64 Fisher draws at ~10 ms
+  take 0.66 s serially against 5.32 s pooled, while 2401 solves at ~1 s each go from 40
+  minutes to 20. Both have many items; only the per-item cost separates them.
+  """
+  items = list(range(8))
+  expected = [value * 2 for value in items]
+
+  # a pool could never pay for itself: must stay serial
+  assert map_work(_double, items, overhead_s=1e9) == expected
+  # the pool is free by construction: must be used, and must still be correct
+  assert map_work(_double, items, overhead_s=0.0, margin=0.0) == expected
+
+
+def test_work_dispatched_from_inside_a_pool_stays_serial():
+  """Otherwise optimize_design -> expected_information_gain -> evaluate_batch opens pools
+  inside pools. That is how this project reached a load average of 240.
+  """
+  assert not cores_are_committed()
+  with worker_pool(2) as pool:
+    assert cores_are_committed(), "the parent must know its cores are committed"
+    assert all(pool.map(_committed, range(2))), "each worker must know it too"
+  assert not cores_are_committed(), "the flag must be restored when the pool closes"
+
+
+def test_map_work_actually_obeys_the_nesting_guard():
+  """Asserting the flag is not enough -- deleting the guard from `map_work` leaves every
+  flag assertion passing. This watches the pids instead: work that stayed serial ran in
+  this process, and work that opened a pool did not.
+
+  The thresholds force pooling, so only the guard can keep it serial.
+  """
+  mine = os.getpid()
+  free = map_work(_pid, range(4), overhead_s=0.0, margin=0.0)
+  assert set(free) != {mine}, "the thresholds should have forced a pool here"
+
+  with worker_pool(2):
+    nested = map_work(_pid, range(4), overhead_s=0.0, margin=0.0)
+  assert set(nested) == {mine}, f"nested work opened a pool: pids {sorted(set(nested))}"
+
+
+def test_an_explicit_worker_count_is_honoured():
+  items = list(range(6))
+  assert map_work(_double, items, workers=1) == [v * 2 for v in items]
+  assert map_work(_double, items, workers=2) == [v * 2 for v in items]
+  with pytest.raises(ValueError, match="positive integer or None"):
+    map_work(_double, items, workers=0)
+
+
+def test_the_timed_first_item_is_not_recomputed():
+  """`map_work` runs one item to measure it. Keeping that result is what makes the
+  measurement free; recomputing it would be a silent waste and, for a stateful callable,
+  wrong."""
+  seen = []
+
+  def record(value):
+    seen.append(value)
+    return value
+
+  assert map_work(record, [1, 2, 3], overhead_s=1e9) == [1, 2, 3]
+  assert seen == [1, 2, 3], f"items were evaluated {len(seen)} times: {seen}"
+
+
+def test_the_automatic_worker_count_is_capped_and_overridable(monkeypatch):
+  """Each worker holds its own JAX, so an uncapped count is a memory decision disguised as
+  a core count: a 128-core host would open 128 of them."""
+  monkeypatch.delenv("PYIMR_WORKERS", raising=False)
+  assert 1 <= default_workers() <= 32
+  monkeypatch.setenv("PYIMR_WORKERS", "3")
+  assert default_workers() == 3

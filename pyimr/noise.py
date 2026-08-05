@@ -14,7 +14,7 @@ inflating its own error bars is penalized rather than rewarded.
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 import numpy as np
 from scipy.special import expit
@@ -30,6 +30,8 @@ __all__ = [
   "elliptical_gate",
   "marginal_log_likelihood",
   "marginalize_evaluation",
+  "ResidualCheck",
+  "check_residuals",
   "predicted_spread",
   "strain_rate_weights",
   "weighted_deviation",
@@ -212,3 +214,74 @@ def marginalize_evaluation(evaluation, **options):
   """
   residual = np.asarray(evaluation.residual, dtype=float).ravel()
   return marginal_log_likelihood(float(residual @ residual), residual.size, **options)
+
+@dataclass(frozen=True, slots=True)
+class ResidualCheck:
+  """Whether a fit's residuals look like the independent noise the likelihood assumed."""
+
+  samples: int
+  chi_squared_per_sample: float
+  lag_one: float
+  effective_samples: float
+  inflation: float
+  independent: bool
+  summary: str
+
+  def __str__(self) -> str: return self.summary
+
+def check_residuals(residual, *, threshold=None):
+  """Are these residuals white, and if not, by how much is the fit over-confident?
+
+  `chi_squared/N` near 1 is the usual evidence that a model fits. It is not evidence that
+  the LIKELIHOOD is right, and the two fail independently. A Gaussian likelihood with
+  independent samples treats every point as fresh information; if the residuals are
+  correlated -- because the model is missing structure, or the measurement carries a
+  systematic every trial shares -- then most of that information is double counted, the
+  posterior is too narrow, and nothing about the chi-squared says so.
+
+  Measured on a gelatin record against its best-fitting model: `chi2/N = 0.974`, which
+  reads as an excellent fit, with lag-one autocorrelation `0.90` and 16 sign changes where
+  independent noise would give about 102. The effective sample size was near 10 of 201, so
+  the error bars were roughly four times too small (#216).
+
+  `residual` is the whitened residual, as `LikelihoodEvaluation.residual` carries it.
+  Returns a `ResidualCheck`; `inflation` is the factor by which parameter uncertainties are
+  understated, `sqrt(N / N_eff)`.
+  """
+  values = np.asarray(residual, dtype=float).ravel()
+  count = values.size
+  if count < 8: raise ValueError("at least 8 residuals are needed to estimate autocorrelation")
+  if not np.all(np.isfinite(values)): raise ValueError("residuals must be finite")
+
+  centred = values - values.mean()
+  variance = float(centred @ centred)
+  if variance <= 0.0: raise ValueError("residuals are constant, so autocorrelation is undefined")
+
+  # Sum autocorrelations until the first negative one -- Geyer's initial positive sequence.
+  # Summing every lag instead adds noise from the long tail, where each estimate is built
+  # from few pairs and is mostly sampling error.
+  total, lag_one = 0.0, 0.0
+  for lag in range(1, min(count // 2, 200)):
+    rho = float(centred[:-lag] @ centred[lag:]) / variance
+    if lag == 1: lag_one = rho
+    if rho <= 0.0: break
+    total += rho
+  effective = count / (1.0 + 2.0 * total)
+
+  band = 2.0 / np.sqrt(count) if threshold is None else float(threshold)
+  independent = abs(lag_one) <= band
+  inflation = float(np.sqrt(count / effective)) if effective > 0 else float("inf")
+  chi2 = float(values @ values) / count
+  if independent:
+    summary = (f"residuals look independent: lag-one {lag_one:+.3f} within +/-{band:.3f}, "
+               f"chi2/N {chi2:.3f}")
+  else:
+    summary = (f"residuals are correlated: lag-one {lag_one:+.3f} against a white-noise band of "
+               f"+/-{band:.3f}, so {effective:.0f} of {count} samples are independent and "
+               f"parameter uncertainties are about {inflation:.1f}x too small. chi2/N of "
+               f"{chi2:.3f} does not show it")
+  return ResidualCheck(
+    samples=count, chi_squared_per_sample=chi2, lag_one=lag_one,
+    effective_samples=float(effective), inflation=inflation,
+    independent=bool(independent), summary=summary,
+  )

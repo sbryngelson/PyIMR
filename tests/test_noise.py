@@ -238,3 +238,57 @@ def test_predicted_spread_refuses_a_meaningless_request(options, message):
   config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1))
   with pytest.raises(ValueError, match=message):
     predicted_spread(config, np.linspace(0.0, 2e-5, 10), **options)
+
+
+def test_white_residuals_are_reported_as_independent():
+  from pyimr.noise import check_residuals
+
+  found = check_residuals(np.random.default_rng(0).normal(size=400))
+  assert found.independent, found.summary
+  assert abs(found.lag_one) < 0.15
+  assert found.effective_samples > 300, "white noise must not lose most of its samples"
+  assert found.inflation < 1.2
+
+
+def test_correlated_residuals_are_caught_and_the_cost_quantified(measured):
+  """The failure this exists for: a fit whose chi-squared says it is excellent while its
+  residuals are smooth. Measured on a real record, `chi2/N = 0.974` came with lag-one
+  autocorrelation `0.90` and roughly ten effective samples out of 201 (#216).
+  """
+  from pyimr.noise import check_residuals
+
+  rng = np.random.default_rng(1)
+  walk = np.cumsum(rng.normal(size=400))
+  walk = (walk - walk.mean()) / walk.std()          # chi2/N is ~1 by construction
+  found = check_residuals(walk)
+
+  measured("correlated residuals", f"chi2/N {found.chi_squared_per_sample:.3f}, "
+                                   f"lag-1 {found.lag_one:.2f}, {found.effective_samples:.0f} effective")
+  assert not found.independent, found.summary
+  assert found.chi_squared_per_sample == pytest.approx(1.0, abs=0.05), (
+    "the point is that chi-squared looks fine while the residuals do not"
+  )
+  assert found.effective_samples < 40, "a random walk must lose most of its samples"
+  assert found.inflation > 3.0
+  assert "too small" in found.summary
+
+
+def test_the_effective_count_never_exceeds_the_real_one():
+  """Negative autocorrelation would otherwise inflate it past the number of samples."""
+  from pyimr.noise import check_residuals
+
+  alternating = np.resize([1.0, -1.0], 200) + 1e-9
+  found = check_residuals(alternating)
+  assert found.effective_samples <= found.samples * 1.0000001, found.summary
+
+
+@pytest.mark.parametrize(("values", "message"), [
+  (np.ones(4), "at least 8"),
+  (np.full(20, 3.0), "constant"),
+  (np.where(np.arange(20) == 3, np.nan, 1.0), "finite"),
+])
+def test_check_residuals_refuses_what_it_cannot_answer(values, message):
+  from pyimr.noise import check_residuals
+
+  with pytest.raises(ValueError, match=message):
+    check_residuals(values)

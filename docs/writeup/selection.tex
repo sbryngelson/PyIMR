@@ -241,6 +241,17 @@ profile likelihood returns $-0.80$ because it averages over a range of $\lambda$
 exponent is $-0.861$ at $\lambda = 1.5$. Separability falls as $\lambda^{-4}$: it is $2\%$ of
 the signal at $\lambda = 2.2$ and $16\%$ at $\lambda = 1.5$.
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\textwidth]{fig_separability.pdf}
+\caption{The two terms of~\eqref{eq:split} against collapse depth. Left: $\alpha A$, which
+depends on the product $g\alpha$, outruns $B$, which carries $g$ alone. Right: their ratio,
+the share of the signal that can separate the two parameters, following
+$2/(\alpha\lambda^4)$ once the collapse is deep. It is $2\%$ at the depth these records
+reach and $16\%$ at $\lambda = 1.5$.}
+\label{fig:separability}
+\end{figure}
+
 \subsection*{What the Fisher information measures}
 
 For Gaussian observations with known deviations the log-likelihood is
@@ -258,6 +269,30 @@ cube $u_j = (\log\theta_j - a_j)/w_j$ rather than $\log\theta_j$ directly, the e
 components carry the box widths: $\Delta\log\theta_j = w_j\,\tilde v_j$, so the exponent is
 $(w_g \tilde v_g)/(w_\alpha \tilde v_\alpha)$, not $\tilde v_g/\tilde v_\alpha$. With $w$ of
 three and four decades the two differ by $25\%$.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\textwidth]{fig_eigenvectors.pdf}
+\caption{What an eigenvector means, shown rather than defined. The parameters are moved the
+same distance in $\log$-space along each eigenvector. Along the sloppy direction a $27\%$
+change in the modulus, compensated by $38\%$ in the stiffening, leaves the trajectory inside
+the measurement noise; along the stiff direction a change of the same size is obvious. The
+data cannot see the first and cannot miss the second.}
+\label{fig:eigenvectors}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\textwidth]{fig_ellipse.pdf}
+\caption{Left: the $95\%$ region from the inverse Fisher information, $10.7$ long and
+$0.015$ wide in $\log$-parameters --- an axis ratio of $706$, which is why it draws as a
+line, and the analytic slope of $-0.981$ lies along it. Right: the misfit measured by
+re-solving at perturbed parameters, not the quadratic approximation. Moving along the stiff
+direction costs $10^4$ in $\Delta\chi^2$; moving the same distance along the sloppy one stays
+below the $95\%$ threshold, so the parameters may shift by a factor of $e \approx 2.7$
+without the data objecting.}
+\label{fig:ellipse}
+\end{figure}
 
 \subsection*{Designing without assuming the model}
 

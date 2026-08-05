@@ -553,37 +553,76 @@ parameterises the physics, not the information in the record.
 
 \paragraph{Discrimination does not privilege a model.}
 T-optimality (Atkinson and Fedorov, \emph{Biometrika} \textbf{62}, 1975) asks a different question: which design makes the
-candidates disagree most? Root-mean-square separation between predictions at each model's
-own fit, in units of the measurement noise:
+candidates disagree most? The criterion is
+%
+\begin{equation}
+T(d) \;=\; \min_{\theta_2} \; \bigl\lVert m_1(\hat\theta_1, d) - m_2(\theta_2, d) \bigr\rVert / \sigma ,
+\label{eq:topt}
+\end{equation}
+%
+and the minimisation is the whole content of it. A rival that can retune its parameters to
+imitate has not been discriminated against, so the separation must be measured against the
+rival's \emph{best imitation}, not against its own fitted values.
+
+Two distinct errors were made here, and both inflate $T$ for the same structural reason:
+$T$ is a \emph{minimum}, so anything that stops short of it --- evaluating at fixed
+parameters, or a minimisation that terminates early --- reports discrimination that is not
+there. An earlier version of this table evaluated each rival at its own fit, giving $2.69$
+for qSLS--SLS at the present design. Re-fitting the rival with a single Nelder--Mead pass
+gave $0.67$. Restarting and polishing that minimisation changed other entries again: at
+$1200\,\mu$m the reported $4.92$ fell to $2.38$, and a $0.1\%$ change of design moved one
+loose evaluation from $7.25$ to $1.36$, which is the signature of the optimiser rather than
+the physics. The converged values are:
 
 \begin{center}
 \begin{tabular}{lccc}
 \toprule
 design & qSLS--SLS & qSLS--qKV & qSLS--NHKV \\
 \midrule
-$277\,\mu$m, stretch $7.09$ (present) & $2.69$ & $4.92$ & $5.91$ \\
-$277\,\mu$m, stretch $5.00$ & $5.06$ & $6.78$ & $7.65$ \\
-$277\,\mu$m, stretch $3.00$ & $5.46$ & $7.51$ & $9.96$ \\
-$895\,\mu$m, stretch $4.93$ & $\mathbf{8.08}$ & $8.13$ & $8.55$ \\
-$100\,\mu$m, stretch $20.0$ & $6.62$ & $8.93$ & $9.19$ \\
+$277\,\mu$m, stretch $7.09$ (present) & $0.67$ & $4.53$ & $4.37$ \\
+$277\,\mu$m, stretch $5.00$ & $0.72$ & $4.61$ & $4.61$ \\
+$277\,\mu$m, stretch $3.00$ & $0.74$ & $1.72$ & $1.72$ \\
+$199\,\mu$m, stretch $3.55$ (E-optimal) & $0.56$ & $2.59$ & $2.59$ \\
+$895\,\mu$m, stretch $4.93$ & $\mathbf{2.39}$ & $7.13$ & $\mathbf{7.13}$ \\
+$910\,\mu$m, stretch $5.19$ & $1.36$ & $6.97$ & $6.97$ \\
+$1200\,\mu$m, stretch $7.09$ & $2.38$ & $5.03$ & $5.63$ \\
+$100\,\mu$m, stretch $20.0$ & $1.26$ & $\mathbf{8.04}$ & $4.17$ \\
+$57\,\mu$m, stretch $19.5$ & $1.64$ & $5.53$ & $5.00$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The present design is the weakest in the set at separating the candidates: qSLS and SLS
-differ by $2.7$ noise units where a gentler collapse gives $5.1$ and a larger, gentler one
-gives $8.1$.
+At the present design SLS imitates qSLS to within $0.67$ noise units, comfortably inside
+the measurement scatter. That figure is corroborated from an unrelated direction: a
+systematic offset of $0.668\sigma$ over $201$ samples contributes
+$201 \times 0.668^2 = 89.7$ to $\chi^2$, against the measured log-evidence gap of $101.6$
+between the two models. Two computations sharing no machinery, agreeing to about $12\%$.
 
-This matters because the two objectives share no assumptions. One maximises precision
-\emph{within} qSLS and presumes it correct; the other measures divergence \emph{between}
-models and presumes none of them. They point the same way. That agreement is stronger
-evidence for the recommendation than either alone, and it is the answer to the obvious
-objection that a model-specific design criterion cannot justify itself.
+\paragraph{A caution about nested criteria.}
+$T$ is defined by an inner optimisation, so every reported value is an upper bound whose
+tightness is unknown until it is checked. Enumerating the outer design space exactly does
+not repair this: a dense grid over a criterion that is itself unreliable produces a front
+that is precisely wrong. Any criterion containing an argmin --- $T$-optimality, profile
+likelihoods, minimax designs --- needs its inner solve verified independently of the outer
+search, and the cheapest sufficient check is that the criterion vary smoothly between
+neighbouring designs, since the underlying physics does.
 
-Where they differ is which gain to prefer. Conditioning within qSLS favours the present
-bubble size at a gentler collapse; discrimination favours a larger bubble as well. Since the
-residual analysis says the model is missing structure, discrimination is the more defensible
-priority, and that argues for the larger bubble.
+\paragraph{The criteria do not agree.}
+Computed correctly, the criteria want different experiments. E-optimality peaks at
+$199\,\mu$m and stretch $3.55$; separating qSLS from SLS or from NHKV is best at
+$895\,\mu$m and stretch $4.93$; separating qSLS from qKV is best at $100\,\mu$m and stretch
+$20$, near the opposite corner of the design space. At the E-optimal design the
+discrimination scores are the worst in the table, so the conflict is not marginal.
+
+The reason is physical rather than numerical. Distinguishing a material with a relaxation
+mode from one without requires a collapse fast enough to excite that mode, whereas
+separating $g$ from $\alpha$ requires a gentle collapse, since the term of $Z_e$ carrying
+that distinction dies as $\lambda^{-4}$. The design cannot be both fast and gentle.
+
+There is accordingly no single best design, and a scalar design objective is answering a
+question that has no scalar answer. What replaces it is the set of designs on which no
+other design is better on every criterion at once. Section~\ref{sec:tradeoff} constructs
+it.
 
 \subsection*{Why the design criteria disagree}
 

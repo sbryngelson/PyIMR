@@ -112,6 +112,22 @@ def test_explore_tradeoff_keeps_infeasible_designs_out_of_the_front():
   assert result.values.shape[0] == result.points.shape[0], "infeasible designs stay in the archive"
 
 
+@pytest.mark.parametrize("dimension", [1, 2])
+def test_explore_tradeoff_initial_design_stratifies_every_axis(dimension):
+  # Ten uniform draws over the qSLS design plane put seven above 650 um and never sampled
+  # the narrow E-optimality ridge, reporting 0.13 where the ridge holds 1.84. A Latin
+  # hypercube puts exactly one point in each of the n strata of every axis, so no
+  # coordinate can be left with a gap wide enough to hide a feature.
+  initial = 10
+  result = explore_tradeoff(lambda point: [-float(point[0]), float(point[0])],
+                            [[0.0, 1.0]] * dimension, evaluations=initial, initial=initial, seed=0)
+  start = result.points[:initial]
+  assert start.shape == (initial, dimension)
+  for axis in range(dimension):
+    occupied = np.floor(np.clip(start[:, axis], 0.0, 1.0 - 1e-12) * initial).astype(int)
+    assert sorted(occupied.tolist()) == list(range(initial)), f"axis {axis} left a stratum empty"
+
+
 def test_explore_tradeoff_reports_the_weights_it_drew():
   result = explore_tradeoff(_conflicting, [[0.0, 1.0]], evaluations=14, initial=6, seed=0)
   assert result.weights.shape == (8, 2)

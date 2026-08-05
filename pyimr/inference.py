@@ -11,7 +11,7 @@ from scipy.linalg import solve_triangular
 from scipy.optimize import least_squares
 from scipy.stats import qmc
 
-from .parallel import worker_pool
+from .parallel import map_work, worker_pool
 from ._config import SimulationConfig, SolverStats
 from ._solver import prepare
 from .sensitivity import SensitivityParameter, _normalize_parameters, _path_parts, _path_value
@@ -400,22 +400,18 @@ class PreparedInference:
       nfev=int(count[index if count.size > 1 else 0]), njev=0, nlu=0, elapsed_s=0.0,
     )
 
-  def fit_multistart(self, starts, *, seed=0, max_evaluations=200, workers=1):
+  def fit_multistart(self, starts, *, seed=0, max_evaluations=200, workers=None):
     if not isinstance(starts, Integral) or starts < 1: raise ValueError("starts must be a positive integer")
     if not isinstance(max_evaluations, Integral) or max_evaluations < 1: raise ValueError("max_evaluations must be a positive integer")
-    if not isinstance(workers, Integral) or workers < 1: raise ValueError("workers must be a positive integer")
+    if workers is not None and (not isinstance(workers, Integral) or workers < 1):
+      raise ValueError("workers must be a positive integer or None")
     # `rng=`, not the legacy `seed=`: scipy keeps `seed` only as an alias and will drop it.
     # They are NOT equivalent -- `rng=n` seeds `default_rng(n)`, so the start points moved.
     sampler = qmc.LatinHypercube(d=self.size, rng=seed)
     start_points = sampler.random(int(starts))
     start_points[0] = 0.5
     arguments = [(self, point, max_evaluations) for point in start_points]
-    if workers == 1:
-      endpoints = tuple(_fit_worker(argument) for argument in arguments)
-    else:
-      with worker_pool(workers) as executor:
-        endpoints = tuple(executor.map(_fit_worker, arguments))
-    return MultistartResult(endpoints=endpoints)
+    return MultistartResult(endpoints=tuple(map_work(_fit_worker, arguments, workers=workers)))
 
   def _validate_unit_parameters(self, unit_parameters):
     unit = np.asarray(unit_parameters, dtype=float)

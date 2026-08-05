@@ -8,7 +8,7 @@ from numbers import Integral
 
 import numpy as np
 
-from .parallel import worker_pool
+from .parallel import map_work
 from .inference import PreparedInference, RadiusObservation
 
 __all__ = ["DesignEvaluation", "DesignInference", "design_inference", "design_information", "expected_information_gain"]
@@ -63,7 +63,7 @@ def _fisher_worker(argument):
   except Exception as error:  # noqa: BLE001 - any solver or factorisation failure
     return error
 
-def design_information(inference, *, draws=128, seed=0, workers=1, max_failure_fraction=0.0, batched=False):
+def design_information(inference, *, draws=128, seed=0, workers=None, max_failure_fraction=0.0, batched=False):
   """The `J^T J` of every prior draw, stacked."""
   _validate(inference, draws, workers, max_failure_fraction)
   points = np.random.default_rng(seed).random((int(draws), inference.size))
@@ -71,12 +71,7 @@ def design_information(inference, *, draws=128, seed=0, workers=1, max_failure_f
     if max_failure_fraction: raise ValueError("batched=True cannot honour max_failure_fraction: one traced program fails as a whole")
     jacobians = inference.jacobians(points)
     return np.einsum("dop,doq->dpq", jacobians, jacobians), len(points), 0
-  arguments = [(inference, point) for point in points]
-  if workers == 1:
-    outcomes = [_fisher_worker(argument) for argument in arguments]
-  else:
-    with worker_pool(workers) as executor:
-      outcomes = list(executor.map(_fisher_worker, arguments))
+  outcomes = map_work(_fisher_worker, [(inference, point) for point in points], workers=workers)
   matrices = [value for value in outcomes if not isinstance(value, Exception)]
   errors = [value for value in outcomes if isinstance(value, Exception)]
   requested = len(outcomes)
@@ -99,10 +94,11 @@ def design_information(inference, *, draws=128, seed=0, workers=1, max_failure_f
 def _validate(inference, draws, workers, max_failure_fraction):
   if not isinstance(inference, PreparedInference): raise TypeError("inference must be a PreparedInference")
   if not isinstance(draws, Integral) or draws < 1: raise ValueError("draws must be a positive integer")
-  if not isinstance(workers, Integral) or workers < 1: raise ValueError("workers must be a positive integer")
+  if workers is not None and (not isinstance(workers, Integral) or workers < 1):
+    raise ValueError("workers must be a positive integer or None")
   if not 0.0 <= max_failure_fraction < 1.0: raise ValueError("max_failure_fraction must be in [0, 1)")
 
-def expected_information_gain(inference, *, draws=128, seed=0, prior_variance=None, workers=1, max_failure_fraction=0.0, information=None, batched=False):
+def expected_information_gain(inference, *, draws=128, seed=0, prior_variance=None, workers=None, max_failure_fraction=0.0, information=None, batched=False):
   """Prior-averaged Laplace EIG for one design, with its Monte Carlo error bar."""
   _validate(inference, draws, workers, max_failure_fraction)
   if prior_variance is None:

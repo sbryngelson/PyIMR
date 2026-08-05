@@ -145,7 +145,7 @@ def bayesian_maximize(objective, bounds, *, evaluations=24, initial=6, seed=0, r
     points=_physical(unit, box), values=values, deviations=noise,
   )
 
-def optimize_design(build_inference, bounds, *, draws=64, evaluations=24, initial=6, seed=0, workers=1):
+def optimize_design(build_inference, bounds, *, draws=64, evaluations=24, initial=6, seed=0, workers=None):
   """Search a design space for the largest expected information gain.
 
   `build_inference(design)` returns a `DesignInference` for one point of the space, so the

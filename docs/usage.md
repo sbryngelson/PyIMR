@@ -190,6 +190,31 @@ scale; `pyimr.prior` the redundancy and Occam penalties. Use ONE grid `count`
 for every model compared -- mixed resolutions let grid luck decide which lands
 nearest the truth.
 
+### The grid ranks models. It does not estimate parameters.
+
+The grid is a screening tool, and quoting its best-fit point as a converged
+estimate is a mistake. On the 15C record, refining a qSLS grid from 12 to 20 per
+axis moved the log evidence by 17.3 and moved the best-fit point from
+`g = 658, alpha = 1.52` to `g = 144, alpha = 8.86`. The "best" cell is simply
+whichever node lands nearest the ridge.
+
+Refining further does not rescue it. The posterior standard deviations there are
+`0.0018, 0.0025, 0.0055, 0.078` in unit coordinates against a grid spacing of
+`0.053` at 20 per axis, so three of the four directions are narrower than the
+spacing -- the posterior occupies about `1e-7` of the prior volume, and resolving
+it on a uniform grid would need of order `1e10` points.
+
+The ranking survives this: 17.3 of discretisation error sits well inside a
+qSLS-to-SLS gap of 101.6 log units. The parameter estimates and the evidence
+*value* do not.
+
+For parameter estimates, use `pyimr.pymc_op.sample_smc`, which concentrates
+where the mass is and returns an evidence with an error bar. NUTS
+(`sample_posterior`) also works and is not pathological here -- zero divergences,
+tree depth well under its cap -- but costs about 87 ms per gradient and 31
+leapfrog steps per iteration, so roughly 1.5 hours per chain against SMC's
+half hour (#216).
+
 Always report the best chi-squared per sample alongside the posterior. Model
 selection only means something where some candidate actually fits; otherwise the
 winner is the least-bad member of an inadequate set, and the posteriors look

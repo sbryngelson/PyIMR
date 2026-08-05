@@ -10,7 +10,7 @@ Where PyIMR stops, and where it deliberately parts company with IMRv2.
   Public dimensional outputs carry units in their names or documentation.
 - Collapse shooting requires a material with memory, and cannot be combined with
   an explicit initial stress state or a nonzero observed wall velocity. IMRv2
-  does permit collapse for memoryless materials; see `PLAN.md` W8.
+  does permit collapse for memoryless materials, which PyIMR deliberately does not.
 
 ## Deliberate divergences
 

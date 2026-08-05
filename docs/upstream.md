@@ -1,8 +1,8 @@
 # Reference implementation
 
 Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
-`tools/gen_imrv2_cases.m` and `tools/probe_viscosity.m`. Full list in
-`PLAN.md`.
+`tools/gen_imrv2_cases.m` and `tools/probe_viscosity.m`. The full list is below;
+the original scoping notes are in git history, in a `PLAN.md` retired in #218.
 
 - **Giesekus and linear PTT cannot be run.** `f_call_params.m` dispatches
   `stress` 6 and 7 and forces spectral collocation for both, but its own input

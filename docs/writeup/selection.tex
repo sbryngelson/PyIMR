@@ -651,6 +651,241 @@ regarded as provisional in its discrimination coordinates while the E-optimality
 coordinate --- an eigenvalue of $J^{\mathsf T}J$, with no inner optimisation --- is not
 subject to that reservation.
 
+\subsection*{Discrimination as an integral rather than a minimum}
+\label{sec:integral}
+
+Everything above scores a design by $T$, which is defined through a \emph{global minimum}
+over the rival's parameters. That definition is the source of the trouble in the previous
+subsection, and the trouble is structural rather than computational. This subsection derives
+a criterion with the minimum replaced by an integral, states precisely why that is more
+robust, and reports what it gives.
+
+\paragraph{The model label is a parameter.}
+Write $M \in \{M_1, M_2\}$ for the model index with prior $p(M)$, and let each model carry
+its own parameter $\theta$ with prior $\pi(\theta \mid M)$. Nothing distinguishes $M$ from
+any other unknown, so the information a design $d$ yields about it is the mutual information
+%
+\begin{equation}
+I(M; Y \mid d)
+= \mathbb{E}_{M}\,\mathbb{E}_{Y \mid M, d}
+  \left[\log \frac{p(Y \mid M, d)}{p(Y \mid d)}\right],
+\qquad
+p(Y \mid d) = \sum_{M} p(M)\, p(Y \mid M, d),
+\label{eq:model-mi}
+\end{equation}
+%
+which is the expected reduction in entropy of $M$, exactly as the expected information gain
+used for the design study above is the expected reduction in entropy of $\theta$. Discrimination
+and estimation are therefore the same criterion applied to different components of the
+augmented unknown $(\theta, M)$; they are not competing philosophies, and the earlier
+tension between $T$- and $E$-optimality is a tension between \emph{which component we care
+about}, not between two schools.
+
+The quantity entering~\eqref{eq:model-mi} is the marginal likelihood, or evidence,
+%
+\begin{equation}
+p(Y \mid M, d) = \int p(Y \mid \theta, M, d)\, \pi(\theta \mid M)\, \mathrm{d}\theta ,
+\label{eq:model-evidence}
+\end{equation}
+%
+the same object as~\eqref{eq:evidence} but now at a hypothetical design and for hypothetical
+data. It is an integral over $\theta$, and that single fact is what the rest of this
+subsection turns on.
+
+\paragraph{The criterion actually computed.}
+Rather than~\eqref{eq:model-mi} we score a design by the expected log Bayes factor in favour
+of the model that generated the data,
+%
+\begin{equation}
+U(d)
+= \mathbb{E}_{Y \sim p(\cdot \mid M_1, d)}
+  \left[\log p(Y \mid M_1, d) - \log p(Y \mid M_2, d)\right]
+= D_{\mathrm{KL}}\!\left(p(\cdot \mid M_1, d)\,\|\,p(\cdot \mid M_2, d)\right).
+\label{eq:elbf}
+\end{equation}
+%
+Recognising it as a Kullback--Leibler divergence between the two prior-predictive
+distributions settles its properties without further work. By Gibbs' inequality $U(d) \ge 0$,
+with equality if and only if the two predictives agree almost everywhere: \emph{a model
+cannot discriminate against itself, at any design}. That is a sharp, falsifiable statement
+about the estimator, and it is the property the implementation is tested against --- two
+independently drawn banks from one family must score zero, and any systematic excess is
+bias. Related to~\eqref{eq:model-mi} by
+$I(M;Y\mid d) = \tfrac12[D_{\mathrm{KL}}(p_1\|\bar p) + D_{\mathrm{KL}}(p_2\|\bar p)]$ with
+$\bar p$ the equal mixture, so~\eqref{eq:elbf} is the same comparison read against the rival
+rather than against the mixture, and is the more direct statement of ``how strongly will
+this experiment favour the truth''.
+
+\paragraph{Why an integral is robust where a minimum is not.}
+Both criteria require an inner computation that can go wrong. The asymmetry is in how the
+error propagates.
+
+For $T$, any optimiser returns $\hat T = \lVert m_1 - m_2(\hat\theta_2)\rVert/\sigma$ at
+whatever point it stopped, and since $T$ is a minimum, $\hat T \ge T$ always. If $\hat\theta_2$
+lies in the correct basin but is imprecise, stationarity gives
+$\hat T - T = O(\lVert\hat\theta_2 - \theta_2^\star\rVert^2)$ and the error is negligible. If
+it lies in the \emph{wrong basin}, the error is $O(1)$: a fixed, unbounded overstatement with
+nothing in the returned value to indicate it. This is what was measured --- Nelder--Mead and
+Gauss--Newton returning $2.39$ and $1.52$ at one design and reversing at another.
+
+For the evidence, suppose the posterior has modes $k = 1,\dots,K$ contributing
+$Z = \sum_k Z_k$, and a procedure finds only a subset $\mathcal{S}$. Then
+%
+\begin{equation}
+\log \hat Z - \log Z
+= \log\!\left(1 - \sum_{k \notin \mathcal{S}} \frac{Z_k}{Z}\right),
+\label{eq:mode-loss}
+\end{equation}
+%
+so the error is controlled by the \emph{posterior weight} of what was missed. Missing a
+subdominant mode costs $O(Z_k/Z)$ and missing a negligible one costs nothing. Because the
+contributions add, a multistart that finds several modes can sum them rather than choose
+between them, and each additional mode found monotonically improves the estimate. There is no
+analogue for a minimum, where finding more candidates only ever changes which single one is
+reported.
+
+This is the whole argument for the change, and it is worth stating plainly: multimodality is
+a \emph{failure mode} for a minimum and merely a \emph{property of the integrand} for an
+integral.
+
+\paragraph{Estimating the evidence I: prior sampling, and why it fails here.}
+The direct estimator draws $\theta_s \sim \pi(\theta \mid M)$ and averages the likelihood,
+%
+\begin{equation}
+\hat Z = \frac{1}{S}\sum_{s=1}^{S} p(Y \mid \theta_s, M, d),
+\qquad
+w_s = p(Y \mid \theta_s, M, d),
+\label{eq:prior-mc}
+\end{equation}
+%
+which is unbiased for $Z$, though $\log \hat Z$ is biased low by Jensen's inequality. Its
+reliability is carried by the spread of the weights, summarised by the effective sample size
+%
+\begin{equation}
+S_{\mathrm{eff}} = \frac{\left(\sum_s w_s\right)^2}{\sum_s w_s^2}
+\;\in\; [1, S],
+\label{eq:ess-evidence}
+\end{equation}
+%
+which equals $S$ when all draws contribute equally and $1$ when a single draw dominates. It
+costs nothing to compute and it is the only thing standing between this estimator and a
+confidently reported number with no content.
+
+That it must fail here can be seen in advance. With $N$ samples the log-likelihood scales as
+$\log p(Y\mid\theta) \simeq -\tfrac12 N \bar d(\theta)$ for a mean squared discrepancy
+$\bar d$, so weights are $w_s \propto \exp[-\tfrac12 N \bar d(\theta_s)]$ and the ratio of the
+two largest is exponential in $N$. Useful draws are those falling inside the posterior, whose
+width is $O(N^{-1/2})$ in each of $p$ directions, so the expected number of them is
+%
+\begin{equation}
+\mathbb{E}[\#\text{useful}] \;\sim\; S \cdot \frac{\mathrm{vol}(\text{posterior})}
+{\mathrm{vol}(\text{prior})} \;\sim\; S\,N^{-p/2}.
+\label{eq:useful-draws}
+\end{equation}
+%
+For the present study $N = 201$, $p = 4$ and $S = 220$, giving
+$220 \times 201^{-2} \approx 5 \times 10^{-3}$: fewer than one useful draw. The measurement
+agrees exactly --- $S_{\mathrm{eff}} = 1.0$ at \emph{every} design tried, with reported values
+between $793$ and $10\,979$ nats that are pure noise. The standard errors were $56$ to $130$
+throughout and looked entirely respectable. Without~\eqref{eq:ess-evidence} the failure is invisible.
+
+\paragraph{Estimating the evidence II: Laplace.}
+Expanding $\log[p(Y\mid\theta)\pi(\theta)]$ to second order about its maximum $\hat\theta$ and
+performing the resulting Gaussian integral gives, as in~\eqref{eq:laplace},
+%
+\begin{equation}
+\log Z \simeq \log p(Y \mid \hat\theta)
+ + \log \pi(\hat\theta)
+ + \tfrac{p}{2}\log 2\pi
+ - \tfrac12 \log \det H ,
+\qquad
+H = -\nabla^2 \log p(Y\mid\theta)\big|_{\hat\theta}.
+\label{eq:laplace-evidence}
+\end{equation}
+%
+For Gaussian data $H = J^{\mathsf T}J + \sum_i r_i \nabla^2 r_i$, and dropping the second term
+--- the Gauss--Newton approximation, valid when residuals are small or the model nearly linear
+--- leaves $H \simeq J^{\mathsf T}J$, already computed by the fit. Parameterising so the prior
+is uniform on the unit cube makes $\pi(\hat\theta) = 1$, and with whitened residuals
+$r = (m - y)/\sigma$,
+%
+\begin{equation}
+\log Z \simeq
+-\tfrac12 \lVert r \rVert^2
+-\tfrac{N}{2}\log\!\left(2\pi\sigma^2\right)
++\tfrac{p}{2}\log 2\pi
+-\tfrac12 \log \det\!\left(J^{\mathsf T}J\right).
+\label{eq:laplace-unit}
+\end{equation}
+%
+The first two terms are the best fit; the last two are the Occam factor, and their sign is
+what prevents a more flexible model from winning on fit alone. Crucially
+for the present purpose, \eqref{eq:laplace-unit} does not care how sharp the likelihood is,
+which is precisely the regime that destroyed~\eqref{eq:prior-mc}. It is affordable only
+because the fit uses analytic Jacobians: derivative-free minimisation of the same objective
+costs $55$\,s against $7.6$\,s, and the Jacobian needed for $\det(J^{\mathsf T}J)$ is a
+by-product of the solve rather than an extra cost.
+
+\paragraph{The two criteria are consistent where both can be computed.}
+The criteria are not independent, and the relation between them is a check on both. If the
+true model fits to within noise, $\chi^2_1 \approx N$, while a rival that cannot fit leaves a
+residual of root-mean-square $T\sigma$, so $\chi^2_2 \approx N T^2$. Substituting into the
+leading term of~\eqref{eq:laplace-unit},
+%
+\begin{equation}
+\log \mathrm{BF} \;\approx\; \tfrac12\left(\chi^2_2 - \chi^2_1\right)
+\;\approx\; \tfrac{N}{2}\left(T^2 - 1\right)
+\;\xrightarrow{\;T \gg 1\;}\; \tfrac{N}{2}T^2 ,
+\label{eq:t-to-bf}
+\end{equation}
+%
+up to the Occam terms, which $T$ has no way to express. Testing~\eqref{eq:t-to-bf} against
+the measured values:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+design & $T$ (vs SLS) & $\tfrac{N}{2}T^2$ predicted & measured $U$ (nats) \\
+\midrule
+$199\,\mu$m, stretch $3.55$ & $0.56$ & $31.5$ & $35.4 \pm 12.2$ \\
+$895\,\mu$m, stretch $4.93$ & $1.52$ & $232$ & $150 \pm 73$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Two computations sharing no machinery --- one a constrained least-squares minimum, the other
+a marginal likelihood by Laplace --- agreeing to within their stated uncertainty. The residual
+gap at $895\,\mu$m is of the right sign and size for the Occam penalty that qSLS pays for its
+fourth parameter.
+
+\paragraph{What it costs, and where it is not yet trustworthy.}
+Two prices are paid for removing the minimum, and both are real.
+
+\emph{Prior sensitivity.} $Z$ depends on $\pi(\theta\mid M)$ through the normalisation
+of~\eqref{eq:model-evidence}, and widening a prior by a factor $c$ in each of $p$ directions
+divides the evidence by roughly $c^{p}$ without changing the fit at all. This is the
+Lindley--Jeffreys effect, and it is not a defect to be engineered away: a model whose prior is
+diffuse really is less supported by data that pin it down. But it means the prior is part of
+the criterion and must be stated, where $T$ needed no prior. Centring each rival's prior on
+its fit to the \emph{existing} record produced a criterion that measured prior placement
+instead of discriminability, with every Laplace expansion invalid; the results reported here
+use the wide, physically motivated box of the model-selection grid, identical across models on every
+shared parameter.
+
+\emph{Boundary pinning.} Equation~\eqref{eq:laplace-evidence} presumes an interior maximum. In
+$50$--$90\%$ of the fits at each design, the rival's best parameters lie on a face of the
+prior box, where the expansion does not apply and the reported value is not to be trusted.
+That this happens is itself informative --- a rival that can imitate qSLS only by driving a
+parameter to the edge of physical plausibility has, in a meaningful sense, been discriminated
+against --- but expressing that requires a criterion built for a constrained maximum rather
+than a quadratic expansion about an interior one. Determining which parameter pins, and
+whether the pinning is physical or an artefact of the box, is the outstanding step.
+
+The honest summary is that the integral criterion is better founded than $T$ and not yet more
+reliable on this problem. The multimodality that made $T$ untrustworthy is genuinely gone;
+what replaces it is a dependence on the prior, now explicit rather than hidden, and a
+boundary condition that the current estimator does not handle.
+
 \subsection*{Why the design criteria disagree}
 
 The classical criteria are all functionals of the same $F$: $\det F$ (D), $\operatorname{tr}

@@ -220,6 +220,53 @@ selection only means something where some candidate actually fits; otherwise the
 winner is the least-bad member of an inadequate set, and the posteriors look
 just as confident. Worked studies are in `examples/`.
 
+## Designing when the criteria disagree
+
+`optimize_design` maximises one number. That is the right question only while
+the design criteria happen to agree, and on the qSLS study they do not.
+Measured over the `(R_max, stretch)` plane:
+
+| criterion | best design |
+| --- | --- |
+| identify `g` against `alpha` (E-optimality) | 277 µm, stretch 5.0 |
+| separate qSLS from SLS — is stiffening real? | 1200 µm, stretch 7.09 |
+| separate qSLS from qKV — is relaxation real? | 100 µm, stretch 20 |
+
+The last is the opposite corner from the first, for a physical reason: detecting
+a relaxation mode needs a collapse fast enough to excite it, while separating
+`g` from `alpha` needs a gentle one, because that term of `Ze` dies as
+`lambda^-4`. No design is best at both, so the answer is a *set* of designs.
+
+`explore_tradeoff` traces it. Pass an objective returning several numbers, all
+maximised; return a non-finite entry for a design that cannot be run.
+
+```python
+from pyimr.pareto import explore_tradeoff
+
+result = explore_tradeoff(criteria, [[50e-6, 1200e-6], [3.0, 20.0]],
+                          evaluations=34, initial=10)
+
+result.front_points        # the designs nothing else beats on every criterion
+result.front_values        # their scores
+result.best_for(0)         # the design that wins criterion 0 outright
+```
+
+Two things worth knowing about how it works. The search is ParEGO: one shared
+archive with a fresh weight vector each iteration, so every expensive evaluation
+informs every weight — which is what makes it affordable when scoring one design
+costs hundreds of solves. And the scalarisation is Chebyshev rather than a
+weighted sum, because a weighted sum only ever returns points on the convex hull
+of the front. Where two mechanisms genuinely compete the front bulges inward, and
+there a weighted sum returns the same two endpoints at *every* weight while the
+whole interior stays unreachable.
+
+When you score models against each other, let the rival re-fit. T-optimality is
+a minimum over the rival's parameters, not a difference at its own fitted values;
+holding them fixed overstates discrimination badly. On this study it inflated
+qSLS-versus-SLS separation by about an order of magnitude — the honest figure at
+the present design is 0.668 noise units, meaning SLS imitates qSLS to well within
+the noise.
+
 ## Trace estimators
 
 `pyimr.data` covers the step before inference: getting from a measured `R(t)`

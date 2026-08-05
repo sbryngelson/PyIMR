@@ -177,7 +177,7 @@ def main():
 
   print("wrote fig_eigenvectors, fig_ellipse, fig_separability")
   print(f"  eigenvalues {np.array2string(values[order][::-1], precision=3)}")
-  print(f"  sloppy direction: " + "  ".join(f"{n}={sloppy[i]:+.3f}" for i, n in
+  print("  sloppy direction: " + "  ".join(f"{n}={sloppy[i]:+.3f}" for i, n in
                                             enumerate(("g", "mu", "lam", "alpha"))))
   print(f"  implied exponent {sloppy[0] / sloppy[3]:+.3f}")
 

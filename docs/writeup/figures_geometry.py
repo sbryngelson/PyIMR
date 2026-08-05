@@ -164,14 +164,23 @@ def main():
   left.loglog(lam, np.abs(B), label=r"$B$  (depends on $g$ alone)")
   left.set_xlabel(r"stretch $\lambda = R_{\rm eq}/R$"); left.set_ylabel("magnitude")
   left.set_title("The two terms of $Z_e$", fontsize=9); left.legend(fontsize=7)
+  for axis in (left,):
+    axis.set_xticks([1.0, 1.5, 2.0, 3.0, 4.0, 6.0])
+    axis.set_xticklabels(["1", "1.5", "2", "3", "4", "6"])
+    axis.set_xticks([], minor=True)
 
   right.loglog(lam, np.abs(B) / (alpha * np.abs(A)), "k", label=r"$|B|/(\alpha|A|)$")
   right.loglog(lam, 2.0 / (alpha * lam**4), "r--", lw=1.0, label=r"$2/(\alpha\lambda^4)$")
   for depth, name, colour in ((2.215, "present", "tab:red"), (1.5, "gentler", "tab:green")):
     right.axvline(depth, color=colour, ls=":", lw=1.0)
-    right.text(depth * 1.02, 3e-4, name, color=colour, fontsize=7, rotation=90)
+    right.text(depth * 1.03, 8.0, name, color=colour, fontsize=7, rotation=90,
+               va="top", ha="left")
   right.set_xlabel(r"stretch $\lambda$"); right.set_ylabel("separating share of the signal")
-  right.set_title(r"Separability dies as $\lambda^{-4}$", fontsize=9); right.legend(fontsize=7)
+  right.set_title(r"Separability dies as $\lambda^{-4}$", fontsize=9)
+  right.legend(fontsize=7, loc="lower left")
+  right.set_xticks([1.0, 1.5, 2.0, 3.0, 4.0, 6.0])
+  right.set_xticklabels(["1", "1.5", "2", "3", "4", "6"])
+  right.set_xticks([], minor=True)
   fig.savefig(OUT / "fig_separability.pdf"); fig.savefig(OUT / "fig_separability.png", dpi=110)
   plt.close(fig)
 

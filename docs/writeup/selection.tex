@@ -1,6 +1,6 @@
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
-\usepackage{graphicx,booktabs,amsmath,siunitx,microtype}
+\usepackage{graphicx,booktabs,amsmath,amssymb,siunitx,microtype}
 \usepackage[colorlinks=true,allcolors=blue]{hyperref}
 
 \title{Which constitutive model do measured cavitation records prefer?}
@@ -52,6 +52,249 @@ prior, a redundancy factor that down-weights parameters where a model merely rep
 simpler model it contains, and a BIC-style complexity penalty. Trajectories are
 compressible (Keller--Miksis); the incompressible approximation changes the residuals by a
 factor of two to four and must not be used for these records.
+
+\section{What is being computed, and why}
+
+Four objects carry the analysis. Each is derived here rather than quoted, because the
+choices between them are not neutral and two of the errors this study corrected came from
+treating them as interchangeable.
+
+\subsection{The likelihood, and what it assumes}
+
+Each record gives a mean radius $y_i$ at time $t_i$ over $18$ trials, with the
+trial-to-trial standard deviation $s_i$ as the noise estimate. Modelling the observations
+as independent and Gaussian about the prediction $m_i(\theta)$,
+%
+\begin{equation}
+p(y \mid \theta) = \prod_i \frac{1}{\sqrt{2\pi}\,\sigma_i}
+  \exp\!\left[-\frac{(y_i - m_i(\theta))^2}{2\sigma_i^2}\right],
+\qquad
+-2\log p = \chi^2(\theta) + \sum_i \log\!\big(2\pi\sigma_i^2\big).
+\label{eq:likelihood}
+\end{equation}
+
+Three assumptions are buried here and each is separately checkable. \emph{Gaussianity} is
+the weakest claim, and is reasonable because $y_i$ is a mean over $18$ trials.
+\emph{Known $\sigma_i$} is not innocuous --- using the sample spread as if it were the true
+deviation understates uncertainty --- and is handled in \S\ref{sec:beta} by giving the noise
+scale a prior and integrating it out. \emph{Independence} is the one that fails: the
+diagonal covariance in~\eqref{eq:likelihood} says each residual carries fresh information,
+and \S\ref{sec:limitations} measures a lag-one autocorrelation of $0.90$.
+
+The deviations are not constant across the record. Optical tracking degrades where the wall
+moves fastest, so the variance is inflated by a logistic weight in the strain rate,
+$\sigma_i^2 = s_i^2/w_i$ with
+$w = w_0 + (1-w_0)\,\mathrm{logit}^{-1}\!\big(\kappa(\dot\varepsilon_{\rm th} -
+|\dot\varepsilon_i|)/\dot\varepsilon_{\rm th}\big)$. This is a statement about the
+measurement, not the model, and it is why $\chi^2/N$ is dominated by the late record where
+the weights are large.
+
+\subsection{Integrating out the noise scale}
+\label{sec:beta}
+
+Rather than trust $s_i$, introduce a single scale $\beta$ multiplying every deviation,
+$\sigma_i \to \beta\sigma_i$. Substituting into~\eqref{eq:likelihood},
+%
+\begin{equation}
+\log p(y \mid \theta, \beta)
+= -\frac{\chi^2(\theta)}{2\beta^2} - N\log\beta + \text{const},
+\label{eq:beta}
+\end{equation}
+%
+which depends on the data only through $\chi^2$ and $N$. That is what makes the
+marginalisation cheap: the forward model never re-enters, so
+%
+\begin{equation}
+\log p(y\mid\theta) = \log \int_0^\infty p(y \mid \theta,\beta)\,\pi(\beta)\,\mathrm{d}\beta
+\label{eq:marginal-beta}
+\end{equation}
+%
+costs one pass over a quadrature grid rather than one solve per node. With the half-Cauchy
+prior $\pi(\beta) = (2/\pi)/(1+\beta^2)$ the integral is done numerically on
+$\beta\in[0.05,10]$.
+
+Why marginalise rather than fit $\beta$? Profiling at its best value gives
+$-\tfrac12 N\,[1 + \log(\chi^2/N)]$, and marginalising is always smaller. The gap is an
+Occam penalty: a model that fits only by inflating its own error bars is charged for the
+inflation. Fitting $\beta$ would hand that flexibility over for free.
+
+\subsection{Why the evidence, and not the best fit}
+
+From Bayes' theorem, the posterior odds between two models are the prior odds times the
+ratio of
+%
+\begin{equation}
+Z_M = p(y \mid M) = \int p(y \mid \theta, M)\,\pi(\theta \mid M)\,\mathrm{d}\theta .
+\label{eq:evidence}
+\end{equation}
+%
+This is the only quantity that answers ``which model should I believe'' without an
+arbitrary complexity penalty. Comparing best fits cannot: a nested model can never fit
+worse than the model containing it, so $\chi^2$ ranks by flexibility. Information criteria
+add a penalty --- $2k$ for AIC, $k\log N$ for BIC --- but BIC is an asymptotic
+approximation to $-2\log Z$ that assumes a regular, well-identified model with $N$ large,
+and \S\ref{sec:identifiability} shows this one is not identified in a direction. The
+integral itself makes no such assumption.
+
+The penalty appears explicitly on expanding~\eqref{eq:evidence} about the maximum. With
+$\hat\theta$ the best fit, $H = -\nabla^2\log p(y\mid\theta)$ evaluated there, and
+$\theta = \hat\theta + \delta$,
+%
+\begin{equation}
+Z_M \simeq p(y\mid\hat\theta)\,\pi(\hat\theta)\int
+  \exp\!\left[-\tfrac12\delta^{\mathsf T}H\delta\right]\mathrm{d}\delta
+= \underbrace{p(y\mid\hat\theta)}_{\text{best fit}}\;
+  \underbrace{\pi(\hat\theta)\,(2\pi)^{p/2}\,|H|^{-1/2}}_{\text{Occam factor}} .
+\label{eq:laplace}
+\end{equation}
+%
+The Gaussian integral is exact for a quadratic $-\log p$, so~\eqref{eq:laplace} is the
+Laplace approximation and its error is governed by the third derivative. Reading the second
+factor as $\pi(\hat\theta)\times(\text{posterior volume})$ makes its meaning plain: it is
+the fraction of the prior the posterior actually occupies, so a model needing fine tuning
+pays. This is the sense in which a good fit and a credible model differ, and it is what
+Freund and Ewoldt argue should replace goodness-of-fit ranking in rheology.
+
+One consequence matters later and is easy to miss. Because $|H|^{-1/2}$ grows as the
+posterior broadens, a sloppy direction \emph{raises} the evidence. Model comparison
+therefore cannot detect non-identifiability --- it rewards it --- and the two questions must
+be asked separately.
+
+\subsection{The prior this study uses}
+
+Equation~\eqref{eq:evidence} needs $\pi(\theta\mid M)$, and a uniform box would make the
+answer depend on where the box was drawn. Two factors are used instead, both computed on
+the same grid the quadrature runs over.
+
+The \emph{bottleneck} maps each parameter to $u_j\in[0,1]$ in logarithms --- the parameters
+span decades, so a linear map would encode the bounds rather than the physics --- and takes
+the harmonic mean $H(\theta) = p\big/\sum_j u_j^{-1}$. The harmonic mean is chosen over the
+arithmetic one precisely because it is dominated by its smallest argument: a parameter
+driven to the bottom of its range drags the whole prior down, on the reasoning that a
+parameter the data pushed to a boundary is one the model did not need.
+
+The \emph{redundancy} weight asks whether a model is merely emulating a simpler one it
+contains. For a candidate and each nested child, the relative stress mismatch $F$ is mapped
+by $F^n/(F^n + \tau^n)$ against the resolvable scale $\tau$, giving a number near $0$ when
+the parent is imitating the child and approaching $1$ when it does something genuinely
+different. The weight is the \emph{minimum} over children: a model that can imitate any one
+simpler model is redundant there, however different it looks from the rest.
+
+\subsection{The Fisher information, and what its eigenvectors are}
+\label{sec:identifiability}
+
+Differentiating $-\log p$ twice at fixed data and taking the expectation over noise, the
+term containing $\partial^2 m$ vanishes because $\mathbb{E}[y_i - m_i] = 0$, leaving
+%
+\begin{equation}
+F_{jk} = \sum_i \frac{1}{\sigma_i^2}
+  \frac{\partial m_i}{\partial\theta_j}\frac{\partial m_i}{\partial\theta_k}
+= \big(J^{\mathsf T}J\big)_{jk},
+\qquad
+J_{ij} = \frac{1}{\sigma_i}\frac{\partial m_i}{\partial\theta_j},
+\label{eq:fisher}
+\end{equation}
+%
+so the Fisher information is exactly the Gram matrix of the whitened sensitivities --- no
+approximation, given~\eqref{eq:likelihood}. Near the optimum
+$\Delta\chi^2 \simeq \Delta\theta^{\mathsf T}F\Delta\theta$, so the surface of constant
+misfit is the ellipsoid $\Delta\theta^{\mathsf T}F\Delta\theta = c$. Diagonalising
+$F = V\Lambda V^{\mathsf T}$, its axes are the eigenvectors and their half-lengths are
+$\sqrt{c/\lambda_k}$: a small eigenvalue is a long axis, a direction along which the data
+barely object.
+
+The Cram\'er--Rao bound gives this statistical force. For any unbiased estimator,
+$\operatorname{Cov}(\hat\theta) \succeq F^{-1}$, so $F^{-1}$ is the best achievable
+covariance and its eigen-decomposition is the confidence ellipsoid. The standard deviation
+along direction $k$ is $\lambda_k^{-1/2}$, and the ratio
+$\kappa = \lambda_{\max}/\lambda_{\min}$ measures how far the problem is from determining
+all directions equally.
+
+Two conventions are load-bearing. Taking $\theta = \log(\text{parameters})$ makes an
+eigenvector a power law: moving along $v$ sends $\Delta\log g = v_g t$ and
+$\Delta\log\alpha = v_\alpha t$, so $g \propto \alpha^{v_g/v_\alpha}$ and the exponent is
+read directly off the components. And if the sensitivities are taken with respect to a
+scaled coordinate $u_j = (\log\theta_j - a_j)/w_j$, then
+$\Delta\log\theta_j = w_j\tilde v_j$ and the exponent is
+$(w_g\tilde v_g)/(w_\alpha\tilde v_\alpha)$ --- with box widths of three and four decades
+here, a $25\%$ correction, and getting it wrong is what produced a spurious agreement
+earlier in this work.
+
+Finally, $F$ is the observability Gramian of the system augmented with $\dot\theta = 0$:
+identifiability and observability are the same statement. The distinction that matters is
+\emph{structural} unidentifiability, where $F$ is singular and no data can help, against
+\emph{practical} sloppiness, where $F$ is invertible but ill-conditioned. Here
+$\lambda_{\min} = 5.2\times10^{-2} \neq 0$ and the profile likelihood has a genuine minimum,
+so the problem is the second --- which is why a different experiment can fix it.
+
+\subsection{What correlated residuals cost}
+
+Equation~\eqref{eq:likelihood} counts $N$ independent pieces of information. If instead the
+residuals have autocorrelation $\rho_k$ at lag $k$, then for a sum of $N$ correlated terms
+$\operatorname{Var}(\sum r_i) = N\sigma^2\big(1 + 2\sum_k (1-k/N)\rho_k\big)$, so the
+information is that of
+%
+\begin{equation}
+N_{\rm eff} = \frac{N}{1 + 2\sum_{k\ge1}\rho_k}
+\label{eq:ess}
+\end{equation}
+%
+independent samples, and parameter uncertainties are understated by
+$\sqrt{N/N_{\rm eff}}$. The sum is truncated at the first negative $\rho_k$ --- Geyer's
+initial positive sequence --- because the long tail is estimated from few pairs each and
+contributes sampling error rather than signal.
+
+The correct remedy is a covariance with off-diagonal terms, not a larger $\sigma$. Taking
+$C_{ij} = \sigma_i\sigma_j\exp(-|t_i-t_j|/\tau)$, the Cholesky factor $C = LL^{\mathsf T}$
+gives the generalised least squares form
+%
+\begin{equation}
+-2\log p = r^{\mathsf T}C^{-1}r + \log|C| + \text{const}
+= \|L^{-1}r\|^2 + 2\sum_k \log L_{kk} + \text{const},
+\end{equation}
+%
+which is what \texttt{FieldObservation} computes. Inflating $\sigma$ instead would treat
+structure as noise: it widens the error bars while leaving the parameter estimates biased,
+which is the failure Brynjarsd\'ottir and O'Hagan warn about.
+
+\subsection{Which design criterion, and why they disagree}
+
+An experiment is chosen by a scalar summary of $F$, and the classical family is
+%
+\begin{equation}
+\text{D: } \max \det F, \qquad
+\text{A: } \min \operatorname{tr} F^{-1}, \qquad
+\text{E: } \max \lambda_{\min}, \qquad
+\text{c: } \min\, c^{\mathsf T}F^{-1}c .
+\end{equation}
+%
+D minimises the volume of the confidence ellipsoid, A its mean squared axis length, E its
+longest axis, and c the variance of one nominated combination. They rank designs
+differently because they summarise the same spectrum differently, and the choice is a
+statement about what one wants to learn.
+
+For identifiability the relevant fact is a scaling argument. A design change that only
+amplifies signal --- more samples, less noise, a larger bubble --- sends $F \to sF$. Then
+$\det F \to s^p\det F$ and $\lambda_{\min}\to s\lambda_{\min}$, so D and E both improve,
+while
+%
+\begin{equation}
+\kappa = \frac{\lambda_{\max}}{\lambda_{\min}} \quad\text{is unchanged.}
+\end{equation}
+%
+Degeneracy is a property of the eigen\emph{vectors}, not the eigenvalues, and only a design
+that rotates them can remove it. This is exactly why the E-optimal search preferred a larger
+bubble while conditioning preferred a gentler collapse: more signal against better
+separation.
+
+The c-optimal choice carries a subtler trap. Nominating $c$ as the sloppy direction
+\emph{of the present design} optimises for a direction that moves once the design changes,
+and in this study that criterion recommended the opposite of the right answer.
+
+When the model itself is in doubt, none of these apply, since all presuppose the model whose
+$F$ is being computed. T-optimality asks instead for the design maximising the discrepancy
+between rival predictions, $\max_\xi \|m_1(\hat\theta_1;\xi) - m_2(\hat\theta_2;\xi)\|$, and
+privileges neither.
 
 \section{Result}
 
@@ -123,6 +366,7 @@ $\chi^2$.
 \end{figure}
 
 \section{Limitations}
+\label{sec:limitations}
 
 \paragraph{The dropped points are outside the model, not outside the solver.}
 Roughly one point in six of the winner's parameter box cannot be integrated. That is not a
@@ -455,6 +699,229 @@ within experimental repeatability. A systematic error common to every trial woul
 appear in that spread, and would show up instead as exactly the kind of residual excess we
 report --- $20$ to $35\%$ above the noise floor. This study cannot separate that from
 genuine model inadequacy.
+
+\appendix
+
+\section{Statistical background}
+\label{app:background}
+
+This appendix develops, from first principles, the results the main text uses. It is
+self-contained and assumes only calculus and elementary probability.
+
+\subsection{Inference as conditioning}
+
+Write $\theta$ for parameters, $y$ for data, $M$ for a model. The product rule
+$p(\theta, y) = p(y\mid\theta)\,p(\theta) = p(\theta\mid y)\,p(y)$ rearranges to Bayes'
+theorem,
+%
+\begin{equation}
+p(\theta \mid y, M) = \frac{p(y\mid\theta,M)\,\pi(\theta\mid M)}{p(y\mid M)},
+\qquad
+p(y\mid M) = \int p(y\mid\theta,M)\,\pi(\theta\mid M)\,\mathrm{d}\theta .
+\label{eq:bayes}
+\end{equation}
+%
+The denominator is a normalising constant in $\theta$, which is why it is ignored when
+estimating parameters and why it is the entire content of model comparison: applying
+\eqref{eq:bayes} at the level of models gives
+%
+\begin{equation}
+\frac{p(M_1\mid y)}{p(M_2\mid y)}
+= \underbrace{\frac{p(y\mid M_1)}{p(y\mid M_2)}}_{\text{Bayes factor } B_{12}}
+  \cdot \frac{p(M_1)}{p(M_2)} .
+\end{equation}
+%
+Everything the data say about which model to prefer is in $B_{12}$. Jeffreys' conventional
+reading takes $\log B > 1$ as substantial and $\log B > 5$ as decisive; the gap reported
+here is over $100$, which is why its numerical resolution had to be checked rather than
+assumed.
+
+\subsection{The score, and two definitions of information}
+
+Let $\ell(\theta) = \log p(y\mid\theta)$. The \emph{score} is $u = \nabla_\theta \ell$. Since
+$\int p(y\mid\theta)\,\mathrm{d}y = 1$ for every $\theta$, differentiating under the integral
+gives
+%
+\begin{equation}
+\mathbb{E}_\theta[u] = \int \frac{\nabla p}{p}\,p \,\mathrm{d}y
+= \nabla\!\int p \,\mathrm{d}y = 0 ,
+\end{equation}
+%
+so the score has zero mean at the true parameter. Its covariance defines the Fisher
+information, $F = \mathbb{E}[uu^{\mathsf T}]$. Differentiating the same identity twice gives
+the equivalent and more useful form
+%
+\begin{equation}
+F = \mathbb{E}\!\left[-\nabla^2\ell\right],
+\end{equation}
+%
+the expected curvature. The two agree because
+$\nabla^2\log p = \nabla^2 p/p - (\nabla p/p)(\nabla p/p)^{\mathsf T}$ and the first term
+integrates to zero. Curvature and variance-of-score are the same object, which is the
+reason a sharply peaked likelihood and a precisely determined parameter are the same
+statement.
+
+\subsection{The Cram\'er--Rao bound}
+
+For an unbiased estimator $\hat\theta(y)$, differentiate
+$\mathbb{E}[\hat\theta] = \theta$ under the integral to get
+$\mathbb{E}[\hat\theta\,u^{\mathsf T}] = I$. Applying the Cauchy--Schwarz inequality to the
+pair $(\hat\theta - \theta,\; u)$ in the scalar case gives
+$\operatorname{Var}(\hat\theta)\,\mathbb{E}[u^2] \ge 1$, i.e.
+$\operatorname{Var}(\hat\theta)\ge 1/F$; the multivariate statement is
+%
+\begin{equation}
+\operatorname{Cov}(\hat\theta) \succeq F^{-1} .
+\end{equation}
+%
+So $F^{-1}$ is a floor on achievable precision, attained asymptotically by maximum
+likelihood: $\sqrt{N}(\hat\theta_N - \theta) \to \mathcal{N}(0, F_1^{-1})$ under regularity.
+This is the licence for reading $F^{-1}$ as a covariance and its eigenvectors as the axes of
+a confidence ellipsoid --- and the regularity conditions are exactly what near-singular $F$
+threatens, which is why sloppiness is worth detecting rather than tolerating.
+
+\subsection{Gaussian data, and why $F = J^{\mathsf T}J$}
+
+With independent Gaussian observations of known deviation,
+$\ell = -\tfrac12\sum_i (y_i - m_i(\theta))^2/\sigma_i^2 + \text{const}$. Then
+%
+\begin{equation}
+\frac{\partial \ell}{\partial\theta_j}
+= \sum_i \frac{y_i - m_i}{\sigma_i^2}\frac{\partial m_i}{\partial\theta_j},
+\qquad
+-\frac{\partial^2\ell}{\partial\theta_j\partial\theta_k}
+= \sum_i \frac{1}{\sigma_i^2}
+  \left[\frac{\partial m_i}{\partial\theta_j}\frac{\partial m_i}{\partial\theta_k}
+  - (y_i - m_i)\frac{\partial^2 m_i}{\partial\theta_j\partial\theta_k}\right].
+\end{equation}
+%
+Taking the expectation kills the second bracket because $\mathbb{E}[y_i - m_i] = 0$, leaving
+$F = J^{\mathsf T}J$ with $J_{ij} = \sigma_i^{-1}\partial m_i/\partial\theta_j$. Note what
+was discarded: the curvature of the model. At the optimum the residuals are small and the
+Gauss--Newton form is accurate; far from it, or with a badly misspecified model, $F$ and the
+observed Hessian differ, and the discrepancy is itself a diagnostic.
+
+\subsection{The Laplace approximation and the Occam factor}
+
+To evaluate $Z = \int e^{\ell(\theta)}\pi(\theta)\,\mathrm{d}\theta$, expand about the
+maximum $\hat\theta$ where $\nabla\ell = 0$:
+%
+\begin{equation}
+\ell(\hat\theta + \delta) = \ell(\hat\theta)
+  - \tfrac12\delta^{\mathsf T}H\delta + O(\|\delta\|^3),
+\qquad H = -\nabla^2\ell(\hat\theta).
+\end{equation}
+%
+Holding $\pi$ constant over the peak and using
+$\int e^{-\delta^{\mathsf T}H\delta/2}\mathrm{d}\delta = (2\pi)^{p/2}|H|^{-1/2}$,
+%
+\begin{equation}
+Z \simeq e^{\ell(\hat\theta)}\,\pi(\hat\theta)\,(2\pi)^{p/2}\,|H|^{-1/2} .
+\label{eq:laplace-app}
+\end{equation}
+%
+The correction is $O(N^{-1})$ relative for regular problems. Writing the posterior volume as
+$V_{\rm post} = (2\pi)^{p/2}|H|^{-1/2}$ and the prior density as $1/V_{\rm prior}$ where it
+is flat, the second factor is $V_{\rm post}/V_{\rm prior}$: the fraction of the space the
+data leave standing. A model with more parameters has a larger $V_{\rm prior}$ and pays for
+it unless the fit improves enough to compensate. Nothing was added by hand; the penalty is
+the Jacobian of the integral.
+
+Taking logarithms of~\eqref{eq:laplace-app}, using $H \approx N F_1$ for $N$ independent
+observations, and dropping terms that do not grow with $N$,
+%
+\begin{equation}
+-2\log Z \simeq -2\ell(\hat\theta) + p\log N + O(1),
+\end{equation}
+%
+which is the Bayesian information criterion. BIC is therefore not an alternative to the
+evidence but a coarse asymptotic of it, valid when the posterior is Gaussian, the parameters
+identified, and $N$ large. AIC answers a different question --- expected out-of-sample
+Kullback--Leibler divergence --- and is not an approximation to $Z$ at all. Where a model is
+sloppy, $H$ is near-singular, $|H|^{-1/2}$ is enormous, and the asymptotic form fails while
+the integral remains well defined.
+
+\subsection{Sloppy models}
+
+Write the eigen-decomposition $F = V\Lambda V^{\mathsf T}$ with
+$\lambda_1 \ge \cdots \ge \lambda_p$. The misfit near the optimum is
+$\Delta\chi^2 = \sum_k \lambda_k c_k^2$ for $\delta = \sum_k c_k v_k$, so moving a distance
+$c$ along $v_k$ costs $\lambda_k c^2$ and the $95\%$ contour lies at
+$c_k = \sqrt{3.84/\lambda_k}$. Multiparameter models of this kind generically show spectra
+spanning many decades, with a few stiff directions and many sloppy ones --- the observation
+of Gutenkunst, Sethna and co-workers, and the reason parameter values in such models are
+often far less determined than their predictions.
+
+The distinction to keep is between a rank-deficient $F$, where a direction is
+\emph{structurally} unidentifiable and no experiment helps, and a merely ill-conditioned
+$F$, where the direction is determined but weakly. In logarithmic parameters, an eigenvector
+is a power-law combination, and the invariant it leaves fixed is read off its components.
+
+\subsection{Correlated errors}
+
+Let $r$ be the residual vector with covariance $C$. The Gaussian log-likelihood is
+%
+\begin{equation}
+-2\ell = r^{\mathsf T}C^{-1}r + \log|C| + N\log 2\pi ,
+\end{equation}
+%
+and with the Cholesky factorisation $C = LL^{\mathsf T}$ this becomes
+$\|L^{-1}r\|^2 + 2\sum_k\log L_{kk} + \text{const}$: whitening turns generalised least
+squares back into ordinary least squares on transformed residuals. Ignoring the off-diagonal
+terms, i.e. using $\operatorname{diag}(C)$, does not merely lose efficiency --- it
+misstates the amount of information. For a stationary sequence with autocorrelation
+$\rho_k$,
+%
+\begin{equation}
+\operatorname{Var}\!\left(\sum_{i=1}^N r_i\right)
+= N\sigma^2\left(1 + 2\sum_{k=1}^{N-1}\Big(1 - \tfrac{k}{N}\Big)\rho_k\right)
+\;\xrightarrow{\;N\to\infty\;}\; N\sigma^2\left(1 + 2\sum_{k\ge1}\rho_k\right),
+\end{equation}
+%
+so the sequence carries the information of $N_{\rm eff} = N/(1 + 2\sum\rho_k)$ independent
+draws. The bracket is the spectral density of the residual sequence at zero frequency, which
+is the cleaner way to see why a long-range correlation is so costly.
+
+Correlated residuals in a \emph{fitted} model usually indicate model discrepancy rather than
+correlated measurement noise. Kennedy and O'Hagan formalise this by writing
+$y = m(\theta) + \delta(\cdot) + \varepsilon$ with $\delta$ a Gaussian process, and
+Brynjarsd\'ottir and O'Hagan show that omitting $\delta$ leaves parameter estimates biased
+\emph{and} overconfident, while an unconstrained $\delta$ absorbs the physics. Neither
+failure is visible in $\chi^2$.
+
+\subsection{Optimal experimental design}
+
+A design $\xi$ determines what is measured and hence $F(\xi,\theta)$. Since $F$ is a matrix
+and designs must be ranked, a scalar functional is required, and the classical choices are
+%
+\begin{equation}
+\Phi_D = \log\det F, \quad
+\Phi_A = -\operatorname{tr}F^{-1}, \quad
+\Phi_E = \lambda_{\min}(F), \quad
+\Phi_c = -c^{\mathsf T}F^{-1}c ,
+\end{equation}
+%
+each maximised. In Bayesian terms, $\Phi_D$ is the expected Kullback--Leibler gain from
+prior to posterior under a Gaussian approximation, which is why it is the default: it
+maximises information about \emph{all} parameters jointly. That default is wrong whenever
+one direction is the question, because $\log\det F = \sum_k\log\lambda_k$ is dominated by
+the large eigenvalues.
+
+Because $F$ depends on $\theta$, a local design presupposes an answer. The standard repairs
+are to average over a prior, $\Phi(\xi) = \mathbb{E}_\theta[\Phi(F(\xi,\theta))]$, or to
+take the worst case over a plausible set. Sequential design uses the posterior from
+completed experiments as the prior for the next, which is what is done here.
+
+When the model itself is uncertain, all of the above presuppose the wrong thing. T-optimality
+(Atkinson and Fedorov) maximises instead the lack of fit of the inferior model,
+%
+\begin{equation}
+\Phi_T(\xi) = \min_{\theta_2}\;\big\|m_1(\hat\theta_1;\xi) - m_2(\theta_2;\xi)\big\|^2 ,
+\end{equation}
+%
+which asks which experiment the candidates most disagree about. Its virtue here is that it
+shares no assumptions with the Fisher criteria, so agreement between them is evidence rather
+than restatement.
 
 \section{Reproducing}
 

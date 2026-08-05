@@ -598,14 +598,34 @@ systematic offset of $0.668\sigma$ over $201$ samples contributes
 $201 \times 0.668^2 = 89.7$ to $\chi^2$, against the measured log-evidence gap of $101.6$
 between the two models. Two computations sharing no machinery, agreeing to about $12\%$.
 
-\paragraph{A caution about nested criteria.}
-$T$ is defined by an inner optimisation, so every reported value is an upper bound whose
-tightness is unknown until it is checked. Enumerating the outer design space exactly does
-not repair this: a dense grid over a criterion that is itself unreliable produces a front
-that is precisely wrong. Any criterion containing an argmin --- $T$-optimality, profile
-likelihoods, minimax designs --- needs its inner solve verified independently of the outer
-search, and the cheapest sufficient check is that the criterion vary smoothly between
-neighbouring designs, since the underlying physics does.
+\paragraph{These values are upper bounds, and the criterion is the reason.}
+$T$ is defined by an inner \emph{global} minimisation, and that minimisation is multimodal.
+Nelder--Mead and Gauss--Newton both converge, to different basins: at $895\,\mu$m
+Nelder--Mead returns $2.39$ where Gauss--Newton returns $1.52$, and at $1200\,\mu$m the
+ordering reverses. Multistart Gauss--Newton --- which analytic Jacobians make $44\times$
+cheaper than the derivative-free version, $34$\,s against $25$ minutes for the whole table
+--- finds a lower value in $12$ of $27$ cells, and a stationarity check built from the same
+Jacobians reports that $11$ cells are still not at a minimum. Every improvement to the
+optimiser lowers the scores, because a better-optimised rival imitates better. The tabulated
+values should therefore be read as upper bounds on discrimination, and the true separations
+are smaller than any of them.
+
+This is not a defect of the implementation but of the criterion. A minimum is attained at a
+point, so landing in the wrong basin gives a wrong answer with no indication that anything
+went wrong, and enumerating the outer design space exactly does not repair it: a dense grid
+over an unreliable integrand produces a front that is precisely wrong. Any criterion built
+on an argmin --- $T$-optimality, profile likelihood, minimax design --- inherits this.
+
+The structural fix is to replace the minimum with an integral. Treating the model label as a
+discrete parameter makes discrimination an expected-information-gain problem over the
+augmented parameter $(\theta, m)$, whose inner quantity is the marginal likelihood
+$\int p(Y\mid\theta,M,d)\,\pi(\theta\mid M)\,\mathrm d\theta$. An integral accumulates over
+all modes rather than requiring that the best one be located, so multimodality stops being a
+failure mode and becomes a property of the integrand; a missed mode biases the evidence
+slightly instead of corrupting the criterion. It also unifies discrimination with the
+parameter-precision criteria above in one framework. The cost is
+that the marginal likelihood is prior-sensitive in a way $T$ is not, so the prior becomes
+part of the criterion rather than a nuisance.
 
 \paragraph{The criteria do not agree.}
 Computed correctly, the criteria want different experiments. E-optimality peaks at
@@ -620,9 +640,16 @@ separating $g$ from $\alpha$ requires a gentle collapse, since the term of $Z_e$
 that distinction dies as $\lambda^{-4}$. The design cannot be both fast and gentle.
 
 There is accordingly no single best design, and a scalar design objective is answering a
-question that has no scalar answer. What replaces it is the set of designs on which no
-other design is better on every criterion at once. Section~\ref{sec:tradeoff} constructs
-it.
+question that has no scalar answer. What replaces it is the \emph{Pareto front}: the set of
+designs on which no other design is better on every criterion at once. Enumerating a
+$14\times18$ grid over $(R_{\max}, \lambda)$ and applying that test leaves $12$ designs
+undominated, spanning $50$--$1200\,\mu$m and stretch $4$--$18$. Reporting that set, rather
+than a single optimum, is the honest summary of an experiment that must serve several
+questions at once; `pyimr.pareto.explore_tradeoff` computes it. Given the caution above,
+the $T$ columns entering the domination test are upper bounds, so the front should be
+regarded as provisional in its discrimination coordinates while the E-optimality
+coordinate --- an eigenvalue of $J^{\mathsf T}J$, with no inner optimisation --- is not
+subject to that reservation.
 
 \subsection*{Why the design criteria disagree}
 

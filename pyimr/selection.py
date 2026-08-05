@@ -52,11 +52,16 @@ __all__ = [
 
 # Deliberately loose, and log-spaced: a boundary-pinned optimum is charged by the
 # harmonic bottleneck, so a range that is too tight makes a model look worse than it is.
+#
+# `alpha` runs to 100 rather than 10 for that reason, measured rather than assumed: on the
+# 15 C record SMC put 97.5% of the qSLS posterior at 9.04, against a ceiling of 10. Widening
+# tenfold moved the median only 6.37 to 5.27 and the log evidence 1.5 out of 2173, so the
+# parameter is identified and the old ceiling was merely clipping its tail (#216).
 # `lam` is the retardation/relaxation RATIO -- the solver's own `LAM` -- because the
 # absolute retardation time must stay strictly below the relaxation time, and a free
 # absolute axis would put most of the grid outside what the material will construct.
 PARAMETER_BOUNDS = {
-  "mu": (1e-4, 1.0), "g": (1e2, 1e5), "lambda1": (1e-7, 1e-3), "alpha": (1e-3, 10.0),
+  "mu": (1e-4, 1.0), "g": (1e2, 1e5), "lambda1": (1e-7, 1e-3), "alpha": (1e-3, 100.0),
   "lam": (1e-3, 9e-1), "mobility": (1e-3, 9e-1), "ptt_eps": (1e-3, 1.0),
   "gent_jm": (1e-1, 1e3), "fung_b": (1e-2, 1e2), "ab_n": (1.1, 1e3),
   "c01": (1e2, 1e5), "yeoh_c2": (1e0, 1e5), "yeoh_c3": (1e0, 1e5),

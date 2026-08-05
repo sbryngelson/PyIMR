@@ -19,7 +19,6 @@ from numbers import Integral
 
 import numpy as np
 from scipy.optimize import minimize
-from scipy.stats import qmc
 
 from .optimize import _fit, _expected_improvement, _physical, _posterior
 
@@ -92,6 +91,16 @@ class ParetoResult:
 
 def _feasible_rows(values): return np.all(np.isfinite(values), axis=1)
 
+def _latin_hypercube(count, dimension, rng):
+  """One point in each of the `count` strata of every axis, jittered inside its stratum.
+
+  Built here rather than taken from `scipy.stats.qmc`, whose seeding keyword was renamed
+  across versions; the construction is two lines and this keeps the module independent of
+  which scipy is installed.
+  """
+  strata = np.argsort(rng.random((count, dimension)), axis=0)
+  return (strata + rng.random((count, dimension))) / count
+
 def explore_tradeoff(objective, bounds, *, evaluations=32, initial=8, seed=0, restarts=8, augment=1e-3):
   """Trace the Pareto front of a vector-valued expensive `objective` over a box.
 
@@ -117,7 +126,7 @@ def explore_tradeoff(objective, bounds, *, evaluations=32, initial=8, seed=0, re
 
   dimension = box.shape[0]
   rng = np.random.default_rng(seed)
-  unit = qmc.LatinHypercube(d=dimension, seed=int(seed)).random(int(initial))
+  unit = _latin_hypercube(int(initial), dimension, rng)
   archive = [np.asarray(objective(_physical(row, box)), dtype=float).ravel() for row in unit]
   values = np.array(archive, dtype=float)
   if values.ndim != 2 or values.shape[1] < 2: raise ValueError("objective must return at least two values per design")

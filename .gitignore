@@ -29,3 +29,4 @@ docs/writeup/*.log
 docs/writeup/*.out
 docs/writeup/*.png
 docs/writeup/cache_*.npy
+docs/writeup/fitquality.json

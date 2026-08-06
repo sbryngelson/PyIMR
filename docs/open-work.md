@@ -24,7 +24,38 @@ bottom of its range, so that margin is bound-limited too.
 The one-mode `chi2/N` of 0.962 reproduces `fit_quality.py` exactly through a different
 optimiser in different coordinates, which is what makes the comparison trustworthy.
 
-**1. Where to look instead.** The residual is concentrated in the first collapse, where
+**1. Ruled out: averaging is not the cause.** The hypothesis was that fitting the MEAN of 18
+trials whose collapses are misaligned --- their minima spread over a third of the record, and
+the mean is 1.6x the noise shallower at the collapse than any trial --- produces a residual
+concentrated at the collapse, smooth, correlated, and immune to constitutive change. It fits
+every symptom, and it is wrong.
+
+Fitting the same qSLS to each trial separately (`docs/writeup/per_trial.py`) leaves the
+correlation where it was:
+
+| target | chi2/N | lag-1 | N_eff |
+|---|---|---|---|
+| mean trace | 0.962 | 0.918 | 10.3 |
+| single trials, median | 1.414 | 0.910 | 18.7 |
+| single trials, range | 0.764--11.879 | 0.806--0.940 | |
+
+Lag-one falls by 0.008. The correlation is a property of the fit to an individual bubble, not
+an artefact of averaging over several. (The chi2/N spread is expected and not informative
+here: every trial is fitted at the mean's `R_MAX` and stretch, since per-trial values are not
+in the record, so the worst fits are paying for geometry rather than physics. Lag-one against
+lag-one is the comparison this test supports.)
+
+So: two constitutive enrichments do not fix it, and neither does the averaging. What has
+never been varied is below.
+
+**2. The bubble-dynamics model, which nobody has varied --- now the leading suspect.** Every candidate in the package
+fixes `radial=2` (Keller--Miksis with Tait). Holding the material at the qSLS fit and
+changing only that: `radial=3` moves the trace 0.104, `radial=4` 0.210, `radial=5` 0.078,
+`radial=6` 0.262 --- against a median noise of 0.018, so **4 to 14 times the noise**. This is a
+larger unexamined freedom than every constitutive difference tested this session put
+together, and it is a model-selection axis in exactly the sense `pyimr.selection` means.
+
+**3.** The residual is concentrated in the first collapse, where
 sphericity and the far-field boundary are least secure. That is the next hypothesis, and it
 is not a constitutive one --- which is worth saying plainly, because every model added this
 session was constitutive.

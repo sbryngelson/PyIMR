@@ -27,6 +27,7 @@ from ._materials import (
   Giesekus,
   InstantaneousMaterial,
   LinearPTT,
+  MaterialModel,
   LinearMaxwell,
   MooneyRivlin,
   NeoHookean,
@@ -121,7 +122,10 @@ class CandidateModel:
   """A model, its free parameters, and the models it degenerates into."""
 
   name: str
-  build: Callable[[dict], object]
+  # a material, not an `object`: every caller that reads a field off what `build` returns --
+  # a test checking the parameters went where the builder claims, most of all -- is
+  # otherwise reaching into an opaque value, and the type checker is right to say so
+  build: Callable[[dict], MaterialModel]
   axes: tuple[str, ...]
   contains: tuple[str, ...] = ()
 

@@ -73,8 +73,11 @@ def test_the_two_mode_candidate_wires_its_parameters_where_it_claims():
   the signature but four orders of magnitude apart in the bounds -- so this reads the
   fields back rather than trusting the call.
   """
+  import pyimr
+
   theta = {"mu": 0.05, "g": 200.0, "lambda1": 2e-7, "alpha": 5.0, "tau_ratio": 10.0, "share": 0.3}
   material = EXTENDED_MODELS["qSLS2"].build(theta)
+  assert isinstance(material, pyimr.TwoModeQuadraticZener)
   assert material.shear_modulus_pa == 200.0
   assert material.viscosity_pa_s == 0.05
   assert material.relaxation_time_s == 2e-7
@@ -91,11 +94,14 @@ def test_the_second_arm_is_never_faster_than_the_first():
   trajectory twice and the Occam factor would be charged for bookkeeping. Checked at both
   ends of the axis, since only the lower one carries the constraint.
   """
+  import pyimr
+
   lower, upper = PARAMETER_BOUNDS["tau_ratio"]
   assert lower > 1.0, "at a ratio of exactly 1 the arms share a timescale and `share` dies"
   for ratio in (lower, upper):
     theta = {"mu": 0.05, "g": 200.0, "lambda1": 2e-7, "alpha": 5.0, "tau_ratio": ratio, "share": 0.3}
     material = EXTENDED_MODELS["qSLS2"].build(theta)
+    assert isinstance(material, pyimr.TwoModeQuadraticZener)
     assert material.second_relaxation_time_s >= material.relaxation_time_s
 
 

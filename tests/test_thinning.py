@@ -46,6 +46,18 @@ def build(name, **fields):
   return STANDARD_MODELS[name].build(fields)
 
 
+def laws(name, **fields):
+  """The `(elastic, viscous)` pair a thinning candidate builds, checked to be that pair.
+
+  Every one of these is an `InstantaneousMaterial`, and asserting it here is what lets the
+  fields below be read at all -- `build` is declared to return some `MaterialModel`, and
+  most members of that union have neither attribute.
+  """
+  material = build(name, **fields)
+  assert isinstance(material, pyimr.InstantaneousMaterial), f"{name} should build an instantaneous material"
+  return material.elastic, material.viscous
+
+
 @pytest.fixture(scope="module")
 def kelvin_voigt():
   return solve(pyimr.NeoHookeanKelvinVoigt(G, MU))
@@ -119,17 +131,22 @@ def test_the_thinning_candidates_are_wired_to_the_laws_they_name():
   """Every one takes its viscosity first and its time second; a transposition would still
   build and still solve. Read the laws back rather than trusting the calls.
   """
-  carreau = build("carreau", mu=MU, g=G, lambda1=2e-7, pl_n=0.6).viscous
+  carreau = laws("carreau", mu=MU, g=G, lambda1=2e-7, pl_n=0.6)[1]
+  assert isinstance(carreau, pyimr.CarreauYasuda)
   assert (carreau.zero_shear_viscosity_pa_s, carreau.time_constant_s) == (MU, 2e-7)
   assert carreau.power_index == 0.6
   # pinned, not free: this is classical Carreau, not Carreau-Yasuda
   assert (carreau.infinite_shear_viscosity_pa_s, carreau.transition_exponent) == (0.0, 2.0)
 
-  bingham = build("bingham", mu=MU, g=G, yield_pa=12.0).viscous
+  bingham = laws("bingham", mu=MU, g=G, yield_pa=12.0)[1]
+  assert isinstance(bingham, pyimr.Bingham)
   assert (bingham.yield_stress_pa, bingham.plastic_viscosity_pa_s) == (12.0, MU)
 
-  herschel = build("herschel", g=G, yield_pa=12.0, pl_k=0.05, pl_n=0.8).viscous
+  herschel = laws("herschel", g=G, yield_pa=12.0, pl_k=0.05, pl_n=0.8)[1]
+  assert isinstance(herschel, pyimr.HerschelBulkley)
   assert (herschel.yield_stress_pa, herschel.consistency_pa_s_n, herschel.exponent) == (12.0, 0.05, 0.8)
 
   for name in THINNING:
-    assert build(name, **{a: 1.0 if a != "g" else G for a in STANDARD_MODELS[name].axes}).elastic.shear_modulus_pa == G
+    elastic = laws(name, **{a: 1.0 if a != "g" else G for a in STANDARD_MODELS[name].axes})[0]
+    assert isinstance(elastic, pyimr.NeoHookean)
+    assert elastic.shear_modulus_pa == G

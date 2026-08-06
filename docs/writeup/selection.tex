@@ -491,6 +491,21 @@ so the residual sits in directions where $C$ is small. The dominant term is ther
 model-form error, not variation between bubbles. Both effects are real and the model-error
 one is larger --- which separates two things that \S\ref{sec:limitations} had conflated.
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig_trial.pdf}
+\caption{What the trial spread is, and what it does not explain. Left: the singular
+spectrum of the eighteen trial deviations. Independent measurement error would put an equal
+share in every component (dashed); instead the leading one carries $54\%$, and $39\%$ of
+the total lies in the six-dimensional span of $\partial R/\partial\theta$ against a $3\%$
+chance level. Right: the autocorrelation of the qSLS fit residual before and after whitening
+by the hierarchical covariance~\eqref{eq:hierarchical}, with the white-noise band shaded. If
+the correlation were caused by variation between bubbles, whitening would flatten it into
+that band. It removes about a third and leaves the rest, so the remainder is structure the
+model does not contain.}
+\label{fig:trial}
+\end{figure}
+
 \paragraph{Which precision $\chi^2/N$ is measured against.}
 The same computation exposes a factor of $J = 18$ in the meaning of the headline number. The
 data is the \emph{mean} of $18$ trials, but $s_i$ is the spread \emph{between} trials, and the

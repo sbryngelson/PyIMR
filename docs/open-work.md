@@ -73,9 +73,22 @@ subject to the same objection. The fits themselves are sound --- `chi2/N` betwee
 1.0, so the models do reproduce the record --- but on this data **evidence differences between
 these models are prior-dominated, and parameter values are not identified.**
 
-Next, and it is not a model: find the identified combination. An SVD of the Jacobian at the
-fit names the degenerate direction; reparameterising onto the stiff combination would let
-both the operator and the enrichment questions be asked in coordinates the data can answer.
+**Which combination is identified was already known.** The writeup derives it analytically:
+the likelihood depends on the product `g*alpha` alone, and `fig_valley` shows why the study's
+estimates of `g` disagree by an order of magnitude. An SVD of the Jacobian at the fit
+confirms it numerically -- the sloppiest right singular vector is `g^+1.00 alpha^-1.00` to two
+decimals, with condition number 1.07e3 and a smallest singular value whose posterior width is
+2.07 times the prior, so the cap of item 3 bites exactly there. That is a check on the
+existing result, not a new one.
+
+**What IS new is the consequence for operator selection.** Nobody had varied the operator, so
+nobody had found that a known parameter degeneracy makes the operator comparison
+prior-dominated. The two questions were previously independent; they are not.
+
+So the concrete next step is to ask the operator question in coordinates the data can answer:
+parameterise by `g*alpha` with `g/alpha` fixed at a stated value, or report `g*alpha` and
+decline to report `g`. Both the operator ranking and the enrichment margins should be redone
+that way before either is believed.
 
 **3. The diagnostic was never specific.** Lag-one at N = 201 measures how much of a residual
 is SMOOTH, not what made it smooth. Sampled at this density: white noise 0.037, one sine

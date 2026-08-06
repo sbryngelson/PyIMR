@@ -439,6 +439,76 @@ The honest summary is that qSLS is the best available description of these recor
 wide margin, that it is measurably incomplete, and that the size of what is missing is
 better indicated by the residual's correlation than by its magnitude.
 
+\subsection{What the trial spread actually is}
+\label{sec:latent}
+
+The likelihood of \S\ref{sec:beta} treats the residuals as independent draws whose scale is
+the trial-to-trial spread $s_i$. Two assumptions are buried in that, and both are wrong in
+ways that matter for how the numbers above should be read.
+
+\paragraph{Part of the spread is the parameters, not the measurement.}
+If the $18$ trials differed only by measurement error, their deviations from the trial mean
+would be white and would point nowhere in particular. They do neither. The singular spectrum
+of the $18 \times 201$ deviation matrix puts $53.9\%$ of the variance in one component where
+white noise would give $5.9\%$, and projecting each deviation onto the span of
+$G = \partial (R/R_{\max})/\partial\theta$ for the six parameters
+$(R_0, R_{\rm eq}, g, \mu, \lambda_1, \alpha)$ captures $39.3\%$ of the total variance against
+a chance level of $6/201 = 3.0\%$. Noise does not align with a six-dimensional subspace of a
+$201$-dimensional space by accident.
+
+The physical reading is that each bubble has its own parameters, drawn from a population:
+$\theta_j \sim \mathcal{N}(\theta_{\rm pop}, \Sigma)$. The mean trace then has covariance
+%
+\begin{equation}
+C \;=\; \frac{1}{J}\Big(G\,\Sigma\,G^{\mathsf T} \;+\; \sigma^2_{\rm meas} I\Big),
+\label{eq:hierarchical}
+\end{equation}
+%
+low rank plus diagonal rather than diagonal. Note that $\Sigma$ itself is not estimable here
+--- regressing the deviations onto $G$ inherits the $g$--$\alpha$ degeneracy of
+\S\ref{sec:identifiability} and returns $\mathrm{sd}(\log g) = 159$ --- but only the
+prediction covariance $G\Sigma G^{\mathsf T}$ enters~\eqref{eq:hierarchical}, and that is the
+sample covariance of the projected deviations, which needs no inversion.
+
+\paragraph{It is not what makes the residuals correlated.}
+The natural hypothesis is that the lag-one correlation of the fit residual is this same
+effect. Whitening by~\eqref{eq:hierarchical} tests it directly:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+covariance & $\chi^2/N$ & lag-one $\rho$ \\
+\midrule
+diagonal (independent) & $17.54$ & $0.758$ \\
+hierarchical, \eqref{eq:hierarchical} & $21.96$ & $\mathbf{0.516}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The correlation falls by about a third and most of it survives; $\chi^2$ gets \emph{worse},
+so the residual sits in directions where $C$ is small. The dominant term is therefore
+model-form error, not variation between bubbles. Both effects are real and the model-error
+one is larger --- which separates two things that \S\ref{sec:limitations} had conflated.
+
+\paragraph{Which precision $\chi^2/N$ is measured against.}
+The same computation exposes a factor of $J = 18$ in the meaning of the headline number. The
+data is the \emph{mean} of $18$ trials, but $s_i$ is the spread \emph{between} trials, and the
+standard error of the mean is smaller by $\sqrt{18} = 4.24$. From the identical residual,
+%
+\begin{equation*}
+\chi^2/N = 0.974 \;\;\text{against the trial spread},
+\qquad
+\chi^2/N = 17.54 \;\;\text{against the standard error of the mean}.
+\end{equation*}
+%
+Both are meaningful, and they answer different questions. \emph{The model reproduces the
+record to within the scatter between individual experiments} is true, and is the claim this
+document makes. \emph{The model is statistically adequate} is false: against the precision the
+$18$-trial mean actually carries, it is off by a factor of seventeen. The noise-scale
+marginalisation of \S\ref{sec:beta} absorbs the difference --- the implied $\beta \approx 0.24$
+lies inside its prior --- so the evidence ranking is undisturbed. What changes is what a
+residual near one entitles one to say.
+
 \section{The temperature trend}
 
 The most informative result is not any single number but a trend

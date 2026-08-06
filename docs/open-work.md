@@ -158,6 +158,27 @@ four-parameter model already has directions this data barely determines. Which o
 known --- an SVD of the Jacobian at the fit, or a profile likelihood, would say. It bears
 directly on whether adding a fifth and sixth parameter can mean anything.
 
+## Designing an experiment that could settle the operator
+
+Run with `pyimr.measure`, treating the operator as a parameter: with
+`R(theta, eps) = (1-eps) R_A + eps R_B`, the sensitivity to `eps` is `R_B - R_A`, so
+discrimination is one more Jacobian column and D-optimality on the augmented set applies
+with the certificate unchanged. `docs/writeup/design_operator.py`.
+
+The measure certifies (gap 1.0e-9) on seven support points spanning `R_max` 50 to 1200 um,
+and the performed geometries sit at 4 to 38 percent efficiency against it. **But that ranking
+is about geometry only, and it inverts the empirical one**, which is the useful part.
+
+At each record's own fitted material the two operators differ by 4.17 noise units at 15 C,
+3.06 at 23 C, and 0.00005 at 33 C. The 33 C fit barely collapses --- `R/Rmax = 0.146` against
+`0.068` at 15 C --- and a wall that slow never makes compressibility matter. So the quantity
+that governs operator information is collapse DEPTH, which the material sets, and a design
+measure computed at a single material cannot see it.
+
+**Next here:** recompute the measure over a grid of materials as well as geometries, or
+maximise the `eps` information directly rather than the augmented determinant. Either makes
+the design answer conditional on the material, which the physics says it must be.
+
 ## Judgment calls someone should make deliberately
 
 **3. `cap_at_prior` defaults to `False`.** The uncapped Laplace evidence pays a model for

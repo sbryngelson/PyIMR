@@ -258,6 +258,8 @@ SCALE_PATHS = {
   "material.extensibility": 5,
   "material.second_relaxation_time_s": 6,
   "material.second_share": 7,
+  "material.thinning_time_s": 8,
+  "material.power_index": 9,
 }
 
 CONFIG_PATHS = ("R0", "Req", "T8", "pA", "omega", "TW", "DT", "mn")

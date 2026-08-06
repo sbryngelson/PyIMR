@@ -18,6 +18,7 @@ from ._materials import (
   ArrudaBoyce,
   Bingham,
   CarreauYasuda,
+  CarreauZener,
   Cross,
   Fung,
   HerschelBulkley,
@@ -83,6 +84,13 @@ PARAMETER_BOUNDS = {
   # yield stress far under the modulus cannot be told from none -- and saying so is the
   # redundancy prior's job, not the bound's (#199).
   "cross_m": (1e-1, 2.0), "yield_pa": (1e0, 1e5),
+  # `thin_time` is the Carreau crossover inside a Maxwell arm, over the same decades as
+  # `lambda1` because it is a time on the same material. It has its own axis rather than
+  # sharing one: the crossover and the relaxation time are independent, and a shared axis
+  # would assert they move together. Its low end weakly identifies `pl_n` -- with the
+  # crossover out of reach the thinning factor is 1 whatever the index -- which is the
+  # redundancy prior's to report, not the bound's, exactly as for `tau_ratio` above.
+  "thin_time": (1e-7, 1e-3),
   # `tau_ratio` is the SECOND relaxation time as a multiple of the first. It is bounded
   # BELOW because the arms are exchangeable: swapping `(lambda1, 1-w)` with `(tau2, w)` is
   # the same trajectory, so a symmetric axis would split every posterior into two identical
@@ -234,6 +242,13 @@ EXTENDED_MODELS: dict[str, CandidateModel] = {
         t["g"], t["mu"], t["lambda1"], 0.0, t["alpha"], t["tau_ratio"] * t["lambda1"], t["share"],
       ),
       ("mu", "g", "lambda1", "alpha", "tau_ratio", "share"), ("qSLS",),
+    ),
+    # The other answer to the one-mode residual: not a second timescale but a moving one.
+    # `pl_n = 1` removes the thinning exactly, which is why it nests into `qSLS`.
+    CandidateModel(
+      "qSLSthin", lambda t: CarreauZener(
+        t["g"], t["mu"], t["lambda1"], 0.0, t["alpha"], t["thin_time"], t["pl_n"],
+      ), ("mu", "g", "lambda1", "alpha", "thin_time", "pl_n"), ("qSLS",),
     ),
     # The full five-parameter Carreau-Yasuda: `carreau` above with the infinite-shear
     # viscosity and the transition exponent set free rather than pinned.

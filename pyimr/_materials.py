@@ -15,6 +15,7 @@ __all__ = [
   "ArrudaBoyce",
   "Bingham",
   "CarreauYasuda",
+  "CarreauZener",
   "Cross",
   "ElasticModel",
   "Fung",
@@ -158,6 +159,41 @@ class TwoModeQuadraticZener:
     _finite_positive("second_relaxation_time_s", self.second_relaxation_time_s)
     if not (0.0 <= self.second_share < 1.0):
       raise ValueError("second_share must lie in [0, 1): it is the fraction of the memory carried by the second arm")
+
+@dataclass(frozen=True, slots=True)
+class CarreauZener:
+  """Quadratic Zener whose dashpot shear-thins: one relaxation time, but a rate-dependent one.
+
+  The other enrichment of the one-mode fit is `TwoModeQuadraticZener`, which answers the
+  correlated residual with a second timescale. This answers it with a timescale that moves.
+  A Maxwell arm is a spring and a dashpot in series, so its relaxation time is
+  `lambda = eta / G`; if the dashpot obeys Carreau rather than Newton, `lambda` falls as the
+  medium is sheared harder. A collapse spans decades of shear rate, so the two are different
+  claims about the same residual and the comparison between them is the point.
+
+  Only the dashpot thins. The elastic target and the solvent term are untouched, which is
+  what keeps the change contained: `S` is unchanged, and because the memory derivative
+  carries no `R-ddot`, neither does the acceleration coefficient.
+
+  `power_index = 1` removes the thinning exactly -- the factor is then `1` for every shear
+  rate, not merely near it -- so the law reduces to `QuadraticZener` identically. That is
+  the reduction the implementation is gated on, and it is the default.
+  """
+
+  shear_modulus_pa: float
+  viscosity_pa_s: float
+  relaxation_time_s: float
+  retardation_time_s: float = 0.0
+  stiffening: float = 0.25
+  thinning_time_s: float = 1e-6
+  power_index: float = 1.0
+
+  def __post_init__(self) -> None:
+    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+    _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False)
+    _finite_nonnegative("stiffening", self.stiffening)
+    _finite_positive("thinning_time_s", self.thinning_time_s)
+    _finite_positive("power_index", self.power_index)
 
 @dataclass(frozen=True, slots=True)
 class OldroydB:
@@ -359,7 +395,7 @@ class LinearPTT:
     _validate_distributed_model("extensibility", self.extensibility, self.points, self.extent)
     if self.quadrature not in ("trapezoid", "gauss"): raise ValueError("quadrature must be 'trapezoid' or 'gauss'")
 
-MaterialModel = TwoModeQuadraticZener | (
+MaterialModel = TwoModeQuadraticZener | CarreauZener | (
   NoStress | NeoHookeanKelvinVoigt | QuadraticKelvinVoigt | Zener | QuadraticZener | OldroydB | InstantaneousMaterial | Giesekus | LinearPTT | LinearMaxwell
 )
 
@@ -397,6 +433,6 @@ def _is_distributed_stress(material) -> bool: return isinstance(material, (Giese
 
 def _stress_state_count(material) -> int:
   if _is_distributed_stress(material): return 2 * material.points
-  if isinstance(material, (Zener, QuadraticZener, LinearMaxwell)): return 1
+  if isinstance(material, (Zener, QuadraticZener, LinearMaxwell, CarreauZener)): return 1
   if isinstance(material, (OldroydB, TwoModeQuadraticZener)): return 2
   return 0

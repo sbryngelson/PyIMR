@@ -97,6 +97,54 @@ material = Zener(
 )
 ```
 
+### Beyond one relaxation time
+
+A single relaxation time is a strong assumption for a crosslinked biopolymer, and the
+one-mode residual on the gelatin records is correlated at lag one rather than white. Two
+laws enrich it in different directions, and both reduce to `QuadraticZener` exactly rather
+than approximately -- which is what their tests assert, since a reduction that merely held
+closely would leave room for an error of its own size.
+
+`TwoModeQuadraticZener` adds a second Maxwell arm: two timescales, with `second_share`
+splitting both the elastic target and the viscous forcing between them. At
+`second_share=0` the second memory is driven by nothing, decays from zero, and the law is
+`QuadraticZener`.
+
+```python
+material = TwoModeQuadraticZener(
+    shear_modulus_pa=204.3,
+    viscosity_pa_s=0.047,
+    relaxation_time_s=2.0e-7,
+    retardation_time_s=0.0,
+    stiffening=5.3,
+    second_relaxation_time_s=2.0e-6,
+    second_share=0.3,
+)
+```
+
+`CarreauZener` keeps one arm and lets its timescale move. A Maxwell arm is a spring and a
+dashpot in series, so `lambda = eta/G`; if the dashpot obeys Carreau rather than Newton,
+the relaxation time falls as the medium is sheared harder, and a collapse spans decades of
+shear rate. Only the dashpot thins -- the elastic target and the solvent term are the
+one-mode law's. At `power_index=1` the thinning factor is exactly one at every shear rate,
+so the reduction is bit-identical.
+
+```python
+material = CarreauZener(
+    shear_modulus_pa=204.3,
+    viscosity_pa_s=0.047,
+    relaxation_time_s=2.0e-7,
+    retardation_time_s=0.0,
+    stiffening=5.3,
+    thinning_time_s=2.0e-6,
+    power_index=0.6,
+)
+```
+
+Both are comparison candidates, in `EXTENDED_MODELS` rather than `STANDARD_MODELS`: at six
+free parameters the grid quadrature in `pyimr.selection` costs `count**6`, so they are
+scored by `candidate_log_evidence` instead. See [selection](../README.md#model-selection).
+
 ## Distributed nonlinear memory
 
 `Giesekus` and `LinearPTT` evolve radial and hoop stress on a prepared,

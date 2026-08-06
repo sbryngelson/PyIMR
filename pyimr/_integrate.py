@@ -14,6 +14,7 @@ from ._materials import (
   OldroydB,
   QuadraticKelvinVoigt,
   QuadraticZener,
+  CarreauZener,
   TwoModeQuadraticZener,
   Zener,
   law_values,
@@ -42,7 +43,7 @@ def shares_one_program(material) -> bool:
 
 
 THROUGH_GROUPS = (
-  NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, TwoModeQuadraticZener,
+  NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, TwoModeQuadraticZener, CarreauZener,
   OldroydB, LinearMaxwell, Giesekus, LinearPTT,
 )
 

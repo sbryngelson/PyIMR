@@ -35,6 +35,28 @@ identified, and a model ranking must be checked against the box before it is bel
 `radial=5` beats the `radial=2` every candidate assumes, on two records (+4.5, +1.5);
 `radial=3` beats it by more but on one record only.
 
+**Designing against three model axes is well posed, but not evenly.** Perturbing each axis
+from one base and projecting off the material sensitivity span (`confounding.py`):
+
+| axis | size | after refit | absorbed |
+|---|---|---|---|
+| dynamics (KM -> KM/Mie-G) | 8.89 | **1.98** | **77.7%** |
+| constitutive (one -> two modes) | 14.42 | 8.14 | 43.5% |
+| thermal (cold -> bubble+medium) | **15.99** | 8.46 | 47.1% |
+
+in units of the record's noise. No pair is confounded --- the residual directions sit at 46,
+71 and 38 degrees --- so all three are separable in principle and the design problem is well
+posed.
+
+Two things follow. **Thermal is the largest lever, not the smallest**: it moves the trace most
+and survives refitting most, which contradicts the expectation that it was negligible here.
+And **the operator is the most absorbed axis by far** --- 77.7%, leaving under two noise units
+--- which is why its ranking slid along the g--alpha ridge and reversed with the prior box.
+Most of an operator change can be mimicked by refitting the material.
+
+Caveat: absorption is measured by a LINEAR projection at the base point, so real nonlinear
+refitting could absorb more. These are upper bounds on what is detectable.
+
 ## Open
 
 **1. Change the default operator, or justify it.** `radial=2` is assumed by every candidate

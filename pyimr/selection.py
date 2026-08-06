@@ -34,6 +34,7 @@ from ._materials import (
   NeoHookean,
   NeoHookeanKelvinVoigt,
   Newtonian,
+  Ogden,
   OldroydB,
   PowerLaw,
   QuadraticKelvinVoigt,
@@ -91,6 +92,10 @@ PARAMETER_BOUNDS = {
   # crossover out of reach the thinning factor is 1 whatever the index -- which is the
   # redundancy prior's to report, not the bound's, exactly as for `tau_ratio` above.
   "thin_time": (1e-7, 1e-3),
+  # Ogden's second term. The first reuses `g` and `ab_n`; the second needs its own pair.
+  # Exponents are bounded away from zero because the strain-energy form divides by them,
+  # and the constructor refuses zero outright.
+  "ogden_g2": (1e0, 1e5), "ogden_a2": (1e-1, 2e1),
   # `tau_ratio` is the SECOND relaxation time as a multiple of the first. It is bounded
   # BELOW because the arms are exchangeable: swapping `(lambda1, 1-w)` with `(tau2, w)` is
   # the same trajectory, so a symmetric axis would split every posterior into two identical
@@ -249,6 +254,16 @@ EXTENDED_MODELS: dict[str, CandidateModel] = {
       "qSLSthin", lambda t: CarreauZener(
         t["g"], t["mu"], t["lambda1"], 0.0, t["alpha"], t["thin_time"], t["pl_n"],
       ), ("mu", "g", "lambda1", "alpha", "thin_time", "pl_n"), ("qSLS",),
+    ),
+    # Ogden is here for a different reason from the others: at four axes it would fit the
+    # grid comfortably, but its variable-length tuples cannot travel through the fixed-width
+    # scales vector, so a sweep compiles once PER POINT rather than once (#196). A grid of
+    # 20,736 points would mean 20,736 XLA compiles. Scored by expansion there is no grid and
+    # the objection disappears, which is what makes it registrable at all.
+    CandidateModel(
+      "ogden", lambda t: InstantaneousMaterial(
+        elastic=Ogden((t["g"], t["ogden_g2"]), (t["ab_n"], t["ogden_a2"])),
+      ), ("g", "ab_n", "ogden_g2", "ogden_a2"), ("NH",),
     ),
     # The full five-parameter Carreau-Yasuda: `carreau` above with the infinite-shear
     # viscosity and the transition exponent set free rather than pinned.

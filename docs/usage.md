@@ -220,6 +220,48 @@ selection only means something where some candidate actually fits; otherwise the
 winner is the least-bad member of an inadequate set, and the posteriors look
 just as confident. Worked studies are in `examples/`.
 
+### Models the grid cannot reach
+
+`solve_grid` is a Cartesian product at one count on every axis, so it costs
+`count**dimension` and runs out at four or five parameters. At `count = 12`, six
+axes is 5,971,968 solves against 168,072 for the whole of `STANDARD_MODELS`.
+
+Candidates past that limit live in `EXTENDED_MODELS` and are scored by expansion
+about a fit instead of by quadrature over a grid:
+
+```python
+from pyimr.selection import EXTENDED_MODELS, candidate_log_evidence
+
+evidence = candidate_log_evidence(
+    EXTENDED_MODELS["qSLS2"], solve, observed, deviation, fitted_unit_point
+)
+```
+
+It costs `1 + 2*dimension` solves. The Jacobian is differenced in the *unit*
+coordinates the prior is uniform on, which is both where the Occam factor has to
+be measured and what lets it handle candidates whose axes are not material fields
+-- `qSLS2` has `tau_ratio`, a ratio of two of them, and `oldroydb` likewise.
+
+You must supply the fitted point. Nothing in the package yet locates one for a
+candidate, which is the current gap between having these models and being able to
+rank them -- see [open work](open-work.md).
+
+### The Occam factor can pay for parameters the data cannot see
+
+`laplace_log_evidence` takes `cap_at_prior`. Leave it off and the plain expansion
+rewards a model for a parameter its design does not probe: an unidentified
+direction sends an eigenvalue of `J^T J` to zero, so `-log det / 2` goes to
+`+infinity`. Measured on synthetic one-mode data, the two-mode model beat the
+one-mode by 29.7 nats exactly where its second arm did nothing, and lost by 2.6
+only where the arm did real work -- backwards, and not by a little.
+
+`cap_at_prior=True` bounds each eigendirection's contribution at one, which is
+what a uniform prior on a bounded cube implies: a posterior cannot be wider than
+the prior it came from. It is a strict generalisation, agreeing with the plain
+form to round-off wherever every direction is already sharper than the prior, so
+it changes an answer only where the plain form was not entitled to one.
+`candidate_log_evidence` turns it on, because it compares across dimensions.
+
 ## Designing when the criteria disagree
 
 `optimize_design` maximises one number. That is the right question only while

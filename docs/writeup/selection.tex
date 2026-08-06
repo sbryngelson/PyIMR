@@ -526,6 +526,79 @@ marginalisation of \S\ref{sec:beta} absorbs the difference --- the implied $\bet
 lies inside its prior --- so the evidence ranking is undisturbed. What changes is what a
 residual near one entitles one to say.
 
+\subsection{What to enrich, and how it would have to be judged}
+\label{sec:enrich}
+
+The previous section leaves a specific defect: the residual carries structure the model does
+not contain, and it is not accounted for by variation between bubbles. The natural suspect is
+the assumption of a \emph{single} relaxation time, which is strong for a crosslinked
+biopolymer whose relaxation is in reality distributed. Two enrichments follow from that
+suspicion, and they are not the same claim.
+
+\paragraph{A second timescale.} \texttt{TwoModeQuadraticZener} adds a second Maxwell arm
+sharing the elastic equilibrium, with a weight $w$ splitting both the elastic target and the
+viscous forcing,
+%
+\begin{equation}
+\dot Z_1 = -\frac{Z_1 - (1-w)Z_{\mathrm e}}{\mathrm{De}_1} + \frac{(1-w)\,\Phi}{\mathrm{De}_1},
+\qquad
+\dot Z_2 = -\frac{Z_2 - w Z_{\mathrm e}}{\mathrm{De}_2} + \frac{w\,\Phi}{\mathrm{De}_2},
+\label{eq:twomode}
+\end{equation}
+%
+where $\Phi$ is the forcing the one-mode law already carries. Splitting \emph{both} terms is
+what makes $w = 0$ exact: the second memory is then driven by nothing, decays from zero, and
+stays there.
+
+\paragraph{A timescale that moves.} \texttt{CarreauZener} keeps one arm and lets its
+relaxation time depend on the shear rate. A Maxwell arm is a spring and a dashpot in series,
+so $\lambda = \eta/G$; if the dashpot obeys Carreau rather than Newton,
+%
+\begin{equation}
+\mathrm{De}_{\mathrm{eff}} = \mathrm{De}\left[1 + (\Lambda\dot\gamma)^2\right]^{(n-1)/2},
+\label{eq:carreauzener}
+\end{equation}
+%
+and the arm relaxes faster the harder the medium is sheared. A collapse spans decades of
+shear rate, so this is a genuinely different claim from~\eqref{eq:twomode} about the same
+residual. Both terms of the memory equation carry $\mathrm{De}_{\mathrm{eff}}$, since an arm
+has one time constant; at $n = 1$ the bracket is unity at every shear rate and the law is
+identically the one-mode model.
+
+\paragraph{Why the grid cannot judge either.} Both carry six free parameters, and the
+quadrature used throughout is a Cartesian product costing $\text{count}^{p}$. At the
+$12$ per axis used throughout, six axes is $5\,971\,968$ solves against $168\,072$ for the
+entire standard set. The remedy is to expand about a fit rather than quadrature over a grid,
+at $1 + 2p$ solves --- but doing so exposes a defect in the expansion itself.
+
+\paragraph{The Occam factor must be capped at the prior.} Written as
+in~\eqref{eq:laplace}, the Laplace evidence contains $-\tfrac12\log\det J^{\mathsf T}J$. A
+direction the data does not determine sends an eigenvalue of $J^{\mathsf T}J$ to zero and
+that term to $+\infty$: the expansion \emph{rewards} a model for a parameter its design
+cannot see. This is not a small correction. On synthetic data generated from the one-mode
+model, the two-mode model scores
+%
+\begin{equation*}
++29.7 \;\text{nats above the one-mode model at } w = 10^{-3},
+\qquad
+-2.6 \;\text{at } w = 0.3,
+\end{equation*}
+%
+so it wins precisely where its second arm does nothing and loses only where the arm does
+real work. The cause is the fitted Gaussian extending far outside the bounded cube the prior
+occupies. Capping each eigendirection's contribution at unity --- a posterior cannot be wider
+than the prior it came from, \S\ref{sec:occam-cap} --- returns $-0.0000$, $-0.0004$, $-0.033$
+and $-6.81$ at $w = 10^{-3}, 10^{-2}, 0.05, 0.3$: monotone, and never paying for what the
+data cannot resolve. The correction is a strict generalisation, agreeing with the plain form
+to round-off wherever every direction is already sharper than the prior.
+
+\paragraph{What is not claimed.} Both models are implemented, and both reduce exactly to
+the one-mode law. Neither has been fitted to the records analysed here. Nothing in this
+section should be read as evidence that a second relaxation time, or a rate-dependent one,
+improves on \S\ref{sec:fitquality}; it establishes what would have to be computed, and corrects
+the criterion that computation would otherwise have used. Fitting them is the obvious next
+step and is not attempted here.
+
 \section{The temperature trend}
 
 The most informative result is not any single number but a trend
@@ -1504,7 +1577,49 @@ Kullback--Leibler divergence --- and is not an approximation to $Z$ at all. Wher
 sloppy, $H$ is near-singular, $|H|^{-1/2}$ is enormous, and the asymptotic form fails while
 the integral remains well defined.
 
+\subsection{Capping the Occam factor at the prior}
+\label{sec:occam-cap}
+
+The failure just noted is not merely a loss of accuracy; it has a sign, and the sign is
+wrong. Work in coordinates where the prior is uniform on the unit cube, so
+$V_{\rm prior} = 1$ and $H = J^{\mathsf T}J$. The Occam factor is a product over the
+eigendirections of $J^{\mathsf T}J$,
+%
+\begin{equation}
+\frac{V_{\rm post}}{V_{\rm prior}} = \prod_{i=1}^{p}\sqrt{\frac{2\pi}{\lambda_i}},
+\label{eq:occam-product}
+\end{equation}
+%
+each factor being the posterior width in that direction against a prior of width one. A
+direction the data does not determine has $\lambda_i \to 0$ and contributes a factor
+diverging to $+\infty$. The evidence then \emph{increases} with the addition of a parameter
+that does nothing, which is the opposite of what the Occam factor exists to do.
+
+The pathology is entirely an artefact of the Gaussian approximation. The fitted Gaussian has
+width $\sqrt{2\pi/\lambda_i} \gg 1$ in that direction and so extends far outside the cube the
+prior actually occupies, while the true integral, taken over the cube, simply returns the
+prior mass. Imposing what the geometry already requires --- a posterior cannot be wider than
+the prior it came from --- gives
+%
+\begin{equation}
+\log\frac{V_{\rm post}}{V_{\rm prior}} \;=\; \sum_{i=1}^{p}\min\!\left(0,\;
+  \tfrac12\log\frac{2\pi}{\lambda_i}\right),
+\label{eq:occam-capped}
+\end{equation}
+%
+so a direction the data cannot see costs nothing and buys nothing. Where every
+$\lambda_i > 2\pi$ each minimum selects its second argument
+and~\eqref{eq:occam-capped} reduces identically to the logarithm
+of~\eqref{eq:occam-product}: the cap is a strict generalisation, altering an answer only
+where the uncapped form was not entitled to one. \S\ref{sec:enrich} gives the size of the
+error it removes, which on the models considered there is $29.7$ nats.
+
+This matters wherever models of differing dimension are compared and some parameters are
+weakly identified --- which, for the sloppy spectra of \S\ref{sec:sloppy}, is the normal
+case rather than the exceptional one.
+
 \subsection{Sloppy models}
+\label{sec:sloppy}
 
 Write the eigen-decomposition $F = V\Lambda V^{\mathsf T}$ with
 $\lambda_1 \ge \cdots \ge \lambda_p$. The misfit near the optimum is

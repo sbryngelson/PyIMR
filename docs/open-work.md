@@ -81,10 +81,31 @@ surfaced in CI. It is pinned in `pyproject.toml` (`pyright==1.1.411`); running
 `tools/pyright_baseline.py` locally reproduces the gate exactly. Worth a line in the README
 or a dev extra that installs it.
 
-**12. `PronyZener` -- the general n-mode law.** The remaining model from the original ask,
-and the invasive one: `De` and `LAM` are scalars throughout `_stress` and would have to
-become per-mode arrays, with `SCALE_PATHS` reindexed. `TwoModeQuadraticZener` is the n=2
-special case and should fall out of it.
+## Widening the candidate set
+
+Every constitutive law in the package is now a comparison candidate: 23 in
+`STANDARD_MODELS`, 4 in `EXTENDED_MODELS`. Nothing is implemented-but-unreachable any
+more, which was true of six thinning laws and of `Ogden` until recently. So adding models
+from here means writing new physics, not registration, and it is worth being clear about
+which of these is actually wanted before starting.
+
+**14. `PronyZener` -- the general n-mode law.** The principled version of the enrichment in
+`TwoModeQuadraticZener`: a relaxation *spectrum* rather than one or two times, which is what
+a crosslinked biopolymer actually has. It subsumes `TwoModeQuadraticZener` as the n=2 case.
+Invasive: `De` and `LAM` are scalars throughout `_stress` and would become per-mode arrays,
+with `SCALE_PATHS` reindexed. This is the highest-value new model, because the others are
+variations on a theme it generalises.
+
+**15. Stiffening elastics with relaxation.** The strain-stiffening laws --- Gent, Fung,
+Arruda-Boyce, Yeoh, Ogden --- exist only as *instantaneous* elastics, so the candidate set
+offers stiffening without memory or memory with quadratic stiffening, never Gent-with-
+relaxation. Since the records are fitted by a Zener and the stiffening exponent is
+identified, that gap is a real one. Each is a `Zener`-shaped branch with a different
+`Z_e`, so they are repetitive rather than hard.
+
+**16. Diminishing returns, honestly.** More candidates only sharpen a comparison that is
+already running. Nothing has been fitted (item 1), and until it has, a 28th model adds
+breadth to a ranking nobody has computed. Weigh new models against `fit_candidate`.
 
 **13. Watch the fast-lane budget.** The new files add roughly 25 s to the not-slow lane
 against a ~5 min target. The coverage sweeps are already behind `@pytest.mark.slow`; the

@@ -115,17 +115,27 @@ def test_the_share_axis_stays_inside_what_the_material_will_accept():
     assert EXTENDED_MODELS["qSLS2"].build(theta) is not None
 
 
-def test_the_extended_models_are_kept_out_of_the_grid_set():
-  """Not a taste call: `solve_grid` is `count**dimension`, and this one does not fit.
+def test_the_extended_models_are_all_genuinely_beyond_the_grid():
+  """Membership is not a taste call, and there are exactly two grounds for it.
 
-  At the `GRID_COUNT = 12` the examples use, six axes is 5,971,968 solves against 168,072
-  for the entire standard sweep. If a later candidate is small enough to belong in
-  `STANDARD_MODELS`, this is the test that should be deleted rather than worked around.
+  Either the candidate has more axes than the grid can afford --- `solve_grid` is
+  `count**dimension`, and at the `GRID_COUNT = 12` the examples use, six axes is 5,971,968
+  solves against 168,072 for the entire standard sweep --- or its numbers cannot travel
+  through the fixed-width scales vector, so a sweep compiles once per POINT instead of
+  once, which is Ogden's situation and is independent of how many axes it has.
+
+  A candidate failing both grounds belongs in `STANDARD_MODELS`, and this test should be
+  what stops it being parked here instead.
   """
+  from pyimr._integrate import shares_one_program
+
   assert not (set(EXTENDED_MODELS) & set(STANDARD_MODELS))
   widest = max(c.dimension for c in STANDARD_MODELS.values())
   for candidate in EXTENDED_MODELS.values():
-    assert candidate.dimension > widest, f"{candidate.name} is grid-sized; move it"
+    theta = {a: float(np.sqrt(PARAMETER_BOUNDS[a][0] * PARAMETER_BOUNDS[a][1])) for a in candidate.axes}
+    too_wide = candidate.dimension > widest
+    recompiles = not shares_one_program(candidate.build(theta))
+    assert too_wide or recompiles, f"{candidate.name} fits the grid on both counts; move it"
 
 
 def test_the_grid_normalizes_inside_the_unit_box_for_bounds_that_are_not_round(measured):

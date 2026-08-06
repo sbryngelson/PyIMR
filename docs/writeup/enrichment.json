@@ -1,28 +1,28 @@
 {
  "qSLS": {
-  "name": "qSLS",
-  "dimension": 4,
   "chi2_per_n": 0.9620650731825404,
+  "log_evidence": 529.2561867362234,
+  "lag_one": 0.9178975176728427,
+  "n_eff": 10.250736437166447,
+  "failure_fraction": 0.011432654519471239,
+  "modes": 6,
   "fitted": {
    "mu": 0.04611570548660817,
    "g": 100.00000000011693,
    "lambda1": 1.8874413047260768e-07,
    "alpha": 10.813718920896045
   },
-  "log_evidence": 529.2561867362234,
-  "modes": 6,
-  "scored": 5,
-  "lag_one": 0.9178975176728427,
-  "n_eff": 10.250736437166447,
-  "samples": 201,
-  "failure_fraction": 0.011432654519471239,
-  "converged": 6,
-  "starts": 8
+  "pinned": [
+   "g"
+  ]
  },
  "qSLS2": {
-  "name": "qSLS2",
-  "dimension": 6,
   "chi2_per_n": 0.9498714775534971,
+  "log_evidence": 531.0336120593681,
+  "lag_one": 0.917833270136017,
+  "n_eff": 7.22361672698303,
+  "failure_fraction": 0.02098569157392687,
+  "modes": 5,
   "fitted": {
    "mu": 0.0486283799668495,
    "g": 100.00339083117476,
@@ -31,20 +31,17 @@
    "tau_ratio": 15.658221409139921,
    "share": 0.16022161081993067
   },
-  "log_evidence": 531.0336120593681,
-  "modes": 5,
-  "scored": 3,
-  "lag_one": 0.917833270136017,
-  "n_eff": 7.22361672698303,
-  "samples": 201,
-  "failure_fraction": 0.02098569157392687,
-  "converged": 5,
-  "starts": 8
+  "pinned": [
+   "lambda1"
+  ]
  },
  "qSLSthin": {
-  "name": "qSLSthin",
-  "dimension": 6,
   "chi2_per_n": 0.9217143595296239,
+  "log_evidence": 532.0489767754536,
+  "lag_one": 0.8747607465111722,
+  "n_eff": 8.194405222715138,
+  "failure_fraction": 0.012897282358360202,
+  "modes": 4,
   "fitted": {
    "mu": 0.044878776213395706,
    "g": 100.00000000004732,
@@ -53,14 +50,9 @@
    "thin_time": 1.000000000005673e-07,
    "pl_n": 0.6013857947919138
   },
-  "log_evidence": 532.0489767754536,
-  "modes": 4,
-  "scored": 4,
-  "lag_one": 0.8747607465111722,
-  "n_eff": 8.194405222715138,
-  "samples": 201,
-  "failure_fraction": 0.012897282358360202,
-  "converged": 4,
-  "starts": 8
+  "pinned": [
+   "g",
+   "thin_time"
+  ]
  }
 }

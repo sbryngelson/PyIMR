@@ -29,15 +29,12 @@ a measure computed at one material misranks experiments performed on others. The
 column below inherits that and should be read as a statement about geometry alone.
 """
 
-import os, json
-
-for _n in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"): os.environ.setdefault(_n, "1")
-
-from pathlib import Path
+import json
 
 import numpy as np
 
-HERE = Path(__file__).resolve().parent
+import records
+
 FIT = (204.3, 0.04651, 1.964e-7, 5.301)          # the published qSLS fit
 LOW = np.array([124.4, 0.04284, 1.482e-7, 2.424])
 HIGH = np.array([431.9, 0.05005, 2.325e-7, 9.432])
@@ -45,8 +42,8 @@ RADII = np.geomspace(50e-6, 1200e-6, 16)
 STRETCH = np.linspace(3.0, 20.0, 14)
 RELATIVE_NOISE, SAMPLES = 0.018, 201
 RIVALS = (2, 5)                                   # the package default against what replicated
-# the three experiments actually performed, from the paper's dataset table
-PERFORMED = {"gelatin_15C": (277e-6, 7.09), "gelatin_23C": (298e-6, 7.37), "gelatin_33C": (312e-6, 6.83)}
+# the three experiments actually performed, from the shared record table
+PERFORMED = {name: (records.DATASETS[name], records.load(name)[4]) for name in records.DATASETS}
 
 
 def information(design):
@@ -128,7 +125,7 @@ def main():
              "gap": float(result.gap), "certified": bool(result.certified),
              "optimal_variance": best,
              "performed": {k: best / operator_variance(stack[points.index(v)]) for k, v in PERFORMED.items()}},
-            open(HERE / "design_operator.json", "w"), indent=1)
+            open(records.HERE / "design_operator.json", "w"), indent=1)
 
 
 if __name__ == "__main__":

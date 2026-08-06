@@ -24,10 +24,18 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-DATASET, R_MAX = "gelatin_15C", 277e-6
+# R_max per record, from the paper's dataset table (see `examples/measured_selection.py`).
+# They differ -- 277, 298, 312 um -- and reusing the 15 C value for the others would put a
+# geometry error into every fit it touched.
+DATASETS = {"gelatin_15C": 277e-6, "gelatin_23C": 298e-6, "gelatin_33C": 312e-6}
 STARTS, EVALUATIONS = 6, 200
 # the published qSLS fit is g = 204.3, alpha = 5.301, so g/alpha = 38.5; two decades around it
 RATIOS = (3.85, 38.5, 385.0)
+# Below this, two operators are not ordered by the record -- they are indistinguishable. A
+# test that only asks "did the sign hold" calls that a contradiction, which is how a record
+# with no discriminating power gets to veto a result from one that has it. On the 33 C record
+# all six operators land within 0.5 nats of each other, so every ordering there is noise.
+DECISIVE = 1.0
 BOX = {"mu": (1e-5, 1e1), "galpha": (1e0, 1e7), "lambda1": (1e-9, 1e-2)}
 
 
@@ -51,15 +59,16 @@ def _job(argument):
                                physical_from_unit)
   from scipy.special import logsumexp
 
-  name, ratio = argument
-  record = json.loads((HERE / "results.json").read_text())[DATASET]
+  dataset, name, ratio = argument
+  record = json.loads((HERE / "results.json").read_text())[dataset]
   times, mean, spread = (np.array(record[k]) for k in ("times_s", "mean", "spread"))
   keep = spread > 0
   times, mean, spread = times[keep], mean[keep], spread[keep]
   radial = DYNAMICS_MODELS[name]
 
   def solve(material):
-    config = pyimr.SimulationConfig(R_MAX, R_MAX / record["stretch"], material, radial=radial,
+    maximum = DATASETS[dataset]
+    config = pyimr.SimulationConfig(maximum, maximum / record["stretch"], material, radial=radial,
                                     rtol=1e-8, atol=1e-10, max_steps=400_000)
     trace = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
     return trace, trace
@@ -69,7 +78,7 @@ def _job(argument):
     fit = fit_candidate(candidate, solve, mean, spread, bounds=BOX, starts=STARTS,
                         max_evaluations=EVALUATIONS)
   except ValueError as error:
-    return dict(name=name, ratio=ratio, failed=str(error))
+    return dict(dataset=dataset, name=name, ratio=ratio, failed=str(error))
 
   scored = []
   for point in fit.modes:
@@ -77,7 +86,7 @@ def _job(argument):
     except ValueError: continue
   values = physical_from_unit(candidate.axes, fit.unit, BOX)
   residual = (solve(candidate.build(dict(zip(candidate.axes, values, strict=True))))[0] - mean) / spread
-  return dict(name=name, ratio=ratio, chi2_per_n=fit.chi_squared,
+  return dict(dataset=dataset, name=name, ratio=ratio, chi2_per_n=fit.chi_squared,
               log_evidence=float(logsumexp(scored)) if scored else float("nan"),
               lag_one=float(check_residuals(np.asarray(residual, float)).lag_one),
               pinned=[k for k, v in zip(candidate.axes, values, strict=True)
@@ -90,54 +99,66 @@ def main():
   from pyimr.selection import DYNAMICS_MODELS
 
   names = list(DYNAMICS_MODELS)
-  jobs = [(n, r) for r in RATIOS for n in names]
+  jobs = [(d, n, r) for d in DATASETS for r in RATIOS for n in names]
   with worker_pool(6) as pool:
     results = list(pool.map(_job, jobs))
-  table = {(r["name"], r["ratio"]): r for r in results}
+  table = {(r["dataset"], r["name"], r["ratio"]): r for r in results}
 
-  print(f"{DATASET}: the operator question in identified coordinates "
-        f"(g*alpha free, g/alpha fixed)\n")
-  header = "".join(f"{f'g/a={r:g}':>22}" for r in RATIOS)
-  print(f"{'operator':>22}{header}")
-  print(f"{'':>22}" + "".join(f"{'log Z   (chi2/N)':>22}" for _ in RATIOS))
-  orders = {}
-  for ratio in RATIOS:
-    usable = [(n, table[(n, ratio)]) for n in names if "failed" not in table[(n, ratio)]]
-    orders[ratio] = [n for n, _ in sorted(usable, key=lambda kv: -kv[1]["log_evidence"])]
-  for name in names:
-    cells = ""
-    for ratio in RATIOS:
-      r = table[(name, ratio)]
-      cells += f"{'   did not fit':>22}" if "failed" in r else \
-               f"{r['log_evidence']:14.2f} ({r['chi2_per_n']:5.2f})"
-    print(f"{name:>22}{cells}")
+  def robust_pairs(dataset):
+    """Orderings that hold at every ratio: the ones not set by what the data cannot see."""
+    holds = {}
+    for i, a in enumerate(names):
+      for b in names[i + 1:]:
+        gaps = [table[(dataset, a, r)].get("log_evidence") for r in RATIOS], \
+               [table[(dataset, b, r)].get("log_evidence") for r in RATIOS]
+        if any(x is None or not np.isfinite(x) for x in gaps[0] + gaps[1]): continue
+        diff = [x - y for x, y in zip(*gaps, strict=True)]
+        if all(d > DECISIVE for d in diff): holds[(a, b)] = min(diff)
+        elif all(d < -DECISIVE for d in diff): holds[(b, a)] = min(-d for d in diff)
+        elif max(abs(d) for d in diff) < DECISIVE: holds[(a, b)] = holds[(b, a)] = None  # a tie
+    return holds
 
-  print("\n  ranking at each ratio, best first:")
-  for ratio in RATIOS:
-    print(f"    g/alpha={ratio:<7g} " + " > ".join(orders[ratio]))
-  stable = len({tuple(v) for v in orders.values()}) == 1
-  print(f"\n  ordering identical across two decades of the unidentified ratio: {stable}")
+  print("the operator question in identified coordinates, on every record\n")
+  per = {d: robust_pairs(d) for d in DATASETS}
+  for dataset in DATASETS:
+    chi = [table[(dataset, n, RATIOS[0])].get("chi2_per_n") for n in names]
+    best = min((c for c in chi if c is not None), default=float("nan"))
+    print(f"  {dataset}: {len(per[dataset])} of 15 pairwise orderings robust to the ratio, "
+          f"best chi2/N {best:.2f}")
 
-  # "unstable" is too blunt to act on. A pairwise check says WHICH comparisons survive the
-  # direction the data cannot see, and those are the ones worth reporting: a conclusion is
-  # only about the data if it does not move when `g/alpha` does.
-  print("\n  pairwise orderings that hold at EVERY ratio (these are about the data):")
-  robust, fragile = [], []
-  for i, a in enumerate(names):
-    for b in names[i + 1:]:
-      gaps = [table[(a, r)]["log_evidence"] - table[(b, r)]["log_evidence"]
-              for r in RATIOS if "failed" not in table[(a, r)] and "failed" not in table[(b, r)]]
-      if len(gaps) != len(RATIOS): continue
-      if all(g > 0 for g in gaps): robust.append((a, b, min(abs(g) for g in gaps)))
-      elif all(g < 0 for g in gaps): robust.append((b, a, min(abs(g) for g in gaps)))
-      else: fragile.append((a, b))
-  for a, b, margin in sorted(robust, key=lambda t: -t[2]):
-    print(f"    {a:>22} > {b:<22} by at least {margin:7.2f} nats")
-  print("\n  pairs whose order REVERSES with the ratio (not determined by this record):")
-  for a, b in fragile: print(f"    {a} vs {b}")
-  pins = {k: v["pinned"] for k, v in table.items() if v.get("pinned")}
-  print(f"  fits pinned at a bound: {len(pins)} of {len(table)}")
-  (HERE / "identified.json").write_text(json.dumps({f"{k[0]}@{k[1]}": v for k, v in table.items()}, indent=1))
+  # A conclusion is supported if some record orders it decisively and NO record orders it
+  # the other way decisively. Records that merely cannot tell abstain rather than veto.
+  decisive = {d: {k: v for k, v in per[d].items() if v is not None} for d in DATASETS}
+  everywhere = {k for d in DATASETS for k in decisive[d]
+                if not any((k[1], k[0]) in decisive[e] for e in DATASETS)}
+  print(f"\n  per record, orderings decided at all (margin > {DECISIVE} nat): "
+        + ", ".join(f"{d.replace('gelatin_','')}:{len(decisive[d])//1}" for d in DATASETS))
+  print(f"  supported overall -- decided somewhere, contradicted nowhere: {len(everywhere)}")
+  for a, b in sorted(everywhere, key=lambda ab: -max(decisive[d].get(ab, 0) for d in DATASETS)):
+    votes = {d: decisive[d][(a, b)] for d in DATASETS if (a, b) in decisive[d]}
+    quiet = [d for d in DATASETS if (a, b) not in decisive[d]]
+    print(f"    {a:>22} > {b:<22} " + ", ".join(f"{d.replace('gelatin_','')}:+{v:.1f}" for d, v in votes.items())
+          + (f"   (no power: {', '.join(x.replace('gelatin_','') for x in quiet)})" if quiet else ""))
+
+  # "supported" and "replicated" are different claims and the difference is the whole point
+  # of running three records: an ordering decided by ONE record with the others abstaining is
+  # not confirmed by them, it is merely untested by them.
+  print("\n  against the `radial=2` pressure form every candidate in this package assumes:")
+  for challenger in ("keller-miksis-tait", "keller-miksis-mie"):
+    key = (challenger, "keller-miksis")
+    votes = [d for d in DATASETS if key in decisive[d]]
+    verdict = ("REPLICATED on " + str(len(votes)) + " records" if len(votes) > 1 else
+               "supported by one record, untested by the others" if len(votes) == 1 else
+               "not decided anywhere")
+    print(f"    {challenger:>22}: {verdict}")
+  key = ("keller-miksis-tait", "keller-miksis")
+  for dataset in DATASETS:
+    margin, against = decisive[dataset].get(key), decisive[dataset].get((key[1], key[0]))
+    print(f"    {dataset}: " + (f"+{margin:.2f} nats at worst" if margin else
+                                 f"CONTRADICTED by {against:.2f}" if against else
+                                 "no power to decide it"))
+  (HERE / "identified.json").write_text(json.dumps(
+    {f"{k[0]}|{k[1]}|{k[2]}": v for k, v in table.items()}, indent=1))
 
 
 if __name__ == "__main__":

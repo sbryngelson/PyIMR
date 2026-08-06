@@ -85,24 +85,39 @@ existing result, not a new one.
 nobody had found that a known parameter degeneracy makes the operator comparison
 prior-dominated. The two questions were previously independent; they are not.
 
-**Done, and most of the comparison survives it** (`docs/writeup/identified.py`). Fitting
-`g*alpha` with `g/alpha` fixed, at three ratios spanning two decades around the published
-fit: no fit is pinned (0 of 18, against 3 of 6 before), and 12 of the 15 pairwise orderings
-hold at every ratio. What is robust is therefore reportable, and what is not is named:
+**Done, on all three records** (`docs/writeup/identified.py`). Fitting `g*alpha` with
+`g/alpha` fixed, at three ratios spanning two decades, on 15 C, 23 C and 33 C. No fit is
+pinned (0 of 54). What survives is much less than the first pass suggested.
 
-  - every compressible operator beats Rayleigh-Plesset by 11 to 170 nats. Incompressibility
-    is rejected, decisively and unconditionally;
-  - **`radial=3` (Keller-Miksis, enthalpy/Tait) beats `radial=2` (pressure form) by at least
-    5.81 nats at every ratio** -- and `radial=2` is what every candidate in the package
-    assumes. `radial=5` beats it too, by at least 4.51;
-  - the Keller-Miksis family beats Gilmore/Mie-Grueneisen by 151 to 158 nats, which is worth
-    noting because `radial=6` is the most physically complete operator here;
-  - NOT determined: Gilmore/Tait against any Keller-Miksis variant. All three reversing pairs
-    involve it, and it swings from fourth to first across the ratio range.
+Discriminating power varies enormously between records, and that has to be handled before
+anything else is read:
 
-So the honest summary is that the operator is partly determined. The ranking as a whole is
-not, but the specific comparison that matters for this package -- the pressure form everyone
-uses against the enthalpy forms -- is, and it goes against the default.
+| record | trials | best chi2/N | spread across the six operators |
+|---|---|---|---|
+| 15 C | 18 | 0.90 | ~170 nats |
+| 23 C | 14 | 1.01 | ~77 nats |
+| 33 C | 7 | 1.15 | **~0.5 nats -- decides nothing** |
+
+At 33 C every operator returns `log Z ~ 476.9` and `chi2/N = 1.15`. A test that only asks
+whether an ordering's sign held would let that record veto results from records that can
+actually see something; orderings there are noise, not contradictions. So a claim counts as
+supported when some record decides it by more than a nat and none contradicts it, and the
+records that cannot tell abstain.
+
+**The claim about this package's default, corrected.** `radial=2` is what every candidate and
+example assumes.
+
+  - `radial=5` (Keller-Miksis / Mie-Grueneisen) beats it on **two independent records**
+    (15 C +4.5, 23 C +1.5). This is the one that replicates.
+  - `radial=3` (Keller-Miksis enthalpy/Tait) beats it by more, +5.8, but **on one record
+    only**; 23 C and 33 C cannot decide it.
+
+An earlier pass here highlighted `radial=3` because its margin was largest -- on the only
+record then examined. That is selecting on the strongest record, and the correction is the
+reason the other two were run.
+
+Also replicated: every compressible operator beats Rayleigh-Plesset where any record can tell
+(15 C +162.5, 23 C +74.4), and the Keller-Miksis family beats Gilmore/Mie-Grueneisen on both.
 
 **Next: change the default, or justify it.** `radial=2` is assumed by every example and every
 candidate; on this record it is beaten robustly by two other operators. Either is a one-line

@@ -1,5 +1,6 @@
 {
- "rayleigh-plesset@3.85": {
+ "gelatin_15C|rayleigh-plesset|3.85": {
+  "dataset": "gelatin_15C",
   "name": "rayleigh-plesset",
   "ratio": 3.85,
   "chi2_per_n": 2.5815729618591585,
@@ -12,7 +13,8 @@
    "lambda1": 3.4706252752597043e-06
   }
  },
- "keller-miksis@3.85": {
+ "gelatin_15C|keller-miksis|3.85": {
+  "dataset": "gelatin_15C",
   "name": "keller-miksis",
   "ratio": 3.85,
   "chi2_per_n": 0.9590076193577168,
@@ -25,7 +27,8 @@
    "lambda1": 1.8524660221642775e-07
   }
  },
- "keller-miksis-tait@3.85": {
+ "gelatin_15C|keller-miksis-tait|3.85": {
+  "dataset": "gelatin_15C",
   "name": "keller-miksis-tait",
   "ratio": 3.85,
   "chi2_per_n": 0.8975694364882868,
@@ -38,7 +41,8 @@
    "lambda1": 6.2989283947036e-08
   }
  },
- "gilmore-tait@3.85": {
+ "gelatin_15C|gilmore-tait|3.85": {
+  "dataset": "gelatin_15C",
   "name": "gilmore-tait",
   "ratio": 3.85,
   "chi2_per_n": 2.4708459220257426,
@@ -51,7 +55,8 @@
    "lambda1": 3.617204957620744e-06
   }
  },
- "keller-miksis-mie@3.85": {
+ "gelatin_15C|keller-miksis-mie|3.85": {
+  "dataset": "gelatin_15C",
   "name": "keller-miksis-mie",
   "ratio": 3.85,
   "chi2_per_n": 0.9141272445393733,
@@ -64,7 +69,8 @@
    "lambda1": 8.454240522128968e-08
   }
  },
- "gilmore-mie@3.85": {
+ "gelatin_15C|gilmore-mie|3.85": {
+  "dataset": "gelatin_15C",
   "name": "gilmore-mie",
   "ratio": 3.85,
   "chi2_per_n": 2.4746279414230123,
@@ -77,7 +83,8 @@
    "lambda1": 3.6117798217441822e-06
   }
  },
- "rayleigh-plesset@38.5": {
+ "gelatin_15C|rayleigh-plesset|38.5": {
+  "dataset": "gelatin_15C",
   "name": "rayleigh-plesset",
   "ratio": 38.5,
   "chi2_per_n": 2.586487085124052,
@@ -90,7 +97,8 @@
    "lambda1": 3.476157670699058e-06
   }
  },
- "keller-miksis@38.5": {
+ "gelatin_15C|keller-miksis|38.5": {
+  "dataset": "gelatin_15C",
   "name": "keller-miksis",
   "ratio": 38.5,
   "chi2_per_n": 0.9710144928567966,
@@ -103,7 +111,8 @@
    "lambda1": 1.9865276829524348e-07
   }
  },
- "keller-miksis-tait@38.5": {
+ "gelatin_15C|keller-miksis-tait|38.5": {
+  "dataset": "gelatin_15C",
   "name": "keller-miksis-tait",
   "ratio": 38.5,
   "chi2_per_n": 0.9079447736921147,
@@ -116,7 +125,8 @@
    "lambda1": 6.629952483251696e-08
   }
  },
- "gilmore-tait@38.5": {
+ "gelatin_15C|gilmore-tait|38.5": {
+  "dataset": "gelatin_15C",
   "name": "gilmore-tait",
   "ratio": 38.5,
   "chi2_per_n": 2.474915893479103,
@@ -129,7 +139,8 @@
    "lambda1": 3.622961909853534e-06
   }
  },
- "keller-miksis-mie@38.5": {
+ "gelatin_15C|keller-miksis-mie|38.5": {
+  "dataset": "gelatin_15C",
   "name": "keller-miksis-mie",
   "ratio": 38.5,
   "chi2_per_n": 0.9253065950670538,
@@ -142,7 +153,8 @@
    "lambda1": 9.098582142013413e-08
   }
  },
- "gilmore-mie@38.5": {
+ "gelatin_15C|gilmore-mie|38.5": {
+  "dataset": "gelatin_15C",
   "name": "gilmore-mie",
   "ratio": 38.5,
   "chi2_per_n": 2.4787277838927215,
@@ -155,7 +167,8 @@
    "lambda1": 3.6175301712422255e-06
   }
  },
- "rayleigh-plesset@385.0": {
+ "gelatin_15C|rayleigh-plesset|385.0": {
+  "dataset": "gelatin_15C",
   "name": "rayleigh-plesset",
   "ratio": 385.0,
   "chi2_per_n": 2.6020675548731313,
@@ -168,7 +181,8 @@
    "lambda1": 3.4932557239958512e-06
   }
  },
- "keller-miksis@385.0": {
+ "gelatin_15C|keller-miksis|385.0": {
+  "dataset": "gelatin_15C",
   "name": "keller-miksis",
   "ratio": 385.0,
   "chi2_per_n": 1.0085584762980713,
@@ -181,7 +195,8 @@
    "lambda1": 2.3712928932683753e-07
   }
  },
- "keller-miksis-tait@385.0": {
+ "gelatin_15C|keller-miksis-tait|385.0": {
+  "dataset": "gelatin_15C",
   "name": "keller-miksis-tait",
   "ratio": 385.0,
   "chi2_per_n": 0.942054222329588,
@@ -194,7 +209,8 @@
    "lambda1": 7.982392055725848e-08
   }
  },
- "gilmore-tait@385.0": {
+ "gelatin_15C|gilmore-tait|385.0": {
+  "dataset": "gelatin_15C",
   "name": "gilmore-tait",
   "ratio": 385.0,
   "chi2_per_n": 0.8309114421838016,
@@ -207,7 +223,8 @@
    "lambda1": 1.291206051614661e-08
   }
  },
- "keller-miksis-mie@385.0": {
+ "gelatin_15C|keller-miksis-mie|385.0": {
+  "dataset": "gelatin_15C",
   "name": "keller-miksis-mie",
   "ratio": 385.0,
   "chi2_per_n": 0.9634729826219162,
@@ -220,7 +237,8 @@
    "lambda1": 1.188590263259624e-07
   }
  },
- "gilmore-mie@385.0": {
+ "gelatin_15C|gilmore-mie|385.0": {
+  "dataset": "gelatin_15C",
   "name": "gilmore-mie",
   "ratio": 385.0,
   "chi2_per_n": 2.4917950630153842,
@@ -231,6 +249,510 @@
    "mu": 0.7752500992494338,
    "galpha": 3420.6725902363264,
    "lambda1": 3.635301613207606e-06
+  }
+ },
+ "gelatin_23C|rayleigh-plesset|3.85": {
+  "dataset": "gelatin_23C",
+  "name": "rayleigh-plesset",
+  "ratio": 3.85,
+  "chi2_per_n": 1.794712632043386,
+  "log_evidence": 402.75043325813465,
+  "lag_one": 0.8923894576443568,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6293890997360774,
+   "galpha": 2188.407827437926,
+   "lambda1": 2.7807992907431726e-06
+  }
+ },
+ "gelatin_23C|keller-miksis|3.85": {
+  "dataset": "gelatin_23C",
+  "name": "keller-miksis",
+  "ratio": 3.85,
+  "chi2_per_n": 1.0209422640134707,
+  "log_evidence": 480.498445705819,
+  "lag_one": 0.9674369405687802,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.05784413103547768,
+   "galpha": 680.0169191266701,
+   "lambda1": 1.1877007067460643e-07
+  }
+ },
+ "gelatin_23C|keller-miksis-tait|3.85": {
+  "dataset": "gelatin_23C",
+  "name": "keller-miksis-tait",
+  "ratio": 3.85,
+  "chi2_per_n": 1.6088980364915795,
+  "log_evidence": 423.1044082814784,
+  "lag_one": 0.910849551380275,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.07252406544805955,
+   "galpha": 503.5199610620059,
+   "lambda1": 1.5513846245238556e-07
+  }
+ },
+ "gelatin_23C|gilmore-tait|3.85": {
+  "dataset": "gelatin_23C",
+  "name": "gilmore-tait",
+  "ratio": 3.85,
+  "chi2_per_n": 1.7853862350337835,
+  "log_evidence": 403.68385276609973,
+  "lag_one": 0.8922950277685108,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6191931490639688,
+   "galpha": 2211.482704299318,
+   "lambda1": 2.9116943902253046e-06
+  }
+ },
+ "gelatin_23C|keller-miksis-mie|3.85": {
+  "dataset": "gelatin_23C",
+  "name": "keller-miksis-mie",
+  "ratio": 3.85,
+  "chi2_per_n": 1.0065011667761607,
+  "log_evidence": 482.03184746950666,
+  "lag_one": 0.9674311403435081,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.056047013836475694,
+   "galpha": 674.7340372255005,
+   "lambda1": 7.818742058062042e-08
+  }
+ },
+ "gelatin_23C|gilmore-mie|3.85": {
+  "dataset": "gelatin_23C",
+  "name": "gilmore-mie",
+  "ratio": 3.85,
+  "chi2_per_n": 1.7856006220381675,
+  "log_evidence": 403.6616974314626,
+  "lag_one": 0.8922935328666236,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6196095436756165,
+   "galpha": 2211.105665656347,
+   "lambda1": 2.9069888105579615e-06
+  }
+ },
+ "gelatin_23C|rayleigh-plesset|38.5": {
+  "dataset": "gelatin_23C",
+  "name": "rayleigh-plesset",
+  "ratio": 38.5,
+  "chi2_per_n": 1.79420594274471,
+  "log_evidence": 402.8032027794655,
+  "lag_one": 0.8923288923028285,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6300896910918552,
+   "galpha": 2167.1956461831687,
+   "lambda1": 2.7834033068143343e-06
+  }
+ },
+ "gelatin_23C|keller-miksis|38.5": {
+  "dataset": "gelatin_23C",
+  "name": "keller-miksis",
+  "ratio": 38.5,
+  "chi2_per_n": 1.0287256523016615,
+  "log_evidence": 479.7314282686222,
+  "lag_one": 0.9675134978628563,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.057973668183689236,
+   "galpha": 667.0893804730505,
+   "lambda1": 1.2333383016845098e-07
+  }
+ },
+ "gelatin_23C|keller-miksis-tait|38.5": {
+  "dataset": "gelatin_23C",
+  "name": "keller-miksis-tait",
+  "ratio": 38.5,
+  "chi2_per_n": 1.0078638407865785,
+  "log_evidence": 481.843041108132,
+  "lag_one": 0.9676306154705199,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.055419507347768744,
+   "galpha": 658.9192766978331,
+   "lambda1": 6.54276798280719e-08
+  }
+ },
+ "gelatin_23C|gilmore-tait|38.5": {
+  "dataset": "gelatin_23C",
+  "name": "gilmore-tait",
+  "ratio": 38.5,
+  "chi2_per_n": 1.784310174502047,
+  "log_evidence": 403.7912073247879,
+  "lag_one": 0.8922144529074917,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6199302680454882,
+   "galpha": 2190.239618778199,
+   "lambda1": 2.914607654231725e-06
+  }
+ },
+ "gelatin_23C|keller-miksis-mie|38.5": {
+  "dataset": "gelatin_23C",
+  "name": "keller-miksis-mie",
+  "ratio": 38.5,
+  "chi2_per_n": 1.0142301135464102,
+  "log_evidence": 481.3122674707701,
+  "lag_one": 0.9674627912233505,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.0560983634678491,
+   "galpha": 661.8239870170737,
+   "lambda1": 8.192818091470632e-08
+  }
+ },
+ "gelatin_23C|gilmore-mie|38.5": {
+  "dataset": "gelatin_23C",
+  "name": "gilmore-mie",
+  "ratio": 38.5,
+  "chi2_per_n": 1.7845450980719804,
+  "log_evidence": 403.7670999587782,
+  "lag_one": 0.8922141467011275,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6203324104533757,
+   "galpha": 2189.845291969602,
+   "lambda1": 2.9098305562833e-06
+  }
+ },
+ "gelatin_23C|rayleigh-plesset|385.0": {
+  "dataset": "gelatin_23C",
+  "name": "rayleigh-plesset",
+  "ratio": 385.0,
+  "chi2_per_n": 1.7928915460184325,
+  "log_evidence": 402.9423255786214,
+  "lag_one": 0.8921502850637665,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6322463904705048,
+   "galpha": 2101.4389706919296,
+   "lambda1": 2.7913964738947343e-06
+  }
+ },
+ "gelatin_23C|keller-miksis|385.0": {
+  "dataset": "gelatin_23C",
+  "name": "keller-miksis",
+  "ratio": 385.0,
+  "chi2_per_n": 1.052880999641599,
+  "log_evidence": 477.3438848091664,
+  "lag_one": 0.9676880942192643,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.0583860566945605,
+   "galpha": 627.7482562991772,
+   "lambda1": 1.3736408843474608e-07
+  }
+ },
+ "gelatin_23C|keller-miksis-tait|385.0": {
+  "dataset": "gelatin_23C",
+  "name": "keller-miksis-tait",
+  "ratio": 385.0,
+  "chi2_per_n": 1.0315345012026451,
+  "log_evidence": 479.68508791874154,
+  "lag_one": 0.9676102812563091,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.055471439658664606,
+   "galpha": 619.5639275124792,
+   "lambda1": 7.531840351413515e-08
+  }
+ },
+ "gelatin_23C|gilmore-tait|385.0": {
+  "dataset": "gelatin_23C",
+  "name": "gilmore-tait",
+  "ratio": 385.0,
+  "chi2_per_n": 1.7812440658757236,
+  "log_evidence": 404.0982655918515,
+  "lag_one": 0.8919740659897099,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6221972465876235,
+   "galpha": 2124.367558070168,
+   "lambda1": 2.9235493397647534e-06
+  }
+ },
+ "gelatin_23C|keller-miksis-mie|385.0": {
+  "dataset": "gelatin_23C",
+  "name": "keller-miksis-mie",
+  "ratio": 385.0,
+  "chi2_per_n": 1.0387090683335727,
+  "log_evidence": 478.9944283547623,
+  "lag_one": 0.9674951324990727,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.0563349233471848,
+   "galpha": 622.7001304928181,
+   "lambda1": 9.504975951154032e-08
+  }
+ },
+ "gelatin_23C|gilmore-mie|385.0": {
+  "dataset": "gelatin_23C",
+  "name": "gilmore-mie",
+  "ratio": 385.0,
+  "chi2_per_n": 1.7815422801434888,
+  "log_evidence": 404.06807956874707,
+  "lag_one": 0.8919754591470118,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6226029280270565,
+   "galpha": 2123.9773279678166,
+   "lambda1": 2.918773279678068e-06
+  }
+ },
+ "gelatin_33C|rayleigh-plesset|3.85": {
+  "dataset": "gelatin_33C",
+  "name": "rayleigh-plesset",
+  "ratio": 3.85,
+  "chi2_per_n": 1.1568756570360121,
+  "log_evidence": 476.33222609317227,
+  "lag_one": 0.8151059784633073,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.635796587893498,
+   "galpha": 2124.372372633489,
+   "lambda1": 3.1112574410513788e-06
+  }
+ },
+ "gelatin_33C|keller-miksis|3.85": {
+  "dataset": "gelatin_33C",
+  "name": "keller-miksis",
+  "ratio": 3.85,
+  "chi2_per_n": 1.1520456109763695,
+  "log_evidence": 476.8644938619223,
+  "lag_one": 0.8200692308388341,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6206157452573565,
+   "galpha": 2145.804527275106,
+   "lambda1": 3.2236318567255624e-06
+  }
+ },
+ "gelatin_33C|keller-miksis-tait|3.85": {
+  "dataset": "gelatin_33C",
+  "name": "keller-miksis-tait",
+  "ratio": 3.85,
+  "chi2_per_n": 1.1522425506382306,
+  "log_evidence": 476.84480212582645,
+  "lag_one": 0.8200951008310124,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6206578250081489,
+   "galpha": 2145.848594245571,
+   "lambda1": 3.2238742298524533e-06
+  }
+ },
+ "gelatin_33C|gilmore-tait|3.85": {
+  "dataset": "gelatin_33C",
+  "name": "gilmore-tait",
+  "ratio": 3.85,
+  "chi2_per_n": 1.1522111789884693,
+  "log_evidence": 476.8498876676586,
+  "lag_one": 0.8202862725596121,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6201121562135442,
+   "galpha": 2146.6048619457356,
+   "lambda1": 3.2280054862096204e-06
+  }
+ },
+ "gelatin_33C|keller-miksis-mie|3.85": {
+  "dataset": "gelatin_33C",
+  "name": "keller-miksis-mie",
+  "ratio": 3.85,
+  "chi2_per_n": 1.1522137506842607,
+  "log_evidence": 476.8475217316019,
+  "lag_one": 0.8200896140253717,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6207002913331493,
+   "galpha": 2146.2747053355856,
+   "lambda1": 3.2238522958394224e-06
+  }
+ },
+ "gelatin_33C|gilmore-mie|3.85": {
+  "dataset": "gelatin_33C",
+  "name": "gilmore-mie",
+  "ratio": 3.85,
+  "chi2_per_n": 1.1522780923724003,
+  "log_evidence": 476.8410279453353,
+  "lag_one": 0.8200745883342273,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6207246202217526,
+   "galpha": 2146.313135042832,
+   "lambda1": 3.223765707452466e-06
+  }
+ },
+ "gelatin_33C|rayleigh-plesset|38.5": {
+  "dataset": "gelatin_33C",
+  "name": "rayleigh-plesset",
+  "ratio": 38.5,
+  "chi2_per_n": 1.1563484900825511,
+  "log_evidence": 476.38822988897664,
+  "lag_one": 0.8148479685423798,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6364197615919287,
+   "galpha": 2100.8778209074544,
+   "lambda1": 3.1142218025805397e-06
+  }
+ },
+ "gelatin_33C|keller-miksis|38.5": {
+  "dataset": "gelatin_33C",
+  "name": "keller-miksis",
+  "ratio": 38.5,
+  "chi2_per_n": 1.1510147138970148,
+  "log_evidence": 476.9704881103066,
+  "lag_one": 0.8198153272308909,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6211863991218209,
+   "galpha": 2122.143686448179,
+   "lambda1": 3.226423426429629e-06
+  }
+ },
+ "gelatin_33C|keller-miksis-tait|38.5": {
+  "dataset": "gelatin_33C",
+  "name": "keller-miksis-tait",
+  "ratio": 38.5,
+  "chi2_per_n": 1.1512106165969003,
+  "log_evidence": 476.9508975080088,
+  "lag_one": 0.8198412599560496,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6212292598337759,
+   "galpha": 2122.191096403887,
+   "lambda1": 3.2266682752495556e-06
+  }
+ },
+ "gelatin_33C|gilmore-tait|38.5": {
+  "dataset": "gelatin_33C",
+  "name": "gilmore-tait",
+  "ratio": 38.5,
+  "chi2_per_n": 1.1511612898722008,
+  "log_evidence": 476.95776663909186,
+  "lag_one": 0.8200326291985661,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6206809507021985,
+   "galpha": 2122.9385386128356,
+   "lambda1": 3.2307904361165713e-06
+  }
+ },
+ "gelatin_33C|keller-miksis-mie|38.5": {
+  "dataset": "gelatin_33C",
+  "name": "keller-miksis-mie",
+  "ratio": 38.5,
+  "chi2_per_n": 1.1511817287694872,
+  "log_evidence": 476.953628484427,
+  "lag_one": 0.8198386827212369,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6212663989503094,
+   "galpha": 2122.602181901879,
+   "lambda1": 3.2266225761779996e-06
+  }
+ },
+ "gelatin_33C|gilmore-mie|38.5": {
+  "dataset": "gelatin_33C",
+  "name": "gilmore-mie",
+  "ratio": 38.5,
+  "chi2_per_n": 1.1512465120855557,
+  "log_evidence": 476.94709583521865,
+  "lag_one": 0.8198251132804688,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6212851343451375,
+   "galpha": 2122.6223736792494,
+   "lambda1": 3.2265140797059684e-06
+  }
+ },
+ "gelatin_33C|rayleigh-plesset|385.0": {
+  "dataset": "gelatin_33C",
+  "name": "rayleigh-plesset",
+  "ratio": 385.0,
+  "chi2_per_n": 1.1548745447296658,
+  "log_evidence": 476.54605855774633,
+  "lag_one": 0.814078466152412,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6383262836465878,
+   "galpha": 2028.2409899651216,
+   "lambda1": 3.12329650625101e-06
+  }
+ },
+ "gelatin_33C|keller-miksis|385.0": {
+  "dataset": "gelatin_33C",
+  "name": "keller-miksis",
+  "ratio": 385.0,
+  "chi2_per_n": 1.147980916940144,
+  "log_evidence": 477.28311485849383,
+  "lag_one": 0.819057113917316,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6229303599439293,
+   "galpha": 2048.984582619093,
+   "lambda1": 3.234965733513375e-06
+  }
+ },
+ "gelatin_33C|keller-miksis-tait|385.0": {
+  "dataset": "gelatin_33C",
+  "name": "keller-miksis-tait",
+  "ratio": 385.0,
+  "chi2_per_n": 1.1481736415927266,
+  "log_evidence": 477.2638378290816,
+  "lag_one": 0.8190825901503035,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6229730835652957,
+   "galpha": 2049.030343824973,
+   "lambda1": 3.2352103138034247e-06
+  }
+ },
+ "gelatin_33C|gilmore-tait|385.0": {
+  "dataset": "gelatin_33C",
+  "name": "gilmore-tait",
+  "ratio": 385.0,
+  "chi2_per_n": 1.1480686907749413,
+  "log_evidence": 477.2762301964728,
+  "lag_one": 0.8192753054969737,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6224179219365771,
+   "galpha": 2049.7575837628656,
+   "lambda1": 3.2393083691350164e-06
+  }
+ },
+ "gelatin_33C|keller-miksis-mie|385.0": {
+  "dataset": "gelatin_33C",
+  "name": "keller-miksis-mie",
+  "ratio": 385.0,
+  "chi2_per_n": 1.1481444888829306,
+  "log_evidence": 477.26659478377906,
+  "lag_one": 0.8190837065365305,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.623006002264313,
+   "galpha": 2049.4284320581964,
+   "lambda1": 3.2351415294857064e-06
+  }
+ },
+ "gelatin_33C|gilmore-mie|385.0": {
+  "dataset": "gelatin_33C",
+  "name": "gilmore-mie",
+  "ratio": 385.0,
+  "chi2_per_n": 1.148210646987794,
+  "log_evidence": 477.2599191454204,
+  "lag_one": 0.8190648662986842,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.6230349862143915,
+   "galpha": 2049.4713362113607,
+   "lambda1": 3.2350813750326074e-06
   }
  }
 }

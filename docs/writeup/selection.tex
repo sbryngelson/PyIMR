@@ -275,6 +275,7 @@ structure as noise: it widens the error bars while leaving the parameter estimat
 which is the failure Brynjarsd\'ottir and O'Hagan warn about.
 
 \subsection{Which design criterion, and why they disagree}
+\label{sec:criteria}
 
 An experiment is chosen by a scalar summary of $F$, and the classical family is
 %
@@ -528,58 +529,7 @@ $\chi^2$.
 \label{fig:trend}
 \end{figure}
 
-\section{Limitations}
-\label{sec:limitations}
-
-\paragraph{The dropped points are outside the model, not outside the solver.}
-Roughly one point in six of the winner's parameter box cannot be integrated. That is not a
-numerical shortcoming. In that region the model expands to $R/R_0 = 2132$ after its
-collapse --- identically at relative tolerances of $10^{-3}$, $10^{-4}$ and $10^{-5}$, so a
-converged property of the equations rather than an artefact. The bubble begins at its
-maximum radius and its energy is finite, so growth of that size is the constitutive model
-failing, and refusing those points is the correct outcome.
-
-The count of physically admissible points is pinned near $1958$ of $2401$ sampled whatever
-the settings: looser tolerances and a $20\times$ step budget convert failures into runaways,
-never into usable solves. This corrects an earlier reading of the same failures as a
-stiffness problem. It also means the dropped points cannot be recovered by numerical
-effort, and that no claim about the winner's fit should be made in that region.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.58\textwidth]{fig_failure_map.pdf}
-\caption{Where the winner can be integrated, at the fitted modulus and viscosity. Failure is
-governed principally by the stiffening, and the threshold falls to its lowest where the
-relaxation time is comparable to the bubble's own period --- but it is a boundary that moves,
-not an isolated band.}
-\label{fig:failure}
-\end{figure}
-
-\paragraph{The ranking survives; the parameter estimates do not.}
-Independent sequential Monte Carlo runs give the winner $2173.55 \pm 0.19$ in log evidence
-against $2071.90 \pm 0.38$ for the relaxation-only model --- a gap of $101.6$ against
-run-to-run noise near $0.4$, so the comparison is resolved by a wide margin. The tensor grid
-cannot say this on its own: it returns a single number with no uncertainty.
-
-The same grid cannot estimate parameters. Refining it from $12$ to $20$ points per axis
-moves the log evidence by $17.3$ and moves the best-fit point from $g = 658$, $\alpha = 1.52$
-to $g = 144$, $\alpha = 8.86$, because the best cell is simply whichever node lands nearest
-the ridge. Refinement cannot fix this: the posterior standard deviations are
-$0.0018$, $0.0025$, $0.0055$ and $0.078$ in unit coordinates against a grid spacing of
-$0.053$, so the posterior occupies about $10^{-7}$ of the prior volume and a uniform grid
-would need of order $10^{10}$ points. Discretisation error of $17.3$ sits well inside the
-$101.6$ gap, so the ranking is safe; the reported best-fit parameters are not.
-Figure~\ref{fig:coverage} shows which models lose points.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.5\textwidth]{fig_coverage.pdf}
-\caption{Fraction of each model's parameter grid that could not be integrated. Models not
-shown lost no points.}
-\label{fig:coverage}
-\end{figure}
-
-\section{What the records determine, and what they do not}
+\section{What the records determine}
 
 The winner fits, but not every parameter it contains is measured by these data.
 
@@ -700,6 +650,80 @@ below the $95\%$ threshold, so the parameters may shift by a factor of $e \appro
 without the data objecting.}
 \label{fig:ellipse}
 \end{figure}
+
+\paragraph{Modulus and stiffening trade against each other.}
+Two independent analyses agree. The Fisher information at the fitted optimum has an
+eigenvalue spectrum spanning six decades, and the eigenvector of its smallest eigenvalue is
+almost purely a shear-modulus-against-stiffening direction, with weights $-0.796$ and
+$+0.604$ and contributions of $-0.003$ and $-0.032$ from viscosity and relaxation time.
+Separately, profiling the likelihood in $\alpha$ --- fixing it and re-optimising everything
+else --- gives $g \propto \alpha^{-0.80}$ across two decades. Sampling the posterior gives a
+third, independent measurement: its widest direction is
+$(-0.682,\,+0.002,\,-0.082,\,+0.727)$ in the logarithms of
+$(g, \mu, \lambda_1, \alpha)$, and $\log g$ is $98.7\%$ anticorrelated with $\log\alpha$.
+
+The three exponents are $-0.99$ from local curvature, $-0.94$ from the posterior covariance,
+and $-0.80$ from the profile. They agree that the trade is near-reciprocal and disagree in
+the third digit, which is expected rather than troubling: the valley is curved, so a
+curvature estimate at one point and a chord measured across two decades are not measuring
+the same slope. The correlation is the more robust statement.
+
+So viscosity and relaxation time are cleanly determined, while modulus and stiffening are
+constrained only in combination. The identifiable quantity is closer to $g\,\alpha^{0.8}$
+than to either alone, and a fitted $\alpha$ should be reported with its correlation to $g$
+rather than as an independent material property.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\textwidth]{fig_valley.pdf}
+\caption{$\chi^2/N$ over the modulus--stiffening plane, at the fitted viscosity and
+relaxation time. The dashed line is $g \propto \alpha^{-0.80}$, predicted from the Fisher
+curvature at a single point; it lies along the floor of the valley. Four ``best fits'' from
+four methods are strung out along that floor rather than disagreeing with one another. The
+white region at upper right is where the model is not physical.}
+\label{fig:valley}
+\end{figure}
+
+Figure~\ref{fig:valley} shows why the four estimates in this study disagree about $g$ by an
+order of magnitude while agreeing about the fit: they are different points on the floor of a
+single flat-bottomed trench.
+
+\paragraph{The stiffening is nonetheless identified, once the prior allows it.}
+Sampling with the ceiling on $\alpha$ placed at $1$, $10$ and $100$:
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+ceiling & log evidence & median $\alpha$ & $97.5\%$ \\
+\midrule
+$1$ & $2162.9$ & $0.85$ & $0.97$ \\
+$10$ & $2173.9$ & $6.37$ & $9.04$ \\
+$100$ & $2172.4$ & $5.27$ & $8.73$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Widening the prior tenfold moves the median only from $6.37$ to $5.27$ and the evidence by
+$1.5$ out of $2173$, so $\alpha$ is identified near $5$ with $97.5\%$ of posterior mass
+below about $9$. A prior-dominated parameter would have tracked its bound. The ceiling of
+$1$ shows what genuine truncation looks like: the median pins against it and $11$ log units
+of evidence are lost.
+
+This corrects a natural reading of the profile likelihood alone, which appears flat to the
+boundary only because the boundary sits where the posterior's upper tail does.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\textwidth]{fig_identifiability.pdf}
+\caption{Left: the Fisher spectrum at the optimum, six decades between the stiffest and
+sloppiest directions, with the sloppiest being modulus against stiffening. Right: the
+posterior for $\alpha$ against the ceiling imposed on its prior. It tracks the ceiling while
+truncated and departs from it once the ceiling is loose, which is what distinguishes an
+identified parameter from a prior-driven one.}
+\label{fig:identifiability}
+\end{figure}
+
+\section{Designing a better experiment}
 
 \subsection*{Designing without assuming the model}
 
@@ -1049,122 +1073,23 @@ reliable on this problem. The multimodality that made $T$ untrustworthy is genui
 what replaces it is a dependence on the prior, now explicit rather than hidden, and a
 boundary condition that the current estimator does not handle.
 
-\subsection*{Why the design criteria disagree}
+\subsection*{Which criterion the conflict is between}
 
-The classical criteria are all functionals of the same $F$: $\det F$ (D), $\operatorname{tr}
-F^{-1}$ (A), $\lambda_{\min}$ (E), and $c^{\mathsf T}F^{-1}c$ for one combination (c). A
-design change that merely amplifies the signal --- a larger bubble, a longer record, less
-noise --- multiplies $F$ by a scalar $s$. Then $\lambda_{\min} \to s\lambda_{\min}$ and
-$\det F \to s^p \det F$, so D and E both improve, while
-%
-\begin{equation}
-\kappa = \lambda_{\max}/\lambda_{\min}
-\end{equation}
-%
-is unchanged. Degeneracy is a property of the \emph{directions}, and only a design that
-alters them can fix it. That is why the E-optimal search preferred a larger bubble
-($895\,\mu$m, $\lambda_{\min} = 12.8$) while the conditioning and the eigenvector
-composition preferred a gentler collapse at the present size ($277\,\mu$m at stretch $5$,
-$\kappa = 4.2\times10^3$, and the modulus-stiffening share of the worst direction falling
+The scaling argument of \S\ref{sec:criteria} says that a design change which merely
+amplifies the signal leaves the condition number $\kappa$ untouched, so degeneracy is a
+property of the eigenvectors and only a design that rotates them can remove it. The
+consequence for these records is that E-optimality preferred a larger bubble
+($895\,\mu$m, $\lambda_{\min} = 12.8$) while conditioning and eigenvector composition
+preferred a gentler collapse at the present size ($277\,\mu$m at stretch $5$,
+$\kappa = 4.2\times10^3$, with the modulus--stiffening share of the worst direction falling
 from $87\%$ to $66\%$). Both are correct answers to different questions, and
 \eqref{eq:separability} says which question matters here.
 
-\paragraph{Modulus and stiffening trade against each other.}
-Two independent analyses agree. The Fisher information at the fitted optimum has an
-eigenvalue spectrum spanning six decades, and the eigenvector of its smallest eigenvalue is
-almost purely a shear-modulus-against-stiffening direction, with weights $-0.796$ and
-$+0.604$ and contributions of $-0.003$ and $-0.032$ from viscosity and relaxation time.
-Separately, profiling the likelihood in $\alpha$ --- fixing it and re-optimising everything
-else --- gives $g \propto \alpha^{-0.80}$ across two decades. Sampling the posterior gives a
-third, independent measurement: its widest direction is
-$(-0.682,\,+0.002,\,-0.082,\,+0.727)$ in the logarithms of
-$(g, \mu, \lambda_1, \alpha)$, and $\log g$ is $98.7\%$ anticorrelated with $\log\alpha$.
-
-The three exponents are $-0.99$ from local curvature, $-0.94$ from the posterior covariance,
-and $-0.80$ from the profile. They agree that the trade is near-reciprocal and disagree in
-the third digit, which is expected rather than troubling: the valley is curved, so a
-curvature estimate at one point and a chord measured across two decades are not measuring
-the same slope. The correlation is the more robust statement.
-
-So viscosity and relaxation time are cleanly determined, while modulus and stiffening are
-constrained only in combination. The identifiable quantity is closer to $g\,\alpha^{0.8}$
-than to either alone, and a fitted $\alpha$ should be reported with its correlation to $g$
-rather than as an independent material property.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.62\textwidth]{fig_valley.pdf}
-\caption{$\chi^2/N$ over the modulus--stiffening plane, at the fitted viscosity and
-relaxation time. The dashed line is $g \propto \alpha^{-0.80}$, predicted from the Fisher
-curvature at a single point; it lies along the floor of the valley. Four ``best fits'' from
-four methods are strung out along that floor rather than disagreeing with one another. The
-white region at upper right is where the model is not physical.}
-\label{fig:valley}
-\end{figure}
-
-Figure~\ref{fig:valley} shows why the four estimates in this study disagree about $g$ by an
-order of magnitude while agreeing about the fit: they are different points on the floor of a
-single flat-bottomed trench.
-
-\paragraph{The stiffening is nonetheless identified, once the prior allows it.}
-Sampling with the ceiling on $\alpha$ placed at $1$, $10$ and $100$:
-
-\begin{center}
-\begin{tabular}{cccc}
-\toprule
-ceiling & log evidence & median $\alpha$ & $97.5\%$ \\
-\midrule
-$1$ & $2162.9$ & $0.85$ & $0.97$ \\
-$10$ & $2173.9$ & $6.37$ & $9.04$ \\
-$100$ & $2172.4$ & $5.27$ & $8.73$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-Widening the prior tenfold moves the median only from $6.37$ to $5.27$ and the evidence by
-$1.5$ out of $2173$, so $\alpha$ is identified near $5$ with $97.5\%$ of posterior mass
-below about $9$. A prior-dominated parameter would have tracked its bound. The ceiling of
-$1$ shows what genuine truncation looks like: the median pins against it and $11$ log units
-of evidence are lost.
-
-This corrects a natural reading of the profile likelihood alone, which appears flat to the
-boundary only because the boundary sits where the posterior's upper tail does.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.98\textwidth]{fig_identifiability.pdf}
-\caption{Left: the Fisher spectrum at the optimum, six decades between the stiffest and
-sloppiest directions, with the sloppiest being modulus against stiffening. Right: the
-posterior for $\alpha$ against the ceiling imposed on its prior. It tracks the ceiling while
-truncated and departs from it once the ceiling is loose, which is what distinguishes an
-identified parameter from a prior-driven one.}
-\label{fig:identifiability}
-\end{figure}
-
-\paragraph{Consequences for the numbers reported here.}
-Three methods that resolve the posterior --- sampling, a refined grid, and continuous
-optimisation --- agree that $g$ lies near $10^2$\,Pa. The coarse grid used for the ranking
-reports $2154$\,Pa. The ranking does not depend on this, but any material property quoted
-from the grid does. We also note that a modulus of that size is implausibly soft for
-gelatin, which is the degeneracy above making itself felt: the fit buys a lower residual by
-trading modulus against stiffening, along a direction the data barely constrain.
-
-\paragraph{One candidate was never genuinely exercised.}
-The Gent solid appears in the comparison but cannot be tested on these records. Its energy
-diverges as $I_1 - 3 \to J_m$, and a Gent solid soft enough to be distinguishable from
-Neo-Hookean predicts a collapse it cannot sustain, so it locks up. Where it does
-integrate, it differs from Neo-Hookean by $1.7\times10^{-4}$ of $R_{\max}$ against
-measurement noise near $2\times10^{-2}$ --- two orders of magnitude below what the data can
-resolve. Any statement about strain-stiffening laws here excludes it.
-
-\paragraph{The noise model sees only repeatability.}
-Using trial-to-trial spread as the noise means $\chi^2/N \approx 1$ certifies agreement to
-within experimental repeatability. A systematic error common to every trial would not
-appear in that spread, and would show up instead as exactly the kind of residual excess we
-report --- $20$ to $35\%$ above the noise floor. This study cannot separate that from
-genuine model inadequacy.
-
-\appendix
+So there are two distinct disagreements in play, and they have different resolutions. The
+classical criteria disagree among themselves because they summarise one spectrum
+differently; that is a choice about what one wants to learn. Estimation and discrimination
+disagree because they are about different quantities altogether. The next subsection
+resolves the second, and in doing so dissolves the first.
 
 \subsection*{Designing over measures, and certifying the answer}
 \label{sec:measure}
@@ -1342,6 +1267,75 @@ the sensitivity function $d(x,\xi^\star)$ can be evaluated anywhere, which turns
 a missed region into a cheap scan rather than another search. And the compound form was not
 run on these records, because the per-design log Bayes factor still suffers the boundary
 pinning described above.
+
+\section{Limitations}
+\label{sec:limitations}
+
+\paragraph{The dropped points are outside the model, not outside the solver.}
+Roughly one point in six of the winner's parameter box cannot be integrated. That is not a
+numerical shortcoming. In that region the model expands to $R/R_0 = 2132$ after its
+collapse --- identically at relative tolerances of $10^{-3}$, $10^{-4}$ and $10^{-5}$, so a
+converged property of the equations rather than an artefact. The bubble begins at its
+maximum radius and its energy is finite, so growth of that size is the constitutive model
+failing, and refusing those points is the correct outcome.
+
+The count of physically admissible points is pinned near $1958$ of $2401$ sampled whatever
+the settings: looser tolerances and a $20\times$ step budget convert failures into runaways,
+never into usable solves. This corrects an earlier reading of the same failures as a
+stiffness problem. It also means the dropped points cannot be recovered by numerical
+effort, and that no claim about the winner's fit should be made in that region.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.58\textwidth]{fig_failure_map.pdf}
+\caption{Where the winner can be integrated, at the fitted modulus and viscosity. Failure is
+governed principally by the stiffening, and the threshold falls to its lowest where the
+relaxation time is comparable to the bubble's own period --- but it is a boundary that moves,
+not an isolated band.}
+\label{fig:failure}
+\end{figure}
+
+\paragraph{The ranking survives; the parameter estimates do not.}
+Independent sequential Monte Carlo runs give the winner $2173.55 \pm 0.19$ in log evidence
+against $2071.90 \pm 0.38$ for the relaxation-only model --- a gap of $101.6$ against
+run-to-run noise near $0.4$, so the comparison is resolved by a wide margin. The tensor grid
+cannot say this on its own: it returns a single number with no uncertainty.
+
+The same grid cannot estimate parameters. Refining it from $12$ to $20$ points per axis
+moves the log evidence by $17.3$ and moves the best-fit point from $g = 658$, $\alpha = 1.52$
+to $g = 144$, $\alpha = 8.86$, because the best cell is simply whichever node lands nearest
+the ridge. Refinement cannot fix this: the posterior standard deviations are
+$0.0018$, $0.0025$, $0.0055$ and $0.078$ in unit coordinates against a grid spacing of
+$0.053$, so the posterior occupies about $10^{-7}$ of the prior volume and a uniform grid
+would need of order $10^{10}$ points. Discretisation error of $17.3$ sits well inside the
+$101.6$ gap, so the ranking is safe; the reported best-fit parameters are not.
+Figure~\ref{fig:coverage} shows which models lose points.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.5\textwidth]{fig_coverage.pdf}
+\caption{Fraction of each model's parameter grid that could not be integrated. Models not
+shown lost no points.}
+\label{fig:coverage}
+\end{figure}
+
+\paragraph{Consequences for the numbers reported here.}
+Three methods that resolve the posterior --- sampling, a refined grid, and continuous
+optimisation --- agree that $g$ lies near $10^2$\,Pa. The coarse grid used for the ranking
+reports $2154$\,Pa. The ranking does not depend on this, but any material property quoted
+from the grid does. We also note that a modulus of that size is implausibly soft for
+gelatin, which is the degeneracy above making itself felt: the fit buys a lower residual by
+trading modulus against stiffening, along a direction the data barely constrain.
+
+\paragraph{One candidate was never genuinely exercised.}
+The Gent solid appears in the comparison but cannot be tested on these records. Its energy
+diverges as $I_1 - 3 \to J_m$, and a Gent solid soft enough to be distinguishable from
+Neo-Hookean predicts a collapse it cannot sustain, so it locks up. Where it does
+integrate, it differs from Neo-Hookean by $1.7\times10^{-4}$ of $R_{\max}$ against
+measurement noise near $2\times10^{-2}$ --- two orders of magnitude below what the data can
+resolve. Any statement about strain-stiffening laws here excludes it.
+
+\appendix
 
 \section{Statistical background}
 \label{app:background}

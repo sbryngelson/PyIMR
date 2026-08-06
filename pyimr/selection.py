@@ -34,6 +34,7 @@ from ._materials import (
   Yeoh,
   Zener,
 )
+from .discriminate import laplace_log_evidence
 from .noise import marginal_log_likelihood
 from .prior import (
   harmonic_bottleneck,
@@ -46,10 +47,9 @@ from .prior import (
 )
 
 __all__ = [
-  "EXTENDED_MODELS", "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateModel", "bounds_for_invariant", "compare",
-  "grid_ready",
-  "log_evidence",
-  "parameter_grid", "redundancy_over_grid", "solve_grid", "strain_invariant",
+  "EXTENDED_MODELS", "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateModel", "bounds_for_invariant",
+  "candidate_log_evidence", "compare", "grid_ready", "log_evidence",
+  "parameter_grid", "physical_from_unit", "redundancy_over_grid", "solve_grid", "strain_invariant",
 ]
 
 # Deliberately loose, and log-spaced: a boundary-pinned optimum is charged by the
@@ -241,6 +241,21 @@ def parameter_grid(axes, count, bounds=None):
   )
   return points, normalized
 
+def physical_from_unit(axes, unit_point, bounds=None):
+  """Parameters from a point in the unit cube: the inverse of `normalize_log_coordinates`.
+
+  `parameter_grid` only ever goes the forward way, because the grid IS the parameters. A
+  fitted point arrives the other way round -- in the coordinates the prior is uniform on --
+  and has to be turned back into something a material can be built from.
+  """
+  bounds = PARAMETER_BOUNDS if bounds is None else bounds
+  if missing := [a for a in axes if a not in bounds]: raise ValueError(f"no bounds given for {missing}")
+  unit = np.asarray(unit_point, dtype=float).ravel()
+  if unit.size != len(axes): raise ValueError(f"{len(axes)} axes but {unit.size} coordinates")
+  lower = np.array([bounds[a][0] for a in axes], dtype=float)
+  upper = np.array([bounds[a][1] for a in axes], dtype=float)
+  return lower * (upper / lower) ** unit
+
 def solve_grid(candidate, solve, *, count, bounds=None):
   """Evaluate a candidate over its grid. `solve(material)` returns `(radius, stress)`.
 
@@ -295,6 +310,58 @@ def log_evidence(radii, normalized, redundancies, observed, deviations, *, dimen
   peak = float(np.max(log_likelihood[support]))
   integrated = peak + float(np.log(np.sum(prior[support] * np.exp(log_likelihood[support] - peak))))
   return integrated + float(np.log(model_prior(dimension, float(effective)))), chi_squared
+
+def candidate_log_evidence(candidate, solve, observed, deviation, unit_point, *, bounds=None, step=1e-4):
+  """`log p(Y | M)` for a candidate at a fitted point, by Laplace expansion.
+
+  This is what makes a model comparable without a grid. `log_evidence` above quadratures
+  the likelihood over the candidate's whole grid, which costs `count**dimension` and so
+  runs out at four or five axes; `laplace_log_evidence` needs only the residual and the
+  Jacobian at the fit, but speaks in arrays and knows nothing about candidates. This is the
+  join: it turns `unit_point` back into parameters, builds the material, and differences the
+  forward model to get both.
+
+  The Jacobian is taken by central differences in the UNIT coordinates rather than in the
+  parameters, because that is the space the prior is uniform on and therefore the space
+  `laplace_log_evidence` wants its Occam factor measured in. Differences rather than the
+  traced sensitivities because a candidate's axes need not be material fields at all --
+  `qSLS2` has `tau_ratio`, a ratio of two of them, and `oldroydb` likewise. It costs
+  `1 + 2*dimension` solves, which against `count**dimension` is not the expensive part.
+
+  `solve(material)` returns `(radius, stress)`, the same callback `solve_grid` takes.
+  """
+  bounds = PARAMETER_BOUNDS if bounds is None else bounds
+  unit = np.asarray(unit_point, dtype=float).ravel()
+  if unit.size != candidate.dimension:
+    raise ValueError(f"{candidate.name} has {candidate.dimension} axes but got {unit.size} coordinates")
+  if np.any(unit < 0.0) or np.any(unit > 1.0):
+    raise ValueError("the fitted point must lie in the unit cube the prior is defined on")
+  measured = np.asarray(observed, dtype=float).ravel()
+  scale = float(deviation)
+  if not np.isfinite(scale) or scale <= 0.0: raise ValueError("deviation must be finite and positive")
+  width = float(step)
+  if not 0.0 < width < 0.5: raise ValueError("step must lie in (0, 0.5)")
+
+  def trace(point):
+    values = physical_from_unit(candidate.axes, point, bounds)
+    solved = solve(candidate.build(dict(zip(candidate.axes, values, strict=True))))
+    if solved is None: raise ValueError(f"{candidate.name} does not solve at {dict(zip(candidate.axes, values))}")
+    radius = np.asarray(solved[0], dtype=float).ravel()
+    if radius.size != measured.size:
+      raise ValueError(f"solve returned {radius.size} samples against {measured.size} observations")
+    return radius
+
+  residual = (trace(unit) - measured) / scale
+  jacobian = np.empty((residual.size, unit.size))
+  for index in range(unit.size):
+    # one-sided at a bound rather than stepping outside it: a fit sitting exactly on a
+    # boundary is common, and the material may not even exist on the other side
+    low, high = unit.copy(), unit.copy()
+    low[index], high[index] = max(unit[index] - width, 0.0), min(unit[index] + width, 1.0)
+    jacobian[:, index] = (trace(high) - trace(low)) / (scale * (high[index] - low[index]))
+  # capped, because candidates are compared ACROSS dimensions and the uncapped Occam factor
+  # pays a model for parameters its data cannot see -- see `laplace_log_evidence`
+  return laplace_log_evidence(residual, jacobian, scale, cap_at_prior=True)
 
 def compare(log_evidences):
   """Normalized posterior over a model set, keyed as given."""

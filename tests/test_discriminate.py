@@ -183,3 +183,43 @@ def test_laplace_evidence_refuses_an_undetermined_parameter():
 def test_laplace_evidence_checks_its_shapes():
   with pytest.raises(ValueError, match="rows"):
     laplace_log_evidence(np.zeros(10), np.ones((7, 2)), 1.0)
+
+
+def test_capping_stops_a_dead_parameter_from_buying_evidence():
+    """The uncapped Occam factor pays a model for parameters its data cannot see.
+
+    A direction the design does not probe sends an eigenvalue of `J^T J` to zero and
+    `-log det / 2` to `+infinity`, so the flexible model wins BECAUSE its extra parameter
+    is useless. That is the Gaussian posterior spilling outside the unit cube the prior
+    lives on. Measured on a real pair: the two-mode bubble model beat the one-mode by 29.7
+    nats where the second arm did nothing.
+
+    Capped, a dead direction must be worth exactly nothing -- not a little, not a lot.
+    """
+    rng = np.random.default_rng(0)
+    residual = rng.normal(0.0, 1.0, 40)
+    live = rng.normal(0.0, 1.0, (40, 3))
+    dead = np.column_stack([live, np.zeros(40)])          # a fourth parameter nothing sees
+
+    with pytest.raises(ValueError, match="singular"):
+        laplace_log_evidence(residual, dead, 1.0)
+
+    assert (laplace_log_evidence(residual, dead, 1.0, cap_at_prior=True)
+            == pytest.approx(laplace_log_evidence(residual, live, 1.0, cap_at_prior=True)))
+
+    # a nearly-dead direction must not beat the model that simply lacks it either
+    for size in (1e-6, 1e-3, 1e-1):
+        faint = np.column_stack([live, size * rng.normal(0.0, 1.0, 40)])
+        assert (laplace_log_evidence(residual, faint, 1.0, cap_at_prior=True)
+                <= laplace_log_evidence(residual, live, 1.0, cap_at_prior=True) + 1e-9)
+
+
+def test_capping_leaves_a_well_determined_fit_almost_alone():
+    """The cap must bite only where a direction is wider than its prior, or it would be a
+    silent rescaling of every evidence in the package.
+    """
+    rng = np.random.default_rng(1)
+    residual = rng.normal(0.0, 1.0, 60)
+    sharp = 50.0 * rng.normal(0.0, 1.0, (60, 3))          # every direction far inside the prior
+    assert (laplace_log_evidence(residual, sharp, 1.0, cap_at_prior=True)
+            == pytest.approx(laplace_log_evidence(residual, sharp, 1.0), rel=1e-12))

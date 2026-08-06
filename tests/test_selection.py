@@ -12,6 +12,8 @@ from pyimr.selection import (
   EXTENDED_MODELS,
   PARAMETER_BOUNDS,
   bounds_for_invariant,
+  candidate_log_evidence,
+  physical_from_unit,
   strain_invariant,
   STANDARD_MODELS,
   CandidateModel,
@@ -253,3 +255,107 @@ def test_compare_returns_a_normalized_distribution():
   posterior = compare({"a": -10.0, "b": -12.0, "c": -30.0})
   assert sum(posterior.values()) == pytest.approx(1.0)
   assert posterior["a"] > posterior["b"] > posterior["c"]
+
+
+def test_the_unit_map_inverts_the_normalization():
+  """`physical_from_unit` is the other half of `normalize_log_coordinates`; a mismatch here
+  would move every fitted point silently, since both directions look plausible alone.
+  """
+  from pyimr.prior import normalize_log_coordinates
+
+  axes = ("mu", "g", "lambda1", "alpha", "tau_ratio", "share")
+  unit = np.array([0.0, 0.25, 0.5, 0.75, 1.0, 0.375])
+  values = physical_from_unit(axes, unit)
+  back = np.array([normalize_log_coordinates(v, *PARAMETER_BOUNDS[a]) for v, a in zip(values, axes, strict=True)])
+  assert np.allclose(back, unit, atol=1e-12)
+  # and the endpoints are the bounds themselves, not merely close to them
+  assert physical_from_unit(("g",), [0.0])[0] == pytest.approx(PARAMETER_BOUNDS["g"][0])
+  assert physical_from_unit(("g",), [1.0])[0] == pytest.approx(PARAMETER_BOUNDS["g"][1])
+
+
+def test_the_unit_map_refuses_a_mismatched_point():
+  with pytest.raises(ValueError, match="coordinates"):
+    physical_from_unit(("g", "mu"), [0.5])
+  with pytest.raises(ValueError, match="no bounds"):
+    physical_from_unit(("nonesuch",), [0.5])
+
+
+def _qsls_solve(times, rtol=1e-10):
+  import pyimr
+
+  def solve(material):
+    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+                                    rtol=rtol, atol=rtol * 1e-2, max_steps=800_000)
+    radius = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
+    return radius, radius
+
+  return solve
+
+
+def test_the_candidate_evidence_agrees_with_the_traced_sensitivities(measured):
+  """The Jacobian is differenced, so it needs checking against a different mechanism.
+
+  Forward-mode sensitivities give `dR/dtheta` directly; the chain rule through the log
+  normalization gives the same Jacobian in unit coordinates, `theta * dR/dtheta *
+  log(hi/lo)`. Feeding that to `laplace_log_evidence` is an independent route to the same
+  number, so agreement is evidence about the differencing rather than a restatement of it.
+
+  The second assertion is the load-bearing one: a difference that SHRINKS with the step is
+  discretization error, and one that does not is a bug wearing its clothes.
+  """
+  import pyimr
+  from pyimr.discriminate import laplace_log_evidence
+  from pyimr.prior import normalize_log_coordinates
+
+  times = np.linspace(0.0, 4e-5, 60)
+  fit = {"mu": 0.04651, "g": 204.3, "lambda1": 1.964e-7, "alpha": 5.301}
+  paths = {"mu": "material.viscosity_pa_s", "g": "material.shear_modulus_pa",
+           "lambda1": "material.relaxation_time_s", "alpha": "material.stiffening"}
+  sigma = 0.02
+  candidate, solve = STANDARD_MODELS["qSLS"], _qsls_solve(times)
+  unit = np.array([normalize_log_coordinates(fit[a], *PARAMETER_BOUNDS[a]) for a in candidate.axes])
+
+  material = candidate.build(fit)
+  clean = solve(material)[0]
+  observed = clean + 0.004 * np.sin(np.arange(times.size))   # the fit must not be exact
+
+  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+                                  rtol=1e-10, atol=1e-12, max_steps=800_000)
+  traced = np.asarray(pyimr.prepare(config).solve_with_sensitivities(
+    times, tuple(paths[a] for a in candidate.axes)).radius_ratio, dtype=float)
+  spans = np.array([np.log(PARAMETER_BOUNDS[a][1] / PARAMETER_BOUNDS[a][0]) for a in candidate.axes])
+  reference = laplace_log_evidence((clean - observed) / sigma,
+                                   traced * np.array([fit[a] for a in candidate.axes]) * spans / sigma, sigma,
+                                   cap_at_prior=True)
+
+  coarse = abs(candidate_log_evidence(candidate, solve, observed, sigma, unit, step=1e-3) - reference)
+  default = abs(candidate_log_evidence(candidate, solve, observed, sigma, unit) - reference)
+  measured("evidence vs traced", f"log Z = {reference:.4f}, |diff| {default:.2e} at the default step")
+  assert default < 1e-2, "the differenced Jacobian disagrees with the traced one"
+  assert default < 0.2 * coarse, "a difference that does not shrink with the step is not discretization"
+
+
+def test_the_candidate_evidence_prefers_the_point_that_fits():
+  times = np.linspace(0.0, 4e-5, 40)
+  candidate, solve = STANDARD_MODELS["qSLS"], _qsls_solve(times, rtol=1e-9)
+  fit = {"mu": 0.04651, "g": 204.3, "lambda1": 1.964e-7, "alpha": 5.301}
+  from pyimr.prior import normalize_log_coordinates
+  unit = np.array([normalize_log_coordinates(fit[a], *PARAMETER_BOUNDS[a]) for a in candidate.axes])
+  observed = solve(candidate.build(fit))[0]
+
+  matched = candidate_log_evidence(candidate, solve, observed, 0.02, unit)
+  displaced = candidate_log_evidence(candidate, solve, observed, 0.02, np.clip(unit + 0.05, 0.0, 1.0))
+  assert matched > displaced, "the evidence must fall away from the fit"
+
+
+def test_the_candidate_evidence_refuses_a_point_it_cannot_use():
+  candidate = STANDARD_MODELS["qSLS"]
+  observed = np.ones(6)
+  with pytest.raises(ValueError, match="coordinates"):
+    candidate_log_evidence(candidate, _sensitive, observed, 1.0, [0.5, 0.5])
+  with pytest.raises(ValueError, match="unit cube"):
+    candidate_log_evidence(candidate, _sensitive, observed, 1.0, [0.5, 0.5, 0.5, 1.5])
+  with pytest.raises(ValueError, match="deviation"):
+    candidate_log_evidence(candidate, _sensitive, observed, 0.0, [0.5, 0.5, 0.5, 0.5])
+  with pytest.raises(ValueError, match="step"):
+    candidate_log_evidence(candidate, _sensitive, observed, 1.0, [0.5] * 4, step=0.9)

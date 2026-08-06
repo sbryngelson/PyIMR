@@ -87,7 +87,7 @@ def log_evidence(observations, bank, deviation, *, exclude=None):
   effective = np.sum(weights, axis=1) ** 2 / np.sum(weights**2, axis=1)
   return evidence, effective
 
-def laplace_log_evidence(residual, jacobian, deviation):
+def laplace_log_evidence(residual, jacobian, deviation, *, cap_at_prior=False):
   """`log p(Y | M)` by Laplace expansion at a fitted point, in unit prior coordinates.
 
   `log_evidence` estimates the same integral by averaging the likelihood over prior draws,
@@ -105,6 +105,17 @@ def laplace_log_evidence(residual, jacobian, deviation):
   The last two terms are the Occam factor: the posterior's share of the prior volume. Its
   sign is what stops a more flexible model from winning on fit alone.
 
+  `cap_at_prior` bounds each eigendirection's Occam factor at 1, which is what a uniform
+  prior on a bounded cube implies and what the plain form gets wrong once a parameter is
+  weakly identified: an eigenvalue near zero sends `-log det / 2` to `+infinity` and the
+  evidence rewards the useless parameter. Turn it on whenever the models being compared
+  differ in dimension, which is the case it exists for.
+
+  It is off by default because the expansion written above is the textbook one and should
+  stay what this function means by default, not because anything depends on the plain form:
+  where every direction is sharper than the prior the two agree to round-off, so the cap
+  changes an answer only where the plain form was not entitled to one.
+
   This inherits Laplace's assumptions -- one dominant, well-separated, roughly Gaussian mode.
   Where several modes matter the evidences add, so summing this over the modes a multistart
   finds is the robust form, and missing one biases the total slightly rather than corrupting
@@ -119,6 +130,23 @@ def laplace_log_evidence(residual, jacobian, deviation):
 
   samples, parameters = matrix.shape
   information = matrix.T @ matrix
+  if cap_at_prior:
+    # A posterior cannot be wider than the prior it came from. The Occam factor is a
+    # product over the eigendirections of `J^T J`, each contributing `sqrt(2 pi / lambda)`
+    # -- the posterior width against a prior of width 1 -- and a direction the data does
+    # not determine sends `lambda -> 0` and that factor to infinity. The uncapped form then
+    # REWARDS a useless parameter: measured on a one-mode record, the two-mode model beat
+    # the one-mode by 29.7 nats exactly where its second arm did nothing, and lost by 2.6
+    # only where the arm did real work. That is the Gaussian spilling outside the unit cube
+    # the prior lives on, not a fact about the models.
+    #
+    # Capping each direction at 1 says a direction the data cannot see costs nothing and
+    # buys nothing, which is what a uniform prior on a bounded cube actually implies.
+    eigenvalues = np.linalg.eigvalsh(information)
+    if np.any(eigenvalues < 0.0): raise ValueError("J^T J is not positive semidefinite")
+    occam = float(np.sum(np.minimum(0.0, 0.5 * np.log(2.0 * np.pi / np.maximum(eigenvalues, 1e-300)))))
+    return float(-0.5 * misfit @ misfit - 0.5 * samples * np.log(2.0 * np.pi * scale**2) + occam)
+
   sign, magnitude = np.linalg.slogdet(information)
   if sign <= 0: raise ValueError("J^T J is singular: the fit does not determine every parameter")
   return float(-0.5 * misfit @ misfit

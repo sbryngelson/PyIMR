@@ -196,7 +196,7 @@ def test_params_branches_only_on_concrete_configuration():
       0,
       pyimr.PhysicalParameters(),
       xp=jnp,
-      scales=(2500.0, traced[1], 0.0, 0.0, 0.0, 0.0),
+      scales=(2500.0, traced[1], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
     )
     return jnp.asarray([p["kv0"], p["De"], p["LAM"], p["Pv"], p["chi"]])
 

@@ -32,6 +32,7 @@ from ._materials import (
   OldroydB,
   QuadraticKelvinVoigt,
   QuadraticZener,
+  TwoModeQuadraticZener,
   Zener,
   _is_distributed_stress,
   _stress_state_count,
@@ -52,30 +53,36 @@ __all__ = [
 ]
 
 def _material_scales(material):
-  if isinstance(material, NoStress): return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener)):
+  if isinstance(material, NoStress): return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, TwoModeQuadraticZener)):
     modulus = material.shear_modulus_pa
   else:
     modulus = 0.0
-  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT, LinearMaxwell)):
+  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT, LinearMaxwell, TwoModeQuadraticZener)):
     viscosity = material.viscosity_pa_s
   else:
     viscosity = 0.0
   if isinstance(material, LinearMaxwell):
     # no parallel spring and no retardation: the memory relaxes toward zero
     relaxation, retardation = material.relaxation_time_s, 0.0
-  elif isinstance(material, (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT)):
+  elif isinstance(material, (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT, TwoModeQuadraticZener)):
     relaxation = material.relaxation_time_s
     retardation = material.retardation_time_s
   else:
     relaxation = 0.0
     retardation = 0.0
-  stiffening = material.stiffening if isinstance(material, (QuadraticKelvinVoigt, QuadraticZener)) else 0.0
+  stiffening = material.stiffening if isinstance(material, (QuadraticKelvinVoigt, QuadraticZener, TwoModeQuadraticZener)) else 0.0
   # the one own-field the distributed models read in the hot path; through `p` it stops
   # keying the compiled program, so a sweep over it compiles once rather than per point
   nonlinear = getattr(material, "mobility", None)
   if nonlinear is None: nonlinear = getattr(material, "extensibility", 0.0)
-  return modulus, viscosity, relaxation, retardation, stiffening, float(nonlinear)
+  # the second Maxwell arm. These occupy their own slots rather than reusing any above,
+  # because SCALE_PATHS indexes this tuple positionally and a shared slot would make one
+  # parameter's sensitivity silently overwrite another's.
+  second_time = getattr(material, "second_relaxation_time_s", 0.0)
+  second_share = getattr(material, "second_share", 0.0)
+  return (modulus, viscosity, relaxation, retardation, stiffening, float(nonlinear),
+          float(second_time), float(second_share))
 
 def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0, masstrans=0, physics=None, *, xp=np, scales=None):
   physics = PhysicalParameters() if physics is None else physics
@@ -86,7 +93,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   Uc = xp.sqrt(P8_value / density)
   t0 = R0 / Uc
   concrete = _material_scales(material)
-  G, mu, lam1, lam2, alphax, nlx = concrete if scales is None else scales
+  G, mu, lam1, lam2, alphax, nlx, lam1b, shareb = concrete if scales is None else scales
   elastic_values = law_values(getattr(material, "elastic", None)) or (0.0,) * LAW_WIDTH
   viscous_values = law_values(getattr(material, "viscous", None)) or (0.0,) * LAW_WIDTH
   relaxing = concrete[2] > 0.0
@@ -140,6 +147,8 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
     kappa=kappa,
     kapover=(kappa - 1.0) / kappa,
     De=(lam1 * Uc / R0 if relaxing else 0.0),
+    De2=(lam1b * Uc / R0),
+    share=shareb,
     LAM=(lam2 / lam1 if relaxing else 0.0),
     Cstar=Cstar,
     alphax=alphax,

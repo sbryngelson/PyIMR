@@ -28,6 +28,7 @@ from ._materials import (
   PowerLaw,
   QuadraticKelvinVoigt,
   QuadraticZener,
+  TwoModeQuadraticZener,
   Yeoh,
   Zener,
 )
@@ -252,6 +253,22 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
     Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
     return S, Sdot, xp.array([Z1d]), 4.0 * LAM / Re8
+  if isinstance(material, TwoModeQuadraticZener):
+    # Two Maxwell arms sharing one elastic equilibrium. `w` splits BOTH the elastic target
+    # and the viscous forcing, so w = 0 leaves the second memory driven by nothing: it
+    # decays from zero and stays zero, and the first arm is exactly QuadraticZener. That
+    # exact reduction is the test the branch is gated on.
+    Z1, Z2 = Z[0], Z[1]
+    w = p["share"]
+    De2 = p["De2"]
+    strainhard = (3 * ax - 1) / (2 * Ca)
+    Ze = R**3 * (strainhard * (5 - Rst**4 - 4 * Rst) + (2 * ax / Ca) * (0.675 + 0.125 * Rst**8 + 0.2 * Rst**5 + Rst**2 - 2 / Rst))
+    drive = 4 * (LAM - 1) / Re8 * R**2 * Rd
+    Z1d = -(Z1 - (1 - w) * Ze) / De + (1 - w) * drive / De
+    Z2d = -(Z2 - w * Ze) / De2 + w * drive / De2
+    S = (Z1 + Z2) / R**3 - 4 * LAM / Re8 * Rd / R
+    Sdot = (Z1d + Z2d) / R**3 - 3 * Rd / R**4 * (Z1 + Z2) + 4 * LAM / Re8 * Rd**2 / R**2
+    return S, Sdot, xp.array([Z1d, Z2d]), 4.0 * LAM / Re8
   if isinstance(material, OldroydB):
     Z1, Z2 = Z[0], Z[1]
     Z1d = -(1 / De - 2 * Rd / R) * Z1 + 2 * (LAM - 1) / (Re8 * De) * R**2 * Rd

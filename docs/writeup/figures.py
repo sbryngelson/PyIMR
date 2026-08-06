@@ -43,7 +43,12 @@ def records():
 
 
 def fits():
-  """Best chi-squared per sample for every candidate, all three datasets."""
+  """Best chi-squared per sample for every candidate, all three datasets.
+
+  This is the best GRID NODE, not the best fit: refitting qSLS at 15 C by Gauss-Newton
+  reaches 0.962 against the grid's 1.35. The axis says so, because the document reports
+  both numbers and a reader must know which is which.
+  """
   names = [n for n in RESULTS[ORDER[0]]["models"]]
   names.sort(key=lambda n: RESULTS[ORDER[0]]["models"][n]["chi2_per_sample"])
   fig, ax = plt.subplots(figsize=(7.2, 3.0))
@@ -55,7 +60,7 @@ def fits():
   ax.text(len(names) - 0.4, 1.05, "measurement noise", ha="right", fontsize=7)
   ax.set_yscale("log")
   ax.set_xticks(np.arange(len(names)), names, rotation=45, ha="right")
-  ax.set_ylabel(r"best $\chi^2/N$")
+  ax.set_ylabel(r"best $\chi^2/N$ on the selection grid")
   ax.legend(frameon=False, ncols=3)
   fig.tight_layout()
   fig.savefig(HERE / "fig_fits.pdf")
@@ -71,7 +76,7 @@ def trend():
   ax.plot(temps, q, "s-", label="qSLS (+ stiffening)")
   ax.axhline(1.0, color="k", lw=0.8, ls="--")
   ax.set_xlabel(r"temperature [$^\circ$C]")
-  ax.set_ylabel(r"best $\chi^2/N$")
+  ax.set_ylabel(r"best $\chi^2/N$ on the selection grid")
   ax.set_xticks(temps)
   ax.legend(frameon=False, fontsize=8)
   fig.tight_layout()
@@ -87,7 +92,7 @@ def winner():
     mean, spread = np.array(d["mean"]), np.array(d["spread"])
     ax.fill_between(t, mean - spread, mean + spread, alpha=0.3, lw=0, color="C0", label="measured")
     ax.plot(t, np.array(d["models"]["qSLS"]["best_trace"]), lw=1.0, color="C3", label="qSLS")
-    ax.set_title(f"{LABEL[name]}  $\\chi^2/N={d['models']['qSLS']['chi2_per_sample']:.2f}$")
+    ax.set_title(f"{LABEL[name]}  grid $\\chi^2/N={d['models']['qSLS']['chi2_per_sample']:.2f}$")
     ax.set_xlabel(r"$t$ [$\mu$s]")
   axes[0].set_ylabel(r"$R/R_{\max}$")
   axes[0].legend(frameon=False, fontsize=8)

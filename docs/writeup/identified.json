@@ -1,0 +1,236 @@
+{
+ "rayleigh-plesset@3.85": {
+  "name": "rayleigh-plesset",
+  "ratio": 3.85,
+  "chi2_per_n": 2.5815729618591585,
+  "log_evidence": 362.65709692689694,
+  "lag_one": 0.9038353832346899,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.776340726386523,
+   "galpha": 3477.42904254416,
+   "lambda1": 3.4706252752597043e-06
+  }
+ },
+ "keller-miksis@3.85": {
+  "name": "keller-miksis",
+  "ratio": 3.85,
+  "chi2_per_n": 0.9590076193577168,
+  "log_evidence": 528.3852299439161,
+  "lag_one": 0.9176684999773488,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.04602071491026769,
+   "galpha": 1085.2681348747808,
+   "lambda1": 1.8524660221642775e-07
+  }
+ },
+ "keller-miksis-tait@3.85": {
+  "name": "keller-miksis-tait",
+  "ratio": 3.85,
+  "chi2_per_n": 0.8975694364882868,
+  "log_evidence": 534.1967742575595,
+  "lag_one": 0.912148154008795,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.04247517864084476,
+   "galpha": 1066.931907141809,
+   "lambda1": 6.2989283947036e-08
+  }
+ },
+ "gilmore-tait@3.85": {
+  "name": "gilmore-tait",
+  "ratio": 3.85,
+  "chi2_per_n": 2.4708459220257426,
+  "log_evidence": 373.8306359731773,
+  "lag_one": 0.9022047484773629,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.7712248767355863,
+   "galpha": 3547.0286522758893,
+   "lambda1": 3.617204957620744e-06
+  }
+ },
+ "keller-miksis-mie@3.85": {
+  "name": "keller-miksis-mie",
+  "ratio": 3.85,
+  "chi2_per_n": 0.9141272445393733,
+  "log_evidence": 532.8902867807492,
+  "lag_one": 0.9138088374550938,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.04325150420783351,
+   "galpha": 1071.116979644673,
+   "lambda1": 8.454240522128968e-08
+  }
+ },
+ "gilmore-mie@3.85": {
+  "name": "gilmore-mie",
+  "ratio": 3.85,
+  "chi2_per_n": 2.4746279414230123,
+  "log_evidence": 373.44880820430325,
+  "lag_one": 0.9022604880185786,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.7714389120446912,
+   "galpha": 3545.0289627794027,
+   "lambda1": 3.6117798217441822e-06
+  }
+ },
+ "rayleigh-plesset@38.5": {
+  "name": "rayleigh-plesset",
+  "ratio": 38.5,
+  "chi2_per_n": 2.586487085124052,
+  "log_evidence": 362.16566535310807,
+  "lag_one": 0.9038634198506555,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.7772556026448866,
+   "galpha": 3447.2375377795447,
+   "lambda1": 3.476157670699058e-06
+  }
+ },
+ "keller-miksis@38.5": {
+  "name": "keller-miksis",
+  "ratio": 38.5,
+  "chi2_per_n": 0.9710144928567966,
+  "log_evidence": 527.1093001189829,
+  "lag_one": 0.9189618611417775,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.04636584212787217,
+   "galpha": 1069.4447397304525,
+   "lambda1": 1.9865276829524348e-07
+  }
+ },
+ "keller-miksis-tait@38.5": {
+  "name": "keller-miksis-tait",
+  "ratio": 38.5,
+  "chi2_per_n": 0.9079447736921147,
+  "log_evidence": 533.2402895122216,
+  "lag_one": 0.9131014182216441,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.04252424253633118,
+   "galpha": 1049.8860249345523,
+   "lambda1": 6.629952483251696e-08
+  }
+ },
+ "gilmore-tait@38.5": {
+  "name": "gilmore-tait",
+  "ratio": 38.5,
+  "chi2_per_n": 2.474915893479103,
+  "log_evidence": 373.42418603877155,
+  "lag_one": 0.9022266779534941,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.7721620281253606,
+   "galpha": 3516.7725046605765,
+   "lambda1": 3.622961909853534e-06
+  }
+ },
+ "keller-miksis-mie@38.5": {
+  "name": "keller-miksis-mie",
+  "ratio": 38.5,
+  "chi2_per_n": 0.9253065950670538,
+  "log_evidence": 531.8716166769077,
+  "lag_one": 0.9145949111188696,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.043332074392021,
+   "galpha": 1054.318946588579,
+   "lambda1": 9.098582142013413e-08
+  }
+ },
+ "gilmore-mie@38.5": {
+  "name": "gilmore-mie",
+  "ratio": 38.5,
+  "chi2_per_n": 2.4787277838927215,
+  "log_evidence": 373.0393496247263,
+  "lag_one": 0.9022829036564347,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.7723765313436525,
+   "galpha": 3514.781682560982,
+   "lambda1": 3.6175301712422255e-06
+  }
+ },
+ "rayleigh-plesset@385.0": {
+  "name": "rayleigh-plesset",
+  "ratio": 385.0,
+  "chi2_per_n": 2.6020675548731313,
+  "log_evidence": 360.6074151170785,
+  "lag_one": 0.9039535896112698,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.7800603474211231,
+   "galpha": 3353.3564745023787,
+   "lambda1": 3.4932557239958512e-06
+  }
+ },
+ "keller-miksis@385.0": {
+  "name": "keller-miksis",
+  "ratio": 385.0,
+  "chi2_per_n": 1.0085584762980713,
+  "log_evidence": 523.1356148234631,
+  "lag_one": 0.9228159108519807,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.04742223329285957,
+   "galpha": 1020.6530437762253,
+   "lambda1": 2.3712928932683753e-07
+  }
+ },
+ "keller-miksis-tait@385.0": {
+  "name": "keller-miksis-tait",
+  "ratio": 385.0,
+  "chi2_per_n": 0.942054222329588,
+  "log_evidence": 530.1250195189136,
+  "lag_one": 0.9156979303636983,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.04271034423773852,
+   "galpha": 998.0424315102879,
+   "lambda1": 7.982392055725848e-08
+  }
+ },
+ "gilmore-tait@385.0": {
+  "name": "gilmore-tait",
+  "ratio": 385.0,
+  "chi2_per_n": 0.8309114421838016,
+  "log_evidence": 540.2044484663656,
+  "lag_one": 0.9050771736107017,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.03533701904669212,
+   "galpha": 971.7435530772129,
+   "lambda1": 1.291206051614661e-08
+  }
+ },
+ "keller-miksis-mie@385.0": {
+  "name": "keller-miksis-mie",
+  "ratio": 385.0,
+  "chi2_per_n": 0.9634729826219162,
+  "log_evidence": 528.3290137015028,
+  "lag_one": 0.9165888060431223,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.043714491915159644,
+   "galpha": 1003.7744011161602,
+   "lambda1": 1.188590263259624e-07
+  }
+ },
+ "gilmore-mie@385.0": {
+  "name": "gilmore-mie",
+  "ratio": 385.0,
+  "chi2_per_n": 2.4917950630153842,
+  "log_evidence": 371.7341217780266,
+  "lag_one": 0.9023561461149835,
+  "pinned": [],
+  "fitted": {
+   "mu": 0.7752500992494338,
+   "galpha": 3420.6725902363264,
+   "lambda1": 3.635301613207606e-06
+  }
+ }
+}

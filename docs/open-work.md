@@ -85,10 +85,28 @@ existing result, not a new one.
 nobody had found that a known parameter degeneracy makes the operator comparison
 prior-dominated. The two questions were previously independent; they are not.
 
-So the concrete next step is to ask the operator question in coordinates the data can answer:
-parameterise by `g*alpha` with `g/alpha` fixed at a stated value, or report `g*alpha` and
-decline to report `g`. Both the operator ranking and the enrichment margins should be redone
-that way before either is believed.
+**Done, and most of the comparison survives it** (`docs/writeup/identified.py`). Fitting
+`g*alpha` with `g/alpha` fixed, at three ratios spanning two decades around the published
+fit: no fit is pinned (0 of 18, against 3 of 6 before), and 12 of the 15 pairwise orderings
+hold at every ratio. What is robust is therefore reportable, and what is not is named:
+
+  - every compressible operator beats Rayleigh-Plesset by 11 to 170 nats. Incompressibility
+    is rejected, decisively and unconditionally;
+  - **`radial=3` (Keller-Miksis, enthalpy/Tait) beats `radial=2` (pressure form) by at least
+    5.81 nats at every ratio** -- and `radial=2` is what every candidate in the package
+    assumes. `radial=5` beats it too, by at least 4.51;
+  - the Keller-Miksis family beats Gilmore/Mie-Grueneisen by 151 to 158 nats, which is worth
+    noting because `radial=6` is the most physically complete operator here;
+  - NOT determined: Gilmore/Tait against any Keller-Miksis variant. All three reversing pairs
+    involve it, and it swings from fourth to first across the ratio range.
+
+So the honest summary is that the operator is partly determined. The ranking as a whole is
+not, but the specific comparison that matters for this package -- the pressure form everyone
+uses against the enthalpy forms -- is, and it goes against the default.
+
+**Next: change the default, or justify it.** `radial=2` is assumed by every example and every
+candidate; on this record it is beaten robustly by two other operators. Either is a one-line
+change, and the fits and evidences of the whole study would move with it.
 
 **3. The diagnostic was never specific.** Lag-one at N = 201 measures how much of a residual
 is SMOOTH, not what made it smooth. Sampled at this density: white noise 0.037, one sine

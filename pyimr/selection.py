@@ -56,9 +56,10 @@ from .prior import (
 )
 
 __all__ = [
-  "EXTENDED_MODELS", "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateModel", "bounds_for_invariant",
-  "candidate_log_evidence", "compare", "grid_ready", "log_evidence",
-  "parameter_grid", "physical_from_unit", "redundancy_over_grid", "solve_grid", "strain_invariant",
+  "EXTENDED_MODELS", "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateFit", "CandidateModel",
+  "bounds_for_invariant", "candidate_log_evidence", "compare", "fit_candidate", "grid_ready",
+  "log_evidence", "parameter_grid", "physical_from_unit", "redundancy_over_grid", "solve_grid",
+  "strain_invariant",
 ]
 
 # Deliberately loose, and log-spaced: a boundary-pinned optimum is charged by the
@@ -116,6 +117,9 @@ PARAMETER_BOUNDS = {
 }
 
 _NEGLIGIBLE = 1e-9
+# Residual returned where the material will not integrate: far above any real whitened
+# misfit, so the optimiser leaves, but finite so it still has somewhere to go.
+_UNREACHABLE = 1e4
 # How many e-foldings of Fung stiffening are allowed across the strain range the record
 # covers, and how far above its divergence limit Gent must sit to be integrable at all.
 #
@@ -411,6 +415,133 @@ def log_evidence(radii, normalized, redundancies, observed, deviations, *, dimen
   peak = float(np.max(log_likelihood[support]))
   integrated = peak + float(np.log(np.sum(prior[support] * np.exp(log_likelihood[support] - peak))))
   return integrated + float(np.log(model_prior(dimension, float(effective)))), chi_squared
+
+@dataclass(frozen=True, slots=True)
+class CandidateFit:
+  """Where a candidate fits best, and what else the search found.
+
+  `modes` holds the distinct endpoints, best first, because a multistart that keeps only
+  its winner throws away the one diagnostic that says whether the winner means anything.
+  Two endpoints of nearly equal cost in different corners of the cube is a different
+  situation from one basin found eight times, and the evidence should be summed over the
+  modes rather than taken at the best -- see `laplace_log_evidence`.
+  """
+
+  unit: np.ndarray
+  chi_squared: float
+  modes: tuple[np.ndarray, ...]
+  costs: tuple[float, ...]
+  converged: int
+  starts: int
+  evaluations: int
+  failures: int
+
+  @property
+  def failure_fraction(self) -> float:
+    """Share of forward solves that landed somewhere the material would not integrate.
+
+    Near one this is not a fit, whatever `chi_squared` says: the optimiser spent its budget
+    in the penalty region and stopped where it entered.
+    """
+    return self.failures / self.evaluations if self.evaluations else 0.0
+
+  @property
+  def multimodal(self) -> bool:
+    """Whether a second basin came within one nat of the best."""
+    return len(self.costs) > 1 and (self.costs[1] - self.costs[0]) < 1.0
+
+def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=8, seed=0,
+                  max_evaluations=200, separation=1e-2):
+  """Fit a candidate by multistart least squares in the prior's unit coordinates.
+
+  `candidate_log_evidence` expands about a fitted point and nothing produced one: a
+  candidate's axes need not be material fields -- `tau_ratio` is a ratio of two of them,
+  `thin_time` is absolute, `ogden_a2` is neither -- so `PreparedInference.fit_multistart`,
+  which works from attribute paths, cannot reach them. This closes that gap, and with it
+  the distance between a model existing and a model being rankable.
+
+  Optimising in unit coordinates rather than in the parameters is not a convenience. The
+  axes span decades, the box is exactly `[0, 1]^p` there, and it is the space the evidence
+  is measured in, so the fit and the Occam factor agree about what a step means.
+
+  Starts are a Latin hypercube plus the centre, because a uniform sample of eight points in
+  six dimensions leaves whole faces empty -- the mistake that hid an E-optimality ridge
+  earlier in this package. No analytic Jacobian: `least_squares` differences the residual
+  itself, which costs `p` extra solves an iteration and is what makes this work for axes
+  that are not material fields.
+
+  BUDGET. That differencing makes `max_evaluations` mean far less than it appears to: an
+  iteration costs `p + 1` solves, so 80 evaluations is about sixteen steps in four
+  dimensions. Measured on a synthetic qSLS record, `starts=4, max_evaluations=80` reaches
+  `chi_squared` of 27.3 against the generating point's 0.85 -- worse than the truth, which
+  is what an under-converged fit looks like -- while `starts=6, max_evaluations=150` reaches
+  0.64. Check `chi_squared` against the truth where you have one, and treat a fit that
+  cannot beat it as evidence about the budget rather than about the model.
+  """
+  from scipy.optimize import least_squares
+
+  bounds = PARAMETER_BOUNDS if bounds is None else bounds
+  if int(starts) < 1: raise ValueError("starts must be a positive integer")
+  if not 0.0 < float(separation) < 1.0: raise ValueError("separation must lie in (0, 1)")
+  measured = np.asarray(observed, dtype=float).ravel()
+  scale = float(deviation)
+  if not np.isfinite(scale) or scale <= 0.0: raise ValueError("deviation must be finite and positive")
+
+  # An optimiser walking a six-dimensional box WILL step somewhere the material does not
+  # integrate -- Gent locks up, a collapse outruns the step budget, a constructor refuses
+  # its own arguments. Raising from inside the residual kills the whole fit for one bad
+  # step, so a failed evaluation returns a large finite residual instead and the optimiser
+  # backs out of the region by itself. The count is kept because a fit whose evaluations
+  # mostly failed is not a fit, and nothing else would say so.
+  attempted = failed = 0
+
+  def residual(point):
+    nonlocal attempted, failed
+    attempted += 1
+    values = physical_from_unit(candidate.axes, np.clip(point, 0.0, 1.0), bounds)
+    try:
+      solved = solve(candidate.build(dict(zip(candidate.axes, values, strict=True))))
+    except Exception:                                # noqa: BLE001 -- an excursion, not a bug
+      failed += 1
+      return np.full(measured.size, _UNREACHABLE)
+    if solved is None:
+      failed += 1
+      return np.full(measured.size, _UNREACHABLE)
+    radius = np.asarray(solved[0], dtype=float).ravel()
+    # a shape mismatch is the caller's mistake rather than a corner of the box, so it is
+    # raised rather than penalised -- penalising it would hide it behind a bad fit
+    if radius.size != measured.size:
+      raise ValueError(f"solve returned {radius.size} samples against {measured.size} observations")
+    if not np.all(np.isfinite(radius)):
+      failed += 1
+      return np.full(measured.size, _UNREACHABLE)
+    return (radius - measured) / scale
+
+  rng = np.random.default_rng(int(seed))
+  count, dimension = int(starts), candidate.dimension
+  strata = np.argsort(rng.random((count, dimension)), axis=0)
+  points = (strata + rng.random((count, dimension))) / count
+  points[0] = 0.5
+
+  endpoints = []
+  for start in points:
+    outcome = least_squares(residual, start, bounds=(0.0, 1.0), max_nfev=int(max_evaluations), x_scale="jac")
+    # a start that never escaped the penalty region reached no fit at all, and averaging it
+    # in with the real ones would put a spurious mode in `modes`
+    if np.isfinite(outcome.cost) and 2.0 * outcome.cost / measured.size < _UNREACHABLE**2:
+      endpoints.append((float(outcome.cost), np.clip(np.asarray(outcome.x, dtype=float), 0.0, 1.0)))
+  if not endpoints: raise ValueError(f"{candidate.name} did not fit from any of {count} starts")
+
+  endpoints.sort(key=lambda item: item[0])
+  modes, costs = [], []
+  for cost, point in endpoints:
+    if all(np.linalg.norm(point - kept) > float(separation) for kept in modes):
+      modes.append(point)
+      costs.append(cost)
+  # `least_squares` reports half the sum of squares, and the residual is already whitened
+  return CandidateFit(unit=modes[0], chi_squared=2.0 * costs[0] / measured.size,
+                      modes=tuple(modes), costs=tuple(costs), converged=len(endpoints), starts=count,
+                      evaluations=attempted, failures=failed)
 
 def candidate_log_evidence(candidate, solve, observed, deviation, unit_point, *, bounds=None, step=1e-4):
   """`log p(Y | M)` for a candidate at a fitted point, by Laplace expansion.

@@ -19,6 +19,8 @@ from pathlib import Path
 
 import numpy as np
 
+import style
+
 OUT = Path(__file__).resolve().parent
 FIT = (204.3, 0.04651, 1.964e-7, 5.301)
 LOW = np.array([124.4, 0.04284, 1.482e-7, 2.424])
@@ -61,6 +63,7 @@ def main():
   import matplotlib
 
   matplotlib.use("Agg")
+  import matplotlib.patheffects as pe
   import matplotlib.pyplot as plt
 
   from pyimr.measure import optimal_measure
@@ -75,8 +78,8 @@ def main():
 
   count = stack.shape[1]
   variance = np.einsum("jk,ikj->i", np.linalg.inv(np.tensordot(result.weights, stack, axes=(0, 0))), stack)
-  plt.rcParams.update({"font.size": 9, "figure.dpi": 160, "savefig.bbox": "tight"})
-  fig, (plane, profile) = plt.subplots(1, 2, figsize=(8.4, 3.4))
+  style.use()
+  fig, (plane, profile) = plt.subplots(1, 2, figsize=style.size(1.0, 2.7))
 
   # the candidates are a regular grid, so draw them as one; triangulated contours of a
   # regular grid produce interpolation speckle that reads as structure and is not.
@@ -92,30 +95,37 @@ def main():
   plane.scatter(points[support, 0] * 1e6, points[support, 1],
                 s=40 + 900 * result.weights[support], facecolors="none",
                 edgecolors="r", linewidths=1.6, zorder=5)
+  # offset each weight away from whichever edge it sits near, or it is clipped by the axes
+  span_x = (np.log10(points[:, 0]).min(), np.log10(points[:, 0]).max())
+  span_y = (points[:, 1].min(), points[:, 1].max())
   for index in support:
+    across = (np.log10(points[index, 0]) - span_x[0]) / (span_x[1] - span_x[0])
+    up = (points[index, 1] - span_y[0]) / (span_y[1] - span_y[0])
     plane.annotate(f"{result.weights[index]:.2f}", (points[index, 0] * 1e6, points[index, 1]),
-                   textcoords="offset points", xytext=(7, 6), color="r", fontsize=7.5)
+                   textcoords="offset points", color="r",
+                   xytext=(-22 if across > 0.7 else 8, -11 if up > 0.8 else 7),
+                   path_effects=[pe.withStroke(linewidth=1.8, foreground="w")])
   plane.set_xscale("log")
   plane.set_xticks([50, 100, 200, 400, 800, 1200])
   plane.set_xticklabels(["50", "100", "200", "400", "800", "1200"])
   plane.set_xticks([], minor=True)
   plane.set_xlabel(r"$R_{\max}$ ($\mu$m)")
   plane.set_ylabel(r"stretch $R_{\max}/R_{\rm eq}$")
-  plane.set_title(r"sensitivity $d(x,\xi^\star)$, support circled", fontsize=9)
+  plane.set_title(r"sensitivity $d(x,\xi^\star)$, support circled")
   fig.colorbar(grid, ax=plane, pad=0.02)
 
   order = np.argsort(variance)
   profile.plot(np.arange(len(order)), variance[order], "k", lw=1.2)
   profile.axhline(count, color="r", ls="--", lw=1.0)
   profile.set_ylim(top=count * 1.13)
-  profile.text(0.02, 0.965, rf"$p = {count}$: the bound", color="r", fontsize=8,
+  profile.text(0.02, 0.965, rf"$p = {count}$: the bound", color="r",
                transform=profile.transAxes, va="top")
   rank = {int(i): k for k, i in enumerate(order)}
   profile.scatter([rank[int(i)] for i in support], variance[support], s=26, c="r", zorder=4,
                   label="support: attains the bound")
   profile.set_xlabel("designs, ordered by sensitivity")
   profile.set_ylabel(r"$d(x,\xi^\star)$")
-  profile.set_title("no design exceeds the bound", fontsize=9)
+  profile.set_title("no design exceeds the bound")
   profile.legend(fontsize=7, loc="lower right")
 
   fig.savefig(OUT / "fig_certificate.pdf")

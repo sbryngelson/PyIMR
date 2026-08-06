@@ -30,3 +30,5 @@ docs/writeup/*.out
 docs/writeup/*.png
 docs/writeup/cache_*.npy
 docs/writeup/fitquality.json
+docs/writeup/__pycache__/
+docs/writeup/*.png

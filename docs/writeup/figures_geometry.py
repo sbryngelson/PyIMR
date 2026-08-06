@@ -26,6 +26,8 @@ from pathlib import Path
 
 import numpy as np
 
+import style
+
 OUT = Path(__file__).resolve().parent
 R_MAX, STRETCH = 277e-6, 7.09
 FIT = np.array([204.3, 0.04651, 1.964e-7, 5.301])
@@ -77,7 +79,7 @@ def main():
   matplotlib.use("Agg")
   import matplotlib.pyplot as plt
 
-  plt.rcParams.update({"font.size": 9, "figure.dpi": 160, "savefig.bbox": "tight"})
+  style.use()
   from pyimr.noise import characteristic_time
 
   times = np.linspace(0.0, 5.0 * characteristic_time(R_MAX), 400)
@@ -89,7 +91,7 @@ def main():
 
   # ---- 1. what a sloppy direction does to the data ----
   step = 0.45                                          # the same distance in log-parameters
-  fig, axes = plt.subplots(1, 2, figsize=(7.8, 3.2), sharey=True)
+  fig, axes = plt.subplots(1, 2, figsize=style.size(0.98, 2.6), sharey=True)
   for axis, direction, title in ((axes[0], sloppy, "along the SLOPPY direction"),
                                  (axes[1], stiff, "along the STIFF direction")):
     axis.fill_between(times * 1e6, base - NOISE, base + NOISE, color="0.85",
@@ -101,7 +103,7 @@ def main():
       factor = np.exp(sign * step * direction)
       axis.plot(times * 1e6, moved, colour, lw=0.9, alpha=0.9,
                 label=rf"$g\times{factor[0]:.2f}$, $\alpha\times{factor[3]:.2f}$")
-    axis.set_title(title, fontsize=9)
+    axis.set_title(title)
     axis.set_xlabel(r"$t$ ($\mu$s)")
     axis.legend(fontsize=6.5, loc="upper right")
   axes[0].set_ylabel(r"$R/R_{\max}$")
@@ -119,7 +121,7 @@ def main():
   ellipse = (v * np.sqrt(w * 5.991)) @ circle          # 95% for two parameters
 
   long, short = float(np.sqrt(w.max() * 5.991)), float(np.sqrt(w.min() * 5.991))
-  fig, (wide, curve) = plt.subplots(1, 2, figsize=(7.8, 3.4))
+  fig, (wide, curve) = plt.subplots(1, 2, figsize=style.size(0.98, 2.8))
 
   # Equal axes are the honest impression and hide everything: a 700:1 ellipse is a line in
   # any projection. So the left panel shows that, and the right measures the same fact along
@@ -129,9 +131,9 @@ def main():
   wide.plot(span, -0.981 * span, "r--", lw=1.0, label=r"analytic slope $-0.981$")
   wide.set_aspect("equal")
   wide.set_xlabel(r"$\Delta \log \alpha$"); wide.set_ylabel(r"$\Delta \log g$")
-  wide.set_title("95% confidence region, true shape", fontsize=9)
+  wide.set_title("95% confidence region, true shape")
   wide.text(0.03, 0.03, f"{long:.1f} long, {short:.3f} wide\naxis ratio {long / short:.0f} : 1",
-            transform=wide.transAxes, fontsize=7)
+            transform=wide.transAxes)
   wide.legend(fontsize=7, loc="upper right")
 
   # measured, not the quadratic approximation: solve at perturbed parameters
@@ -145,11 +147,12 @@ def main():
                     else float(np.sum(((moved - base) / NOISE) ** 2)))
     curve.plot(steps, misfit, colour, lw=1.3, label=label)
   curve.axhline(3.84, color="0.4", ls=":", lw=0.9)
-  curve.text(-0.97, 5.0, r"$\Delta\chi^2 = 3.84$ (95%)", fontsize=7, color="0.4")
+  curve.text(-0.97, 5.0, r"$\Delta\chi^2 = 3.84$ (95%)", color="0.4")
   curve.set_yscale("symlog", linthresh=1.0)
+  curve.set_ylim(bottom=0.0)          # Delta chi^2 cannot be negative; symlog would imply it can
   curve.set_xlabel(r"distance moved in $\log$-parameters")
   curve.set_ylabel(r"$\Delta\chi^2$ against the fit")
-  curve.set_title("what the data notice, along each direction", fontsize=9)
+  curve.set_title("what the data notice, along each direction")
   curve.legend(fontsize=7)
   fig.savefig(OUT / "fig_ellipse.pdf"); fig.savefig(OUT / "fig_ellipse.png", dpi=110)
   plt.close(fig)
@@ -159,11 +162,11 @@ def main():
   alpha = FIT[3]
   A = 1.5 * P(lam) + 2.0 * Q(lam)
   B = -0.5 * P(lam)
-  fig, (left, right) = plt.subplots(1, 2, figsize=(7.8, 3.2))
+  fig, (left, right) = plt.subplots(1, 2, figsize=style.size(0.98, 2.6))
   left.loglog(lam, np.abs(alpha * A), label=r"$\alpha A$  (depends on $g\alpha$)")
   left.loglog(lam, np.abs(B), label=r"$B$  (depends on $g$ alone)")
   left.set_xlabel(r"stretch $\lambda = R_{\rm eq}/R$"); left.set_ylabel("magnitude")
-  left.set_title("The two terms of $Z_e$", fontsize=9); left.legend(fontsize=7)
+  left.set_title("The two terms of $Z_e$"); left.legend(fontsize=7)
   for axis in (left,):
     axis.set_xticks([1.0, 1.5, 2.0, 3.0, 4.0, 6.0])
     axis.set_xticklabels(["1", "1.5", "2", "3", "4", "6"])
@@ -173,10 +176,10 @@ def main():
   right.loglog(lam, 2.0 / (alpha * lam**4), "r--", lw=1.0, label=r"$2/(\alpha\lambda^4)$")
   for depth, name, colour in ((2.215, "present", "tab:red"), (1.5, "gentler", "tab:green")):
     right.axvline(depth, color=colour, ls=":", lw=1.0)
-    right.text(depth * 1.03, 8.0, name, color=colour, fontsize=7, rotation=90,
+    right.text(depth * 1.03, 8.0, name, color=colour, rotation=90,
                va="top", ha="left")
   right.set_xlabel(r"stretch $\lambda$"); right.set_ylabel("separating share of the signal")
-  right.set_title(r"Separability dies as $\lambda^{-4}$", fontsize=9)
+  right.set_title(r"Separability dies as $\lambda^{-4}$")
   right.legend(fontsize=7, loc="lower left")
   right.set_xticks([1.0, 1.5, 2.0, 3.0, 4.0, 6.0])
   right.set_xticklabels(["1", "1.5", "2", "3", "4", "6"])

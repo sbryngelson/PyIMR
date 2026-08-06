@@ -223,3 +223,35 @@ def test_capping_leaves_a_well_determined_fit_almost_alone():
     sharp = 50.0 * rng.normal(0.0, 1.0, (60, 3))          # every direction far inside the prior
     assert (laplace_log_evidence(residual, sharp, 1.0, cap_at_prior=True)
             == pytest.approx(laplace_log_evidence(residual, sharp, 1.0), rel=1e-12))
+
+
+def test_a_repeated_scalar_deviation_is_the_scalar_one():
+    """Per-sample noise is a generalisation, so it must agree exactly where it degenerates."""
+    rng = np.random.default_rng(3)
+    residual, design = rng.normal(0.0, 1.0, 30), rng.normal(0.0, 1.0, (30, 3))
+    for sigma in (0.5, 1.0, 2.0):
+        for capped in (False, True):
+            assert (laplace_log_evidence(residual, design, np.full(30, sigma), cap_at_prior=capped)
+                    == pytest.approx(laplace_log_evidence(residual, design, sigma, cap_at_prior=capped), rel=1e-12))
+
+
+def test_a_varying_deviation_is_not_its_own_mean():
+    # the point of supporting it: collapsing a varying spread to one number changes the answer
+    rng = np.random.default_rng(4)
+    residual, design = rng.normal(0.0, 1.0, 30), rng.normal(0.0, 1.0, (30, 3))
+    varying = np.linspace(0.2, 2.0, 30)
+    assert laplace_log_evidence(residual, design, varying) != pytest.approx(
+        laplace_log_evidence(residual, design, float(varying.mean())), rel=1e-6)
+
+
+@pytest.mark.parametrize("bad", [np.zeros(30), -np.ones(30), np.full(30, np.nan)])
+def test_a_bad_per_sample_deviation_is_refused(bad):
+    rng = np.random.default_rng(5)
+    with pytest.raises(ValueError, match="deviation"):
+        laplace_log_evidence(rng.normal(0.0, 1.0, 30), rng.normal(0.0, 1.0, (30, 3)), bad)
+
+
+def test_a_mismatched_per_sample_deviation_is_refused():
+    rng = np.random.default_rng(6)
+    with pytest.raises(ValueError, match="one per sample"):
+        laplace_log_evidence(rng.normal(0.0, 1.0, 30), rng.normal(0.0, 1.0, (30, 3)), np.ones(7))

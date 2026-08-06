@@ -592,12 +592,42 @@ and $-6.81$ at $w = 10^{-3}, 10^{-2}, 0.05, 0.3$: monotone, and never paying for
 data cannot resolve. The correction is a strict generalisation, agreeing with the plain form
 to round-off wherever every direction is already sharper than the prior.
 
-\paragraph{What is not claimed.} Both models are implemented, and both reduce exactly to
-the one-mode law. Neither has been fitted to the records analysed here. Nothing in this
-section should be read as evidence that a second relaxation time, or a rate-dependent one,
-improves on \S\ref{sec:fitquality}; it establishes what would have to be computed, and corrects
-the criterion that computation would otherwise have used. Fitting them is the obvious next
-step and is not attempted here.
+\paragraph{The answer, on the \SI{15}{\celsius} record.} Both were fitted by multistart in
+the prior's unit coordinates, scored by the capped expansion, and summed over the modes the
+multistart found.
+%
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+model & $p$ & $\chi^2/N$ & $\log Z$ & vs.\ qSLS & lag-one $\rho$ & $N_{\rm eff}$ \\
+\midrule
+qSLS      & 4 & 0.962 & 529.26 & --- & 0.918 & 10.3 \\
+qSLS2     & 6 & 0.950 & 531.03 & $+1.78$ & 0.918 & \phantom{0}7.2 \\
+qSLSthin  & 6 & 0.922 & 532.05 & $+2.79$ & 0.875 & \phantom{0}8.2 \\
+\bottomrule
+\end{tabular}
+\end{center}
+%
+The one-mode $\chi^2/N$ of $0.962$ reproduces \S\ref{sec:fitquality} exactly, by a different
+optimiser in different coordinates, which is the check that the fits are comparable at all.
+
+Both enrichments are preferred, and neither margin means what it appears to. The residual
+autocorrelation is the defect they were reached for, and it does not move: $0.918$ unchanged
+for the second relaxation time, $0.918 \to 0.875$ for the rate-dependent one, against
+$N_{\rm eff}$ near $8$ out of $201$ either way. Both $\log Z$ and $\chi^2/N$ presume
+independent residuals, so the likelihood overstates its own information by roughly
+$N/N_{\rm eff} \approx 25$; deflating a $2.79$-nat margin by anything of that order leaves
+nothing. The second arm is not idle --- it lands at $16\%$ of the memory with a timescale
+$15.7$ times the first --- it simply does not address what is wrong. And \texttt{qSLSthin}
+pins its crossover at the bottom of its range, so that margin is bound-limited and the
+crossover is not resolved by this record at all.
+
+\paragraph{What this says.} A richer relaxation spectrum is not the missing physics, or at
+least not the part that matters here. Two independent enrichments, each reducing exactly to
+the one-mode law and each free to switch itself off, both decline to and both leave the
+correlation in place. That is evidence about where to look next --- the residual is
+concentrated in the first collapse, where sphericity and the far-field boundary are least
+secure --- and it is more useful than a small positive margin would have been.
 
 \section{The temperature trend}
 

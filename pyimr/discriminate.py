@@ -125,10 +125,15 @@ def laplace_log_evidence(residual, jacobian, deviation, *, cap_at_prior=False):
   matrix = np.atleast_2d(np.asarray(jacobian, dtype=float))
   if matrix.shape[0] != misfit.size: raise ValueError(f"jacobian has {matrix.shape[0]} rows for {misfit.size} residuals")
   if not np.all(np.isfinite(misfit)) or not np.all(np.isfinite(matrix)): raise ValueError("residual and jacobian must be finite")
-  scale = float(deviation)
-  if not np.isfinite(scale) or scale <= 0.0: raise ValueError("deviation must be finite and positive")
+  # scalar or per-sample: the trial spread of a real record varies across the trace, and
+  # collapsing it to one number changes which parts of the curve the fit is asked to match
+  scale = np.asarray(deviation, dtype=float)
+  if not np.all(np.isfinite(scale)) or np.any(scale <= 0.0): raise ValueError("deviation must be finite and positive")
+  if scale.ndim > 1 or (scale.ndim == 1 and scale.size not in (1, misfit.size)):
+    raise ValueError(f"deviation must be scalar or one per sample; got {scale.size} for {misfit.size} residuals")
 
   samples, parameters = matrix.shape
+  normalization = float(np.sum(np.log(2.0 * np.pi * np.broadcast_to(scale, (samples,)) ** 2)))
   information = matrix.T @ matrix
   if cap_at_prior:
     # A posterior cannot be wider than the prior it came from. The Occam factor is a
@@ -145,12 +150,12 @@ def laplace_log_evidence(residual, jacobian, deviation, *, cap_at_prior=False):
     eigenvalues = np.linalg.eigvalsh(information)
     if np.any(eigenvalues < 0.0): raise ValueError("J^T J is not positive semidefinite")
     occam = float(np.sum(np.minimum(0.0, 0.5 * np.log(2.0 * np.pi / np.maximum(eigenvalues, 1e-300)))))
-    return float(-0.5 * misfit @ misfit - 0.5 * samples * np.log(2.0 * np.pi * scale**2) + occam)
+    return float(-0.5 * misfit @ misfit - 0.5 * normalization + occam)
 
   sign, magnitude = np.linalg.slogdet(information)
   if sign <= 0: raise ValueError("J^T J is singular: the fit does not determine every parameter")
   return float(-0.5 * misfit @ misfit
-               - 0.5 * samples * np.log(2.0 * np.pi * scale**2)
+               - 0.5 * normalization
                + 0.5 * parameters * np.log(2.0 * np.pi)
                - 0.5 * magnitude)
 

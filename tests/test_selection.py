@@ -375,3 +375,21 @@ def test_the_candidate_evidence_refuses_a_point_it_cannot_use():
     candidate_log_evidence(candidate, _sensitive, observed, 0.0, [0.5, 0.5, 0.5, 0.5])
   with pytest.raises(ValueError, match="step"):
     candidate_log_evidence(candidate, _sensitive, observed, 1.0, [0.5] * 4, step=0.9)
+
+
+def test_the_evidence_reports_an_unsolvable_point_as_one_kind_of_failure():
+  """A raising solver and a `None`-returning one mean the same thing and must leave alike.
+
+  They did not: `None` gave a `ValueError` while the integrator's own `SimulationError`
+  propagated untouched, so a caller summing evidence over modes and dropping the ones that
+  will not score had to know which exception the solver happened to raise. That difference
+  killed a real run.
+  """
+  candidate = STANDARD_MODELS["qSLS"]
+  observed, unit = np.ones(6), np.full(4, 0.5)
+
+  def raises(_material): raise RuntimeError("the maximum number of solver steps was reached")
+
+  for solver in (raises, lambda _m: None):
+    with pytest.raises(ValueError, match="does not solve"):
+      candidate_log_evidence(candidate, solver, observed, 1.0, unit)

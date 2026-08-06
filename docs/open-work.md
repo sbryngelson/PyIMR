@@ -3,24 +3,37 @@
 What is known to be unfinished, and why it matters. Ordered by what blocks what, not by
 size. Entries are removed when done rather than ticked, so this file is always what is left.
 
-## The question none of this has answered yet
+## Answered: a richer relaxation is not the missing physics
 
-**1. Nothing has been fitted to data.** Three models now exist to answer the model-form
-error in #222 -- `qSLS` (one relaxation time), `qSLS2` (two), `qSLSthin` (one that moves with
-shear rate) -- and not one has been scored against the 15 C record. The machinery was the
-easy half. Until this is run, the honest statement about a second relaxation time is that it
-is *available*, not that it helps.
+Run on the 15 C record (`docs/writeup/enrichment.py`), both enrichments are preferred and
+neither margin survives inspection:
 
-`fit_candidate` and `candidate_log_evidence` are what it needs, and both exist. What remains
-is to run them on the three models, sum the evidence over the modes the fit returns, and
-report each answer with its `chi_squared` beside it.
+| model | p | chi2/N | log Z | vs qSLS | lag-1 | N_eff |
+|---|---|---|---|---|---|---|
+| qSLS | 4 | 0.962 | 529.26 | --- | 0.918 | 10.3 |
+| qSLS2 | 6 | 0.950 | 531.03 | +1.78 | 0.918 | 7.2 |
+| qSLSthin | 6 | 0.922 | 532.05 | +2.79 | 0.875 | 8.2 |
 
-Two cautions for whoever does it. The search is budget-sensitive: a differenced Jacobian
-costs `p + 1` solves an iteration, and an under-converged fit reports a `chi_squared` *worse*
-than the generating point's rather than announcing itself --- measured, 27.3 against 0.85 at
-`starts=4, max_evaluations=80`, and 0.64 at `starts=6, max_evaluations=150`. And `g` and
-`alpha` trade along a ridge, so recovered parameters move between runs while the cost barely
-does. Rank on evidence, not on parameter agreement.
+The autocorrelation is the defect they were reached for and it does not move. Both `log Z`
+and `chi2/N` presume independent residuals, so with `N_eff` near 8 of 201 the likelihood
+overstates its information by roughly 25x; deflating a 2.79-nat margin by anything of that
+order leaves nothing. The second arm is not idle --- 16% of the memory at 15.7x the first
+timescale --- it simply does not address what is wrong. `qSLSthin` pins `thin_time` at the
+bottom of its range, so that margin is bound-limited too.
+
+The one-mode `chi2/N` of 0.962 reproduces `fit_quality.py` exactly through a different
+optimiser in different coordinates, which is what makes the comparison trustworthy.
+
+**1. Where to look instead.** The residual is concentrated in the first collapse, where
+sphericity and the far-field boundary are least secure. That is the next hypothesis, and it
+is not a constitutive one --- which is worth saying plainly, because every model added this
+session was constitutive.
+
+A cheaper check first: fit with a likelihood that does not assume independence. The
+hierarchical covariance in `figures_trial.py` already exists, and every number in the table
+above is computed under an assumption the residual is known to violate. Until that is
+redone, all three evidences are on the same wrong footing --- comparable to each other, but
+not to be quoted absolutely.
 
 **2. `qSLS` loses 2.7 nats to the Occam cap.** Measured while building the cap: the
 four-parameter model already has directions this data barely determines. Which ones is not
@@ -100,6 +113,8 @@ quadratic stiffening, but never Gent-with-relaxation. Since the records are fitt
 and the stiffening exponent is identified, that gap is real. Each is a `Zener`-shaped branch
 with a different `Z_e`: repetitive rather than hard.
 
-**13. Diminishing returns, honestly.** More candidates only sharpen a comparison that is
-already running. Until item 1 is done, a 28th model adds breadth to a ranking nobody has
-computed.
+**13. Diminishing returns, honestly.** The comparison has now been run, and it says a richer
+relaxation spectrum is not what this record is missing. That is an argument for spending the
+next effort on the likelihood (item 1) rather than on a 28th constitutive law --- and it is
+the reason `PronyZener` above, which generalises exactly the direction that just came back
+negative, is less attractive than its position on this list suggests.

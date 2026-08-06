@@ -346,6 +346,19 @@ def parameter_grid(axes, count, bounds=None):
   )
   return points, normalized
 
+def _deviation_for(deviation, samples):
+  """A noise scale as an array broadcastable over the samples, scalar or one per sample.
+
+  Real records carry the second: the trial spread varies across the trace, and collapsing
+  it to a single number silently reweights which parts of the curve the fit is asked to
+  match. `fit_quality.py` has always used the per-sample form.
+  """
+  scale = np.asarray(deviation, dtype=float)
+  if not np.all(np.isfinite(scale)) or np.any(scale <= 0.0): raise ValueError("deviation must be finite and positive")
+  if scale.ndim > 1 or (scale.ndim == 1 and scale.size not in (1, samples)):
+    raise ValueError(f"deviation must be scalar or one per sample; got {scale.size} for {samples} observations")
+  return scale
+
 def physical_from_unit(axes, unit_point, bounds=None):
   """Parameters from a point in the unit cube: the inverse of `normalize_log_coordinates`.
 
@@ -484,8 +497,7 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
   if int(starts) < 1: raise ValueError("starts must be a positive integer")
   if not 0.0 < float(separation) < 1.0: raise ValueError("separation must lie in (0, 1)")
   measured = np.asarray(observed, dtype=float).ravel()
-  scale = float(deviation)
-  if not np.isfinite(scale) or scale <= 0.0: raise ValueError("deviation must be finite and positive")
+  scale = _deviation_for(deviation, measured.size)
 
   # An optimiser walking a six-dimensional box WILL step somewhere the material does not
   # integrate -- Gent locks up, a collapse outruns the step budget, a constructor refuses
@@ -569,14 +581,20 @@ def candidate_log_evidence(candidate, solve, observed, deviation, unit_point, *,
   if np.any(unit < 0.0) or np.any(unit > 1.0):
     raise ValueError("the fitted point must lie in the unit cube the prior is defined on")
   measured = np.asarray(observed, dtype=float).ravel()
-  scale = float(deviation)
-  if not np.isfinite(scale) or scale <= 0.0: raise ValueError("deviation must be finite and positive")
+  scale = _deviation_for(deviation, measured.size)
   width = float(step)
   if not 0.0 < width < 0.5: raise ValueError("step must lie in (0, 0.5)")
 
   def trace(point):
     values = physical_from_unit(candidate.axes, point, bounds)
-    solved = solve(candidate.build(dict(zip(candidate.axes, values, strict=True))))
+    # a solver that RAISES and one that returns `None` mean the same thing here -- the
+    # expansion cannot be taken at this point -- so they leave by the same door. Callers
+    # sum over modes and drop the ones that will not score; that is only possible if the
+    # failure is one catchable kind rather than whatever the integrator happened to throw.
+    try:
+      solved = solve(candidate.build(dict(zip(candidate.axes, values, strict=True))))
+    except Exception as error:                       # noqa: BLE001
+      raise ValueError(f"{candidate.name} does not solve at {dict(zip(candidate.axes, values))}: {error}") from error
     if solved is None: raise ValueError(f"{candidate.name} does not solve at {dict(zip(candidate.axes, values))}")
     radius = np.asarray(solved[0], dtype=float).ravel()
     if radius.size != measured.size:

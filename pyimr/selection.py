@@ -30,6 +30,7 @@ from ._materials import (
   PowerLaw,
   QuadraticKelvinVoigt,
   QuadraticZener,
+  TwoModeQuadraticZener,
   Yeoh,
   Zener,
 )
@@ -45,7 +46,8 @@ from .prior import (
 )
 
 __all__ = [
-  "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateModel", "bounds_for_invariant", "compare", "grid_ready",
+  "EXTENDED_MODELS", "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateModel", "bounds_for_invariant", "compare",
+  "grid_ready",
   "log_evidence",
   "parameter_grid", "redundancy_over_grid", "solve_grid", "strain_invariant",
 ]
@@ -66,6 +68,23 @@ PARAMETER_BOUNDS = {
   "gent_jm": (1e-1, 1e3), "fung_b": (1e-2, 1e2), "ab_n": (1.1, 1e3),
   "c01": (1e2, 1e5), "yeoh_c2": (1e0, 1e5), "yeoh_c3": (1e0, 1e5),
   "pl_k": (1e-4, 1e1), "pl_n": (1e-2, 2.0),
+  # `tau_ratio` is the SECOND relaxation time as a multiple of the first. It is bounded
+  # BELOW because the arms are exchangeable: swapping `(lambda1, 1-w)` with `(tau2, w)` is
+  # the same trajectory, so a symmetric axis would split every posterior into two identical
+  # modes and charge the Occam factor for bookkeeping. Ordering the arms removes that.
+  #
+  # The floor sits ABOVE 1 rather than at it. At exactly 1 the arms share a timescale and
+  # `share` stops doing anything at all -- measured on the 15 C fit, moving it from 0.2 to
+  # 0.6 changes the trace by 8e-12, which is solver noise. Its Jacobian column is then zero,
+  # `J^T J` is singular, and `laplace_log_evidence` refuses the point outright. So a floor of
+  # 1 would put a face of the grid where the evidence cannot be computed. Same reason
+  # `ab_n` starts at 1.1 rather than 1.
+  #
+  # The floor is NOT raised to where `share` clears the measurement noise, which is around
+  # a ratio of 10 (1.1e-3 of Rmax at 1.1, 3.2e-2 at 10, against noise near 1.8e-2). Hiding
+  # the weakly identified region in the bounds is what #199 rejected for Gent: the
+  # redundancy prior exists to drive the weight down there and say so.
+  "tau_ratio": (1.1, 1e3), "share": (1e-3, 9e-1),
 }
 
 _NEGLIGIBLE = 1e-9
@@ -130,6 +149,28 @@ STANDARD_MODELS: dict[str, CandidateModel] = {
     CandidateModel(
       "ptt", lambda t: LinearPTT(t["mu"], t["lambda1"], t["lam"] * t["lambda1"], t["ptt_eps"]),
       ("mu", "lambda1", "lam", "ptt_eps"), ("oldroydb",),
+    ),
+  )
+}
+
+# Candidates that exist but do not belong in the grid comparison above.
+#
+# `solve_grid` is a Cartesian product at one count on every axis, so its cost is
+# `count**dimension`: at the `GRID_COUNT = 12` the examples use, six axes is 5,971,968
+# solves against 62,208 for the four-axis `qSLS`, and 35x the whole standard sweep put
+# together. That is not a tuning problem, it is the shape of the method -- and the reason
+# `pyimr.discriminate.laplace_log_evidence` exists. Fit these and take the evidence there.
+#
+# They are ordinary candidates otherwise: to score one against the models it degenerates
+# into, hand `redundancy_over_grid` a merged mapping, `STANDARD_MODELS | EXTENDED_MODELS`.
+EXTENDED_MODELS: dict[str, CandidateModel] = {
+  m.name: m for m in (
+    CandidateModel(
+      "qSLS2",
+      lambda t: TwoModeQuadraticZener(
+        t["g"], t["mu"], t["lambda1"], 0.0, t["alpha"], t["tau_ratio"] * t["lambda1"], t["share"],
+      ),
+      ("mu", "g", "lambda1", "alpha", "tau_ratio", "share"), ("qSLS",),
     ),
   )
 }

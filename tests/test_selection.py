@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 
 from pyimr.selection import (
+  EXTENDED_MODELS,
   PARAMETER_BOUNDS,
   bounds_for_invariant,
   strain_invariant,
@@ -32,21 +33,91 @@ def _sensitive(material):
   return _GRID * (1.0 + value), _GRID * (1.0 + value)
 
 
+_REGISTRY = STANDARD_MODELS | EXTENDED_MODELS
+
+
 def test_every_contained_model_is_a_genuine_restriction():
   """`redundancy_over_grid` builds children from the parent's parameters, so a child axis
   the parent lacks raises only once that combination is reached.
+
+  Over the merged registry, because an extended candidate nests into a standard one and
+  neither mapping can check that on its own.
   """
-  for name, candidate in STANDARD_MODELS.items():
+  for name, candidate in _REGISTRY.items():
     assert candidate.name == name
     for child_name in candidate.contains:
-      assert child_name in STANDARD_MODELS, f"{name} contains unknown {child_name!r}"
-      assert set(STANDARD_MODELS[child_name].axes) < set(candidate.axes), f"{child_name} is not a restriction of {name}"
+      assert child_name in _REGISTRY, f"{name} contains unknown {child_name!r}"
+      assert set(_REGISTRY[child_name].axes) < set(candidate.axes), f"{child_name} is not a restriction of {name}"
 
 
 def test_every_model_builds_from_exactly_its_own_axes():
-  for candidate in STANDARD_MODELS.values():
+  for candidate in _REGISTRY.values():
     theta = {a: float(np.sqrt(PARAMETER_BOUNDS[a][0] * PARAMETER_BOUNDS[a][1])) for a in candidate.axes}
     assert candidate.build(theta) is not None
+
+
+def test_every_axis_of_every_model_has_bounds():
+  # a candidate naming an axis `PARAMETER_BOUNDS` lacks fails only inside a grid sweep,
+  # which is a long way from the typo
+  for candidate in _REGISTRY.values():
+    for axis in candidate.axes:
+      assert axis in PARAMETER_BOUNDS, f"{candidate.name} has no bounds for {axis!r}"
+
+
+def test_the_two_mode_candidate_wires_its_parameters_where_it_claims():
+  """A builder that transposed two arguments would still build, still solve, and be wrong.
+
+  Six positional arguments, two of them new, and `shear_modulus`/`viscosity` adjacent in
+  the signature but four orders of magnitude apart in the bounds -- so this reads the
+  fields back rather than trusting the call.
+  """
+  theta = {"mu": 0.05, "g": 200.0, "lambda1": 2e-7, "alpha": 5.0, "tau_ratio": 10.0, "share": 0.3}
+  material = EXTENDED_MODELS["qSLS2"].build(theta)
+  assert material.shear_modulus_pa == 200.0
+  assert material.viscosity_pa_s == 0.05
+  assert material.relaxation_time_s == 2e-7
+  assert material.stiffening == 5.0
+  assert material.second_share == 0.3
+  # the ratio is relative to the first time, not absolute
+  assert material.second_relaxation_time_s == pytest.approx(2e-6)
+
+
+def test_the_second_arm_is_never_faster_than_the_first():
+  """The arms are exchangeable, so the axis is ordered to kill the label-switching mode.
+
+  Were `tau_ratio` allowed below 1, `(lambda1, 1-w)` and `(tau2, w)` would name the same
+  trajectory twice and the Occam factor would be charged for bookkeeping. Checked at both
+  ends of the axis, since only the lower one carries the constraint.
+  """
+  lower, upper = PARAMETER_BOUNDS["tau_ratio"]
+  assert lower > 1.0, "at a ratio of exactly 1 the arms share a timescale and `share` dies"
+  for ratio in (lower, upper):
+    theta = {"mu": 0.05, "g": 200.0, "lambda1": 2e-7, "alpha": 5.0, "tau_ratio": ratio, "share": 0.3}
+    material = EXTENDED_MODELS["qSLS2"].build(theta)
+    assert material.second_relaxation_time_s >= material.relaxation_time_s
+
+
+def test_the_share_axis_stays_inside_what_the_material_will_accept():
+  # `second_share` is a fraction in [0, 1) and the constructor enforces it; a bound at or
+  # above 1 would fail only at the last grid point of a long sweep
+  lower, upper = PARAMETER_BOUNDS["share"]
+  assert 0.0 <= lower < upper < 1.0
+  for share in (lower, upper):
+    theta = {"mu": 0.05, "g": 200.0, "lambda1": 2e-7, "alpha": 5.0, "tau_ratio": 10.0, "share": share}
+    assert EXTENDED_MODELS["qSLS2"].build(theta) is not None
+
+
+def test_the_extended_models_are_kept_out_of_the_grid_set():
+  """Not a taste call: `solve_grid` is `count**dimension`, and this one does not fit.
+
+  At the `GRID_COUNT = 12` the examples use, six axes is 5,971,968 solves against 168,072
+  for the entire standard sweep. If a later candidate is small enough to belong in
+  `STANDARD_MODELS`, this is the test that should be deleted rather than worked around.
+  """
+  assert not (set(EXTENDED_MODELS) & set(STANDARD_MODELS))
+  widest = max(c.dimension for c in STANDARD_MODELS.values())
+  for candidate in EXTENDED_MODELS.values():
+    assert candidate.dimension > widest, f"{candidate.name} is grid-sized; move it"
 
 
 def test_the_grid_normalizes_inside_the_unit_box_for_bounds_that_are_not_round(measured):

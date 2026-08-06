@@ -95,6 +95,50 @@ def test_the_new_parameters_are_differentiable():
     assert np.max(np.abs(jacobian - finite)) < 1e-3 * max(np.max(np.abs(finite)), 1e-12)
 
 
+def test_a_sweep_over_the_new_parameters_compiles_once():
+  """Both new numbers travel through `p`, so the whole sweep must share one program.
+
+  The law was left out of `THROUGH_GROUPS` when it was added, which is invisible: every
+  answer stays correct and every parameter set silently pays a fresh XLA compile. Only a
+  count catches it. The second half guards the other direction -- one program must not
+  quietly become one answer.
+  """
+  from pyimr import _jax
+
+  times = np.linspace(0.0, 4e-5, 30)
+
+  def radius(second_time, share):
+    material = pyimr.TwoModeQuadraticZener(G, MU, LAM1, 0.0, ALPHA, second_time, share)
+    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2, rtol=1e-7, atol=1e-9)
+    return np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
+
+  _jax._COMPILED.clear()
+  traces = [radius(t, w) for t, w in ((5e-7, 0.1), (1e-6, 0.2), (2e-6, 0.3), (4e-6, 0.4))]
+  assert len(_jax._COMPILED) == 1, f"the sweep should compile once; got {len(_jax._COMPILED)}"
+
+  for earlier, later in zip(traces[:-1], traces[1:], strict=True):
+    assert np.abs(earlier - later).max() > 1e-9, "one program must not mean one answer"
+
+
+def test_equal_relaxation_times_make_the_share_unidentifiable():
+  """Why `tau_ratio` is floored above 1 rather than at it.
+
+  With both arms on one timescale the split between them is invisible: the sum of the two
+  memories obeys the one-mode equation whatever `w` is. So the `share` column of the
+  Jacobian is zero, `J^T J` is singular, and `laplace_log_evidence` refuses the point. A
+  bound starting at 1 would put a whole face of the grid there.
+
+  This is the measurement the bound is set from, so it lives with the physics rather than
+  in the bounds table, where it would only ever be a restatement of the number.
+  """
+  equal = [solve(pyimr.TwoModeQuadraticZener(G, MU, LAM1, 0.0, ALPHA, LAM1, w)) for w in (0.2, 0.6)]
+  assert float(np.max(np.abs(equal[0] - equal[1]))) < 1e-9, "equal times must hide the share"
+
+  # and it comes back as soon as the times differ, or the parameter would simply be dead
+  apart = [solve(pyimr.TwoModeQuadraticZener(G, MU, LAM1, 0.0, ALPHA, 10.0 * LAM1, w)) for w in (0.2, 0.6)]
+  assert float(np.max(np.abs(apart[0] - apart[1]))) > 1e-3
+
+
 @pytest.mark.parametrize("share", [-0.1, 1.0, 1.5, np.nan])
 def test_the_share_is_a_fraction(share):
   with pytest.raises(ValueError, match="second_share"):

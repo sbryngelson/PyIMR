@@ -16,7 +16,13 @@ import numpy as np
 
 from ._materials import (
   ArrudaBoyce,
+  Bingham,
+  CarreauYasuda,
+  Cross,
   Fung,
+  HerschelBulkley,
+  ModifiedPowellEyring,
+  PowellEyring,
   Gent,
   Giesekus,
   InstantaneousMaterial,
@@ -68,6 +74,14 @@ PARAMETER_BOUNDS = {
   "gent_jm": (1e-1, 1e3), "fung_b": (1e-2, 1e2), "ab_n": (1.1, 1e3),
   "c01": (1e2, 1e5), "yeoh_c2": (1e0, 1e5), "yeoh_c3": (1e0, 1e5),
   "pl_k": (1e-4, 1e1), "pl_n": (1e-2, 2.0),
+  # The shear-thinning laws reuse `mu` for the zero-shear viscosity and `lambda1` for the
+  # crossover time, because they are the same kinds of quantity measured on the same
+  # material and a separate axis would only let the two disagree. What is genuinely new:
+  # `cross_m` is Cross's transition sharpness, which is order one rather than a decade
+  # count; `yield_pa` spans the shear modulus's own decades extended two below it, since a
+  # yield stress far under the modulus cannot be told from none -- and saying so is the
+  # redundancy prior's job, not the bound's (#199).
+  "cross_m": (1e-1, 2.0), "yield_pa": (1e0, 1e5),
   # `tau_ratio` is the SECOND relaxation time as a multiple of the first. It is bounded
   # BELOW because the arms are exchangeable: swapping `(lambda1, 1-w)` with `(tau2, w)` is
   # the same trajectory, so a symmetric axis would split every posterior into two identical
@@ -150,6 +164,51 @@ STANDARD_MODELS: dict[str, CandidateModel] = {
       "ptt", lambda t: LinearPTT(t["mu"], t["lambda1"], t["lam"] * t["lambda1"], t["ptt_eps"]),
       ("mu", "lambda1", "lam", "ptt_eps"), ("oldroydb",),
     ),
+    # Shear-thinning viscosities. These laws were already implemented and exported but only
+    # `powerlaw` had ever been made a candidate, so the rest could be simulated and never
+    # compared. Each pairs the thinning law with a neo-Hookean elastic, exactly as
+    # `powerlaw` does, so the set differs in ONE thing: the shape of eta(gammadot).
+    #
+    # Each nests into `NHKV` rather than into `powerlaw`: every one of them becomes a
+    # constant viscosity in some limit -- `n = 1` for Carreau and Cross, `lambda -> 0` for
+    # the Eyrings, zero yield for Bingham -- and a constant viscosity beside a neo-Hookean
+    # elastic IS `NHKV`. Herschel-Bulkley is the exception and nests into `powerlaw`, which
+    # it becomes at zero yield stress.
+    #
+    # `infinite_shear_viscosity_pa_s` is pinned at zero and Carreau's transition exponent at
+    # 2, which is the classical Carreau rather than Carreau-Yasuda. Freeing either costs an
+    # axis, and at 12 points an axis is a factor of 12 -- the full five-parameter law is in
+    # `EXTENDED_MODELS` instead, where it is scored by expansion rather than quadrature.
+    CandidateModel(
+      "carreau", lambda t: InstantaneousMaterial(
+        elastic=NeoHookean(t["g"]), viscous=CarreauYasuda(t["mu"], 0.0, t["lambda1"], 2.0, t["pl_n"]),
+      ), ("mu", "g", "lambda1", "pl_n"), ("NHKV", "NH"),
+    ),
+    CandidateModel(
+      "cross", lambda t: InstantaneousMaterial(
+        elastic=NeoHookean(t["g"]), viscous=Cross(t["mu"], 0.0, t["lambda1"], t["cross_m"]),
+      ), ("mu", "g", "lambda1", "cross_m"), ("NHKV", "NH"),
+    ),
+    CandidateModel(
+      "eyring", lambda t: InstantaneousMaterial(
+        elastic=NeoHookean(t["g"]), viscous=PowellEyring(t["mu"], 0.0, t["lambda1"]),
+      ), ("mu", "g", "lambda1"), ("NHKV", "NH"),
+    ),
+    CandidateModel(
+      "modeyring", lambda t: InstantaneousMaterial(
+        elastic=NeoHookean(t["g"]), viscous=ModifiedPowellEyring(t["mu"], 0.0, t["lambda1"]),
+      ), ("mu", "g", "lambda1"), ("NHKV", "NH"),
+    ),
+    CandidateModel(
+      "herschel", lambda t: InstantaneousMaterial(
+        elastic=NeoHookean(t["g"]), viscous=HerschelBulkley(t["yield_pa"], t["pl_k"], t["pl_n"]),
+      ), ("g", "yield_pa", "pl_k", "pl_n"), ("powerlaw", "NH"),
+    ),
+    CandidateModel(
+      "bingham", lambda t: InstantaneousMaterial(
+        elastic=NeoHookean(t["g"]), viscous=Bingham(t["yield_pa"], t["mu"]),
+      ), ("mu", "g", "yield_pa"), ("NHKV", "NH"),
+    ),
   )
 }
 
@@ -171,6 +230,14 @@ EXTENDED_MODELS: dict[str, CandidateModel] = {
         t["g"], t["mu"], t["lambda1"], 0.0, t["alpha"], t["tau_ratio"] * t["lambda1"], t["share"],
       ),
       ("mu", "g", "lambda1", "alpha", "tau_ratio", "share"), ("qSLS",),
+    ),
+    # The full five-parameter Carreau-Yasuda: `carreau` above with the infinite-shear
+    # viscosity and the transition exponent set free rather than pinned.
+    CandidateModel(
+      "carreauyasuda", lambda t: InstantaneousMaterial(
+        elastic=NeoHookean(t["g"]),
+        viscous=CarreauYasuda(t["mu"], t["mu"] * t["lam"], t["lambda1"], t["cross_m"], t["pl_n"]),
+      ), ("mu", "g", "lambda1", "cross_m", "pl_n", "lam"), ("carreau", "NHKV", "NH"),
     ),
   )
 }

@@ -1,10 +1,11 @@
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
 \usepackage{graphicx,booktabs,amsmath,amssymb,siunitx,microtype}
+\usepackage[numbers,sort&compress]{natbib}
 \usepackage[colorlinks=true,allcolors=blue]{hyperref}
 
 \title{Which constitutive model do measured cavitation records prefer?}
-\author{PyIMR}
+\author{Spencer H. Bryngelson}
 \date{\today}
 
 \begin{document}
@@ -67,7 +68,7 @@ resolution for every model so that grid luck cannot decide the winner. The evide
 grid quadrature over that box, with the noise scale marginalised under a half-Cauchy
 prior, a redundancy factor that down-weights parameters where a model merely reproduces a
 simpler model it contains, and a BIC-style complexity penalty. Trajectories are
-compressible (Keller--Miksis); the incompressible approximation changes the residuals by a
+compressible (Keller--Miksis~\citep{keller1980bubble}); the incompressible approximation changes the residuals by a
 factor of two to four and must not be used for these records.
 
 \section{What is being computed, and why}
@@ -170,7 +171,7 @@ Laplace approximation and its error is governed by the third derivative. Reading
 factor as $\pi(\hat\theta)\times(\text{posterior volume})$ makes its meaning plain: it is
 the fraction of the prior the posterior actually occupies, so a model needing fine tuning
 pays. This is the sense in which a good fit and a credible model differ, and it is what
-Freund and Ewoldt argue should replace goodness-of-fit ranking in rheology.
+Freund and Ewoldt~\citep{freund2015quantitative} argue should replace goodness-of-fit ranking in rheology.
 
 One consequence matters later and is easy to miss. Because $|H|^{-1/2}$ grows as the
 posterior broadens, a sloppy direction \emph{raises} the evidence. Model comparison
@@ -408,7 +409,7 @@ trend is carried by the interaction of the two mechanisms rather than by either 
 The statistic $\chi^2/N$ compares the residual to its expectation under the assumption that
 the $N$ residuals are independent draws of known scale. They are not. The lag-one
 autocorrelation of the qSLS residual is $0.918$, and by the Geyer initial-positive-sequence
-estimator of~\eqref{eq:ess} the $201$ samples carry the information of about
+estimator~\citep{geyer1992practical} of~\eqref{eq:ess} the $201$ samples carry the information of about
 $N_{\rm eff} = 10$ independent ones. Dividing by that count instead gives $18.9$.
 
 That number should not be read as a calibrated test --- for correlated residuals the
@@ -754,7 +755,7 @@ measurement can distinguish far more shapes than the fit extracts. The limit is 
 parameterises the physics, not the information in the record.
 
 \paragraph{Discrimination does not privilege a model.}
-T-optimality (Atkinson and Fedorov, \emph{Biometrika} \textbf{62}, 1975) asks a different question: which design makes the
+T-optimality \citep{atkinson1975design} asks a different question: which design makes the
 candidates disagree most? The criterion is
 %
 \begin{equation}
@@ -1066,7 +1067,7 @@ Two prices are paid for removing the minimum, and both are real.
 \emph{Prior sensitivity.} $Z$ depends on $\pi(\theta\mid M)$ through the normalisation
 of~\eqref{eq:model-evidence}, and widening a prior by a factor $c$ in each of $p$ directions
 divides the evidence by roughly $c^{p}$ without changing the fit at all. This is the
-Lindley--Jeffreys effect, and it is not a defect to be engineered away: a model whose prior is
+Lindley--Jeffreys~\citep{lindley1957statistical,jeffreys1935some} effect, and it is not a defect to be engineered away: a model whose prior is
 diffuse really is less supported by data that pin it down. But it means the prior is part of
 the criterion and must be stated, where $T$ needed no prior. Centring each rival's prior on
 its fit to the \emph{existing} record produced a criterion that measured prior placement
@@ -1179,8 +1180,7 @@ d(x,\xi^\star) \equiv \operatorname{tr}\!\left[M(\xi^\star)^{-1}M(x)\right] \le 
 \label{eq:equivalence}
 \end{equation}
 %
-with equality at every support point of $\xi^\star$. This is the theorem of Kiefer and
-Wolfowitz, and it is the object this whole section exists to obtain: a quantity that can be
+with equality at every support point of $\xi^\star$. This is the theorem of Kiefer and Wolfowitz~\citep{kiefer1960equivalence}, and it is the object this whole section exists to obtain: a quantity that can be
 computed from a candidate answer and that \emph{proves} the answer optimal. The gap
 $\max_x d(x,\xi) - p$ is a certificate, not a convergence report.
 
@@ -1191,7 +1191,7 @@ And by Carath\'eodory's theorem applied to the convex hull of the $M(x)$, an opt
 supported on at most $p(p+1)/2 + 1$ points always exists: at most $11$ here.
 
 \paragraph{Computing it.}
-The implementation uses the multiplicative algorithm of Silvey, Titterington and Torsney,
+The implementation uses the multiplicative algorithm of Silvey, Titterington and Torsney~\citep{silvey1978algorithm},
 %
 \begin{equation}
 \xi_i \;\longleftarrow\; \frac{\xi_i\,F_i}{\sum_j \xi_j F_j},
@@ -1277,8 +1277,8 @@ linear in $\xi$ and therefore concave, so the compound criterion
 %
 is concave for every $\beta$ and inherits the certificate unchanged; its directional
 derivative is the corresponding combination of~\eqref{eq:directional} and
-$u_x - u^{\mathsf T}\xi$. This is the compound-criterion construction of Atkinson and of Cook
-and Wong, and it is the principled form of the estimation-versus-discrimination trade this
+$u_x - u^{\mathsf T}\xi$. This is the compound-criterion construction of Atkinson and of Cook and
+Wong~\citep{atkinson2008dt,cook1994equivalence}, and it is the principled form of the estimation-versus-discrimination trade this
 study has otherwise handled by search. Sweeping $\beta$ traces the Pareto front, and because
 each criterion is concave in $\xi$ the front is convex --- which is why the classical
 literature scalarises with weighted sums where this study needed a Chebyshev form. The
@@ -1512,7 +1512,7 @@ $\Delta\chi^2 = \sum_k \lambda_k c_k^2$ for $\delta = \sum_k c_k v_k$, so moving
 $c$ along $v_k$ costs $\lambda_k c^2$ and the $95\%$ contour lies at
 $c_k = \sqrt{3.84/\lambda_k}$. Multiparameter models of this kind generically show spectra
 spanning many decades, with a few stiff directions and many sloppy ones --- the observation
-of Gutenkunst, Sethna and co-workers, and the reason parameter values in such models are
+of Gutenkunst~\citep{gutenkunst2007universally}, Sethna and co-workers, and the reason parameter values in such models are
 often far less determined than their predictions.
 
 The distinction to keep is between a rank-deficient $F$, where a direction is
@@ -1546,7 +1546,7 @@ draws. The bracket is the spectral density of the residual sequence at zero freq
 is the cleaner way to see why a long-range correlation is so costly.
 
 Correlated residuals in a \emph{fitted} model usually indicate model discrepancy rather than
-correlated measurement noise. Kennedy and O'Hagan formalise this by writing
+correlated measurement noise. Kennedy and O'Hagan~\citep{kennedy2001bayesian} formalise this by writing
 $y = m(\theta) + \delta(\cdot) + \varepsilon$ with $\delta$ a Gaussian process, and
 Brynjarsd\'ottir and O'Hagan show that omitting $\delta$ leaves parameter estimates biased
 \emph{and} overconfident, while an unconstrained $\delta$ absorbs the physics. Neither
@@ -1596,5 +1596,19 @@ than restatement.
 
 Every number and figure in this document comes from \texttt{results.json}; none is
 transcribed by hand.
+
+\section*{Code and data availability}
+
+Every number and figure in this document is reproduced by scripts in the repository that
+contains it: \texttt{figures.py}, \texttt{figures\_geometry.py},
+\texttt{figures\_identifiability.py}, \texttt{figures\_measure.py} and
+\texttt{figures\_trial.py} draw the figures, \texttt{fit\_quality.py} the fit table and
+\texttt{trial\_variation.py} the trial-spread analysis, each from the tracked
+\texttt{results.json}. The design measures use \texttt{pyimr.measure}, the discrimination
+criteria \texttt{pyimr.discriminate}, and the trade-off front \texttt{pyimr.pareto}. The
+measured records themselves are not redistributed here.
+
+\bibliographystyle{unsrtnat}
+\bibliography{selection}
 
 \end{document}

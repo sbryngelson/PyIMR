@@ -56,7 +56,8 @@ from .prior import (
 )
 
 __all__ = [
-  "EXTENDED_MODELS", "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateFit", "CandidateModel",
+  "DYNAMICS_MODELS", "EXTENDED_MODELS", "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateFit",
+  "CandidateModel",
   "bounds_for_invariant", "candidate_log_evidence", "compare", "fit_candidate", "grid_ready",
   "log_evidence", "parameter_grid", "physical_from_unit", "redundancy_over_grid", "solve_grid",
   "strain_invariant",
@@ -114,6 +115,26 @@ PARAMETER_BOUNDS = {
   # the weakly identified region in the bounds is what #199 rejected for Gent: the
   # redundancy prior exists to drive the weight down there and say so.
   "tau_ratio": (1.1, 1e3), "share": (1e-3, 9e-1),
+}
+
+# The bubble-dynamics equations, which are a model choice like any other and the one this
+# package has never compared. Every candidate above varies the MATERIAL while holding the
+# forward operator at `radial=2`; on the 15 C record, changing only this moves the trace by
+# 0.078 to 0.262 of Rmax against a median noise of 0.018 -- four to fourteen times the
+# noise, and more than any constitutive difference measured here.
+#
+# These are not `CandidateModel`s and should not become them: a candidate is a material, and
+# this is the operator the material is pushed through. They compare through the same
+# `candidate_log_evidence` by holding the candidate fixed and varying the `solve` callback,
+# and because the parameter space is then identical across the set, the difference in log
+# evidence is a clean Bayes factor between operators with the Occam terms cancelling.
+DYNAMICS_MODELS: dict[str, int] = {
+  "rayleigh-plesset": 1,      # incompressible liquid
+  "keller-miksis": 2,         # weakly compressible, pressure form -- what every candidate assumes
+  "keller-miksis-tait": 3,    # the same, enthalpy form, Tait equation of state
+  "gilmore-tait": 4,          # Gilmore, Tait
+  "keller-miksis-mie": 5,     # Keller-Miksis, Mie-Grueneisen
+  "gilmore-mie": 6,           # Gilmore, Mie-Grueneisen
 }
 
 _NEGLIGIBLE = 1e-9

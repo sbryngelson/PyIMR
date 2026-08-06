@@ -48,12 +48,53 @@ lag-one is the comparison this test supports.)
 So: two constitutive enrichments do not fix it, and neither does the averaging. What has
 never been varied is below.
 
-**2. The bubble-dynamics model, which nobody has varied --- now the leading suspect.** Every candidate in the package
-fixes `radial=2` (Keller--Miksis with Tait). Holding the material at the qSLS fit and
-changing only that: `radial=3` moves the trace 0.104, `radial=4` 0.210, `radial=5` 0.078,
-`radial=6` 0.262 --- against a median noise of 0.018, so **4 to 14 times the noise**. This is a
-larger unexamined freedom than every constitutive difference tested this session put
-together, and it is a model-selection axis in exactly the sense `pyimr.selection` means.
+**2. The operator cannot be selected from this record, and the reason matters more than the
+answer.** With `qSLS` and the package's own `PARAMETER_BOUNDS`, the ranking put
+Keller-Miksis/Mie-Grueneisen first (+4.02 nats) and Gilmore/Tait at -27.66. Three of six fits
+were sitting exactly on `g = 1e2` or `lambda1 = 1e-7` --- their own floors --- so those were
+bounds, not fits. Widening the box to `g (1e0, 1e6)`, `lambda1 (1e-9, 1e-2)`,
+`alpha (1e-4, 1e3)` reverses it: **Gilmore/Tait becomes best at +21.93** and KM/Mie-G falls to
++7.32. A 50-nat swing from moving the prior.
+
+Widening did not remove the pinning, it moved it. Five of six now sit on `alpha = 1e3`, the
+new ceiling, with `g` collapsed to 1.1--3.5 Pa. That is the g--alpha ridge running to whatever
+corner the box provides: the quadratic law's stiff response goes roughly as `g * alpha`, so
+`g -> 0` with `alpha -> inf` costs nothing, and the reported shear modulus is set by where
+the prior cuts the ridge rather than by the data. Across operators it spans 1.1 to 5019 Pa.
+
+The control confirms it. Repeating the comparison with `NHKV`, which has no ridge, gives
+`chi2/N = 13.2` for every operator and a total spread of 7.8 nats with Rayleigh--Plesset
+nominally best --- an inadequate material makes every operator equally wrong, and the ranking
+is noise. So the comparison is degenerate with `qSLS` and uninformative without it.
+
+**What this costs elsewhere.** The enrichment comparison in item 1 was run in the narrow box
+against a `qSLS` baseline whose `g` was pinned at 100 Pa. Its +1.78 and +2.79 nats are
+subject to the same objection. The fits themselves are sound --- `chi2/N` between 0.75 and
+1.0, so the models do reproduce the record --- but on this data **evidence differences between
+these models are prior-dominated, and parameter values are not identified.**
+
+Next, and it is not a model: find the identified combination. An SVD of the Jacobian at the
+fit names the degenerate direction; reparameterising onto the stiff combination would let
+both the operator and the enrichment questions be asked in coordinates the data can answer.
+
+**3. The diagnostic was never specific.** Lag-one at N = 201 measures how much of a residual
+is SMOOTH, not what made it smooth. Sampled at this density: white noise 0.037, one sine
+period 1.000, a smooth random curve 0.999, a mixture 80% smooth 0.944. And the trial
+deviations from the mean --- measurement variation, no model fitted --- carry lag-one 0.859
+(median, range 0.725-0.890).
+
+So 0.918 says the fit residual is about three-quarters smooth structure, and roughly that
+much smoothness is already in the data. Whitening by the hierarchical covariance removes the
+part lying along the parameter sensitivities, which is why it removed a third; the rest is
+smooth for reasons those sensitivities cannot represent. Model-form error is one candidate
+among several, not the established remainder --- which is the reading #222 was given and the
+reason three enrichments were built against it.
+
+**4. What would actually settle it.** A diagnostic that distinguishes SHAPES of smooth
+residual rather than measuring smoothness: where in the trace the discrepancy sits, and
+whether it lies in the span of the sensitivities (already computed --- 39.3%), of the
+operator differences (computable from the table above), or of neither. The last is the only
+one that is evidence for missing physics.
 
 **3.** The residual is concentrated in the first collapse, where
 sphericity and the far-field boundary are least secure. That is the next hypothesis, and it

@@ -526,6 +526,26 @@ marginalisation of \S\ref{sec:beta} absorbs the difference --- the implied $\bet
 lies inside its prior --- so the evidence ranking is undisturbed. What changes is what a
 residual near one entitles one to say.
 
+\paragraph{What lag-one does and does not measure.} The inference above --- that whitening
+removes a third of the correlation and the remainder is structure the model lacks --- rules
+out variation between bubbles, and nothing more. Lag-one autocorrelation at $N = 201$
+samples is close to a measure of how much of a residual is \emph{smooth}, not of what made
+it smooth: sampled at this density, white noise gives $0.04$, a single sine period gives
+$1.00$, a smooth random curve gives $0.999$, and a mixture that is $80\%$ smooth gives
+$0.944$. A value of $0.918$ says the residual is roughly three-quarters smooth structure. It
+does not say whose.
+
+That matters because the trial deviations from the mean --- pure measurement variation, with
+no model fitted at all --- carry lag-one $0.859$ (median over the eighteen trials, range
+$0.725$ to $0.890$). Most of the smoothness the fit residual shows is already present in the
+data before any model is involved. Whitening by the hierarchical covariance removes the part
+of it that lies along $\partial R/\partial\theta$, which is why it removes only a third; the
+rest is smooth in the data for reasons the parameter sensitivities cannot represent, and
+model-form error is one candidate among several rather than the established remainder.
+
+The searches of \S\ref{sec:enrich} were run on the stronger reading, and their negative
+results are consistent with the weaker one.
+
 \subsection{What to enrich, and how it would have to be judged}
 \label{sec:enrich}
 

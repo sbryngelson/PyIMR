@@ -323,7 +323,7 @@ both ingredients, models with relaxation only, and memoryless models.
 
 \begin{table}[htbp]
 \centering
-\caption{Best $\chi^2/N$ by model class. Values near $1$ indicate a fit within
+\caption{Best $\chi^2/N$ \emph{on the selection grid} by model class --- the best node, not the best fit; \S\ref{sec:fitquality} refits and reaches $0.962$ for qSLS at \SI{15}{\celsius}. Values near $1$ indicate a fit within
 experimental repeatability.}
 \label{tab:fits}
 \begin{tabular}{lccc}
@@ -341,7 +341,7 @@ memoryless & 12.6--16.7 & --- & --- \\
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{fig_fits.pdf}
-\caption{Best $\chi^2/N$ for every candidate, all three temperatures, logarithmic scale.
+\caption{Best $\chi^2/N$ on the selection grid for every candidate, all three temperatures, logarithmic scale.
 The dashed line is the measurement-noise floor.}
 \label{fig:fits}
 \end{figure}
@@ -1225,6 +1225,19 @@ $6.99$ in $\log\det$, a D-efficiency ratio of $\exp(6.99/4) = 5.74$; equivalentl
 confidence ellipsoid is $\exp(6.99/2) \approx 33$ times smaller in volume, and a typical
 parameter's interval is $\exp(6.99/8) = 2.4$ times tighter. No single design can match it,
 and this is not a claim about the search: \eqref{eq:equivalence} certifies that none exists.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig_certificate.pdf}
+\caption{The equivalence-theorem certificate. Left: the sensitivity
+$d(x,\xi^\star)=\operatorname{tr}[M(\xi^\star)^{-1}M(x)]$ over the design plane, with the
+three support points circled and labelled by weight; the dashed contour is the level $p=4$.
+Right: the same values sorted. No design exceeds the bound and the support attains it
+exactly, which is the proof --- $\max_x d = 4.00000000$ against $p=4$, gap
+$9\times10^{-10}$. Nothing analogous exists for the single-design searches elsewhere in
+this document.}
+\label{fig:certificate}
+\end{figure}
 
 \paragraph{The mixture is the resolution of the conflict.}
 The support is worth reading physically. Nearly half the runs go to a large, gently driven

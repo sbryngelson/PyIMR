@@ -18,6 +18,8 @@ from pathlib import Path
 
 import numpy as np
 
+import style
+
 DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data/Ga_t15_exp_data.csv"
 OUT = Path(__file__).resolve().parent
 R_MAX, STRETCH = 277e-6, 7.09
@@ -93,7 +95,7 @@ def main():
   import matplotlib.pyplot as plt
   from matplotlib.colors import LogNorm
 
-  plt.rcParams.update({"font.size": 9, "figure.dpi": 160, "savefig.bbox": "tight"})
+  style.use()
 
   # ---------------- figure 1: the (g, alpha) plane ----------------
   gs = np.geomspace(50.0, 2e4, GRID)
@@ -101,7 +103,7 @@ def main():
   chi2 = sweep(chi2_at, gs, alphas, 'cache_valley.npy')
   print(f"(g, alpha) slice: {np.isfinite(chi2).sum()} of {chi2.size} reachable", flush=True)
 
-  fig, ax = plt.subplots(figsize=(5.4, 4.2))
+  fig, ax = plt.subplots(figsize=style.size(0.62, 3.1))
   levels = [1.1, 1.3, 1.6, 2.0, 3.0, 5.0, 10.0, 20.0]
   mesh = ax.pcolormesh(alphas, gs, np.ma.masked_invalid(chi2), norm=LogNorm(1.0, 20.0),
                        cmap="viridis_r", shading="auto")
@@ -113,17 +115,17 @@ def main():
   ax.plot(line_a, 2154.0 * (line_a / 0.4642) ** -0.80, "w--", lw=1.4,
           label=r"$g \propto \alpha^{-0.80}$")
 
-  for label, (a, g), style in (
+  for label, (a, g), look in (
     ("study grid best", (0.4642, 2154.0), dict(marker="s", color="tab:red")),
     ("refined grid", (8.859, 143.8), dict(marker="^", color="tab:orange")),
     ("multistart optimum", (10.0, 108.0), dict(marker="D", color="tab:pink")),
     ("SMC median", (5.27, 206.0), dict(marker="*", color="white", ms=13)),
   ):
-    ax.plot(a, g, ls="none", mec="k", mew=0.6, label=label, **style)
+    ax.plot(a, g, ls="none", mec="k", mew=0.6, label=label, **look)
 
   ax.set_xscale("log"); ax.set_yscale("log")
   ax.set_xlabel(r"stiffening $\alpha$"); ax.set_ylabel(r"shear modulus $g$ (Pa)")
-  ax.set_title("The valley the data cannot see\n(white: the model is not physical there)", fontsize=9)
+  ax.set_title("The valley the data cannot see\n(white: the model is not physical there)")
   ax.legend(fontsize=7, loc="lower left", framealpha=0.9)
   fig.savefig(OUT / "fig_valley.pdf"); fig.savefig(OUT / "fig_valley.png", dpi=110); plt.close(fig)
 
@@ -133,25 +135,25 @@ def main():
   ok = sweep(reachable, alphas2, lams, 'cache_failure.npy')
   print(f"(alpha, lambda1) slice: {ok.mean():.1%} reachable", flush=True)
 
-  fig, ax = plt.subplots(figsize=(5.4, 3.8))
+  fig, ax = plt.subplots(figsize=style.size(0.58, 2.8))
   ax.pcolormesh(alphas2, OMEGA_N * lams, ok.T, cmap="RdYlGn", vmin=0, vmax=1, shading="auto")
   ax.axhline(1.0, color="k", ls=":", lw=0.9)
-  ax.text(1.2e-2, 1.15, r"$\omega_n \lambda_1 = 1$", fontsize=7)
+  ax.text(1.2e-2, 1.15, r"$\omega_n \lambda_1 = 1$")
   ax.set_xscale("log"); ax.set_yscale("log")
   ax.set_xlabel(r"stiffening $\alpha$"); ax.set_ylabel(r"$\omega_n \lambda_1$")
   ax.set_title("Green: integrates. Red: the model runs away")
   fig.savefig(OUT / "fig_failure_map.pdf"); fig.savefig(OUT / "fig_failure_map.png", dpi=110); plt.close(fig)
 
   # ---------------- figure 3: sloppiness and prior sensitivity ----------------
-  fig, (left, right) = plt.subplots(1, 2, figsize=(7.6, 3.2))
+  fig, (left, right) = plt.subplots(1, 2, figsize=style.size(0.98, 2.7))
 
   eigen = np.array([5.850e5, 2.005e5, 1.001e4, 5.973e-1])
   left.bar(range(4), eigen, color=["tab:blue"] * 3 + ["tab:red"])
   left.set_yscale("log"); left.set_xticks(range(4))
   left.set_xticklabels(["stiff", "#2", "#3", "sloppy"])
   left.set_ylabel("Fisher eigenvalue")
-  left.set_title("Six decades of sloppiness", fontsize=9)
-  left.text(3, 3.0, r"$g$ vs $\alpha$", ha="center", fontsize=7, color="tab:red")
+  left.set_title("Six decades of sloppiness")
+  left.text(3, 3.0, r"$g$ vs $\alpha$", ha="center", color="tab:red")
 
   ceilings = np.array([1.0, 10.0, 100.0])
   medians = np.array([0.8456, 6.369, 5.270])
@@ -161,7 +163,7 @@ def main():
   right.plot(ceilings, ceilings, "k:", lw=0.9, label="the prior ceiling itself")
   right.set_xscale("log"); right.set_yscale("log")
   right.set_xlabel(r"prior ceiling on $\alpha$"); right.set_ylabel(r"$\alpha$")
-  right.set_title("Identified, not prior-driven", fontsize=9)
+  right.set_title("Identified, not prior-driven")
   right.legend(fontsize=7)
   fig.savefig(OUT / "fig_identifiability.pdf"); fig.savefig(OUT / "fig_identifiability.png", dpi=110); plt.close(fig)
 

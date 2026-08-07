@@ -49,7 +49,42 @@ D-efficiency factor of $5.74$ -- certified globally optimal at a gap of $9\times
 not merely the best found.
 \end{abstract}
 
-\section{Setup}
+\noindent\textbf{Keywords:} inertial microcavitation rheometry; model selection; Bayesian evidence; identifiability; optimal experimental design
+
+\section{Introduction}
+
+Inertial microcavitation rheometry infers the mechanical response of a soft material from the
+radius history of a single collapsing bubble~\citep{estrada2018high}. A laser generates the
+bubble, high-speed imaging records $R(t)$, and a constitutive model is fitted to that
+trace. The strain rates reached, above $10^{3}\,\mathrm{s}^{-1}$, are inaccessible to
+conventional rheometry, which is what makes the technique attractive.
+
+The inference rests on choices that are rarely varied. A constitutive law is selected, a
+bubble-dynamics equation is assumed, thermal transport is included or neglected, and the
+resulting parameters are reported as material properties. Each choice conditions the answer,
+and the conditioning is seldom quantified.
+
+We take the model comparison itself as the object of study. Candidate models are ranked by
+Bayesian evidence rather than by fit, since the candidates nest and best fit therefore selects
+the most flexible one~\citep{freund2015quantitative}. We then ask what the records can settle,
+which turns out to be considerably less than the reported parameters suggest.
+
+Three results follow. The likelihood depends on the product $g\alpha$ alone, so the shear
+modulus is set by where the prior box cuts a ridge and not by the data; moving the box swings
+the model ranking by fifty nats. The bubble-dynamics operator, held fixed at Keller--Miksis in
+every published comparison we are aware of, is beaten on all three records by
+Gilmore/Tait. And the correlated residual that motivates richer constitutive models is not
+removed by a second relaxation time, by a rate-dependent one, by fitting individual trials, or
+by any of six operators.
+
+We also report what would be needed to do better. Treating a model choice as a parameter puts
+discrimination and estimation in one information matrix, and the resulting design measure
+carries a Kiefer--Wolfowitz certificate~\citep{kiefer1960equivalence}. The experiments analysed
+here are near-optimal for the hardest of the three model axes and $24$ to $41$ times from
+optimal for the two easiest.
+
+\section{Records and noise model}
+
 
 Each dataset is a set of repeated laser-induced cavitation events at one temperature,
 recorded as $R(t)/R_{\max}$. \Cref{fig:records} shows the mean trace and the
@@ -78,7 +113,7 @@ simpler model it contains, and a BIC-style complexity penalty. Trajectories are
 compressible (Keller--Miksis~\citep{keller1980bubble}); the incompressible approximation changes the residuals by a
 factor of two to four and must not be used for these records.
 
-\section{What is being computed, and why}
+\section{Method}
 
 Four objects carry the analysis. Each is derived here rather than quoted, because the
 choices between them are not neutral and two of the errors this study corrected came from
@@ -442,7 +477,7 @@ $F$ is being computed. T-optimality asks instead for the design maximising the d
 between rival predictions, $\max_\xi \|m_1(\hat\theta_1;\xi) - m_2(\hat\theta_2;\xi)\|$, and
 privileges neither.
 
-\section{What the records determine}
+\section{Identifiability of the constitutive parameters}
 
 The winner fits, but not every parameter it contains is measured by these data.
 
@@ -636,7 +671,7 @@ identified parameter from a prior-driven one.}
 \label{fig:identifiability}
 \end{figure}
 
-\section{Result}
+\section{Results}
 
 \cref{tab:fits} and \Cref{fig:fits} give the outcome. The quadratic Zener model
 \texttt{qSLS} -- strain-stiffening elasticity with stress relaxation -- wins at every
@@ -970,7 +1005,7 @@ correlation in place. That is evidence about where to look next -- the residual 
 concentrated in the first collapse, where sphericity and the far-field boundary are least
 secure -- and it is more useful than a small positive margin would have been.
 
-\section{The forward operator}
+\section{The bubble-dynamics operator}
 \label{sec:operator}
 
 Every comparison above varies the material and holds the bubble-dynamics equation at
@@ -1063,7 +1098,7 @@ out is what says whether a design can tell the models apart at all.}
 \label{fig:augment}
 \end{figure}
 
-\section{Three model axes}
+\section{Separability of the model axes}
 \label{sec:axes}
 
 With the constitutive law, the operator and the thermal treatment all uncertain, the design
@@ -1123,7 +1158,7 @@ and thermal discrimination at little cost to the operator: the support wants $R_
 \SI{60}{\micro\metre} at high stretch and near \SI{1200}{\micro\metre} at low stretch, against
 the \SI{277}{\micro\metre} and stretch $7.09$ performed.
 
-\section{Designing a better experiment}
+\section{Experimental design}
 \label{sec:design}
 
 \subsection*{Designing without assuming the model}
@@ -1765,7 +1800,7 @@ so fragile; the constitutive and thermal axes leave $8.1$ and $8.5$.}
 \label{fig:absorption}
 \end{figure}
 
-\section{The temperature trend}
+\section{Temperature dependence}
 
 The most informative result is not any single number but a trend
 (\Cref{fig:trend}). The advantage that the stiffening term buys over pure relaxation
@@ -1784,7 +1819,17 @@ $\chi^2$.
 \label{fig:trend}
 \end{figure}
 
-\section{Limitations}
+\section{Conclusions}
+
+We have treated the model comparison in inertial microcavitation rheometry as the object of
+study rather than as a step toward a parameter value. Ranking by evidence in coordinates the
+records can answer, three findings hold. The shear modulus is not identified separately from
+the stiffening exponent, so a reported modulus is a statement about the prior box. The
+bubble-dynamics operator assumed throughout this literature is beaten on every record. And a
+correlated residual that has been read as constitutive model error survives every
+constitutive, observational and operator change tested here.
+
+\subsection{Limitations of this work}
 \label{sec:limitations}
 
 \paragraph{The dropped points are outside the model, not outside the solver.}

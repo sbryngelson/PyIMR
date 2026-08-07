@@ -28,6 +28,8 @@ from ._materials import (
   PowerLaw,
   QuadraticKelvinVoigt,
   QuadraticZener,
+  TwoModeQuadraticZener,
+  CarreauZener,
   Yeoh,
   Zener,
 )
@@ -250,6 +252,47 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
     strainhard = (3 * ax - 1) / (2 * Ca)
     Ze = R**3 * (strainhard * (5 - Rst**4 - 4 * Rst) + (2 * ax / Ca) * (0.675 + 0.125 * Rst**8 + 0.2 * Rst**5 + Rst**2 - 2 / Rst))
     Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
+    Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
+    return S, Sdot, xp.array([Z1d]), 4.0 * LAM / Re8
+  if isinstance(material, TwoModeQuadraticZener):
+    # Two Maxwell arms sharing one elastic equilibrium. `w` splits BOTH the elastic target
+    # and the viscous forcing, so w = 0 leaves the second memory driven by nothing: it
+    # decays from zero and stays zero, and the first arm is exactly QuadraticZener. That
+    # exact reduction is the test the branch is gated on.
+    Z1, Z2 = Z[0], Z[1]
+    w = p["share"]
+    De2 = p["De2"]
+    strainhard = (3 * ax - 1) / (2 * Ca)
+    Ze = R**3 * (strainhard * (5 - Rst**4 - 4 * Rst) + (2 * ax / Ca) * (0.675 + 0.125 * Rst**8 + 0.2 * Rst**5 + Rst**2 - 2 / Rst))
+    drive = 4 * (LAM - 1) / Re8 * R**2 * Rd
+    Z1d = -(Z1 - (1 - w) * Ze) / De + (1 - w) * drive / De
+    Z2d = -(Z2 - w * Ze) / De2 + w * drive / De2
+    S = (Z1 + Z2) / R**3 - 4 * LAM / Re8 * Rd / R
+    Sdot = (Z1d + Z2d) / R**3 - 3 * Rd / R**4 * (Z1 + Z2) + 4 * LAM / Re8 * Rd**2 / R**2
+    return S, Sdot, xp.array([Z1d, Z2d]), 4.0 * LAM / Re8
+  if isinstance(material, CarreauZener):
+    # `QuadraticZener` with a dashpot that thins, so the arm's relaxation time moves with
+    # the shear rate: lambda = eta/G, and eta follows Carreau. Only `De` is touched --
+    # the elastic target and the solvent term are the same as the one-mode law's.
+    #
+    # The rate is the wall value of the same measure `_instantaneous_stress` integrates,
+    # `2 sqrt(3) |Rd/R|`, kept nondimensional so it pairs with `Cu` (a time scaled exactly
+    # as `De` is). A lumped memory obeys one scalar ODE, so it takes one representative
+    # rate rather than a profile.
+    #
+    # Both terms carry the SAME `De_eff`, which is what makes `nc = 1` reduce to
+    # `QuadraticZener` identically rather than merely closely: the factor is then 1 at
+    # every shear rate.
+    Z1 = Z[0]
+    scaled = p["Cu"] * 2.0 * xp.sqrt(3.0) * abs(Rd / R)
+    thinning = (1.0 + scaled**2) ** (0.5 * (p["nc"] - 1.0))
+    De_eff = De * thinning
+    S = Z1 / R**3 - 4 * LAM / Re8 * Rd / R
+    strainhard = (3 * ax - 1) / (2 * Ca)
+    Ze = R**3 * (strainhard * (5 - Rst**4 - 4 * Rst) + (2 * ax / Ca) * (0.675 + 0.125 * Rst**8 + 0.2 * Rst**5 + Rst**2 - 2 / Rst))
+    Z1d = -(Z1 - Ze) / De_eff + 4 * (LAM - 1) / (Re8 * De_eff) * R**2 * Rd
+    # `Z1d` holds no R-ddot -- the thinning reads `Rd`, not its derivative -- so the
+    # acceleration coefficient is the one-mode law's untouched.
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
     return S, Sdot, xp.array([Z1d]), 4.0 * LAM / Re8
   if isinstance(material, OldroydB):

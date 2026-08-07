@@ -32,3 +32,5 @@ docs/writeup/cache_*.npy
 docs/writeup/fitquality.json
 docs/writeup/__pycache__/
 docs/writeup/*.png
+docs/writeup/*.bbl
+docs/writeup/*.blg

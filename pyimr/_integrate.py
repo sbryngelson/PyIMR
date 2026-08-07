@@ -14,6 +14,8 @@ from ._materials import (
   OldroydB,
   QuadraticKelvinVoigt,
   QuadraticZener,
+  CarreauZener,
+  TwoModeQuadraticZener,
   Zener,
   law_values,
 )
@@ -41,8 +43,8 @@ def shares_one_program(material) -> bool:
 
 
 THROUGH_GROUPS = (
-  NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, LinearMaxwell,
-  Giesekus, LinearPTT,
+  NoStress, NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, TwoModeQuadraticZener, CarreauZener,
+  OldroydB, LinearMaxwell, Giesekus, LinearPTT,
 )
 
 def integrate(rhs, times, initial, *, args, rtol, atol, failure, label="", max_step=None, config=None):

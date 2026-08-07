@@ -109,6 +109,7 @@ visible.
 | [Validation](docs/validation.md) | what the suite pins, and per-case deviations from IMRv2 |
 | [Upstream](docs/upstream.md) | defects found in IMRv2, and what PyIMR does instead |
 | [Boundaries](docs/boundaries.md) | where PyIMR stops, and where it diverges deliberately |
+| [Open work](docs/open-work.md) | what is known to be unfinished, and what blocks what |
 
 API reference: `pip install 'PyIMR[docs]'`, then `python -m pdoc pyimr`.
 

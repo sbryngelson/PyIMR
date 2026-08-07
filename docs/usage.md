@@ -220,6 +220,79 @@ selection only means something where some candidate actually fits; otherwise the
 winner is the least-bad member of an inadequate set, and the posteriors look
 just as confident. Worked studies are in `examples/`.
 
+### Models the grid cannot reach
+
+`solve_grid` is a Cartesian product at one count on every axis, so it costs
+`count**dimension` and runs out at four or five parameters. At `count = 12`, six
+axes is 5,971,968 solves against 168,072 for the whole of `STANDARD_MODELS`.
+
+Candidates past that limit live in `EXTENDED_MODELS` and are scored by expansion
+about a fit instead of by quadrature over a grid:
+
+```python
+from pyimr.selection import EXTENDED_MODELS, candidate_log_evidence, fit_candidate
+
+candidate = EXTENDED_MODELS["qSLS2"]
+fit = fit_candidate(candidate, solve, observed, deviation)
+evidence = candidate_log_evidence(candidate, solve, observed, deviation, fit.unit)
+```
+
+`fit_candidate` is multistart least squares in the same unit coordinates, and it is what
+locates the point the expansion needs: `PreparedInference.fit_multistart` works from material
+attribute paths, and a candidate's axes need not be material fields at all --- `tau_ratio` is
+a ratio of two of them. It returns the distinct modes it found, not only the winner, because
+the expansion is about one mode and the evidence is over all of them; sum with `logsumexp`
+over `fit.modes`. Check `fit.failure_fraction` --- near one, the search spent its budget
+somewhere the material will not integrate and the result is not a fit --- and note that the
+differenced Jacobian costs `p + 1` solves an iteration, so an under-converged search reports
+a `chi_squared` worse than the truth's rather than announcing itself.
+
+It costs `1 + 2*dimension` solves. The Jacobian is differenced in the *unit*
+coordinates the prior is uniform on, which is both where the Occam factor has to
+be measured and what lets it handle candidates whose axes are not material fields
+-- `qSLS2` has `tau_ratio`, a ratio of two of them, and `oldroydb` likewise.
+
+You must supply the fitted point. Nothing in the package yet locates one for a
+candidate, which is the current gap between having these models and being able to
+rank them -- see [open work](open-work.md).
+
+### The forward operator is a model choice too
+
+`DYNAMICS_MODELS` names the six bubble-dynamics equations, from Rayleigh--Plesset through
+Keller--Miksis to Gilmore, with Tait and Mie--Grueneisen equations of state. They are not
+`CandidateModel`s --- a candidate is a material, and this is the operator it is pushed
+through --- so they compare by holding the candidate fixed and varying the `solve` callback:
+
+```python
+from pyimr.selection import DYNAMICS_MODELS
+
+for name, radial in DYNAMICS_MODELS.items():
+    ...  # build a solve callback at this `radial`, then fit and score as above
+```
+
+The parameter space is identical across the set, so the Occam terms cancel and the difference
+in log evidence is a Bayes factor between operators. Every candidate in this package assumes
+`radial=2`; on the records analysed in `docs/writeup`, two other operators beat it. See
+[open work](open-work.md) for what that comparison does and does not establish --- in
+particular, it must be run in identified coordinates, or the ranking follows the prior box
+rather than the data.
+
+### The Occam factor can pay for parameters the data cannot see
+
+`laplace_log_evidence` takes `cap_at_prior`. Leave it off and the plain expansion
+rewards a model for a parameter its design does not probe: an unidentified
+direction sends an eigenvalue of `J^T J` to zero, so `-log det / 2` goes to
+`+infinity`. Measured on synthetic one-mode data, the two-mode model beat the
+one-mode by 29.7 nats exactly where its second arm did nothing, and lost by 2.6
+only where the arm did real work -- backwards, and not by a little.
+
+`cap_at_prior=True` bounds each eigendirection's contribution at one, which is
+what a uniform prior on a bounded cube implies: a posterior cannot be wider than
+the prior it came from. It is a strict generalisation, agreeing with the plain
+form to round-off wherever every direction is already sharper than the prior, so
+it changes an answer only where the plain form was not entitled to one.
+`candidate_log_evidence` turns it on, because it compares across dimensions.
+
 ## Designing when the criteria disagree
 
 `optimize_design` maximises one number. That is the right question only while

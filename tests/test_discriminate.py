@@ -183,3 +183,75 @@ def test_laplace_evidence_refuses_an_undetermined_parameter():
 def test_laplace_evidence_checks_its_shapes():
   with pytest.raises(ValueError, match="rows"):
     laplace_log_evidence(np.zeros(10), np.ones((7, 2)), 1.0)
+
+
+def test_capping_stops_a_dead_parameter_from_buying_evidence():
+    """The uncapped Occam factor pays a model for parameters its data cannot see.
+
+    A direction the design does not probe sends an eigenvalue of `J^T J` to zero and
+    `-log det / 2` to `+infinity`, so the flexible model wins BECAUSE its extra parameter
+    is useless. That is the Gaussian posterior spilling outside the unit cube the prior
+    lives on. Measured on a real pair: the two-mode bubble model beat the one-mode by 29.7
+    nats where the second arm did nothing.
+
+    Capped, a dead direction must be worth exactly nothing -- not a little, not a lot.
+    """
+    rng = np.random.default_rng(0)
+    residual = rng.normal(0.0, 1.0, 40)
+    live = rng.normal(0.0, 1.0, (40, 3))
+    dead = np.column_stack([live, np.zeros(40)])          # a fourth parameter nothing sees
+
+    with pytest.raises(ValueError, match="singular"):
+        laplace_log_evidence(residual, dead, 1.0)
+
+    assert (laplace_log_evidence(residual, dead, 1.0, cap_at_prior=True)
+            == pytest.approx(laplace_log_evidence(residual, live, 1.0, cap_at_prior=True)))
+
+    # a nearly-dead direction must not beat the model that simply lacks it either
+    for size in (1e-6, 1e-3, 1e-1):
+        faint = np.column_stack([live, size * rng.normal(0.0, 1.0, 40)])
+        assert (laplace_log_evidence(residual, faint, 1.0, cap_at_prior=True)
+                <= laplace_log_evidence(residual, live, 1.0, cap_at_prior=True) + 1e-9)
+
+
+def test_capping_leaves_a_well_determined_fit_almost_alone():
+    """The cap must bite only where a direction is wider than its prior, or it would be a
+    silent rescaling of every evidence in the package.
+    """
+    rng = np.random.default_rng(1)
+    residual = rng.normal(0.0, 1.0, 60)
+    sharp = 50.0 * rng.normal(0.0, 1.0, (60, 3))          # every direction far inside the prior
+    assert (laplace_log_evidence(residual, sharp, 1.0, cap_at_prior=True)
+            == pytest.approx(laplace_log_evidence(residual, sharp, 1.0), rel=1e-12))
+
+
+def test_a_repeated_scalar_deviation_is_the_scalar_one():
+    """Per-sample noise is a generalisation, so it must agree exactly where it degenerates."""
+    rng = np.random.default_rng(3)
+    residual, design = rng.normal(0.0, 1.0, 30), rng.normal(0.0, 1.0, (30, 3))
+    for sigma in (0.5, 1.0, 2.0):
+        for capped in (False, True):
+            assert (laplace_log_evidence(residual, design, np.full(30, sigma), cap_at_prior=capped)
+                    == pytest.approx(laplace_log_evidence(residual, design, sigma, cap_at_prior=capped), rel=1e-12))
+
+
+def test_a_varying_deviation_is_not_its_own_mean():
+    # the point of supporting it: collapsing a varying spread to one number changes the answer
+    rng = np.random.default_rng(4)
+    residual, design = rng.normal(0.0, 1.0, 30), rng.normal(0.0, 1.0, (30, 3))
+    varying = np.linspace(0.2, 2.0, 30)
+    assert laplace_log_evidence(residual, design, varying) != pytest.approx(
+        laplace_log_evidence(residual, design, float(varying.mean())), rel=1e-6)
+
+
+@pytest.mark.parametrize("bad", [np.zeros(30), -np.ones(30), np.full(30, np.nan)])
+def test_a_bad_per_sample_deviation_is_refused(bad):
+    rng = np.random.default_rng(5)
+    with pytest.raises(ValueError, match="deviation"):
+        laplace_log_evidence(rng.normal(0.0, 1.0, 30), rng.normal(0.0, 1.0, (30, 3)), bad)
+
+
+def test_a_mismatched_per_sample_deviation_is_refused():
+    rng = np.random.default_rng(6)
+    with pytest.raises(ValueError, match="one per sample"):
+        laplace_log_evidence(rng.normal(0.0, 1.0, 30), rng.normal(0.0, 1.0, (30, 3)), np.ones(7))

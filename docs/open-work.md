@@ -75,13 +75,27 @@ of the parameter sensitivities (39.3%, already computed), of the operator differ
 (computable from `dynamics.json`), or of neither. Only the last is evidence for missing
 physics.
 
-**4. Design conditional on the material.** `design_operator.py` certifies a measure
-(gap 1.0e-9, seven support points) but holds the material at the 15 C fit, so it ranks
-geometries only --- and its ranking inverts the empirical one. Operator information is
-governed by collapse depth, which the material sets: at their own fits the operators separate
-by 4.17, 3.06 and 0.00005 noise units on the three records, the last because that fit barely
-collapses. Recompute over materials as well as geometries, or maximise the `eps` information
-directly.
+**4. Act on the three-axis design.** `design_three.py` certifies a measure over four
+material parameters and all three model axes (gap 9.7e-10, four support points), with the
+information averaged over a decade of `g*alpha` so the answer is not conditional on one
+material --- the flaw that made `design_operator.py` rank the records backwards.
+
+Per axis, which the determinant alone hides:
+
+| axis | variance at the optimum | at the 15 C geometry | efficiency |
+|---|---|---|---|
+| dynamics | 0.006776 (binding) | 0.009912 | 68.4% |
+| constitutive | 0.000545 | 0.02239 | 2.4% |
+| thermal | 0.000440 | 0.01049 | 4.2% |
+
+The experiments performed are near-best for the axis that is hardest to see and 24 to 41
+times off for the two that are easiest. So a geometry change buys a great deal of
+constitutive and thermal discrimination at little cost to the operator --- the support wants
+`R_max` at 60 um with high stretch and at 1200 um with low stretch, against the 277 um and
+stretch 7.1 performed.
+
+Caveat: 21 of 64 designs failed to integrate at some stiffness and were dropped, which biases
+the support toward regions that always integrate. Worth checking before anyone runs it.
 
 **5. `cap_at_prior` defaults to `False`.** The uncapped Laplace evidence pays a model for
 parameters its data cannot see --- 29.7 nats, in the case that mattered. Nothing else calls

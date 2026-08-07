@@ -109,6 +109,46 @@ $w = w_0 + (1-w_0)\,\mathrm{logit}^{-1}\!\big(\kappa(\dot\varepsilon_{\rm th} -
 measurement, not the model, and it is why $\chi^2/N$ is dominated by the late record where
 the weights are large.
 
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  \draw[->,gray] (0,0) -- (10.0,0) node[anchor=north east] {\footnotesize parameter $\theta$};
+  \draw[->,gray] (0,0) -- (0,3.7);
+  \node[gray,rotate=90,anchor=south] at (-0.4,1.9) {\footnotesize $e^{\ell(\theta)}\pi(\theta)$};
+  % the integrand: two humps, drawn as beziers
+  \draw[gray!75,very thick]
+    (0.5,0.10) .. controls (1.6,0.12) and (1.9,2.85) .. (2.6,2.85)
+    .. controls (3.3,2.85) and (3.6,0.30) .. (4.6,0.26)
+    .. controls (5.4,0.24) and (5.9,1.35) .. (6.6,1.35)
+    .. controls (7.3,1.35) and (7.8,0.16) .. (9.4,0.12);
+  % Gaussian fits, drawn only near each mode
+  \draw[blue!70!black,thick,dashed]
+    (1.45,0.16) .. controls (2.0,0.22) and (2.1,2.85) .. (2.6,2.85)
+    .. controls (3.1,2.85) and (3.2,0.22) .. (3.75,0.16);
+  \draw[blue!70!black,thick,dashed]
+    (5.35,0.14) .. controls (5.95,0.18) and (6.1,1.35) .. (6.6,1.35)
+    .. controls (7.1,1.35) and (7.25,0.18) .. (7.85,0.14);
+  \fill[red!75!black] (2.6,2.85) circle (2.4pt);
+  \fill[red!75!black] (6.6,1.35) circle (2.4pt);
+  \node[red!75!black,anchor=south] at (2.6,3.0) {\footnotesize $\hat\theta_1$};
+  \node[red!75!black,anchor=south] at (6.6,1.5) {\footnotesize $\hat\theta_2$};
+  \node[blue!70!black,anchor=west] at (8.15,3.15) {\footnotesize one Gaussian per mode};
+  \node[anchor=west] at (8.15,2.55) {\footnotesize $Z\simeq\sum_k Z_k$};
+  \draw[blue!70!black,thin] (8.05,3.15) -- (3.35,2.35);
+  \draw[gray,thin] (8.05,2.55) -- (7.05,1.15);
+\end{tikzpicture}
+\caption{The Laplace expansion, and why the evidence is summed over modes. The integrand
+$e^{\ell}\pi$ is expanded about each maximum as a Gaussian, whose height and width give that
+mode's contribution $Z_k$ in closed form; the evidence is $\sum_k Z_k$, computed as a
+\texttt{logsumexp} over the distinct endpoints a multistart finds. Taking only the best mode
+discards the rest of the integral, which is the difference between an integral criterion and a
+minimum: a missed mode biases the total slightly, where a missed basin corrupts a minimum
+entirely. This is why \texttt{fit\_candidate} returns every distinct endpoint rather than its
+winner.}
+\label{fig:laplace}
+\end{figure}
+
 \subsection{Integrating out the noise scale}
 \label{sec:beta}
 
@@ -137,6 +177,50 @@ Why marginalise rather than fit $\beta$? Profiling at its best value gives
 $-\tfrac12 N\,[1 + \log(\chi^2/N)]$, and marginalising is always smaller. The gap is an
 Occam penalty: a model that fits only by inflating its own error bars is charged for the
 inflation. Fitting $\beta$ would hand that flexibility over for free.
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+\begin{scope}
+  \node[anchor=south] at (2.4,3.9) {\footnotesize\textbf{the candidates nest}};
+  \draw[rounded corners=3pt,gray!70] (0.15,0.25) rectangle (4.65,3.55);
+  \draw[rounded corners=3pt,gray!70] (0.75,0.65) rectangle (4.05,3.05);
+  \draw[rounded corners=3pt,gray!70] (1.45,1.05) rectangle (3.35,2.5);
+  \node at (2.4,1.75) {\footnotesize NHKV};
+  \node at (2.4,2.78) {\footnotesize qKV};
+  \node at (2.4,3.3) {\footnotesize qSLS};
+  \node[gray,anchor=north,align=center] at (2.4,0.05)
+    {\footnotesize each contains the last,\\[-2pt]\footnotesize so it can never fit worse};
+\end{scope}
+\begin{scope}[xshift=6.6cm]
+  \node[anchor=south] at (2.5,3.9) {\footnotesize\textbf{so best fit cannot choose}};
+  \draw[->,gray] (0,0.35) -- (5.1,0.35) node[anchor=north east] {\footnotesize parameters};
+  \draw[->,gray] (0,0.35) -- (0,3.5);
+  \draw[blue!70!black,very thick] (0.4,0.75) .. controls (2.0,2.6) and (3.0,3.0) .. (4.7,3.15);
+  \draw[red!75!black,very thick] (0.4,0.7) .. controls (1.9,2.9) and (2.6,2.75) .. (4.7,1.05);
+  % on the curve's actual maximum, computed from its control points rather than eyeballed:
+  % the marker was sitting above the curve, which is the one thing this panel must get right
+  \fill[red!75!black] (2.374,2.338) circle (2.2pt);
+  \draw[red!75!black,thin,dashed] (2.374,2.338) -- (2.374,0.45);
+  % beyond the end of each curve, so nothing can run into the label above the maximum
+  \node[blue!70!black,anchor=west] at (4.85,3.15) {\footnotesize fit quality};
+  \node[red!75!black,anchor=west] at (4.85,1.05) {\footnotesize evidence};
+  % above the maximum, where neither curve reaches. Two earlier placements failed: beneath
+  % the axis it collided with the axis label, and to the left it lay across the evidence
+  % curve itself. The dashed drop-line is what ties it to the point.
+  \node[red!75!black,anchor=west] at (0.3,3.3) {\footnotesize the Occam optimum};
+\end{scope}
+\end{tikzpicture}
+\caption{Why this study ranks by evidence and not by fit. The constitutive candidates nest ---
+\texttt{NHKV} is \texttt{qKV} at zero stiffening and \texttt{qSLS} at zero relaxation time ---
+so a larger model can never fit worse, and the best-fitting candidate is simply the most
+flexible one. The evidence adds the Occam factor of Fig.~\ref{fig:occam}, which charges a
+model for prior volume the data does not use, and so turns a monotone quantity into one with
+an interior maximum. Everything downstream depends on that penalty being computed correctly,
+which is why the pathology in Fig.~\ref{fig:occam} matters.}
+\label{fig:fitvsevidence}
+\end{figure}
 
 \subsection{Why the evidence, and not the best fit}
 
@@ -246,6 +330,41 @@ identifiability and observability are the same statement. The distinction that m
 \emph{practical} sloppiness, where $F$ is invertible but ill-conditioned. Here
 $\lambda_{\min} = 5.2\times10^{-2} \neq 0$ and the profile likelihood has a genuine minimum,
 so the problem is the second --- which is why a different experiment can fix it.
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+\begin{scope}
+  \node[anchor=south] at (2.0,1.95) {\footnotesize white noise};
+  \draw[gray!45] (0,0.9) -- (4.0,0.9);
+  \draw[blue!70!black,thick] plot coordinates {(0.000,0.759) (0.045,0.621) (0.090,1.021) (0.135,0.558) (0.180,0.929) (0.225,0.793) (0.270,0.546) (0.315,0.906) (0.360,0.530) (0.404,0.847) (0.449,0.556) (0.494,0.573) (0.539,0.840) (0.584,1.161) (0.629,0.599) (0.674,0.679) (0.719,1.002) (0.764,1.258) (0.809,0.962) (0.854,0.817) (0.899,1.281) (0.944,0.537) (0.989,1.187) (1.034,0.732) (1.079,0.615) (1.124,0.594) (1.169,0.747) (1.213,1.153) (1.258,0.645) (1.303,0.965) (1.348,1.011) (1.393,0.798) (1.438,0.938) (1.483,0.550) (1.528,0.548) (1.573,0.665) (1.618,1.044) (1.663,0.842) (1.708,0.751) (1.753,0.968) (1.798,0.863) (1.843,0.740) (1.888,1.136) (1.933,1.059) (1.978,0.695) (2.022,0.960) (2.067,0.920) (2.112,1.200) (2.157,1.084) (2.202,0.730) (2.247,1.284) (2.292,0.594) (2.337,0.834) (2.382,1.106) (2.427,0.622) (2.472,0.891) (2.517,0.531) (2.562,1.035) (2.607,1.112) (2.652,0.958) (2.697,1.200) (2.742,0.751) (2.787,1.056) (2.831,0.975) (2.876,0.964) (2.921,0.865) (2.966,1.172) (3.011,1.256) (3.056,0.879) (3.101,1.031) (3.146,0.549) (3.191,1.061) (3.236,1.018) (3.281,1.294) (3.326,1.158) (3.371,0.728) (3.416,0.809) (3.461,1.035) (3.506,0.518) (3.551,0.869) (3.596,0.634) (3.640,0.594) (3.685,0.547) (3.730,1.115) (3.775,0.603) (3.820,0.698) (3.865,0.813) (3.910,1.197) (3.955,0.564) (4.000,0.859)};
+  \node[anchor=north] at (2.0,0.25) {\footnotesize lag-one $0.04$};
+\end{scope}
+\begin{scope}[xshift=5.0cm]
+  \node[anchor=south] at (2.0,1.95) {\footnotesize a smooth excursion};
+  \draw[gray!45] (0,0.9) -- (4.0,0.9);
+  \draw[blue!70!black,thick,smooth,samples=60,domain=0:4]
+    plot (\x, {0.9 + 0.48*sin(90*\x + 20)});
+  \node[anchor=north] at (2.0,0.25) {\footnotesize lag-one $1.00$};
+\end{scope}
+\begin{scope}[xshift=10.0cm]
+  \node[anchor=south] at (2.0,1.95) {\footnotesize three-quarters smooth};
+  \draw[gray!45] (0,0.9) -- (4.0,0.9);
+  \draw[blue!70!black,thick] plot coordinates {(0.000,1.020) (0.045,1.070) (0.090,1.185) (0.135,1.086) (0.180,1.116) (0.225,1.155) (0.270,1.067) (0.315,1.168) (0.360,1.213) (0.404,1.269) (0.449,1.098) (0.494,1.163) (0.539,1.116) (0.584,1.310) (0.629,1.285) (0.674,1.119) (0.719,1.365) (0.764,1.361) (0.809,1.278) (0.854,1.265) (0.899,1.141) (0.944,1.098) (0.989,1.223) (1.034,1.091) (1.079,1.114) (1.124,1.115) (1.169,1.045) (1.213,1.143) (1.258,1.120) (1.303,1.207) (1.348,1.104) (1.393,1.115) (1.438,1.058) (1.483,1.078) (1.528,1.003) (1.573,0.933) (1.618,1.097) (1.663,1.073) (1.708,1.008) (1.753,0.950) (1.798,0.824) (1.843,0.778) (1.888,0.770) (1.933,0.690) (1.978,0.848) (2.022,0.731) (2.067,0.825) (2.112,0.685) (2.157,0.814) (2.202,0.767) (2.247,0.529) (2.292,0.567) (2.337,0.734) (2.382,0.606) (2.427,0.727) (2.472,0.564) (2.517,0.471) (2.562,0.608) (2.607,0.640) (2.652,0.504) (2.697,0.454) (2.742,0.516) (2.787,0.681) (2.831,0.630) (2.876,0.468) (2.921,0.507) (2.966,0.477) (3.011,0.475) (3.056,0.677) (3.101,0.528) (3.146,0.641) (3.191,0.626) (3.236,0.576) (3.281,0.734) (3.326,0.596) (3.371,0.749) (3.416,0.632) (3.461,0.732) (3.506,0.700) (3.551,0.738) (3.596,0.943) (3.640,0.923) (3.685,0.817) (3.730,0.992) (3.775,0.841) (3.820,0.912) (3.865,1.056) (3.910,1.024) (3.955,0.906) (4.000,1.160)};
+  \node[anchor=north] at (2.0,0.25) {\footnotesize lag-one $0.92$};
+\end{scope}
+\end{tikzpicture}
+\caption{What lag-one autocorrelation measures, and what it does not. Sampled at the $N=201$
+points of these records, lag-one is close to a measure of how much of a residual is
+\emph{smooth}: white noise gives $0.04$, a single smooth excursion $1.00$, a mixture that is
+three-quarters smooth $0.92$. It does not say what made the residual smooth --- model
+discrepancy, variation between bubbles and a slow calibration drift are alike in this
+statistic. The \texttt{qSLS} residual gives $0.918$; the trial deviations from the mean, with
+no model fitted at all, give $0.859$. Most of the smoothness the fit residual shows is
+therefore already in the data.}
+\label{fig:lagone}
+\end{figure}
 
 \subsection{What correlated residuals cost}
 

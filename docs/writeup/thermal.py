@@ -46,7 +46,7 @@ def _job(argument):
   times, mean, spread, maximum, stretch = records.load(dataset)
   solve = records.solver(times, maximum, stretch, max_steps=600_000, **TREATMENTS[name])
   try:
-    got = records.score(_candidate(), solve, mean, spread, bounds=BOX, starts=5, evaluations=160)
+    got = records.score(_candidate(), solve, mean, spread, bounds=BOX, starts=10, evaluations=260)
   except Exception as error:                          # noqa: BLE001
     got = {"failed": f"{type(error).__name__}: {error}"}
   return (dataset, name), got
@@ -70,6 +70,19 @@ def main():
       against = r["log_evidence"] - cold["log_evidence"] if "failed" not in cold else float("nan")
       print(f"{dataset:>14} {name:>15} {r['chi2_per_n']:9.3f} {r['log_evidence']:11.2f} "
             f"{against:+9.2f} {r['lag_one']:8.3f}")
+
+  # A baseline that did not converge makes every margin on its row meaningless, and an
+  # under-converged fit reports a bad chi^2 rather than announcing itself. A first run of this
+  # study at starts=5 left two of the three cold fits at chi2/N of 12.8 and 8.9 against 0.97
+  # and 1.15 for the same model elsewhere, and reported +1209 and +829 nats as though they
+  # were physics. So the rows are checked against each other before anything is believed.
+  print()
+  for dataset in records.DATASETS:
+    usable = [r["chi2_per_n"] for r in (table[(dataset, n)] for n in TREATMENTS) if "failed" not in r]
+    if usable and max(usable) > 3.0 * min(usable):
+      print(f"  WARNING {dataset}: chi2/N spans {min(usable):.2f} to {max(usable):.2f} across")
+      print("    treatments of the same data. That is a search that failed on some rows, not")
+      print("    physics; the margins on this record are not interpretable.")
 
   print("\n  A positive `vs cold` favours the thermal treatment. The material axes are the same")
   print("  in every row, so the Occam terms cancel and this is a Bayes factor between physics,")

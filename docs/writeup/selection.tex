@@ -1024,6 +1024,45 @@ $\chi^2/N = 0.42$ where six starts found $1.151$.
 Every operator had been held in the same poor basin. A record that cannot decide and a search
 that has not converged produce the same output. Only a better search separates them.
 
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+\begin{scope}
+  \draw[->,gray] (0,0) -- (5.2,0) node[anchor=north east] {\footnotesize time};
+  \draw[->,gray] (0,0) -- (0,2.9);
+  \node[gray,rotate=90,anchor=south] at (-0.35,1.45) {\footnotesize $R$};
+  \draw[blue!70!black,very thick] (0.3,2.5) .. controls (1.6,2.4) and (2.1,0.45) .. (2.7,0.42)
+    .. controls (3.3,0.4) and (4.0,1.75) .. (4.9,1.9);
+  \draw[red!75!black,very thick,dashed] (0.3,2.5) .. controls (1.6,2.35) and (2.2,0.72) .. (2.85,0.7)
+    .. controls (3.5,0.68) and (4.1,1.95) .. (4.9,2.15);
+  \node[blue!70!black,anchor=west] at (5.0,1.75) {\footnotesize $R_A$};
+  \node[red!75!black,anchor=west] at (5.0,2.25) {\footnotesize $R_B$};
+  \node[anchor=south] at (2.6,3.05) {\footnotesize\textbf{two models, one design}};
+\end{scope}
+\begin{scope}[xshift=7.3cm]
+  \node[anchor=south] at (2.4,3.05) {\footnotesize\textbf{the difference is a column of $J$}};
+  \draw[gray!55] (0.15,0.35) rectangle (1.55,2.6);
+  \node[gray!75] at (0.85,2.85) {\footnotesize $\partial R/\partial\theta$};
+  \foreach \x in {0.45,0.85,1.25} { \draw[gray!70] (\x,0.45) -- (\x,2.5); }
+  \draw[red!75!black,thick] (2.05,0.35) rectangle (2.55,2.6);
+  \draw[red!75!black,thick] (2.3,0.45) -- (2.3,2.5);
+  \node[red!75!black,anchor=south] at (2.3,2.72) {\footnotesize $R_B-R_A$};
+  \node[anchor=west,align=left] at (3.0,1.5)
+    {\footnotesize $J=\big[\,\partial R/\partial\theta \;\big|\; R_B-R_A\,\big]$};
+\end{scope}
+\end{tikzpicture}
+\caption{Turning a model choice into a parameter. Writing
+$R(\theta,\varepsilon)=(1-\varepsilon)R_A(\theta)+\varepsilon R_B(\theta)$ gives
+$\partial R/\partial\varepsilon = R_B-R_A$ at $\varepsilon=0$, so the difference between two
+models becomes one more column of the Jacobian. Discrimination and estimation then live in a
+single information matrix, and $D$-optimality over the augmented set balances learning the
+material against learning which model produced the trace. Nothing about the criterion changes,
+so the certificate still applies. The variance of $\varepsilon$ after the material is fitted
+out is what says whether a design can tell the models apart at all.}
+\label{fig:augment}
+\end{figure}
+
 \section{Three model axes}
 \label{sec:axes}
 
@@ -1085,6 +1124,7 @@ and thermal discrimination at little cost to the operator: the support wants $R_
 the \SI{277}{\micro\metre} and stretch $7.09$ performed.
 
 \section{Designing a better experiment}
+\label{sec:design}
 
 \subsection*{Designing without assuming the model}
 
@@ -1462,12 +1502,11 @@ resolves the second, and in doing so dissolves the first.
   \draw[blue!70!black,very thick,smooth,samples=200,domain=0.25:8.8]
     plot (\x, {2.4 - 1.5*abs(sin(deg(\x*1.05)))*abs(sin(deg(\x*0.42+0.6)))});
   \foreach \x in {1.5, 4.5, 7.45} { \fill[red!75!black] (\x,2.4) circle (2.5pt); }
-  \node[red!75!black,anchor=south east] at (9.2,2.52) {\footnotesize the bound $p$};
+  \node[red!75!black,anchor=south east] at (9.2,2.5) {\footnotesize the bound $p$};
   \node[blue!70!black,anchor=north west] at (0.2,1.05) {\footnotesize $d(x,\xi^\star)=\operatorname{tr}[M(\xi^\star)^{-1}M(x)]$};
-  \node[red!75!black,anchor=south] at (1.5,3.0) {\footnotesize support: touches the bound};
+  % one leader only: three fanned out across the panel and ran through the bound label
+  \node[red!75!black,anchor=west] at (0.45,3.02) {\footnotesize support: touches the bound};
   \draw[red!75!black,thin] (1.5,2.92) -- (1.5,2.52);
-  \draw[red!75!black,thin] (2.6,2.92) -- (4.42,2.52);
-  \draw[red!75!black,thin] (3.0,2.92) -- (7.38,2.52);
 \end{tikzpicture}
 \caption{The certificate, which is what makes an optimal design a proof rather than a stopping
 rule. Kiefer and Wolfowitz: a measure $\xi^\star$ is $D$-optimal \emph{if and only if} its
@@ -1477,6 +1516,36 @@ space, and attains $p$ exactly on the points carrying weight. Both halves are vi
 that it stopped improving but that there is nowhere left for a better design to hide. The gap
 $\max_x d(x,\xi^\star)-p$ is the proof's residue; $10^{-9}$ in the designs here.}
 \label{fig:certificate-schematic}
+\end{figure}
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  \draw[->,gray] (0,0) -- (7.6,0);
+  \foreach \x/\w in {0.8/0.10, 1.9/0.34, 3.1/0.06, 4.3/0.19, 5.6/0.31, 6.9/0.00} {
+    \fill[blue!65!black,opacity=0.75] (\x,0) circle ({0.09 + 2.1*\w*0.28});
+  }
+  \node[anchor=north] at (0.8,-0.5) {\footnotesize $0.10$};
+  \node[anchor=north] at (1.9,-0.5) {\footnotesize $0.34$};
+  \node[anchor=north] at (3.1,-0.5) {\footnotesize $0.06$};
+  \node[anchor=north] at (4.3,-0.5) {\footnotesize $0.19$};
+  \node[anchor=north] at (5.6,-0.5) {\footnotesize $0.31$};
+  \node[anchor=north] at (6.9,-0.5) {\footnotesize $0$};
+  \node[gray,anchor=north] at (3.8,-1.05) {\footnotesize candidate designs $x$, with weights $\xi_i$ summing to one};
+  \draw[-{Latex[length=2.6mm]},thick] (8.1,0.6) -- (9.3,0.6);
+  \node[anchor=south] at (8.7,0.75) {\footnotesize average};
+  \node[anchor=west] at (9.5,0.6)
+    {$M(\xi)=\displaystyle\sum_i \xi_i\, M(x_i)$};
+\end{tikzpicture}
+\caption{A design is a measure, not a point. Each candidate $x_i$ carries an information
+matrix $M(x_i)$, and a design assigns weights $\xi_i$ summing to one, read as the fraction of
+runs spent at that candidate. The averaged information $M(\xi)$ is linear in $\xi$, so any
+concave function of it is concave in the design, and the maximisation becomes convex. That
+convexity is what makes \cref{fig:certificate-schematic} possible: a local optimum is global,
+and a certificate can therefore exist. Weights of zero are the common case, so the support of
+the optimal measure is usually a handful of designs out of hundreds.}
+\label{fig:measure}
 \end{figure}
 
 \subsection*{Designing over measures, and certifying the answer}
@@ -2038,6 +2107,37 @@ which differ in $g$ by more than thirtyfold. This is the mechanism behind the fi
 in the operator ranking of \cref{sec:operator} when the bounds were widened, and behind the
 order-of-magnitude disagreement in $g$ between methods in \cref{fig:valley}.}
 \label{fig:ridge}
+\end{figure}
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+\begin{scope}
+  \node[anchor=south] at (2.4,3.35) {\footnotesize\textbf{structural: $\lambda_{\min}=0$}};
+  \draw[->,gray] (0,0.2) -- (4.9,0.2); \draw[->,gray] (0.2,0) -- (0.2,3.1);
+  \foreach \y in {1.0,1.45,1.9} { \draw[gray!60] (0.55,\y) -- (4.4,\y); }
+  \draw[-{Latex[length=2mm]},very thick,red!75!black] (1.3,1.45) -- (3.7,1.45);
+  \node[red!75!black,anchor=north] at (2.5,0.9) {\footnotesize no experiment helps};
+\end{scope}
+\begin{scope}[xshift=6.4cm]
+  \node[anchor=south] at (2.4,3.35) {\footnotesize\textbf{practical: $\lambda_{\min}$ small}};
+  \draw[->,gray] (0,0.2) -- (4.9,0.2); \draw[->,gray] (0.2,0) -- (0.2,3.1);
+  \foreach \r/\o in {1.85/0.16, 1.3/0.30, 0.7/0.42} {
+    \draw[gray!60,rotate around={0:(2.5,1.45)}] (2.5,1.45) ellipse ({\r} and {\o});
+  }
+  \draw[-{Latex[length=2mm]},very thick,blue!70!black] (1.6,1.45) -- (3.4,1.45);
+  \node[blue!70!black,anchor=north] at (2.5,0.9) {\footnotesize a better design closes it};
+\end{scope}
+\end{tikzpicture}
+\caption{Two failures that look alike in a fit and differ completely in what can be done about
+them. Left: the misfit is exactly flat along a direction, $F$ is singular, and the parameter
+combination is structurally unidentifiable. No experiment recovers it, and only a
+reparameterisation or a fixed value helps. Right: the misfit is closed but very elongated, $F$
+is invertible and ill-conditioned, and the combination is determined weakly. Here a design
+that rotates the ellipse can close it, which is what \cref{sec:design} sets out to do. On
+these records $\lambda_{\min}=5.2\times10^{-2}\neq0$, so the problem is the second kind.}
+\label{fig:structural}
 \end{figure}
 
 \subsection{Sloppy models}

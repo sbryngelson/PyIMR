@@ -66,12 +66,11 @@ def _decided(table, dataset, names):
 
 
 def main():
-  from pyimr.parallel import worker_pool
   from pyimr.selection import DYNAMICS_MODELS
 
   names = list(DYNAMICS_MODELS)
   jobs = [(d, n, r) for d in records.DATASETS for r in RATIOS for n in names]
-  with worker_pool(6) as pool:
+  with records.pool(len(jobs)) as pool:
     table = dict(pool.map(_job, jobs))
   decisive = {d: _decided(table, d, names) for d in records.DATASETS}
 

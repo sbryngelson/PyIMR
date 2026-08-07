@@ -98,12 +98,11 @@ def information(job):
 
 def main():
   from pyimr.measure import optimal_measure
-  from pyimr.parallel import worker_pool
 
   times, mean, spread, maximum, stretch = records.load(DATASET)
   designs = [(float(r), float(s)) for r in RADII for s in STRETCH] + [(maximum, stretch)]
   jobs = [(d, p) for d in designs for p in STIFFNESS]
-  with worker_pool(20) as pool:
+  with records.pool(len(jobs)) as pool:
     out = list(pool.map(information, jobs))
 
   # average over stiffness: a design is kept only where every material integrates, so the

@@ -41,13 +41,12 @@ def _job(index):
 
 
 def main():
-  from pyimr.parallel import worker_pool
 
   times, mean, *_ = records.load(DATASET)
   count = _trials(mean.size).shape[0]
   print(f"{DATASET}: the same qSLS fitted to the mean, then to each of {count} trials\n")
 
-  with worker_pool(6) as pool:
+  with records.pool(count + 1) as pool:
     got = dict(pool.map(_job, [-1, *range(count)]))
   averaged, singles = got[-1], [got[i] for i in range(count)]
   lag = np.array([r["lag_one"] for r in singles])

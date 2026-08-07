@@ -35,11 +35,10 @@ def _job(name):
 
 
 def main():
-  from pyimr.parallel import worker_pool
   from pyimr.selection import DYNAMICS_MODELS
 
   names = list(DYNAMICS_MODELS)
-  with worker_pool(6) as pool:
+  with records.pool(len(names)) as pool:
     order = dict(pool.map(_job, names))
   usable = {k: v for k, v in order.items() if "failed" not in v}
   baseline = usable["keller-miksis"]["log_evidence"]

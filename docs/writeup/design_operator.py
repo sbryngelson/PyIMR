@@ -88,10 +88,9 @@ def information(design):
 
 def main():
   from pyimr.measure import optimal_measure
-  from pyimr.parallel import worker_pool
 
   designs = [(float(r), float(s)) for r in RADII for s in STRETCH] + list(PERFORMED.values())
-  with worker_pool(20) as pool:
+  with records.pool(len(designs)) as pool:
     out = list(pool.map(information, designs))
   points = [d for d, m in out if m is not None]
   stack = np.array([m for _, m in out if m is not None])

@@ -1,6 +1,8 @@
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
 \usepackage{graphicx,booktabs,amsmath,amssymb,siunitx,microtype}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,patterns,decorations.pathreplacing}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage[colorlinks=true,allcolors=blue]{hyperref}
 
@@ -649,6 +651,116 @@ correlation in place. That is evidence about where to look next --- the residual
 concentrated in the first collapse, where sphericity and the far-field boundary are least
 secure --- and it is more useful than a small positive margin would have been.
 
+\section{The forward operator is a model choice too}
+\label{sec:operator}
+
+Every comparison to this point varies the material and holds the bubble-dynamics equation at
+Keller--Miksis. That is an assumption, and a large one: with the material at its fit,
+changing only the operator moves the trace by four to fourteen times the median noise, more
+than any constitutive difference measured here. The operators are not \texttt{CandidateModel}s
+--- a candidate is a material, and this is the operator the material is pushed through --- so
+they compare by holding the candidate fixed and varying the forward solve. The parameter
+space is then identical across the set, the Occam terms cancel, and the difference in
+$\log Z$ is a Bayes factor between operators.
+
+\paragraph{The first answer was an artefact of the prior.} Scored with the package's own
+bounds, Keller--Miksis/Mie--Gr\"uneisen came first at $+4.02$ nats and Gilmore/Tait last but
+one at $-27.66$. Three of the six fits were sitting exactly on $g=10^2$ or
+$\lambda_1=10^{-7}$, their own floors. Widening the box to $g\in(10^0,10^6)$,
+$\lambda_1\in(10^{-9},10^{-2})$, $\alpha\in(10^{-4},10^3)$ reverses it: Gilmore/Tait becomes
+best at $+21.93$ and KM/Mie--G falls to $+7.32$. A fifty-nat swing from moving the prior, and
+widening did not remove the pinning but moved it --- five of six then sat on
+$\alpha=10^3$, with $g$ collapsed to \SIrange{1.1}{3.5}{\pascal}. This is
+Fig.~\ref{fig:ridge} in practice.
+
+\paragraph{Asked in coordinates the record can answer.} Fixing the unidentified ratio
+$g/\alpha$ and fitting the identified product $g\alpha$ removes the pinning entirely (none of
+$54$ fits) and makes the question well posed. Repeating at three ratios spanning two decades
+and on all three records, an ordering counts as settled when some record decides it by more
+than a nat and none contradicts it; records without the power to tell abstain rather than
+veto, because at \SI{33}{\celsius} all six operators land within half a nat of one another and
+every ordering there is noise.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+ordering & \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
+\midrule
+Keller--Miksis $>$ Rayleigh--Plesset & $+162.5$ & $+74.4$ & --- \\
+Keller--Miksis family $>$ Gilmore/Mie--G & $+151.4$ & $+73.3$ & --- \\
+\textbf{radial 5 (KM/Mie--G) $>$ radial 2 (KM pressure)} & $\mathbf{+4.5}$ & $\mathbf{+1.5}$ & --- \\
+radial 3 (KM/Tait) $>$ radial 2 & $+5.8$ & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Two conclusions replicate on independent records: compressibility is required, and
+\texttt{radial=2}, the pressure form every candidate in this package assumes, is beaten.
+A dash is a record without the power to decide, not a contradiction. \texttt{radial=3} has the
+larger margin but only one record decides it --- selecting on the record with the biggest
+margin is how a one-record result is announced as a general one, and running the other two is
+what caught it.
+
+\section{Three model axes, and which of them a design can reach}
+\label{sec:axes}
+
+With the constitutive law, the operator and the thermal treatment all uncertain, the design
+question is not which experiment discriminates but whether the axes are separable at all.
+Two ways they need not be. A difference lying in the span of $\partial R/\partial\theta$ is
+reproduced by refitting the material and is invisible at every design (Fig.~\ref{fig:absorption});
+and two axes whose remainders are nearly parallel move the evidence together, so no design can
+say which moved it.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+axis & size & after refit & absorbed \\
+\midrule
+dynamics (KM $\to$ KM/Mie--G) & 8.89 & \textbf{1.98} & \textbf{77.7\%} \\
+constitutive (one $\to$ two modes) & 14.42 & 8.14 & 43.5\% \\
+thermal (cold $\to$ bubble\,+\,medium) & \textbf{15.99} & 8.46 & 47.1\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent in units of the record's noise. The remainders sit at $46$, $71$ and
+\SI{38}{\degree} to one another, so no pair is confounded and the design problem is well
+posed for all three. Two things follow that were not expected. Thermal is the \emph{largest}
+lever, not a negligible one --- it moves the trace most and survives refitting most, so the
+earlier observation that switching it on made $\chi^2/N$ slightly worse says the direction it
+moves in is not the one the record wants, not that it is small. And the operator is the most
+absorbed axis by a wide margin, which is the mechanism behind \S\ref{sec:operator}: most of an
+operator change can be mimicked by adjusting the material.
+
+\paragraph{A design against all three.} Making each axis a parameter through
+$R(\theta,\varepsilon)=(1-\varepsilon)R_A+\varepsilon R_B$, so that
+$\partial R/\partial\varepsilon = R_B-R_A$ is one more column of $J$, puts discrimination and
+estimation in one information matrix and leaves the criterion concave --- the certificate of
+Fig.~\ref{fig:certificate-schematic} applies unchanged. The information is averaged over a
+decade of $g\alpha$, because operator information is governed by collapse depth and a measure
+certified at one material misranks others. The measure certifies at a gap of $10^{-9}$ on four
+support points.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+axis & variance at the optimum & at the \SI{15}{\celsius} geometry & efficiency \\
+\midrule
+dynamics & $6.78\times10^{-3}$ (binding) & $9.91\times10^{-3}$ & $68.4\%$ \\
+constitutive & $5.45\times10^{-4}$ & $2.24\times10^{-2}$ & $2.4\%$ \\
+thermal & $4.40\times10^{-4}$ & $1.05\times10^{-2}$ & $4.2\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Reported per axis rather than as one determinant, because a design maximising
+$\det$ could buy its whole score on the two easy axes and leave the operator undetermined
+without saying so. The experiments performed are near-best for the hardest axis and $24$ to
+$41$ times off for the two easiest, so a change of geometry buys a great deal of constitutive
+and thermal discrimination at little cost to the operator: the support wants $R_{\max}$ near
+\SI{60}{\micro\metre} at high stretch and near \SI{1200}{\micro\metre} at low stretch, against
+the \SI{277}{\micro\metre} and stretch $7.09$ performed.
+
 \section{The temperature trend}
 
 The most informative result is not any single number but a trend
@@ -1230,6 +1342,33 @@ differently; that is a choice about what one wants to learn. Estimation and disc
 disagree because they are about different quantities altogether. The next subsection
 resolves the second, and in doing so dissolves the first.
 
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  \draw[->,gray] (0,0) -- (9.2,0) node[anchor=north east] {\footnotesize design $x$};
+  \draw[->,gray] (0,0) -- (0,3.3);
+  \draw[red!75!black,thick,dashed] (0,2.4) -- (9.0,2.4);
+  \node[red!75!black,anchor=south east] at (9.0,2.42) {\footnotesize $p$ = number of parameters};
+  % a sensitivity curve touching p in three places
+  \draw[blue!70!black,very thick,smooth,samples=200,domain=0.25:8.8]
+    plot (\x, {2.4 - 1.5*abs(sin(deg(\x*1.05)))*abs(sin(deg(\x*0.42+0.6)))});
+  \foreach \x in {1.5, 4.5, 7.45} { \fill[red!75!black] (\x,2.4) circle (2.4pt); }
+  \node[blue!70!black,anchor=west] at (0.15,0.55) {\footnotesize $d(x,\xi^\star)=\operatorname{tr}[M(\xi^\star)^{-1}M(x)]$};
+  \draw[decorate,decoration={brace,amplitude=4pt},gray]
+    (1.5,2.62) -- (7.45,2.62) node[midway,above=3pt] {\footnotesize support of $\xi^\star$};
+\end{tikzpicture}
+\caption{The certificate, which is what makes an optimal design a proof rather than a
+stopping rule. Kiefer and Wolfowitz: a measure $\xi^\star$ is $D$-optimal \emph{if and only
+if} its sensitivity $d(x,\xi^\star)$ never exceeds the parameter count $p$ anywhere in the
+design space, and attains $p$ exactly on the points carrying weight. Both halves are visible
+at once --- a curve capped by a level it touches and never crosses --- so a search can report
+not merely that it stopped improving but that there is nowhere left for a better design to
+hide. The gap $\max_x d(x,\xi^\star)-p$ is the proof's residue; $10^{-9}$ in the designs
+reported here.}
+\label{fig:certificate-schematic}
+\end{figure}
+
 \subsection*{Designing over measures, and certifying the answer}
 \label{sec:measure}
 
@@ -1418,6 +1557,37 @@ the sensitivity function $d(x,\xi^\star)$ can be evaluated anywhere, which turns
 a missed region into a cheap scan rather than another search. And the compound form was not
 run on these records, because the per-design log Bayes factor still suffers the boundary
 pinning described above.
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  % the plane of what refitting can reproduce
+  \fill[gray!14] (0,0) -- (5.4,0) -- (6.9,1.5) -- (1.5,1.5) -- cycle;
+  \draw[gray!55] (0,0) -- (5.4,0) -- (6.9,1.5) -- (1.5,1.5) -- cycle;
+  \node[gray!70,anchor=west] at (4.9,0.5) {\footnotesize $\operatorname{span}\partial R/\partial\theta$};
+  % the model difference
+  \draw[-{Latex[length=2.4mm]},very thick,blue!70!black] (2.4,0.75) -- (4.05,2.85)
+    node[anchor=south west] {\footnotesize $\Delta = R_B - R_A$};
+  % decomposition
+  \draw[-{Latex[length=2mm]},thick,gray!80!black] (2.4,0.75) -- (3.75,0.75)
+    node[midway,below=1pt] {\footnotesize absorbed by refitting};
+  \draw[dashed,gray] (3.75,0.75) -- (4.05,2.85);
+  \draw[-{Latex[length=2mm]},thick,red!75!black] (3.75,0.75) -- (3.98,2.55);
+  \node[red!75!black,anchor=west,align=left] at (4.15,1.75)
+    {\footnotesize what survives:\\[-2pt]\footnotesize the only part any design can see};
+  \draw[gray] (3.62,0.75) rectangle (3.75,0.88);
+\end{tikzpicture}
+\caption{Why a model difference can be invisible at every design. Changing a model perturbs
+the trace by $\Delta = R_B - R_A$. The component of $\Delta$ lying in the span of the
+material sensitivities is reproduced by adjusting $g,\mu,\lambda_1,\alpha$ --- refitting
+absorbs it, and no experiment recovers it. Only the orthogonal remainder is evidence that
+the model changed. Measured on the \SI{15}{\celsius} record and reported in
+\S\ref{sec:axes}: the bubble-dynamics operator is $77.7\%$ absorbed, leaving under two noise
+units, which is why its ranking proved so fragile; the constitutive and thermal axes leave
+$8.1$ and $8.5$.}
+\label{fig:absorption}
+\end{figure}
 
 \section{Limitations}
 \label{sec:limitations}
@@ -1627,6 +1797,46 @@ Kullback--Leibler divergence --- and is not an approximation to $Z$ at all. Wher
 sloppy, $H$ is near-singular, $|H|^{-1/2}$ is enormous, and the asymptotic form fails while
 the integral remains well defined.
 
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+% --- left: the ordinary case ---
+\begin{scope}
+  \draw[thick] (0,0) rectangle (3.2,3.2);
+  \node[anchor=south west] at (0,3.25) {\footnotesize prior: uniform on the unit cube};
+  \fill[blue!25,draw=blue!70!black,thick,rotate around={25:(1.7,1.5)}] (1.7,1.5) ellipse (0.55 and 0.32);
+  \node[blue!60!black,anchor=west] at (2.35,1.0) {\footnotesize posterior};
+  \draw[<->,gray] (0,-0.25) -- (3.2,-0.25) node[midway,below] {\footnotesize width 1};
+  \node[align=center] at (1.6,-1.0)
+    {\footnotesize $V_{\rm post}/V_{\rm prior}<1$\\[-1pt]\footnotesize the model \emph{pays}};
+\end{scope}
+% --- right: the pathology ---
+\begin{scope}[xshift=6.2cm]
+  \draw[thick] (0,0) rectangle (3.2,3.2);
+  \node[anchor=south west] at (0,3.25) {\footnotesize a direction the data does not see};
+  \fill[red!12,draw=red!70!black,thick,rotate around={30:(1.6,1.6)}]
+    (1.6,1.6) ellipse (2.9 and 0.30);
+  \draw[dashed,red!70!black,thick] (0,0) rectangle (3.2,3.2);
+  \node[red!70!black,anchor=west] at (-0.1,-0.55)
+    {\footnotesize $\lambda_k\!\to\!0\ \Rightarrow\ -\tfrac12\log\det \to +\infty$};
+  \node[align=center] at (1.6,-1.0)
+    {\footnotesize the Gaussian leaves the box;\\[-1pt]\footnotesize uncapped, the model is \emph{paid}};
+\end{scope}
+\end{tikzpicture}
+\caption{The Occam factor is the share of the prior the data leaves standing,
+$V_{\rm post}/V_{\rm prior}=\prod_k\sqrt{2\pi/\lambda_k}$ over the eigenvalues of
+$J^{\mathsf T}J$. Left: the ordinary case, where every direction is narrower than its prior and
+a flexible model pays for the volume it does not use. Right: a direction the data does not
+determine has $\lambda_k\to0$, so the fitted Gaussian extends far outside the cube the prior
+actually occupies and the expansion returns a factor \emph{greater} than one --- the evidence
+rises when a useless parameter is added. Capping each direction at unity,
+\eqref{eq:occam-capped}, restores what the geometry already required. On the models of
+\S\ref{sec:enrich} the uncapped form favoured the two-mode law by $29.7$ nats exactly where
+its second arm did nothing.}
+\label{fig:occam}
+\end{figure}
+
 \subsection{Capping the Occam factor at the prior}
 \label{sec:occam-cap}
 
@@ -1667,6 +1877,44 @@ error it removes, which on the models considered there is $29.7$ nats.
 This matters wherever models of differing dimension are compared and some parameters are
 weakly identified --- which, for the sloppy spectra of \S\ref{sec:sloppy}, is the normal
 case rather than the exceptional one.
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  % the valley: nested elongated ellipses along a diagonal
+  \foreach \r/\o in {2.6/0.10, 2.0/0.22, 1.4/0.40, 0.8/0.62} {
+    \draw[gray!60,rotate around={38:(3.0,1.7)}] (3.0,1.7) ellipse ({\r} and {\o});
+  }
+  \node[gray!70,anchor=west] at (4.9,3.05) {\footnotesize contours of $\chi^2$};
+  % the two boxes
+  \draw[blue!70!black,thick,dashed] (1.05,0.55) rectangle (3.3,2.3);
+  \draw[red!70!black,thick,dashed] (1.9,0.95) rectangle (5.1,3.0);
+  \node[blue!70!black,anchor=north] at (2.2,0.5) {\footnotesize narrow prior};
+  \node[red!70!black,anchor=north] at (4.65,0.9) {\footnotesize wide prior};
+  % the two "best fits" -- where each box cuts the valley
+  \fill[blue!70!black] (1.35,0.72) circle (2.2pt);
+  \fill[red!70!black] (4.75,2.75) circle (2.2pt);
+  % the two directions
+  \draw[-{Latex[length=2mm]},thick] (3.0,1.7) -- ++(38:1.7)
+    node[pos=1.06,anchor=south west,align=left] {\footnotesize $g/\alpha$: free\\[-2pt]\footnotesize (the data is flat here)};
+  \draw[-{Latex[length=2mm]},thick] (3.0,1.7) -- ++(-52:0.85)
+    node[pos=1.1,anchor=north west] {\footnotesize $g\alpha$: determined};
+  \node[anchor=north] at (3.1,-0.35) {\footnotesize $\log g$};
+  \node[rotate=90,anchor=south] at (0.35,1.7) {\footnotesize $\log\alpha$};
+  \draw[->,gray] (0.6,0.1) -- (5.6,0.1);
+  \draw[->,gray] (0.6,0.1) -- (0.6,3.3);
+\end{tikzpicture}
+\caption{Why a ``best fit'' for $g$ is a statement about the prior. The likelihood depends on
+the product $g\alpha$, so the misfit surface is a valley running along constant $g\alpha$ and
+the data is flat along $g/\alpha$. An optimiser therefore slides until it meets the edge of
+the box, and \emph{where} it stops is set by the box: the two dashed rectangles give the two
+filled points, which differ in $g$ by more than a factor of thirty. This is the mechanism
+behind the fifty-nat swing in the operator ranking of \S\ref{sec:operator} when the bounds
+were widened, and behind the order-of-magnitude disagreement in $g$ between methods in
+Fig.~\ref{fig:valley}.}
+\label{fig:ridge}
+\end{figure}
 
 \subsection{Sloppy models}
 \label{sec:sloppy}

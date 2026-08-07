@@ -23,6 +23,25 @@ HERE = Path(__file__).resolve().parent
 DATASETS = {"gelatin_15C": 277e-6, "gelatin_23C": 298e-6, "gelatin_33C": 312e-6}
 
 
+def pool(jobs):
+  """A worker pool sized to the work and the machine, not to a number typed once.
+
+  Every study here hardcoded its own count -- 3, 4, 6, 20 -- and they were mostly far too
+  small: 54 jobs across 6 workers is nine waves on a 128-core machine, with 122 cores idle.
+  One worker per job removes the waves, capped by the cores this process is actually allowed
+  (`sched_getaffinity`, not `cpu_count`, so a scheduler's allocation is respected) less two
+  so the parent and the OS keep a core.
+
+  These jobs are also very unevenly sized -- a thermal fit costs many times a cold one -- and
+  waves are what turns that imbalance into idle time, so removing them matters more here than
+  the raw count does.
+  """
+  from pyimr.parallel import worker_pool
+
+  available = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 2)
+  return worker_pool(max(1, min(int(jobs), available - 2)))
+
+
 def load(dataset):
   """`(times, mean, spread, maximum_radius, stretch)` with the useless samples dropped."""
   record = json.loads((HERE / "results.json").read_text())[dataset]

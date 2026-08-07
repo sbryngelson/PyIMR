@@ -77,11 +77,40 @@ Gilmore/Tait. And the correlated residual that motivates richer constitutive mod
 removed by a second relaxation time, by a rate-dependent one, by fitting individual trials, or
 by any of six operators.
 
-We also report what would be needed to do better. Treating a model choice as a parameter puts
-discrimination and estimation in one information matrix, and the resulting design measure
-carries a Kiefer--Wolfowitz certificate~\citep{kiefer1960equivalence}. The experiments analysed
-here are near-optimal for the hardest of the three model axes and $24$ to $41$ times from
-optimal for the two easiest.
+We also ask what experiment would settle the question. Treating the choice of model as one
+more unknown to be fitted lets a single calculation say how well a given experiment separates
+the models and how well it pins the material. The answer comes with a proof of optimality,
+which is unusual for a design calculation and follows from a classical
+result~\citep{kiefer1960equivalence}. Judged that way, the experiments analysed here are close
+to the best possible for the hardest of the three choices and $24$ to $41$ times worse than
+the best for the two easiest.
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=gray!70,rounded corners=2pt,align=center,inner sep=4pt,minimum height=1.05cm},
+  ar/.style={-{Latex[length=2.2mm]},gray!80!black}]
+  \node[box,minimum width=1.9cm] (laser) at (0,0) {\footnotesize laser\\[-2pt]\footnotesize breakdown};
+  \node[box,minimum width=2.0cm] (image) at (2.75,0) {\footnotesize high-speed\\[-2pt]\footnotesize imaging};
+  \node[box,minimum width=2.0cm] (trace) at (5.6,0) {\footnotesize $R(t)$, one\\[-2pt]\footnotesize per trial};
+  \node[box,minimum width=2.2cm] (fit) at (8.6,0) {\footnotesize fit a candidate\\[-2pt]\footnotesize model};
+  \node[box,minimum width=2.2cm] (rank) at (11.7,0) {\footnotesize rank by\\[-2pt]\footnotesize evidence};
+  \foreach \a/\b in {laser/image, image/trace, trace/fit, fit/rank} { \draw[ar] (\a) -- (\b); }
+  \node[box,minimum width=2.6cm,draw=blue!60!black] (design) at (8.6,-2.15)
+    {\footnotesize choose $R_{\max}$, stretch\\[-2pt]\footnotesize to make the next\\[-2pt]\footnotesize comparison decisive};
+  \draw[ar,blue!60!black] (rank.south) |- (design.east);
+  \draw[ar,blue!60!black] (design.west) -| (laser.south);
+  \node[gray,anchor=west] at (0.15,-2.6) {\footnotesize \cref{sec:design}};
+\end{tikzpicture}
+\caption{Where this work sits in the measurement chain. A laser nucleates a bubble, imaging
+records how its radius changes, and a material model is fitted to that curve. The fitted
+stiffness and viscosity are then quoted as material properties. This paper concerns the two
+right-hand boxes: which model to believe, and which experiment to run so that the question can
+be answered. Ranking on goodness of fit alone does not work here, because a model with more
+parameters always fits at least as well as the simpler model inside it.}
+\label{fig:pipeline}
+\end{figure}
 
 \section{Records and noise model}
 
@@ -1096,6 +1125,38 @@ material against learning which model produced the trace. Nothing about the crit
 so the certificate still applies. The variance of $\varepsilon$ after the material is fitted
 out is what says whether a design can tell the models apart at all.}
 \label{fig:augment}
+\end{figure}
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  \draw[-{Latex[length=2.2mm]},thick] (0,0) -- (4.5,0);
+  \draw[-{Latex[length=2.2mm]},thick] (0,0) -- (0,3.4);
+  \draw[-{Latex[length=2.2mm]},thick] (0,0) -- (-2.05,-1.5);
+  \node[anchor=west] at (4.6,0) {\footnotesize constitutive law};
+  \node[anchor=south] at (0,3.5) {\footnotesize bubble dynamics};
+  \node[anchor=north east] at (-2.1,-1.55) {\footnotesize thermal transport};
+  \foreach \x/\lab in {1.2/qSLS, 2.6/qSLS2, 3.9/qSLSthin} {
+    \fill[gray!75] (\x,0) circle (1.7pt); }
+  \foreach \y/\lab in {0.85/{}, 1.7/{}, 2.55/{}} { \fill[gray!75] (0,\y) circle (1.7pt); }
+  \fill[gray!75] (-0.68,-0.5) circle (1.7pt);
+  \fill[gray!75] (-1.36,-1.0) circle (1.7pt);
+  \fill[red!75!black] (0,0) circle (2.6pt);
+  \node[red!75!black,anchor=west,align=left] at (0.3,-0.55)
+    {\footnotesize every published comparison\\[-2pt]\footnotesize moves along one axis only};
+  \node[gray,anchor=west,align=left] at (2.3,2.6)
+    {\footnotesize $77.7\%$ absorbed\\[-2pt]\footnotesize by refitting};
+  \draw[gray] (2.25,2.6) -- (0.1,2.0);
+\end{tikzpicture}
+\caption{Three choices go into every prediction, and they are made independently: the
+constitutive law, the bubble-dynamics equation, and whether heat transfer is modelled.
+Published comparisons vary the first and leave the other two at the origin. Some of each
+change can be cancelled by refitting stiffness and viscosity, which makes it invisible no
+matter how the experiment is run; what remains is $22\%$ of an operator change, $57\%$ of a
+constitutive change and $53\%$ of a thermal one, and no two of those remainders point in
+similar directions. All three are therefore distinguishable in principle.}
+\label{fig:modelspace}
 \end{figure}
 
 \section{Separability of the model axes}

@@ -1345,27 +1345,27 @@ resolves the second, and in doing so dissolves the first.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}[scale=1.0]
-  \draw[->,gray] (0,0) -- (9.2,0) node[anchor=north east] {\footnotesize design $x$};
-  \draw[->,gray] (0,0) -- (0,3.3);
-  \draw[red!75!black,thick,dashed] (0,2.4) -- (9.0,2.4);
-  \node[red!75!black,anchor=south east] at (9.0,2.42) {\footnotesize $p$ = number of parameters};
-  % a sensitivity curve touching p in three places
+\begin{tikzpicture}[scale=1.05]
+  \draw[->,gray] (0,0) -- (9.4,0) node[anchor=north east] {\footnotesize design space $x$};
+  \draw[->,gray] (0,0) -- (0,3.5);
+  \draw[red!75!black,thick,dashed] (0,2.4) -- (9.2,2.4);
   \draw[blue!70!black,very thick,smooth,samples=200,domain=0.25:8.8]
     plot (\x, {2.4 - 1.5*abs(sin(deg(\x*1.05)))*abs(sin(deg(\x*0.42+0.6)))});
-  \foreach \x in {1.5, 4.5, 7.45} { \fill[red!75!black] (\x,2.4) circle (2.4pt); }
-  \node[blue!70!black,anchor=west] at (0.15,0.55) {\footnotesize $d(x,\xi^\star)=\operatorname{tr}[M(\xi^\star)^{-1}M(x)]$};
-  \draw[decorate,decoration={brace,amplitude=4pt},gray]
-    (1.5,2.62) -- (7.45,2.62) node[midway,above=3pt] {\footnotesize support of $\xi^\star$};
+  \foreach \x in {1.5, 4.5, 7.45} { \fill[red!75!black] (\x,2.4) circle (2.5pt); }
+  \node[red!75!black,anchor=south east] at (9.2,2.52) {\footnotesize the bound $p$};
+  \node[blue!70!black,anchor=north west] at (0.2,1.05) {\footnotesize $d(x,\xi^\star)=\operatorname{tr}[M(\xi^\star)^{-1}M(x)]$};
+  \node[red!75!black,anchor=south] at (1.5,3.0) {\footnotesize support: touches the bound};
+  \draw[red!75!black,thin] (1.5,2.92) -- (1.5,2.52);
+  \draw[red!75!black,thin] (2.6,2.92) -- (4.42,2.52);
+  \draw[red!75!black,thin] (3.0,2.92) -- (7.38,2.52);
 \end{tikzpicture}
-\caption{The certificate, which is what makes an optimal design a proof rather than a
-stopping rule. Kiefer and Wolfowitz: a measure $\xi^\star$ is $D$-optimal \emph{if and only
-if} its sensitivity $d(x,\xi^\star)$ never exceeds the parameter count $p$ anywhere in the
-design space, and attains $p$ exactly on the points carrying weight. Both halves are visible
-at once --- a curve capped by a level it touches and never crosses --- so a search can report
-not merely that it stopped improving but that there is nowhere left for a better design to
-hide. The gap $\max_x d(x,\xi^\star)-p$ is the proof's residue; $10^{-9}$ in the designs
-reported here.}
+\caption{The certificate, which is what makes an optimal design a proof rather than a stopping
+rule. Kiefer and Wolfowitz: a measure $\xi^\star$ is $D$-optimal \emph{if and only if} its
+sensitivity $d(x,\xi^\star)$ never exceeds the parameter count $p$ anywhere in the design
+space, and attains $p$ exactly on the points carrying weight. Both halves are visible at once
+--- a curve capped by a level it touches and never crosses --- so a search reports not merely
+that it stopped improving but that there is nowhere left for a better design to hide. The gap
+$\max_x d(x,\xi^\star)-p$ is the proof's residue; $10^{-9}$ in the designs here.}
 \label{fig:certificate-schematic}
 \end{figure}
 
@@ -1561,31 +1561,28 @@ pinning described above.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}[scale=1.0]
-  % the plane of what refitting can reproduce
-  \fill[gray!14] (0,0) -- (5.4,0) -- (6.9,1.5) -- (1.5,1.5) -- cycle;
-  \draw[gray!55] (0,0) -- (5.4,0) -- (6.9,1.5) -- (1.5,1.5) -- cycle;
-  \node[gray!70,anchor=west] at (4.9,0.5) {\footnotesize $\operatorname{span}\partial R/\partial\theta$};
-  % the model difference
-  \draw[-{Latex[length=2.4mm]},very thick,blue!70!black] (2.4,0.75) -- (4.05,2.85)
-    node[anchor=south west] {\footnotesize $\Delta = R_B - R_A$};
-  % decomposition
-  \draw[-{Latex[length=2mm]},thick,gray!80!black] (2.4,0.75) -- (3.75,0.75)
-    node[midway,below=1pt] {\footnotesize absorbed by refitting};
-  \draw[dashed,gray] (3.75,0.75) -- (4.05,2.85);
-  \draw[-{Latex[length=2mm]},thick,red!75!black] (3.75,0.75) -- (3.98,2.55);
-  \node[red!75!black,anchor=west,align=left] at (4.15,1.75)
-    {\footnotesize what survives:\\[-2pt]\footnotesize the only part any design can see};
-  \draw[gray] (3.62,0.75) rectangle (3.75,0.88);
+\begin{tikzpicture}[scale=1.15]
+  \fill[gray!14] (0,0) -- (5.6,0) -- (7.3,1.7) -- (1.7,1.7) -- cycle;
+  \draw[gray!55] (0,0) -- (5.6,0) -- (7.3,1.7) -- (1.7,1.7) -- cycle;
+  \draw[-{Latex[length=2.4mm]},very thick,blue!70!black] (2.5,0.8) -- (4.2,3.5);
+  \draw[-{Latex[length=2mm]},thick,gray!80!black] (2.5,0.8) -- (4.0,0.8);
+  \draw[dashed,gray] (4.0,0.8) -- (4.2,3.5);
+  \draw[-{Latex[length=2mm]},very thick,red!75!black] (4.0,0.8) -- (4.18,3.2);
+  \draw[gray] (3.85,0.8) rectangle (4.0,0.95);
+  % labels, each with its own clear lane
+  \node[blue!70!black,anchor=south] at (4.2,3.62) {\footnotesize $\Delta = R_B - R_A$};
+  \node[gray!65,anchor=north west] at (6.0,-0.05) {\footnotesize $\operatorname{span}\partial R/\partial\theta$};
+  \node[gray!80!black,anchor=north] at (3.2,0.6) {\footnotesize absorbed by refitting};
+  \node[red!75!black,anchor=west,align=left] at (4.55,2.2)
+    {\footnotesize what survives ---\\[-2pt]\footnotesize the only part\\[-2pt]\footnotesize a design can see};
 \end{tikzpicture}
 \caption{Why a model difference can be invisible at every design. Changing a model perturbs
-the trace by $\Delta = R_B - R_A$. The component of $\Delta$ lying in the span of the
-material sensitivities is reproduced by adjusting $g,\mu,\lambda_1,\alpha$ --- refitting
-absorbs it, and no experiment recovers it. Only the orthogonal remainder is evidence that
-the model changed. Measured on the \SI{15}{\celsius} record and reported in
-\S\ref{sec:axes}: the bubble-dynamics operator is $77.7\%$ absorbed, leaving under two noise
-units, which is why its ranking proved so fragile; the constitutive and thermal axes leave
-$8.1$ and $8.5$.}
+the trace by $\Delta = R_B - R_A$. The component lying in the span of the material
+sensitivities is reproduced by adjusting $g,\mu,\lambda_1,\alpha$ --- refitting absorbs it, and
+no experiment recovers it. Only the orthogonal remainder is evidence that the model changed.
+Measured on the \SI{15}{\celsius} record and reported in \S\ref{sec:axes}: the bubble-dynamics
+operator is $77.7\%$ absorbed, leaving under two noise units, which is why its ranking proved
+so fragile; the constitutive and thermal axes leave $8.1$ and $8.5$.}
 \label{fig:absorption}
 \end{figure}
 
@@ -1801,37 +1798,33 @@ the integral remains well defined.
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}[scale=1.0]
-% --- left: the ordinary case ---
 \begin{scope}
+  \node[anchor=south] at (1.6,3.45) {\footnotesize\textbf{a direction the data determines}};
   \draw[thick] (0,0) rectangle (3.2,3.2);
-  \node[anchor=south west] at (0,3.25) {\footnotesize prior: uniform on the unit cube};
-  \fill[blue!25,draw=blue!70!black,thick,rotate around={25:(1.7,1.5)}] (1.7,1.5) ellipse (0.55 and 0.32);
-  \node[blue!60!black,anchor=west] at (2.35,1.0) {\footnotesize posterior};
-  \draw[<->,gray] (0,-0.25) -- (3.2,-0.25) node[midway,below] {\footnotesize width 1};
-  \node[align=center] at (1.6,-1.0)
-    {\footnotesize $V_{\rm post}/V_{\rm prior}<1$\\[-1pt]\footnotesize the model \emph{pays}};
+  \fill[blue!25,draw=blue!70!black,thick,rotate around={25:(1.6,1.6)}] (1.6,1.6) ellipse (0.55 and 0.32);
+  \node[blue!60!black] at (1.6,0.75) {\footnotesize posterior};
+  \node[anchor=north] at (1.6,-0.15) {\footnotesize $V_{\rm post}/V_{\rm prior}<1$};
+  \node[anchor=north] at (1.6,-0.62) {\footnotesize the model \emph{pays}};
 \end{scope}
-% --- right: the pathology ---
-\begin{scope}[xshift=6.2cm]
+\begin{scope}[xshift=7.0cm]
+  \node[anchor=south] at (1.6,3.45) {\footnotesize\textbf{a direction it does not}};
   \draw[thick] (0,0) rectangle (3.2,3.2);
-  \node[anchor=south west] at (0,3.25) {\footnotesize a direction the data does not see};
-  \fill[red!12,draw=red!70!black,thick,rotate around={30:(1.6,1.6)}]
-    (1.6,1.6) ellipse (2.9 and 0.30);
-  \draw[dashed,red!70!black,thick] (0,0) rectangle (3.2,3.2);
-  \node[red!70!black,anchor=west] at (-0.1,-0.55)
-    {\footnotesize $\lambda_k\!\to\!0\ \Rightarrow\ -\tfrac12\log\det \to +\infty$};
-  \node[align=center] at (1.6,-1.0)
-    {\footnotesize the Gaussian leaves the box;\\[-1pt]\footnotesize uncapped, the model is \emph{paid}};
+  \begin{scope}
+    \clip (-1.5,-1.0) rectangle (4.7,4.2);
+    \fill[red!12,draw=red!70!black,thick,rotate around={30:(1.6,1.6)}] (1.6,1.6) ellipse (3.4 and 0.30);
+  \end{scope}
+  \draw[thick] (0,0) rectangle (3.2,3.2);
+  \node[anchor=north] at (1.6,-0.15) {\footnotesize $\lambda_k\to0$, so $-\tfrac12\log\det\to+\infty$};
+  \node[red!70!black,anchor=north] at (1.6,-0.62) {\footnotesize the model is \emph{paid}};
 \end{scope}
 \end{tikzpicture}
 \caption{The Occam factor is the share of the prior the data leaves standing,
-$V_{\rm post}/V_{\rm prior}=\prod_k\sqrt{2\pi/\lambda_k}$ over the eigenvalues of
-$J^{\mathsf T}J$. Left: the ordinary case, where every direction is narrower than its prior and
-a flexible model pays for the volume it does not use. Right: a direction the data does not
-determine has $\lambda_k\to0$, so the fitted Gaussian extends far outside the cube the prior
-actually occupies and the expansion returns a factor \emph{greater} than one --- the evidence
-rises when a useless parameter is added. Capping each direction at unity,
-\eqref{eq:occam-capped}, restores what the geometry already required. On the models of
+$\prod_k\sqrt{2\pi/\lambda_k}$ over the eigenvalues of $J^{\mathsf T}J$. Left: every direction
+is narrower than its prior, so a flexible model pays for volume it does not use. Right: a
+direction the data does not determine has $\lambda_k\to0$, the fitted Gaussian extends far
+outside the box the prior occupies, and the expansion returns a factor \emph{greater} than
+one --- the evidence rises when a useless parameter is added. Capping each direction at unity,
+\eqref{eq:occam-capped}, restores what the geometry already required; on the models of
 \S\ref{sec:enrich} the uncapped form favoured the two-mode law by $29.7$ nats exactly where
 its second arm did nothing.}
 \label{fig:occam}
@@ -1881,38 +1874,40 @@ case rather than the exceptional one.
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}[scale=1.0]
-  % the valley: nested elongated ellipses along a diagonal
-  \foreach \r/\o in {2.6/0.10, 2.0/0.22, 1.4/0.40, 0.8/0.62} {
-    \draw[gray!60,rotate around={38:(3.0,1.7)}] (3.0,1.7) ellipse ({\r} and {\o});
-  }
-  \node[gray!70,anchor=west] at (4.9,3.05) {\footnotesize contours of $\chi^2$};
-  % the two boxes
-  \draw[blue!70!black,thick,dashed] (1.05,0.55) rectangle (3.3,2.3);
-  \draw[red!70!black,thick,dashed] (1.9,0.95) rectangle (5.1,3.0);
-  \node[blue!70!black,anchor=north] at (2.2,0.5) {\footnotesize narrow prior};
-  \node[red!70!black,anchor=north] at (4.65,0.9) {\footnotesize wide prior};
-  % the two "best fits" -- where each box cuts the valley
-  \fill[blue!70!black] (1.35,0.72) circle (2.2pt);
-  \fill[red!70!black] (4.75,2.75) circle (2.2pt);
-  % the two directions
-  \draw[-{Latex[length=2mm]},thick] (3.0,1.7) -- ++(38:1.7)
-    node[pos=1.06,anchor=south west,align=left] {\footnotesize $g/\alpha$: free\\[-2pt]\footnotesize (the data is flat here)};
-  \draw[-{Latex[length=2mm]},thick] (3.0,1.7) -- ++(-52:0.85)
-    node[pos=1.1,anchor=north west] {\footnotesize $g\alpha$: determined};
-  \node[anchor=north] at (3.1,-0.35) {\footnotesize $\log g$};
-  \node[rotate=90,anchor=south] at (0.35,1.7) {\footnotesize $\log\alpha$};
-  \draw[->,gray] (0.6,0.1) -- (5.6,0.1);
-  \draw[->,gray] (0.6,0.1) -- (0.6,3.3);
+\begin{tikzpicture}[scale=1.15]
+  \draw[->,gray] (0,0) -- (7.4,0) node[anchor=north east] {\footnotesize $\log g$};
+  \draw[->,gray] (0,0) -- (0,4.5) node[anchor=north west,rotate=90] {\footnotesize $\log\alpha$};
+  \begin{scope}
+    \clip (0.05,0.05) rectangle (7.3,4.4);
+    \foreach \r/\o in {3.1/0.13, 2.4/0.28, 1.7/0.48, 1.0/0.72} {
+      \draw[gray!55,rotate around={34:(3.6,2.2)}] (3.6,2.2) ellipse ({\r} and {\o});
+    }
+  \end{scope}
+  \draw[blue!70!black,thick,dashed] (1.1,0.6) rectangle (3.3,2.35);
+  \draw[red!70!black,thick,dashed] (2.1,1.15) rectangle (6.5,3.9);
+  \fill[blue!70!black] (1.35,0.78) circle (2.4pt);
+  \fill[red!70!black] (6.2,3.65) circle (2.4pt);
+  \draw[-{Latex[length=2mm]},thick] (3.6,2.2) -- ++(34:1.35);
+  \draw[-{Latex[length=2mm]},thick] (3.6,2.2) -- ++(-56:0.95);
+  % every label sits outside the drawing
+  \node[gray!70,anchor=west] at (7.6,4.15) {\footnotesize contours of $\chi^2$};
+  \node[anchor=west] at (7.6,3.35) {\footnotesize $g/\alpha$: the data is flat};
+  \node[anchor=west] at (7.6,2.85) {\footnotesize $g\alpha$: determined};
+  \node[blue!70!black,anchor=west] at (7.6,1.35) {\footnotesize narrow prior $\Rightarrow$ this fit};
+  \node[red!70!black,anchor=west] at (7.6,0.85) {\footnotesize wide prior $\Rightarrow$ that one};
+  \draw[gray] (7.5,4.15) -- (5.3,3.6);
+  \draw[gray] (7.5,3.35) -- (4.9,3.05);
+  \draw[gray] (7.5,2.85) -- (4.2,1.5);
+  \draw[blue!70!black] (7.5,1.35) -- (1.5,0.85);
+  \draw[red!70!black] (7.5,0.85) -- (6.15,3.55);
 \end{tikzpicture}
 \caption{Why a ``best fit'' for $g$ is a statement about the prior. The likelihood depends on
 the product $g\alpha$, so the misfit surface is a valley running along constant $g\alpha$ and
-the data is flat along $g/\alpha$. An optimiser therefore slides until it meets the edge of
-the box, and \emph{where} it stops is set by the box: the two dashed rectangles give the two
-filled points, which differ in $g$ by more than a factor of thirty. This is the mechanism
-behind the fifty-nat swing in the operator ranking of \S\ref{sec:operator} when the bounds
-were widened, and behind the order-of-magnitude disagreement in $g$ between methods in
-Fig.~\ref{fig:valley}.}
+the data is flat along $g/\alpha$. An optimiser slides until it meets the edge of the box, and
+\emph{where} it stops is set by the box: the two dashed rectangles give the two filled points,
+which differ in $g$ by more than thirtyfold. This is the mechanism behind the fifty-nat swing
+in the operator ranking of \S\ref{sec:operator} when the bounds were widened, and behind the
+order-of-magnitude disagreement in $g$ between methods in Fig.~\ref{fig:valley}.}
 \label{fig:ridge}
 \end{figure}
 

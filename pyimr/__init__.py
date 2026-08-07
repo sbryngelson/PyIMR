@@ -45,6 +45,8 @@ __all__ = [
   "PreparedProblem",
   "QuadraticKelvinVoigt",
   "QuadraticZener",
+  "RADIAL_MODELS",
+  "RADIAL_NAMES",
   "RHO",
   "SURF",
   "SampledForcing",
@@ -65,6 +67,8 @@ __all__ = [
 
 from ._config import (  # noqa: F401
   C8,
+  RADIAL_MODELS,
+  RADIAL_NAMES,
   CollapseInitialization,
   CollapseStats,
   InitialState,

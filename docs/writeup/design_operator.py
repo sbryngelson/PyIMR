@@ -41,7 +41,7 @@ HIGH = np.array([431.9, 0.05005, 2.325e-7, 9.432])
 RADII = np.geomspace(50e-6, 1200e-6, 16)
 STRETCH = np.linspace(3.0, 20.0, 14)
 RELATIVE_NOISE, SAMPLES = 0.018, 201
-RIVALS = (2, 5)                                   # the package default against what replicated
+RIVALS = ("keller-miksis", "keller-miksis-mie")                                   # the package default against what replicated
 # the three experiments actually performed, from the shared record table
 PERFORMED = {name: (records.DATASETS[name], records.load(name)[4]) for name in records.DATASETS}
 

@@ -37,11 +37,9 @@ def _candidate(ratio):
 
 
 def _job(argument):
-  from pyimr.selection import DYNAMICS_MODELS
-
   dataset, name, ratio = argument
   times, mean, spread, maximum, stretch = records.load(dataset)
-  solve = records.solver(times, maximum, stretch, radial=DYNAMICS_MODELS[name])
+  solve = records.solver(times, maximum, stretch, radial=name)
   try:
     got = records.score(_candidate(ratio), solve, mean, spread, bounds=BOX)
   except ValueError as error:
@@ -93,7 +91,7 @@ def main():
 
   # "supported by one record" and "replicated" are different claims, and telling them apart
   # is the whole reason for running three records rather than the one with the best margin
-  print("\n  against the `radial=2` pressure form every candidate in this package assumes:")
+  print("\n  against the `keller-miksis` pressure form every candidate in this package assumes:")
   for challenger in ("keller-miksis-tait", "keller-miksis-mie"):
     votes = [d for d in records.DATASETS if (challenger, "keller-miksis") in decisive[d]]
     print(f"    {challenger:>22}: " + ("REPLICATED on %d records" % len(votes) if len(votes) > 1

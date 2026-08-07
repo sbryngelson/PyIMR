@@ -41,7 +41,11 @@ def _job(argument):
   times, mean, spread, maximum, stretch = records.load(dataset)
   solve = records.solver(times, maximum, stretch, radial=name)
   try:
-    got = records.score(_candidate(ratio), solve, mean, spread, bounds=BOX)
+    # starts=10, not the default 6. At 6 the 33 C fits sat at chi2/N = 1.151 while a fit at
+    # 0.439 exists, so all six operators were stuck in the same poor basin -- which looks
+    # exactly like six operators that cannot be told apart, and was read that way.
+    got = records.score(_candidate(ratio), solve, mean, spread, bounds=BOX, starts=10,
+                        evaluations=260)
   except ValueError as error:
     got = {"failed": str(error)}
   return (dataset, name, ratio), got

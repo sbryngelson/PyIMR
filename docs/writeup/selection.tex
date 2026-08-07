@@ -793,32 +793,39 @@ $\alpha=10^3$, with $g$ collapsed to \SIrange{1.1}{3.5}{\pascal}. This is
 Fig.~\ref{fig:ridge} in practice.
 
 \paragraph{Asked in coordinates the record can answer.} Fixing the unidentified ratio
-$g/\alpha$ and fitting the identified product $g\alpha$ removes the pinning entirely (none of
-$54$ fits) and makes the question well posed. Repeating at three ratios spanning two decades
-and on all three records, an ordering counts as settled when some record decides it by more
-than a nat and none contradicts it; records without the power to tell abstain rather than
-veto, because at \SI{33}{\celsius} all six operators land within half a nat of one another and
-every ordering there is noise.
+$g/\alpha$ and fitting the identified product $g\alpha$ removes the pinning entirely --- none of
+$54$ fits sits on a bound --- and makes the question well posed. Repeating at three ratios
+spanning two decades and on all three records, an ordering counts as settled when some record
+decides it by more than a nat and none contradicts it; records without the power to tell
+abstain rather than veto.
 
 \begin{center}
 \begin{tabular}{lccc}
 \toprule
 ordering & \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
 \midrule
-Keller--Miksis $>$ Rayleigh--Plesset & $+162.5$ & $+74.4$ & --- \\
-Keller--Miksis family $>$ Gilmore/Mie--G & $+151.4$ & $+73.3$ & --- \\
-\textbf{radial 5 (KM/Mie--G) $>$ radial 2 (KM pressure)} & $\mathbf{+4.5}$ & $\mathbf{+1.5}$ & --- \\
-radial 3 (KM/Tait) $>$ radial 2 & $+5.8$ & --- & --- \\
+any compressible operator $>$ Rayleigh--Plesset & $+162$ to $+182$ & $+74$ to $+79$ & $+74$ to $+75$ \\
+\textbf{Gilmore/Tait $>$ Keller--Miksis} & $\mathbf{+17.1}$ & $\mathbf{+4.2}$ & $\mathbf{+1.2}$ \\
+Keller--Miksis/Tait $>$ Keller--Miksis & $+5.8$ & $+2.0$ & --- \\
+Keller--Miksis/Mie--G $>$ Keller--Miksis & $+4.5$ & $+1.5$ & --- \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent Two conclusions replicate on independent records: compressibility is required, and
-\texttt{radial=2}, the pressure form every candidate in this package assumes, is beaten.
-A dash is a record without the power to decide, not a contradiction. \texttt{radial=3} has the
-larger margin but only one record decides it --- selecting on the record with the biggest
-margin is how a one-record result is announced as a general one, and running the other two is
-what caught it.
+\noindent Twelve of the fifteen pairwise orderings are settled. Compressibility is required,
+decisively and on every record. And \texttt{keller-miksis}, the pressure form every candidate
+in this package assumes, is beaten by three separate operators --- by Gilmore/Tait on all
+three records, and by both enthalpy Keller--Miksis forms on two.
+
+\paragraph{An earlier version of this table was wrong, and how it was wrong is the point.}
+Run with six multistart restarts rather than ten, the same comparison put Gilmore/Tait fourth
+on two records and first on the third, and reported the operator as undetermined. It also
+found no ordering at all at \SI{33}{\celsius}, which was read as a record without the power to
+discriminate. Both were artefacts of the search. At ten starts the \SI{33}{\celsius} fits
+reach $\chi^2/N = 0.42$ where six starts had found $1.151$: every operator had been stuck in
+the same poor basin, which is indistinguishable from every operator fitting equally well. A
+record that cannot decide and a search that did not converge look alike in the output, and
+only a better search separates them.
 
 \section{Three model axes, and which of them a design can reach}
 \label{sec:axes}

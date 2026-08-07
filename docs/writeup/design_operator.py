@@ -41,7 +41,7 @@ HIGH = np.array([431.9, 0.05005, 2.325e-7, 9.432])
 RADII = np.geomspace(50e-6, 1200e-6, 16)
 STRETCH = np.linspace(3.0, 20.0, 14)
 RELATIVE_NOISE, SAMPLES = 0.018, 201
-RIVALS = (2, 5)                                   # the package default against what replicated
+RIVALS = ("keller-miksis", "keller-miksis-mie")                                   # the package default against what replicated
 # the three experiments actually performed, from the shared record table
 PERFORMED = {name: (records.DATASETS[name], records.load(name)[4]) for name in records.DATASETS}
 
@@ -88,10 +88,9 @@ def information(design):
 
 def main():
   from pyimr.measure import optimal_measure
-  from pyimr.parallel import worker_pool
 
   designs = [(float(r), float(s)) for r in RADII for s in STRETCH] + list(PERFORMED.values())
-  with worker_pool(20) as pool:
+  with records.pool(len(designs)) as pool:
     out = list(pool.map(information, designs))
   points = [d for d, m in out if m is not None]
   stack = np.array([m for _, m in out if m is not None])

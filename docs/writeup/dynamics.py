@@ -24,10 +24,10 @@ WIDE = {"g": (1e0, 1e6), "mu": (1e-5, 1e1), "lambda1": (1e-9, 1e-2), "alpha": (1
 
 
 def _job(name):
-  from pyimr.selection import DYNAMICS_MODELS, STANDARD_MODELS
+  from pyimr.selection import STANDARD_MODELS
 
   times, mean, spread, maximum, stretch = records.load(DATASET)
-  solve = records.solver(times, maximum, stretch, radial=DYNAMICS_MODELS[name])
+  solve = records.solver(times, maximum, stretch, radial=name)
   try:
     return name, records.score(STANDARD_MODELS["qSLS"], solve, mean, spread, bounds=WIDE)
   except ValueError as error:
@@ -35,11 +35,10 @@ def _job(name):
 
 
 def main():
-  from pyimr.parallel import worker_pool
   from pyimr.selection import DYNAMICS_MODELS
 
   names = list(DYNAMICS_MODELS)
-  with worker_pool(6) as pool:
+  with records.pool(len(names)) as pool:
     order = dict(pool.map(_job, names))
   usable = {k: v for k, v in order.items() if "failed" not in v}
   baseline = usable["keller-miksis"]["log_evidence"]

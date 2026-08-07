@@ -30,9 +30,8 @@ def _job(name):
 
 
 def main():
-  from pyimr.parallel import worker_pool
 
-  with worker_pool(3) as pool:
+  with records.pool(len(MODELS)) as pool:
     order = dict(pool.map(_job, list(MODELS)))
   baseline = order["qSLS"]["log_evidence"]
 

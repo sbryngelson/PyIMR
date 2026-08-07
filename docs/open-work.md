@@ -30,10 +30,26 @@ whatever corner the prior box provides, and moving the box swung the operator ra
 nats. The fits are sound --- `chi2/N` 0.75 to 1.0 --- but **parameter values are not
 identified, and a model ranking must be checked against the box before it is believed.**
 
-**What survives, in identified coordinates and across records:** compressibility is required
-(Keller--Miksis over Rayleigh--Plesset, +162.5 and +74.4 on the two records with power);
-`radial=5` beats the `radial=2` every candidate assumes, on two records (+4.5, +1.5);
-`radial=3` beats it by more but on one record only.
+**What survives, in identified coordinates and across records** (`starts=10`): compressibility
+is required, decisively on all three (+162 to +182, +74 to +79, +74 to +75). **Gilmore/Tait
+beats `keller-miksis` on every record** (+17.1, +4.2, +1.2), and both enthalpy Keller--Miksis
+forms beat it on two. `keller-miksis` is the pressure form every candidate in this package
+assumes, and three separate operators beat it.
+
+**A search budget, not a record, produced the earlier answer.** At `starts=6` the same
+comparison put Gilmore/Tait fourth on two records and first on the third and called the
+operator undetermined, and found no ordering at all at 33 C, which was read as a record
+without discriminating power. At `starts=10` the 33 C fits reach `chi2/N = 0.42` where six
+starts found 1.151: every operator had been stuck in the same poor basin, which in the output
+is indistinguishable from every operator fitting equally well. A record that cannot decide and
+a search that did not converge look alike, and only a better search tells them apart.
+
+**Thermal, scored at last.** Bubble thermal is preferred at 15 C (+8.65) and 23 C (+2.64);
+bubble+medium is preferred at 23 C (+8.02) and 33 C (+1.65) and strongly rejected at 15 C
+(-131). The pattern does not replicate and is more consistent with residual convergence
+trouble than with physics, so nothing is claimed from it yet. Lag-one stays 0.897 to 0.968
+throughout, so thermal joins the constitutive, averaging and operator axes in leaving the
+correlation untouched.
 
 **Designing against three model axes is well posed, but not evenly.** Perturbing each axis
 from one base and projecting off the material sensitivity span (`confounding.py`):

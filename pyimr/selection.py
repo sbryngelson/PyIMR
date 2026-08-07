@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ._config import RADIAL_MODELS
 from ._materials import (
   ArrudaBoyce,
   Bingham,
@@ -117,25 +118,18 @@ PARAMETER_BOUNDS = {
   "tau_ratio": (1.1, 1e3), "share": (1e-3, 9e-1),
 }
 
-# The bubble-dynamics equations, which are a model choice like any other and the one this
-# package has never compared. Every candidate above varies the MATERIAL while holding the
-# forward operator at `radial=2`; on the 15 C record, changing only this moves the trace by
-# 0.078 to 0.262 of Rmax against a median noise of 0.018 -- four to fourteen times the
-# noise, and more than any constitutive difference measured here.
+# The bubble-dynamics equations are a model choice like any other and the one this package
+# has never compared. Every candidate above varies the MATERIAL while holding the forward
+# operator at `keller-miksis`; on the 15 C record, changing only this moves the trace by four
+# to fourteen times the median noise, more than any constitutive difference measured here.
 #
-# These are not `CandidateModel`s and should not become them: a candidate is a material, and
+# They are not `CandidateModel`s and should not become them: a candidate is a material, and
 # this is the operator the material is pushed through. They compare through the same
 # `candidate_log_evidence` by holding the candidate fixed and varying the `solve` callback,
-# and because the parameter space is then identical across the set, the difference in log
-# evidence is a clean Bayes factor between operators with the Occam terms cancelling.
-DYNAMICS_MODELS: dict[str, int] = {
-  "rayleigh-plesset": 1,      # incompressible liquid
-  "keller-miksis": 2,         # weakly compressible, pressure form -- what every candidate assumes
-  "keller-miksis-tait": 3,    # the same, enthalpy form, Tait equation of state
-  "gilmore-tait": 4,          # Gilmore, Tait
-  "keller-miksis-mie": 5,     # Keller-Miksis, Mie-Grueneisen
-  "gilmore-mie": 6,           # Gilmore, Mie-Grueneisen
-}
+# and because the parameter space is then identical the difference in log evidence is a clean
+# Bayes factor with the Occam terms cancelling. The table itself lives in `_config` beside
+# the option it names, so there is one of it.
+DYNAMICS_MODELS = RADIAL_MODELS
 
 _NEGLIGIBLE = 1e-9
 # Residual returned where the material will not integrate: far above any real whitened

@@ -37,13 +37,15 @@ def _candidate(ratio):
 
 
 def _job(argument):
-  from pyimr.selection import DYNAMICS_MODELS
-
   dataset, name, ratio = argument
   times, mean, spread, maximum, stretch = records.load(dataset)
-  solve = records.solver(times, maximum, stretch, radial=DYNAMICS_MODELS[name])
+  solve = records.solver(times, maximum, stretch, radial=name)
   try:
-    got = records.score(_candidate(ratio), solve, mean, spread, bounds=BOX)
+    # starts=10, not the default 6. At 6 the 33 C fits sat at chi2/N = 1.151 while a fit at
+    # 0.439 exists, so all six operators were stuck in the same poor basin -- which looks
+    # exactly like six operators that cannot be told apart, and was read that way.
+    got = records.score(_candidate(ratio), solve, mean, spread, bounds=BOX, starts=10,
+                        evaluations=260)
   except ValueError as error:
     got = {"failed": str(error)}
   return (dataset, name, ratio), got
@@ -66,12 +68,11 @@ def _decided(table, dataset, names):
 
 
 def main():
-  from pyimr.parallel import worker_pool
   from pyimr.selection import DYNAMICS_MODELS
 
   names = list(DYNAMICS_MODELS)
   jobs = [(d, n, r) for d in records.DATASETS for r in RATIOS for n in names]
-  with worker_pool(6) as pool:
+  with records.pool(len(jobs)) as pool:
     table = dict(pool.map(_job, jobs))
   decisive = {d: _decided(table, d, names) for d in records.DATASETS}
 
@@ -94,7 +95,7 @@ def main():
 
   # "supported by one record" and "replicated" are different claims, and telling them apart
   # is the whole reason for running three records rather than the one with the best margin
-  print("\n  against the `radial=2` pressure form every candidate in this package assumes:")
+  print("\n  against the `keller-miksis` pressure form every candidate in this package assumes:")
   for challenger in ("keller-miksis-tait", "keller-miksis-mie"):
     votes = [d for d in records.DATASETS if (challenger, "keller-miksis") in decisive[d]]
     print(f"    {challenger:>22}: " + ("REPLICATED on %d records" % len(votes) if len(votes) > 1

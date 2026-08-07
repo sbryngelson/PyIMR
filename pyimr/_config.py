@@ -177,7 +177,7 @@ class SimulationConfig:
   R0: float
   Req: float
   material: MaterialModel
-  radial: int = 1
+  radial: int | str = 1
   vapor: int = 0
   T8: float = 298.15
   pA: float = 0.0
@@ -203,6 +203,9 @@ class SimulationConfig:
   collapse: CollapseInitialization | None = None
 
   def __post_init__(self) -> None:
+    # a name is normalised to its code here, so everything downstream -- dispatch, the
+    # compile key, the validator -- keeps seeing the integer it has always seen
+    object.__setattr__(self, "radial", radial_code(self.radial))
     if not isinstance(self.material, _MATERIALS): raise TypeError("material must be a supported material model")
     if not isinstance(self.physics, PhysicalParameters): raise TypeError("physics must be PhysicalParameters")
     if not isinstance(self.initial, InitialState): raise TypeError("initial must be InitialState")
@@ -362,6 +365,32 @@ class SimulationResult:
     return radius
 
 def _readonly_optional(values) -> np.ndarray | None: return None if values is None else _freeze_array(values)
+
+# The bubble-dynamics equations, by name. `radial` has always been an integer, and the
+# integer is meaningless on sight: `radial=4` says nothing about Gilmore or about which
+# equation of state it carries, so code and prose both had to keep a decoder ring nearby.
+# `SimulationConfig` accepts either, and normalises a name to its code, so a caller can
+# write what they mean and the solver keeps the compact form it dispatches on.
+RADIAL_MODELS: dict[str, int] = {
+  "rayleigh-plesset": 1,     # incompressible
+  "keller-miksis": 2,        # weakly compressible, pressure form
+  "keller-miksis-tait": 3,   # the same, enthalpy form, Tait equation of state
+  "gilmore-tait": 4,         # Gilmore, Tait
+  "keller-miksis-mie": 5,    # Keller-Miksis, Mie-Grueneisen
+  "gilmore-mie": 6,          # Gilmore, Mie-Grueneisen
+}
+RADIAL_NAMES: dict[int, str] = {code: name for name, code in RADIAL_MODELS.items()}
+
+
+def radial_code(radial):
+  """The integer a `radial` argument denotes, from a name or from itself."""
+  if isinstance(radial, str):
+    try: return RADIAL_MODELS[radial]
+    except KeyError:
+      raise ValueError(f"unknown radial model {radial!r}; choose from "
+                       f"{', '.join(RADIAL_MODELS)}") from None
+  return radial
+
 
 def _validate_config(config) -> None:
   c = config

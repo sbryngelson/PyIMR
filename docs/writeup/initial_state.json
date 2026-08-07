@@ -1,0 +1,30 @@
+{
+ "ranks": {
+  "material": 4,
+  "widened": 6
+ },
+ "axes": {
+  "dynamics (KM -> KM/Mie-G)": {
+   "size": 8.889972580164496,
+   "after_material": 1.97973521155374,
+   "after_widened": 1.8868762091055118
+  },
+  "constitutive (one -> two modes)": {
+   "size": 14.419435371014195,
+   "after_material": 8.1441458091551,
+   "after_widened": 7.723659648106771
+  },
+  "thermal (cold -> bubble+medium)": {
+   "size": 15.99352583146982,
+   "after_material": 8.457420678626102,
+   "after_widened": 7.797984463778246
+  }
+ },
+ "req": {
+  "0.005": 0.3954474832852066,
+  "0.01": 0.9268478730033954,
+  "0.02": 2.7518402975145166
+ },
+ "linear": false,
+ "equivalent_req_error": 0.016829374551773073
+}

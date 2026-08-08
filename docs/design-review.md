@@ -187,6 +187,37 @@ end to end, so that prerequisite is already met. Step-DAD (2025) refines the pol
 arrives, which is the semi-amortized middle ground between our static measure and full
 sequential BOED.
 
+### 2e. What we built, and what it cost to learn
+
+Three pieces now exist, and the order matters because each fixes a failure the previous one
+exposed.
+
+**`identification_front`** walks the compound criterion and returns integer batches, certified
+at every blend. It works, and it revealed that the blend=1 end collapses to a single setting --
+maximal discrimination, singular information, and no way to detect that every model in the set
+is wrong.
+
+**`screen_models`** decides which rivals deserve an experiment at all. A model the data has
+settled gets exactly zero weight; survivors carry the posterior. The far-apart case handles
+itself: far-apart models are easy to separate, so they screen out, and what remains is the
+close pairs a local criterion is right for.
+
+**`augmented_information` / `separability`** replace the sampled Bayes factor with the model
+label as a Jacobian column. This is the piece that should have come first. The sampled version
+lost 22 of 48 designs to its own effective sample size and concentrated a batch on a design
+whose utility was one draw's opinion; the derivative version scores every design that
+integrates, certifies at 1.0e-09, and has no prior to place. **The lesson generalizes: with a
+differentiable simulator, a design utility should be a derivative, not a sample.** The Laplace
+literature exists because the double-loop estimator fails exactly where we watched it fail.
+
+On the real model set, twelve bubbles placed by the certified measure determine the operator
+coordinate 9 to 18 times more precisely than twelve at the geometry already performed.
+
+The caveat that outranks all of it: `screen.py` shows that whether ANY of these questions is
+open depends on the correlated likelihood. Deflated by `N/N_eff`, models the records appear to
+have settled come back live. So the batch above is well designed for a question we cannot yet
+confirm is being asked.
+
 ## 3. What the collaborator actually needs
 
 Stated as deliverables rather than criteria:

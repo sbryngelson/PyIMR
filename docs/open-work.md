@@ -75,6 +75,26 @@ refitting could absorb more. These are upper bounds on what is detectable.
 
 ## Open
 
+**0a. The correlated likelihood now decides WHICH QUESTIONS ARE OPEN, not just how confident
+we are.** `screen.py` screens each model axis by evidence margin. At face value the records
+have settled almost everything -- 1 of 17 constitutive candidates live, 2 of 6 operators. But
+every evidence assumes independent residuals and `check_residuals` puts N_eff near 10 of 201,
+so the margins are inflated by roughly N/N_eff. Deflated by 20: SLS comes back live, five or
+six operators come back, all three thermal treatments come back. Screening turns a margin into
+a yes-or-no, so a twentyfold factor moves margins wholesale across the threshold. Until item 2
+is fixed we cannot say which model questions are open, and every design that targets a
+"live" pair is targeting a pair whose liveness is an artefact of the likelihood.
+
+**0b. Prefer derivatives to sampling for design utilities.** `identify.py` first scored 48
+geometries by a sampled expected log Bayes factor and reproduced every documented failure of
+the double-loop estimator: 22 of 48 designs unscorable at fewer than 4 effective draws, and a
+first run that put 10 of 12 batch runs on the design whose utility rested on 1.15 draws. The
+derivative route -- `measure.augmented_information`, the model label as a Jacobian column --
+scores 45 of 48 (every design that integrates), certifies at 1.0e-09, and needs no prior on
+the rival. PyIMR is differentiable end to end; the Jacobians are already computed for the
+estimation half of the same criterion. The sampled route should not come back without a
+specific reason.
+
 **0. No criterion here takes model error as an argument, and the ranking of designs depends on
 it.** `sloppy_design.py` fits cold one-mode qSLS to a thermal truth and to a two-mode truth at
 four geometries. Robust across both: the discrimination-optimal geometry is worse on BOTH

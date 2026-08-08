@@ -107,7 +107,7 @@ def setup(dataset, thermal_nodes, dynamics=_DYNAMICS, liquid_eos=_LIQUID_EOS):
   options: dict[str, Any] = {"dynamics": dynamics, "liquid_eos": liquid_eos}
   if thermal_nodes: options |= {"bubtherm": 1, "thermal": "spectral", "Nt": thermal_nodes}
 
-  def solve(material):
+  def solve(material, _config):
     """`(radius, stress)`, or `None` for a point this solver cannot integrate.
 
     A grid point that will not run drops out of the parameter prior rather than taking

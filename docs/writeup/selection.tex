@@ -1303,9 +1303,101 @@ pinned answer is reproduced by construction. We therefore sweep the half-width o
 $\SIrange{3}{25}{\percent}$ rather than choose one. A conclusion that holds across that range
 is a conclusion; one that flips inside it is a prior.
 
+\paragraph{A convergence gate with no tuning constant.} Every wider box contains every
+narrower one, and all of them contain $R_{\mathrm{eq}}$ at its inferred value, which is the
+pinned fit. The best attainable $\chi^2/N$ can therefore only fall as the width grows. A cell
+that rises has not found its own optimum. This matters because it caught a real failure: at
+ten multistart restarts, five of $72$ cells failed it, one reporting $-117$ nats between a
+$+13$ and a $+7$ -- which reads as a prior effect and is a search that stopped early. At $24$
+restarts two cells fail, and both are excluded below rather than read as physics.
+
 \begin{center}
-\textit{[table: operator evidence against Keller--Miksis, by prior width, three records]}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{2}{c}{\SI{15}{\celsius}} & \multicolumn{2}{c}{\SI{23}{\celsius}}
+& \multicolumn{2}{c}{\SI{33}{\celsius}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+operator & pinned & $\pm25\%$ & pinned & $\pm25\%$ & pinned & $\pm25\%$ \\
+\midrule
+Rayleigh--Plesset & $-165.0$ & $\mathbf{-178.6}$ & $-76.9$ & $\mathbf{-81.8}$ & $-74.4$ & $\mathbf{-74.2}$ \\
+Keller--Miksis & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
+Keller enthalpy/Tait & $+6.1$ & $+0.8$ & $+2.1$ & $+0.1$ & $+0.8$ & $+0.8$ \\
+Gilmore/Tait & $+18.5$ & $\mathbf{+5.0}$ & $+4.3$ & $+0.5$ & $+1.9$ & $-0.0$ \\
+Keller enthalpy/Mie--G & $+4.7$ & $+0.3$ & $+1.6$ & $+0.1$ & $+0.6$ & $+0.9$ \\
+Gilmore/Mie--G & $+20.7$ & $\mathbf{+11.2}$ & $+4.3$ & --- & $+1.1$ & $-0.3$ \\
+\bottomrule
+\end{tabular}
 \end{center}
+
+\noindent nats against Keller--Miksis; ``---'' marks the one cell the gate excluded. Of $17$
+orderings the pinned fit called decisive, $15$ stay decisive and keep their sign at every
+width. None reverses. Two fall below five nats at some width, both at \SI{15}{\celsius}.
+
+The conclusions of \cref{sec:operator} therefore survive, but not equally. \emph{Compressibility
+is required} at every width and on every record, by $74$ to $179$ nats -- the most robust
+statement in this work. \emph{Gilmore beats the pressure form} at \SI{15}{\celsius}, still by
+$5$ to $11$ nats with $R_{\mathrm{eq}}$ free. But at \SI{23}{\celsius} and \SI{33}{\celsius}
+every margin above Keller--Miksis collapses to under a nat. Those two records never had
+operator discrimination; pinning $R_{\mathrm{eq}}$ is what made it look as though they did.
+
+\paragraph{The data want a larger equilibrium radius.} The fitted scale is the same story
+told forwards, and it is the most consistent number in this study. At $\pm3\%$ every one of
+the $18$ cells pins against the upper edge. Given room, they agree closely: $1.104$ to
+$1.115$ at \SI{15}{\celsius}, $1.074$ to $1.086$ at \SI{23}{\celsius}, and $1.032$ to $1.040$
+at \SI{33}{\celsius}, across six operators and two prior widths.
+
+So $R_{\mathrm{eq}}$ is inferred about \SIrange{3}{11}{\percent} too small, and the fit says
+so whichever operator it is asked through. The residual improves accordingly --- $\chi^2/N$
+falls from $0.97$ to $0.62$ at \SI{15}{\celsius}, $1.03$ to $0.90$ at \SI{23}{\celsius}, and
+$0.44$ to $0.38$ at \SI{33}{\celsius}. That the offset shrinks as the gel warms is a pattern
+we can measure but not yet explain, and it is larger than the \SI{1.68}{\percent} that makes
+$R_{\mathrm{eq}}$ worth as much as the operator choice.
+
+\section{Scoring the thermal treatment, and failing to}
+\label{sec:thermal}
+
+\Cref{sec:axes} finds the thermal treatment the largest of the three model axes: it moves the
+trace by $16$ noise units and keeps $8.5$ after the material absorbs what it can. It is also
+the only one never scored. The one number in circulation is a $\chi^2/N$ that got slightly
+worse when heat transfer was switched on, which is a fit statistic and not evidence.
+
+Scoring it means running the same comparison as \cref{sec:operator} with the thermal
+treatment varied and the material axes held identical, so the Occam terms cancel and the
+difference is a Bayes factor between physics. We report the attempt because it did not work,
+and because how it failed is worth knowing.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+record & cold & bubble & bubble\,+\,medium \\
+\midrule
+\SI{15}{\celsius} & $0$ & $-6.4$ & $+21.6$ \\
+\SI{23}{\celsius} & $0$ & $\mathbf{+2.6}$ & $\mathbf{+8.0}$ \\
+\SI{33}{\celsius} & $0$ & $-5.7$ & $-66.0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent nats against the cold model, at $24$ multistart restarts. Only the middle row may
+be read. Repeating the study at ten restarts and again at $24$ -- a $2.4\times$ change of
+budget -- moves the \SI{23}{\celsius} rows by $0.00$, $0.00$ and $0.01$ nats, and the others
+by $15$, $153$, $19$ and $68$. The cold baselines are stable everywhere, so the record and
+the material are not at fault; the thermal likelihood surface is.
+
+The decisive detail is that \emph{more restarts fitted worse}. At \SI{15}{\celsius} the bubble
+treatment reached $\chi^2/N = 0.895$ from ten starts and $1.039$ from twenty-four; at
+\SI{33}{\celsius} bubble\,+\,medium went from $0.428$ to $1.073$. Best-of-$24$ cannot be worse
+than best-of-$10$ at a converged optimum, so the search is landing in different basins rather
+than refining one. A third increase of the budget is therefore not the remedy, and this is the
+third budget tried.
+
+What this does and does not say. It does not say the thermal treatment is unsupported: on the
+one record where the fit converges, both treatments are favored, bubble\,+\,medium by $8$
+nats. It says that scoring thermal physics by multistart least squares does not work on these
+records, and that the fix is a better search -- warm-starting each thermal fit from the
+converged cold optimum, rather than sampling a four-dimensional box afresh. Until then the
+\SI{15}{\celsius} and \SI{33}{\celsius} rows above are search noise, and we decline to read
+the sign of either.
 
 \section{Experimental design}
 \label{sec:design}
@@ -2024,6 +2116,14 @@ modulus is a statement about the prior box. The bubble-dynamics operator assumed
 this literature is beaten on every record. And a correlated residual that has been read as
 constitutive model error survives every constitutive, observational and operator change tested
 here.
+
+Two of those findings needed qualifying once the equilibrium radius was fitted rather than
+asserted. Compressibility is required on every record at every prior width, by $74$ to $179$
+nats. Gilmore still beats the pressure form at \SI{15}{\celsius}. But at \SI{23}{\celsius} and
+\SI{33}{\celsius} the operator margins collapse to under a nat, so those records never
+discriminated operators at all -- pinning $R_{\mathrm{eq}}$ is what made it appear they did.
+The fit wants $R_{\mathrm{eq}}$ \SIrange{3}{11}{\percent} larger than inferred, consistently
+across six operators and three records, and we cannot yet explain the trend with temperature.
 
 \subsection{Limitations of this work}
 \label{sec:limitations}

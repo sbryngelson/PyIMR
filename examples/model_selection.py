@@ -50,7 +50,7 @@ def _node(name, index):
 
 TRUTH = {"mu": _node("mu", 8), "g": _node("g", 5), "lambda1": _node("lambda1", 7)}
 
-def solve(material):
+def solve(material, _config):
   result = pyimr.simulate(
     np.linspace(0.0, WINDOW, SAMPLES),
     pyimr.SimulationConfig(R0, REQ, material, rtol=RTOL, atol=ATOL),

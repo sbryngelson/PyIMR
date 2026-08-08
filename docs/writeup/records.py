@@ -59,8 +59,12 @@ def solver(times, maximum_radius, stretch, *, dynamics="keller-miksis", liquid_e
   """
   import pyimr
 
-  def solve(material):
-    config = pyimr.SimulationConfig(maximum_radius, maximum_radius / stretch, material,
+  def solve(material, config_axes=None):
+    # `req_scale` is a fitted axis when the candidate declares it, and 1.0 otherwise. Req is
+    # inferred rather than measured, and a 1.68% error in it leaves the same residual as
+    # changing the operator, so a study that pins it is asserting a precision it does not have.
+    scale = float((config_axes or {}).get("req_scale", 1.0))
+    config = pyimr.SimulationConfig(maximum_radius, maximum_radius / stretch * scale, material,
                                     dynamics=dynamics, liquid_eos=liquid_eos,
                                     rtol=rtol, atol=rtol * 1e-2,
                                     max_steps=max_steps, **options)
@@ -78,8 +82,8 @@ def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=
   allowed to abort the study.
   """
   from pyimr.noise import check_residuals
-  from pyimr.selection import (PARAMETER_BOUNDS, candidate_log_evidence, fit_candidate,
-                               physical_from_unit)
+  from pyimr.selection import (PARAMETER_BOUNDS, candidate_log_evidence, evaluate_at,
+                               fit_candidate, physical_from_unit)
   from scipy.special import logsumexp
 
   fit = fit_candidate(candidate, solve, mean, spread, bounds=bounds, starts=starts,
@@ -91,7 +95,9 @@ def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=
 
   values = physical_from_unit(candidate.axes, fit.unit, bounds)
   fitted = dict(zip(candidate.axes, (float(v) for v in values), strict=True))
-  residual = (solve(candidate.build(fitted))[0] - mean) / spread
+  # through `evaluate_at`, or a candidate with configuration axes reports its residual at the
+  # DEFAULT configuration while its evidence came from the fitted one
+  residual = (evaluate_at(candidate, solve, fitted)[0] - mean) / spread
   check = check_residuals(np.asarray(residual, dtype=float))
   box = bounds or PARAMETER_BOUNDS
   return dict(chi2_per_n=fit.chi_squared, log_evidence=float(logsumexp(scored)) if scored else float("nan"),

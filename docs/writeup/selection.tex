@@ -19,34 +19,36 @@
 \maketitle
 
 \begin{abstract}
-We compare seventeen constitutive models against laser-induced cavitation records in
-gelatin at three temperatures, using Bayesian model selection with a noise scale measured
-from trial-to-trial spread and a prior that prices a model down where it merely reproduces
-a simpler one it contains. A quadratic Zener solid -- strain-stiffening elasticity
-\emph{and} stress relaxation -- wins at every temperature, reaching $\chi^2/N = 1.23$ to
-$1.35$ on the selection grid across the three temperatures, and $0.96$ when refitted to its
-true optimum at \SI{15}{\celsius}. Neither ingredient suffices alone: at that temperature
-relaxation without stiffening reaches $1.98$, and both memoryless candidates land at $20$ --
-where they fit each other to one part in a thousand, so the stiffening term does no work at
-all without a relaxation mode to act on. The advantage of stiffening collapses as the gel
-warms, which is the clearest physical signal in the comparison.
+We compare seventeen constitutive models against laser-induced cavitation records in gelatin
+at three temperatures. The method is Bayesian model selection, with a noise scale measured
+from trial-to-trial spread and a prior that prices a model down where it merely reproduces a
+simpler one it contains.
+
+A quadratic Zener solid -- strain-stiffening elasticity \emph{and} stress relaxation -- wins at
+every temperature. It reaches $\chi^2/N = 1.23$ to $1.35$ on the selection grid, and $0.96$
+refitted to its true optimum at \SI{15}{\celsius}. Neither ingredient suffices alone: at that
+temperature relaxation without stiffening reaches $1.98$, and both memoryless candidates land
+at $20$, where they fit each other to one part in a thousand. The stiffening term does no work
+at all without a relaxation mode to act on. Its advantage collapses as the gel warms, the
+clearest physical signal in the comparison.
 
 We report the limitations plainly. The residuals are ceilings rather than estimates, because
 the winning model's best-fitting region is partly unintegrable. More importantly, a good
-$\chi^2/N$ overstates how well the model does: the residual has lag-one autocorrelation
+$\chi^2/N$ overstates how well the model does. The residual has lag-one autocorrelation
 $0.918$, so the $201$ samples carry the information of about ten independent ones, and what
-remains is structure the model lacks rather than noise it failed to average away. The
-ranking survives this ($3\%$ change under a correlated likelihood); the absolute claim does
+remains is structure the model lacks rather than noise it failed to average away. The ranking
+survives this -- a $3\%$ change under a correlated likelihood -- but the absolute claim does
 not.
 
 We then ask what experiment would do better. Scored by parameter precision and by model
-discrimination, the criteria disagree, and both are shown to be delicate: a criterion defined
-by an inner minimum is multimodal here and every improvement to the optimizer lowers it.
-Reformulating over design \emph{measures} rather than single designs makes the problem
-convex, and the Kiefer--Wolfowitz equivalence theorem then certifies the answer. Over $480$
-candidates the optimum splits the runs three ways and beats the best single design by a
-D-efficiency factor of $5.74$ -- certified globally optimal at a gap of $9\times10^{-10}$,
-not merely the best found.
+discrimination, the criteria disagree, and both prove delicate: a criterion defined by an
+inner minimum is multimodal here, and every improvement to the optimizer lowers it.
+
+Reformulating over design \emph{measures} rather than single designs makes the problem convex,
+and the Kiefer--Wolfowitz equivalence theorem then certifies the answer. Over $480$ candidates
+the optimum splits the runs three ways and beats the best single design by a D-efficiency
+factor of $5.74$ -- certified globally optimal at a gap of $9\times10^{-10}$, not merely the
+best found.
 \end{abstract}
 
 \noindent\textbf{Keywords:} inertial microcavitation rheometry; model selection; Bayesian evidence; identifiability; optimal experimental design
@@ -1111,6 +1113,36 @@ $138$ across half, one and two percent -- so \SI{1.68}{\percent} is solved for b
 rather than scaled from any one of those rows. Read linearly off the \SI{1}{\percent} row it
 would come out a third larger.
 
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.15]
+  \fill[gray!14] (0.2,0) -- (5.4,0) -- (6.9,1.35) -- (1.7,1.35) -- cycle;
+  \draw[gray!55] (0.2,0) -- (5.4,0) -- (6.9,1.35) -- (1.7,1.35) -- cycle;
+  \node[gray!65,anchor=north east] at (5.5,-0.05)
+    {\footnotesize $\operatorname{span}\partial R/\partial\theta$ -- refitting absorbs this};
+  % the two remainders, drawn at the measured 58.4 degrees and the same measured length
+  \draw[-{Latex[length=2.4mm]},very thick,blue!70!black] (3,1) -- (2.549,3.560);
+  \draw[-{Latex[length=2.4mm]},very thick,red!75!black] (3,1) -- (4.944,2.726);
+  \draw[gray!70] (3,1) ++(41.6:0.95) arc (41.6:100:0.95);
+  \node[gray!55!black] at (3.62,2.05) {\footnotesize $58.4^\circ$};
+  \fill[black] (3,1) circle (1.5pt);
+  \node[blue!70!black,anchor=south east,align=right] at (2.6,3.62)
+    {\footnotesize operator:\\[-2pt]\footnotesize KM $\to$ Keller enthalpy/Mie--G\\[-2pt]\footnotesize $1.98$ noise units};
+  \node[red!75!black,anchor=west,align=left] at (5.05,2.62)
+    {\footnotesize initial radius:\\[-2pt]\footnotesize $R_{\mathrm{eq}}$ off by $1.68\%$\\[-2pt]\footnotesize $1.98$ noise units};
+\end{tikzpicture}
+\caption{The size of the operator result, against the size of an error bar this work set to
+zero. Both arrows are what survives refitting the material -- the part of a perturbation that
+lies outside the shaded span, and so the only part any experiment can see. They are drawn at
+their measured length and their measured separation. A \SI{1.68}{\percent} error in the
+inferred equilibrium radius leaves exactly as much residual as replacing the bubble-dynamics
+operator does. The \SI{58.4}{\degree} between them is the reason this is a call to fit
+$R_{\mathrm{eq}}$ rather than to abandon the ranking: at that angle the two are separable in
+principle, and \cref{sec:axes} confirms the initial state absorbs under \SI{5}{\percent} of
+the operator difference.}
+\label{fig:reqsize}
+\end{figure}
+
 
 \begin{figure}[t]
 \centering
@@ -1366,10 +1398,9 @@ marginal likelihood is prior-sensitive where $T$ is not. The prior becomes part 
 criterion rather than a nuisance.
 
 \paragraph{The criteria do not agree.}
-Computed correctly, the criteria want different experiments. E-optimality peaks at
-$199\,\mu$m and stretch $3.55$; separating qSLS from SLS or from NHKV is best at
-$895\,\mu$m and stretch $4.93$; separating qSLS from qKV is best at $100\,\mu$m and stretch
-$20$, near the opposite corner of the design space. At the E-optimal design the
+Computed correctly, the criteria want different experiments. E-optimality peaks at $199\,\mu$m and stretch $3.55$. Separating qSLS from SLS or from NHKV is
+best at $895\,\mu$m and stretch $4.93$. Separating qSLS from qKV is best at $100\,\mu$m and
+stretch $20$, near the opposite corner of the design space. At the E-optimal design the
 discrimination scores are the worst in the table, so the conflict is not marginal.
 
 The reason is physical, not numerical. Telling a material with a relaxation mode from one
@@ -1441,16 +1472,18 @@ U(d)
 \end{equation}
 %
 Recognizing it as a Kullback--Leibler divergence between the two prior-predictive
-distributions settles its properties without further work. By Gibbs' inequality $U(d) \ge 0$,
-with equality if and only if the two predictives agree almost everywhere: \emph{a model
-cannot discriminate against itself, at any design}. That is a sharp, falsifiable statement
-about the estimator, and it is the property the implementation is tested against -- two
-independently drawn banks from one family must score zero, and any systematic excess is
-bias. Related to~\eqref{eq:model-mi} by
+distributions settles its properties. By Gibbs' inequality $U(d) \ge 0$, with equality exactly
+when the two predictives agree almost everywhere: \emph{a model cannot discriminate against
+itself, at any design}.
+
+That is sharp and falsifiable, and it is what the implementation is tested against. Two
+independently drawn banks from one family must score zero; any systematic excess is bias.
+
+Equation~\eqref{eq:model-mi} relates by
 $I(M;Y\mid d) = \tfrac12[D_{\mathrm{KL}}(p_1\|\bar p) + D_{\mathrm{KL}}(p_2\|\bar p)]$ with
-$\bar p$ the equal mixture, so~\eqref{eq:elbf} is the same comparison read against the rival
-rather than against the mixture, and is the more direct statement of ``how strongly will
-this experiment favor the truth''.
+$\bar p$ the equal mixture. So~\eqref{eq:elbf} is the same comparison read against the rival
+rather than the mixture -- the more direct statement of ``how strongly will this experiment
+favor the truth''.
 
 \paragraph{Why an integral is robust where a minimum is not.}
 Both criteria require an inner computation that can go wrong. The asymmetry is in how the
@@ -1495,7 +1528,7 @@ w_s = p(Y \mid \theta_s, M, d),
 \end{equation}
 %
 which is unbiased for $Z$, though $\log \hat Z$ is biased low by Jensen's inequality. Its
-reliability is carried by the spread of the weights, summarized by the effective sample size
+reliability rides on the spread of the weights, summarized by the effective sample size
 %
 \begin{equation}
 S_{\mathrm{eff}} = \frac{\left(\sum_s w_s\right)^2}{\sum_s w_s^2}
@@ -1504,14 +1537,14 @@ S_{\mathrm{eff}} = \frac{\left(\sum_s w_s\right)^2}{\sum_s w_s^2}
 \end{equation}
 %
 which equals $S$ when all draws contribute equally and $1$ when a single draw dominates. It
-costs nothing to compute and it is the only thing standing between this estimator and a
+costs nothing to compute. It is also the only thing standing between this estimator and a
 confidently reported number with no content.
 
 That it must fail here can be seen in advance. With $N$ samples the log-likelihood scales as
 $\log p(Y\mid\theta) \simeq -\tfrac12 N \bar d(\theta)$ for a mean squared discrepancy
 $\bar d$, so weights are $w_s \propto \exp[-\tfrac12 N \bar d(\theta_s)]$ and the ratio of the
-two largest is exponential in $N$. Useful draws are those falling inside the posterior, whose
-width is $O(N^{-1/2})$ in each of $p$ directions, so the expected number of them is
+two largest is exponential in $N$. Useful draws are those landing inside the posterior. Its
+width is $O(N^{-1/2})$ in each of $p$ directions, so the expected number of useful draws is
 %
 \begin{equation}
 \mathbb{E}[\#\text{useful}] \;\sim\; S \cdot \frac{\mathrm{vol}(\text{posterior})}
@@ -1520,14 +1553,16 @@ width is $O(N^{-1/2})$ in each of $p$ directions, so the expected number of them
 \end{equation}
 %
 For the present study $N = 201$, $p = 4$ and $S = 220$, giving
-$220 \times 201^{-2} \approx 5 \times 10^{-3}$: fewer than one useful draw. The measurement
-agrees exactly -- $S_{\mathrm{eff}} = 1.0$ at \emph{every} design tried, with reported values
-between $793$ and $10\,979$ nats that are pure noise. The standard errors were $56$ to $130$
-throughout and looked entirely respectable. Without~\eqref{eq:ess-evidence} the failure is invisible.
+$220 \times 201^{-2} \approx 5 \times 10^{-3}$ -- fewer than one useful draw.
+
+The measurement agrees exactly. $S_{\mathrm{eff}} = 1.0$ at \emph{every} design tried, with
+reported values between $793$ and $10\,979$ nats that are pure noise. The standard errors ran
+$56$ to $130$ throughout and looked entirely respectable. Without~\eqref{eq:ess-evidence} the
+failure is invisible.
 
 \paragraph{Estimating the evidence II: Laplace.}
-Expanding $\log[p(Y\mid\theta)\pi(\theta)]$ to second order about its maximum $\hat\theta$ and
-performing the resulting Gaussian integral gives, as in~\eqref{eq:laplace},
+Expand $\log[p(Y\mid\theta)\pi(\theta)]$ to second order about its maximum $\hat\theta$ and do
+the resulting Gaussian integral. As in~\eqref{eq:laplace},
 %
 \begin{equation}
 \log Z \simeq \log p(Y \mid \hat\theta)
@@ -1539,10 +1574,10 @@ H = -\nabla^2 \log p(Y\mid\theta)\big|_{\hat\theta}.
 \label{eq:laplace-evidence}
 \end{equation}
 %
-For Gaussian data $H = J^{\mathsf T}J + \sum_i r_i \nabla^2 r_i$, and dropping the second term
--- the Gauss--Newton approximation, valid when residuals are small or the model nearly linear
--- leaves $H \simeq J^{\mathsf T}J$, already computed by the fit. Parameterizing so the prior
-is uniform on the unit cube makes $\pi(\hat\theta) = 1$, and with whitened residuals
+For Gaussian data $H = J^{\mathsf T}J + \sum_i r_i \nabla^2 r_i$. Dropping the second term --
+the Gauss--Newton approximation, valid when residuals are small or the model nearly linear --
+leaves $H \simeq J^{\mathsf T}J$, which the fit already computed. Parameterizing so the prior is
+uniform on the unit cube makes $\pi(\hat\theta) = 1$, and with whitened residuals
 $r = (m - y)/\sigma$,
 %
 \begin{equation}
@@ -1598,41 +1633,45 @@ fourth parameter.
 Two prices are paid for removing the minimum, and both are real.
 
 \emph{Prior sensitivity.} $Z$ depends on $\pi(\theta\mid M)$ through the normalization
-of~\eqref{eq:model-evidence}, and widening a prior by a factor $c$ in each of $p$ directions
+of~\eqref{eq:model-evidence}. Widening a prior by a factor $c$ in each of $p$ directions
 divides the evidence by roughly $c^{p}$ without changing the fit at all. This is the
-Lindley--Jeffreys~\citep{lindley1957statistical,jeffreys1935some} effect, and it is not a defect to be engineered away: a model whose prior is
-diffuse really is less supported by data that pin it down. But it means the prior is part of
-the criterion and must be stated, where $T$ needed no prior. Centring each rival's prior on
-its fit to the \emph{existing} record produced a criterion that measured prior placement
-instead of discriminability, with every Laplace expansion invalid; the results reported here
-use the wide, physically motivated box of the model-selection grid, identical across models on every
-shared parameter.
+Lindley--Jeffreys effect~\citep{lindley1957statistical,jeffreys1935some}, and it is not a
+defect to engineer away: a model whose prior is diffuse really is less supported by data that
+pin it down.
+
+But it makes the prior part of the criterion, where $T$ needed none, so the prior must be
+stated. Centering each rival's prior on its fit to the \emph{existing} record produced a
+criterion measuring prior placement instead of discriminability, with every Laplace expansion
+invalid. The results here use the wide, physically motivated box of the model-selection grid,
+identical across models on every shared parameter.
 
 \emph{Boundary pinning.} Equation~\eqref{eq:laplace-evidence} presumes an interior maximum. In
-$50$--$90\%$ of the fits at each design, the rival's best parameters lie on a face of the
-prior box, where the expansion does not apply and the reported value is not to be trusted.
-That this happens is itself informative -- a rival that can imitate qSLS only by driving a
-parameter to the edge of physical plausibility has, in a meaningful sense, been discriminated
-against -- but expressing that requires a criterion built for a constrained maximum rather
-than a quadratic expansion about an interior one. Determining which parameter pins, and
-whether the pinning is physical or an artefact of the box, is the outstanding step.
+$50$--$90\%$ of the fits at each design the rival's best parameters lie on a face of the prior
+box, where the expansion does not apply and the value is not to be trusted.
 
-The honest summary is that the integral criterion is better founded than $T$ and not yet more
-reliable on this problem. The multimodality that made $T$ untrustworthy is genuinely gone;
-what replaces it is a dependence on the prior, now explicit rather than hidden, and a
-boundary condition that the current estimator does not handle.
+That it happens is itself informative. A rival that can imitate qSLS only by driving a
+parameter to the edge of physical plausibility has, in a meaningful sense, been discriminated
+against. But saying so needs a criterion built for a constrained maximum, not a quadratic
+expansion about an interior one. Which parameter pins, and whether the pinning is physical or
+an artifact of the box, is the outstanding step.
+
+The honest summary: the integral criterion is better founded than $T$ and not yet more
+reliable on this problem. The multimodality that made $T$ untrustworthy is genuinely gone.
+What replaces it is a dependence on the prior -- now explicit rather than hidden -- and a
+boundary condition the current estimator does not handle.
 
 \subsection*{Which criterion the conflict is between}
 
-The scaling argument of \cref{sec:criteria} says that a design change which merely
-amplifies the signal leaves the condition number $\kappa$ untouched, so degeneracy is a
-property of the eigenvectors and only a design that rotates them can remove it. The
-consequence for these records is that E-optimality preferred a larger bubble
-($895\,\mu$m, $\lambda_{\min} = 12.8$) while conditioning and eigenvector composition
-preferred a gentler collapse at the present size ($277\,\mu$m at stretch $5$,
-$\kappa = 4.2\times10^3$, with the modulus--stiffening share of the worst direction falling
-from $87\%$ to $66\%$). Both are correct answers to different questions, and
-\eqref{eq:separability} says which question matters here.
+The scaling argument of \cref{sec:criteria} says a design change that merely amplifies signal
+leaves the condition number $\kappa$ untouched. Degeneracy is a property of the eigenvectors,
+and only a design that rotates them can remove it.
+
+For these records, E-optimality preferred a larger bubble ($895\,\mu$m,
+$\lambda_{\min} = 12.8$). Conditioning and eigenvector composition preferred a gentler collapse
+at the present size ($277\,\mu$m at stretch $5$, $\kappa = 4.2\times10^3$, the
+modulus--stiffening share of the worst direction falling from $87\%$ to $66\%$). Both are
+correct answers to different questions, and \eqref{eq:separability} says which one matters
+here.
 
 So there are two distinct disagreements in play, and they have different resolutions. The
 classical criteria disagree among themselves because they summarize one spectrum
@@ -1960,7 +1999,7 @@ shrinks monotonically as the gel warms: the gap between \texttt{SLS} and \texttt
 falls from $2.94$ versus $1.35$ at \SI{15}{\celsius} to $1.41$ versus $1.23$ at
 \SI{33}{\celsius}. A warmer, softer gel needs less strain-stiffening to explain its
 record. Because this is a trend across three independent datasets rather than a single
-fitted value, it is harder to attribute to a fitting artefact than any individual
+fitted value, it is harder to attribute to a fitting artifact than any individual
 $\chi^2$.
 
 \begin{figure}[htbp]
@@ -1988,7 +2027,7 @@ constitutive, observational and operator change tested here.
 Roughly one point in six of the winner's parameter box cannot be integrated. That is not a
 numerical shortcoming. In that region the model expands to $R/R_0 = 2132$ after its
 collapse -- identically at relative tolerances of $10^{-3}$, $10^{-4}$ and $10^{-5}$, so a
-converged property of the equations rather than an artefact. The bubble begins at its
+converged property of the equations rather than an artifact. The bubble begins at its
 maximum radius and its energy is finite, so growth of that size is the constitutive model
 failing, and refusing those points is the correct outcome.
 
@@ -2243,7 +2282,7 @@ direction the data does not determine has $\lambda_i \to 0$ and contributes a fa
 diverging to $+\infty$. The evidence then \emph{increases} with the addition of a parameter
 that does nothing, which is the opposite of what the Occam factor exists to do.
 
-The pathology is entirely an artefact of the Gaussian approximation. The fitted Gaussian has
+The pathology is entirely an artifact of the Gaussian approximation. The fitted Gaussian has
 width $\sqrt{2\pi/\lambda_i} \gg 1$ in that direction and so extends far outside the cube the
 prior actually occupies, while the true integral, taken over the cube, simply returns the
 prior mass. Imposing what the geometry already requires -- a posterior cannot be wider than

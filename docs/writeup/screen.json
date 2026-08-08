@@ -1,0 +1,10 @@
+{
+ "constitutive": [
+  "qSLS"
+ ],
+ "bubble dynamics": [
+  "gilmore/mie-gruneisen",
+  "gilmore/tait"
+ ],
+ "thermal treatment": []
+}

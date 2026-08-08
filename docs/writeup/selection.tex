@@ -71,21 +71,24 @@ Bayesian evidence rather than by fit, since the candidates nest and best fit the
 the most flexible one~\citep{freund2015quantitative}. We then ask what the records can settle,
 which turns out to be considerably less than the reported parameters suggest.
 
-Three results follow. The likelihood depends on the product $g\alpha$ alone, so the shear
-modulus is set by where the prior box cuts a ridge and not by the data; moving the box swings
-the model ranking by fifty nats. The bubble-dynamics operator, held fixed at Keller--Miksis in
-every published comparison we are aware of, is beaten on all three records by
-Gilmore/Tait. And the correlated residual that motivates richer constitutive models is not
-removed by a second relaxation time, by a rate-dependent one, by fitting individual trials, or
-by any of six operators.
+Three results follow. First, the likelihood depends on the product $g\alpha$ alone. The shear
+modulus is then set by where the prior box cuts a ridge, not by the data, and moving the box
+swings the model ranking by fifty nats.
 
-We also ask what experiment would settle the question. Treating the choice of model as one
-more unknown to be fitted lets a single calculation say how well a given experiment separates
-the models and how well it pins the material. The answer comes with a proof of optimality,
-which is unusual for a design calculation and follows from a classical
-result~\citep{kiefer1960equivalence}. Judged that way, the experiments analyzed here are close
-to the best possible for the hardest of the three choices and $24$ to $41$ times worse than
-the best for the two easiest.
+Second, the bubble-dynamics operator -- held fixed at Keller--Miksis in every published
+comparison we are aware of -- is beaten on all three records by Gilmore/Tait. Third, the
+correlated residual that motivates richer constitutive models survives everything we tried
+against it: a second relaxation time, a rate-dependent one, fitting individual trials, and all
+six operators.
+
+We also ask what experiment would settle the question. Treat the choice of model as one more
+unknown to be fitted, and one calculation says both how well an experiment separates the
+models and how well it pins the material. The answer comes with a proof of optimality --
+unusual for a design calculation, and following from a classical
+result~\citep{kiefer1960equivalence}.
+
+Judged that way, the experiments analyzed here are near the best possible for the hardest of
+the three choices, and $24$ to $41$ times worse than the best for the two easiest.
 
 
 \begin{figure}[t]
@@ -2013,29 +2016,31 @@ $\chi^2$.
 \section{Conclusions}
 
 We have treated the model comparison in inertial microcavitation rheometry as the object of
-study rather than as a step toward a parameter value. Ranking by evidence in coordinates the
-records can answer, three findings hold. The shear modulus is not identified separately from
-the stiffening exponent, so a reported modulus is a statement about the prior box. The
-bubble-dynamics operator assumed throughout this literature is beaten on every record. And a
-correlated residual that has been read as constitutive model error survives every
-constitutive, observational and operator change tested here.
+study rather than a step toward a parameter value. Ranking by evidence in coordinates the
+records can answer, three findings hold.
+
+The shear modulus is not identified separately from the stiffening exponent, so a reported
+modulus is a statement about the prior box. The bubble-dynamics operator assumed throughout
+this literature is beaten on every record. And a correlated residual that has been read as
+constitutive model error survives every constitutive, observational and operator change tested
+here.
 
 \subsection{Limitations of this work}
 \label{sec:limitations}
 
 \paragraph{The dropped points are outside the model, not outside the solver.}
-Roughly one point in six of the winner's parameter box cannot be integrated. That is not a
-numerical shortcoming. In that region the model expands to $R/R_0 = 2132$ after its
-collapse -- identically at relative tolerances of $10^{-3}$, $10^{-4}$ and $10^{-5}$, so a
-converged property of the equations rather than an artifact. The bubble begins at its
-maximum radius and its energy is finite, so growth of that size is the constitutive model
-failing, and refusing those points is the correct outcome.
+Roughly one point in six of the winner's parameter box cannot be integrated, and that is not
+a numerical shortcoming. In that region the model expands to $R/R_0 = 2132$ after its collapse
+-- identically at relative tolerances of $10^{-3}$, $10^{-4}$ and $10^{-5}$. So it is a
+converged property of the equations, not an artifact. The bubble begins at its maximum radius
+and its energy is finite, so growth of that size is the constitutive model failing. Refusing
+those points is the correct outcome.
 
-The count of physically admissible points is pinned near $1958$ of $2401$ sampled whatever
-the settings: looser tolerances and a $20\times$ step budget convert failures into runaways,
-never into usable solves. This corrects an earlier reading of the same failures as a
-stiffness problem. It also means the dropped points cannot be recovered by numerical
-effort, and that no claim about the winner's fit should be made in that region.
+The count of admissible points is pinned near $1958$ of $2401$ sampled whatever the settings.
+Looser tolerances and a $20\times$ step budget convert failures into runaways, never into
+usable solves. This corrects an earlier reading of the same failures as a stiffness problem.
+The dropped points cannot be recovered by numerical effort, and no claim about the winner's
+fit should be made in that region.
 
 \begin{figure}[htbp]
 \centering
@@ -2053,14 +2058,15 @@ against $2071.90 \pm 0.38$ for the relaxation-only model -- a gap of $101.6$ aga
 run-to-run noise near $0.4$, so the comparison is resolved by a wide margin. The tensor grid
 cannot say this on its own: it returns a single number with no uncertainty.
 
-The same grid cannot estimate parameters. Refining it from $12$ to $20$ points per axis
-moves the log evidence by $17.3$ and moves the best-fit point from $g = 658$, $\alpha = 1.52$
-to $g = 144$, $\alpha = 8.86$, because the best cell is simply whichever node lands nearest
-the ridge. Refinement cannot fix this: the posterior standard deviations are
-$0.0018$, $0.0025$, $0.0055$ and $0.078$ in unit coordinates against a grid spacing of
-$0.053$, so the posterior occupies about $10^{-7}$ of the prior volume and a uniform grid
-would need of order $10^{10}$ points. Discretization error of $17.3$ sits well inside the
-$101.6$ gap, so the ranking is safe; the reported best-fit parameters are not.
+The same grid cannot estimate parameters. Refining it from $12$ to $20$ points per axis moves
+the log evidence by $17.3$, and moves the best-fit point from $g = 658$, $\alpha = 1.52$ to
+$g = 144$, $\alpha = 8.86$. The best cell is simply whichever node lands nearest the ridge.
+
+Refinement cannot fix this. The posterior standard deviations are $0.0018$, $0.0025$, $0.0055$
+and $0.078$ in unit coordinates, against a grid spacing of $0.053$. The posterior therefore
+occupies about $10^{-7}$ of the prior volume, and a uniform grid would need of order $10^{10}$
+points. Discretization error of $17.3$ sits well inside the $101.6$ gap, so the ranking is
+safe; the reported best-fit parameters are not.
 \Cref{fig:coverage} shows which models lose points.
 
 \begin{figure}[htbp]
@@ -2074,10 +2080,12 @@ shown lost no points.}
 \paragraph{Consequences for the numbers reported here.}
 Three methods that resolve the posterior -- sampling, a refined grid, and continuous
 optimization -- agree that $g$ lies near $10^2$\,Pa. The coarse grid used for the ranking
-reports $2154$\,Pa. The ranking does not depend on this, but any material property quoted
-from the grid does. We also note that a modulus of that size is implausibly soft for
-gelatin, which is the degeneracy above making itself felt: the fit buys a lower residual by
-trading modulus against stiffening, along a direction the data barely constrain.
+reports $2154$\,Pa. The ranking does not depend on this; any material property quoted from the
+grid does.
+
+A modulus that size is also implausibly soft for gelatin. That is the degeneracy above making
+itself felt: the fit buys a lower residual by trading modulus against stiffening, along a
+direction the data barely constrain.
 
 \paragraph{One candidate was never genuinely exercised.}
 The Gent solid appears in the comparison but cannot be tested on these records. Its energy

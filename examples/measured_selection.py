@@ -39,11 +39,12 @@ from pyimr.noise import (
 from pyimr.selection import (
   STANDARD_MODELS,
   bounds_for_invariant,
-  strain_invariant,
   compare,
+  evaluate_at,
   log_evidence,
   parameter_grid,
   redundancy_over_grid,
+  strain_invariant,
 )
 
 DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
@@ -139,7 +140,7 @@ def solve_chunk(payload):
   _, times, weights, solve, _, _, bounds = setup(dataset, thermal_nodes)
   candidate = MODELS[model]
   points = parameter_grid(candidate.axes, GRID_COUNT, bounds)[0][low:high]
-  solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
+  solved = [evaluate_at(candidate, solve, dict(zip(candidate.axes, row))) for row in points]
 
   ok = np.array([item is not None for item in solved])
   radii, redundancies = np.full((len(points), len(times)), np.nan), np.zeros(len(points))

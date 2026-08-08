@@ -31,6 +31,7 @@ from pyimr.selection import (
   PARAMETER_BOUNDS,
   STANDARD_MODELS,
   compare,
+  evaluate_at,
   log_evidence,
   redundancy_over_grid,
   solve_grid,
@@ -59,7 +60,7 @@ def solve(material, _config):
 
 def main():
   times = np.linspace(0.0, WINDOW, SAMPLES)
-  clean, _ = solve(STANDARD_MODELS[TRUTH_MODEL].build(TRUTH))
+  clean, _ = evaluate_at(STANDARD_MODELS[TRUTH_MODEL], solve, TRUTH)
 
   characteristic = characteristic_time(R0)
   threshold = STRAIN_RATE_THRESHOLD_PER_S * characteristic

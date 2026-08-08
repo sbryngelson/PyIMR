@@ -25,14 +25,15 @@ from pyimr.noise import (
   strain_rate_weights,
   weighted_deviation,
 )
-from pyimr.selection import STANDARD_MODELS, compare, log_evidence, redundancy_over_grid, solve_grid
+from pyimr.selection import (STANDARD_MODELS, compare, evaluate_at, log_evidence,
+                             redundancy_over_grid, solve_grid)
 
 NOISE_FRACTIONS = (1e-2, 3e-3, 1e-3, 3e-4, 1e-4)
 SEED = 0
 
 def main():
   times = np.linspace(0.0, WINDOW, SAMPLES)
-  clean, _ = solve(STANDARD_MODELS[TRUTH_MODEL].build(TRUTH))
+  clean, _ = evaluate_at(STANDARD_MODELS[TRUTH_MODEL], solve, TRUTH)
 
   characteristic = characteristic_time(R0)
   weights = strain_rate_weights(hencky_strain_rate(clean, times, characteristic), STRAIN_RATE_THRESHOLD_PER_S * characteristic)

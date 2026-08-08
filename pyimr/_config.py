@@ -399,17 +399,27 @@ DYNAMICS: dict[str, str] = {
   "keller-enthalpy": "first order, enthalpy form, constant sound speed (Prosperetti-Lezzi lambda=0)",
   "herring": "first order, enthalpy form, constant sound speed (Prosperetti-Lezzi lambda=1)",
   "gilmore": "Kirkwood-Bethe, enthalpy form, local wall sound speed",
+  "lezzi-prosperetti-2": "second order in wall Mach number, enthalpy form, implicit in Rddot",
 }
 LIQUID_EOS: tuple[str, ...] = ("tait", "mie-gruneisen", "nasg")
 # the enthalpy forms need a closure for `hB`, `hH`; the other two never ask for one
-NEEDS_EOS: tuple[str, ...] = ("keller-enthalpy", "herring", "gilmore")
+NEEDS_EOS: tuple[str, ...] = ("keller-enthalpy", "herring", "gilmore", "lezzi-prosperetti-2")
 
 # Prosperetti & Lezzi (1986) showed the first-order-in-Mach equations are a one-parameter
 # family, and that `keller-enthalpy` and `herring` are its lambda = 0 and lambda = 1 members
 # rather than two theories. `_ENTHALPY` below carries that lambda straight into the one
 # expression they share, so the family is visible in the code as it is in the paper.
-_LAMBDA: dict[str, float] = {"keller-enthalpy": 0.0, "herring": 1.0, "gilmore": 0.0}
+_LAMBDA: dict[str, float] = {"keller-enthalpy": 0.0, "herring": 1.0, "gilmore": 0.0,
+                             "lezzi-prosperetti-2": 0.5}
 _LOCAL_SOUND_SPEED: tuple[str, ...] = ("gilmore",)
+_SECOND_ORDER: tuple[str, ...] = ("lezzi-prosperetti-2",)
+# Lezzi & Prosperetti (1987) eq. 8.7 is a TWO-parameter family, and both parameters are
+# "numerical constants of order 1" rather than physics. `(lambda, theta) = (0.5, 0)` is what
+# the authors themselves conclude on p.317: "parameter values close to (lambda = 0.5,
+# theta = 0) and the form (8.7)". Their p.311 adds that theta near zero is optimal. The same
+# paper's Part 1 concluded lambda = 0 -- the Keller form -- is close to optimal at FIRST
+# order, which is where `keller-enthalpy` sits.
+SECOND_ORDER_LAMBDA, SECOND_ORDER_THETA = 0.5, 0.0
 
 _CODES: dict[tuple[str, str | None], int] = {
   # 1-6 keep the numbering the IMRv2 reference trajectories were generated against
@@ -424,12 +434,18 @@ _CODES: dict[tuple[str, str | None], int] = {
   ("keller-enthalpy", "nasg"): 9,
   ("gilmore", "nasg"): 10,
   ("herring", "nasg"): 11,
+  ("lezzi-prosperetti-2", "tait"): 12,
+  ("lezzi-prosperetti-2", "mie-gruneisen"): 13,
+  ("lezzi-prosperetti-2", "nasg"): 14,
 }
-# what `_rhs` dispatches the enthalpy branch on: (lambda, local sound speed, equation of state)
-ENTHALPY_FORMS: dict[int, tuple[float, bool, str]] = {
-  code: (_LAMBDA[d], d in _LOCAL_SOUND_SPEED, e)
+# what `_rhs` dispatches the enthalpy branch on:
+# (lambda, local sound speed, equation of state, order in the wall Mach number)
+ENTHALPY_FORMS: dict[int, tuple[float, bool, str, int]] = {
+  code: (_LAMBDA[d], d in _LOCAL_SOUND_SPEED, e, 2 if d in _SECOND_ORDER else 1)
   for (d, e), code in _CODES.items() if e is not None
 }
+SECOND_ORDER_CODES: frozenset[int] = frozenset(
+  code for (d, _), code in _CODES.items() if d in _SECOND_ORDER)
 _PAIRS: dict[int, tuple[str, str | None]] = {code: pair for pair, code in _CODES.items()}
 # every operator this package can integrate, as the pairs a caller writes
 OPERATORS: tuple[tuple[str, str | None], ...] = tuple(_CODES)
@@ -468,6 +484,14 @@ def _validate_config(config) -> None:
   if not isinstance(c.material, _MATERIALS): raise TypeError("material must be a supported material model")
   for name, value in (("pA", c.pA), ("omega", c.omega), ("TW", c.TW), ("DT", c.DT), ("mn", c.mn)):
     if not np.isfinite(value): raise ValueError(f"{name} must be finite")
+  # Equation 8.7 carries a group of O(M^2) far-field terms -- `2G_0''' R R'`, `G_0^iv R^2`,
+  # `g_2'` -- that this implementation drops. They vanish identically when the far field is
+  # steady and not otherwise, so a time-varying drive would silently lose exactly the order
+  # this equation exists to supply. Refused rather than approximated.
+  if c.radial in SECOND_ORDER_CODES and (c.wave_type != 0 or c.sampled_forcing is not None):
+    raise ValueError("dynamics='lezzi-prosperetti-2' requires a steady far field "
+                     "(wave_type=0 and no sampled_forcing): its second-order far-field terms "
+                     "are dropped, and they vanish only when the drive is constant")
   # `radial` is not checked here: it is derived, and `dynamics_code` is the only thing that
   # can set it, from a pairing it has already validated
   for name, value, allowed in (("wave_type", c.wave_type, range(0, 4)),):

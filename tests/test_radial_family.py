@@ -47,7 +47,8 @@ def test_every_operator_integrates_a_violent_collapse(dynamics, liquid_eos):
 
 # --- the equation of state -------------------------------------------------------------
 
-@pytest.mark.parametrize("dynamics", ["keller-enthalpy", "herring", "gilmore"])
+@pytest.mark.parametrize("dynamics", ["keller-enthalpy", "herring", "gilmore",
+                                     "lezzi-prosperetti-2"])
 def test_zero_covolume_makes_nasg_the_tait_it_contains(dynamics):
   """The one exact statement available about this equation of state.
 

@@ -258,12 +258,15 @@ rank them -- see [open work](open-work.md).
 
 ### The forward operator is a model choice too
 
-`DYNAMICS_MODELS` names the eleven operators, as `(dynamics, liquid_eos)` pairs. Five
+`DYNAMICS_MODELS` names the fourteen operators, as `(dynamics, liquid_eos)` pairs. Six
 dynamics --- Rayleigh--Plesset, the Keller--Miksis pressure form, and the enthalpy forms
-`keller-enthalpy`, `herring` and `gilmore` --- of which the last three take one of three
-equations of state: `tait`, `mie-gruneisen` or `nasg`. `keller-enthalpy` and `herring` are the
-`lambda = 0` and `lambda = 1` members of the Prosperetti--Lezzi (1986) first-order family, not
-separate theories; `gilmore` is Kirkwood--Bethe, with the local wall sound speed. They are not
+`keller-enthalpy`, `herring`, `gilmore` and `lezzi-prosperetti-2` --- of which the last four
+take one of three equations of state: `tait`, `mie-gruneisen` or `nasg`. `keller-enthalpy` and
+`herring` are the `lambda = 0` and `lambda = 1` members of the Prosperetti--Lezzi (1986)
+first-order family, not separate theories; `gilmore` is Kirkwood--Bethe, with the local wall
+sound speed; `lezzi-prosperetti-2` is their 1987 second-order equation (8.7) at the authors'
+recommended `(lambda, theta) = (0.5, 0)`, and is the only one implicit in the acceleration.
+It requires a steady far field, because the second-order far-field terms are dropped. They are not
 `CandidateModel`s --- a candidate is a material, and this is the operator it is pushed
 through --- so they compare by holding the candidate fixed and varying the `solve` callback:
 

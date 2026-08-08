@@ -191,7 +191,7 @@ def test_it_fits_the_real_forward_model():
   times = np.linspace(0.0, 4e-5, 50)
 
   def solve(material):
-    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
                                     rtol=1e-7, atol=1e-9, max_steps=200_000)
     trace = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
     return trace, trace

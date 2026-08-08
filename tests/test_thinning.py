@@ -37,7 +37,7 @@ FLATTENED = {
 
 
 def solve(material, rtol=1e-9):
-  config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH, material, radial=2,
+  config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH, material, dynamics="keller-miksis",
                                   rtol=rtol, atol=rtol * 1e-2, max_steps=400_000)
   return np.asarray(pyimr.simulate(TIMES, config).radius_ratio, dtype=float)
 

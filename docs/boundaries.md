@@ -14,11 +14,11 @@ Where PyIMR stops, and where it deliberately parts company with IMRv2.
 
 ## Deliberate divergences
 
-- `radial = 6` (Gilmore/Mie-Gruneisen) **is supported here**, and is the one
+- `gilmore` with `liquid_eos="mie-gruneisen"` (upstream `radial = 6`) **is supported here**, and is the one
   configuration IMRv2 cannot run at all -- upstream returns complex radii
   without raising. The cause is a wrong root of the Mie-Gruneisen density
   quadratic; see [upstream.md](upstream.md).
-- `radial = 5` and `radial = 6` **deliberately diverge from IMRv2**. Upstream's
+- Both Mie-Gruneisen operators (upstream `radial = 5` and `6`) **deliberately diverge from IMRv2**. Upstream's
   Mie-Gruneisen branch is physically wrong; the corrections are validated
   against the independent Tait branches and the weakly-compressible limit rather
   than against upstream. `tests/ref_radial5.csv` is retained as a record of

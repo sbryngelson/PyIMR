@@ -75,7 +75,7 @@ refitting could absorb more. These are upper bounds on what is detectable.
 
 ## Open
 
-**1. Change the default operator, or justify it.** `radial=2` is assumed by every candidate
+**1. Change the default operator, or justify it.** `dynamics="keller-miksis"` is assumed by every candidate
 and example, and is beaten on two independent records. A one-line change that would move
 every fit and evidence in the study, so it is a decision rather than a task.
 

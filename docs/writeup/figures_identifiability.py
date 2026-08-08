@@ -49,7 +49,7 @@ def chi2_at(payload):
   g, alpha = payload
   config = pyimr.SimulationConfig(
     R_MAX, R_MAX / STRETCH, pyimr.QuadraticZener(float(g), MU_FIT, LAM_FIT, 0.0, float(alpha)),
-    radial="keller-miksis", rtol=1e-6, atol=1e-8, max_steps=50_000,
+    dynamics="keller-miksis", rtol=1e-6, atol=1e-8, max_steps=50_000,
   )
   try:
     model = np.asarray(pyimr.simulate(TIMES, config).radius_ratio, dtype=float)
@@ -65,7 +65,7 @@ def reachable(payload):
   alpha, lam = payload
   config = pyimr.SimulationConfig(
     R_MAX, R_MAX / STRETCH, pyimr.QuadraticZener(2154.0, MU_FIT, float(lam), 0.0, float(alpha)),
-    radial="keller-miksis", rtol=1e-6, atol=1e-8, max_steps=50_000,
+    dynamics="keller-miksis", rtol=1e-6, atol=1e-8, max_steps=50_000,
   )
   try:
     pyimr.simulate(TIMES, config)

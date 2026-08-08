@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ._config import RADIAL_MODELS
+from ._config import OPERATORS
 from ._materials import (
   ArrudaBoyce,
   Bingham,
@@ -129,7 +129,7 @@ PARAMETER_BOUNDS = {
 # and because the parameter space is then identical the difference in log evidence is a clean
 # Bayes factor with the Occam terms cancelling. The table itself lives in `_config` beside
 # the option it names, so there is one of it.
-DYNAMICS_MODELS = RADIAL_MODELS
+DYNAMICS_MODELS = OPERATORS
 
 _NEGLIGIBLE = 1e-9
 # Residual returned where the material will not integrate: far above any real whitened

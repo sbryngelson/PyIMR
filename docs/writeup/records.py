@@ -50,7 +50,8 @@ def load(dataset):
   return times[keep], mean[keep], spread[keep], DATASETS[dataset], record["stretch"]
 
 
-def solver(times, maximum_radius, stretch, *, radial="keller-miksis", rtol=1e-8, max_steps=400_000, **options):
+def solver(times, maximum_radius, stretch, *, dynamics="keller-miksis", liquid_eos=None,
+           rtol=1e-8, max_steps=400_000, **options):
   """A `solve(material)` callback of the shape `pyimr.selection` expects.
 
   `options` passes anything else `SimulationConfig` takes -- `bubtherm`, `medtherm`, `Nt` --
@@ -60,7 +61,8 @@ def solver(times, maximum_radius, stretch, *, radial="keller-miksis", rtol=1e-8,
 
   def solve(material):
     config = pyimr.SimulationConfig(maximum_radius, maximum_radius / stretch, material,
-                                    radial=radial, rtol=rtol, atol=rtol * 1e-2,
+                                    dynamics=dynamics, liquid_eos=liquid_eos,
+                                    rtol=rtol, atol=rtol * 1e-2,
                                     max_steps=max_steps, **options)
     trace = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
     return trace, trace

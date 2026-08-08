@@ -91,7 +91,7 @@ def test_choose_resolution_requires_bubtherm():
 
 
 def test_apply_substitutes_only_the_resolution_fields():
-  config = _config(pA=1234.0, radial=2)
+  config = _config(pA=1234.0, dynamics="keller-miksis")
   setting = Resolution(thermal="fd", Nt=13, rtol=1e-6, atol=1e-8, achieved=1e-4, seconds=0.01)
   applied = setting.apply(config)
 

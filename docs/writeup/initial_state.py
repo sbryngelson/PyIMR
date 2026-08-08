@@ -31,7 +31,7 @@ MATERIAL_PATHS = ("material.shear_modulus_pa", "material.viscosity_pa_s",
                   "material.relaxation_time_s", "material.stiffening")
 INITIAL_PATHS = ("R0", "Req")
 FRACTIONS = (0.005, 0.01, 0.02)          # for the linearity check; 1% is the quoted axis
-SETTINGS = dict(radial="keller-miksis", rtol=1e-9, atol=1e-11, max_steps=600_000)
+SETTINGS = dict(dynamics="keller-miksis", rtol=1e-9, atol=1e-11, max_steps=600_000)
 
 
 def _material(**over):
@@ -69,7 +69,7 @@ def main():
 
   base = trace()
   axes = {
-    "dynamics (KM -> KM/Mie-G)": trace(radial="keller-miksis-mie") - base,
+    "dynamics (KM -> KM/Mie-G)": trace(dynamics="keller-enthalpy", liquid_eos="mie-gruneisen") - base,
     "constitutive (one -> two modes)": trace(_material(tau=2e-6, share=0.2)) - base,
     "thermal (cold -> bubble+medium)": trace(bubtherm=1, medtherm=1) - base,
   }

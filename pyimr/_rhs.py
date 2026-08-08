@@ -202,7 +202,11 @@ def _rhs(
     num = (1 + Rd / Cs) * (P - 1 - Pf8 - iWe / R + S) + R / Cs * (Pdot + iWe * Rd / R**2 + Sdot - Pf8dot) - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
     den = (1 - Rd / Cs) * R + acceleration_coefficient / Cs
     Rdd = num / den
-  elif radial in (3, 4, 5, 6):  # enthalpy forms: 3/5 Keller-Miksis, 4/6 Gilmore
+  # One equation, reached four ways: the `num`/`den` below are shared, and the two branches
+  # above them are the only difference. Which equation of state supplies `hB`, `hH` is the
+  # `liquid_eos` axis; whether `Cs` is the constant `Cstar` or the local wall value is the
+  # `keller-enthalpy`/`gilmore` axis. That is why `SimulationConfig` takes a pair.
+  elif radial in (3, 4, 5, 6):
     if radial in (3, 4):  # Tait
       Pb = P - iWe / R + p["tait_gamma"] + S
       hB = p["tait_sam"] / p["tait_no"] * ((Pb / p["tait_sam"]) ** p["tait_no"] - 1.0)

@@ -300,7 +300,7 @@ def _qsls_solve(times, rtol=1e-10):
   import pyimr
 
   def solve(material):
-    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
                                     rtol=rtol, atol=rtol * 1e-2, max_steps=800_000)
     radius = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
     return radius, radius
@@ -335,7 +335,7 @@ def test_the_candidate_evidence_agrees_with_the_traced_sensitivities(measured):
   clean = solve(material)[0]
   observed = clean + 0.004 * np.sin(np.arange(times.size))   # the fit must not be exact
 
-  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
                                   rtol=1e-10, atol=1e-12, max_steps=800_000)
   traced = np.asarray(pyimr.prepare(config).solve_with_sensitivities(
     times, tuple(paths[a] for a in candidate.axes)).radius_ratio, dtype=float)

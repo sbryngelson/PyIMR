@@ -177,7 +177,9 @@ class SimulationConfig:
   R0: float
   Req: float
   material: MaterialModel
-  radial: int | str = 1
+  # the two axes of the bubble-dynamics choice; `radial` below is the integer they resolve to
+  dynamics: str = "rayleigh-plesset"
+  liquid_eos: str | None = None
   vapor: int = 0
   T8: float = 298.15
   pA: float = 0.0
@@ -201,11 +203,13 @@ class SimulationConfig:
   sampled_forcing: SampledForcing | None = None
   initial: InitialState = field(default_factory=InitialState)
   collapse: CollapseInitialization | None = None
+  # Derived, not given: the integer the pair denotes. Dispatch, the compile key and the
+  # validator all still see one small hashable, but no caller can set it, so the number
+  # never appears again in code or prose that a reader would have to decode.
+  radial: int = field(init=False, default=1)
 
   def __post_init__(self) -> None:
-    # a name is normalised to its code here, so everything downstream -- dispatch, the
-    # compile key, the validator -- keeps seeing the integer it has always seen
-    object.__setattr__(self, "radial", radial_code(self.radial))
+    object.__setattr__(self, "radial", dynamics_code(self.dynamics, self.liquid_eos))
     if not isinstance(self.material, _MATERIALS): raise TypeError("material must be a supported material model")
     if not isinstance(self.physics, PhysicalParameters): raise TypeError("physics must be PhysicalParameters")
     if not isinstance(self.initial, InitialState): raise TypeError("initial must be InitialState")
@@ -366,30 +370,60 @@ class SimulationResult:
 
 def _readonly_optional(values) -> np.ndarray | None: return None if values is None else _freeze_array(values)
 
-# The bubble-dynamics equations, by name. `radial` has always been an integer, and the
-# integer is meaningless on sight: `radial=4` says nothing about Gilmore or about which
-# equation of state it carries, so code and prose both had to keep a decoder ring nearby.
-# `SimulationConfig` accepts either, and normalises a name to its code, so a caller can
-# write what they mean and the solver keeps the compact form it dispatches on.
-RADIAL_MODELS: dict[str, int] = {
-  "rayleigh-plesset": 1,     # incompressible
-  "keller-miksis": 2,        # weakly compressible, pressure form
-  "keller-miksis-tait": 3,   # the same, enthalpy form, Tait equation of state
-  "gilmore-tait": 4,         # Gilmore, Tait
-  "keller-miksis-mie": 5,    # Keller-Miksis, Mie-Grueneisen
-  "gilmore-mie": 6,          # Gilmore, Mie-Grueneisen
+# Two independent choices, not six equations. `_rhs.py` is the proof: codes 3-6 share one
+# `num`/`den`, and reach it differing only in which equation of state supplies the wall
+# enthalpy and whether the sound speed is the constant `Cstar` or the local wall value. So
+# the flat table below conflated a dynamics axis with an EOS axis, and spent the name
+# `keller-miksis` twice -- on the pressure form (2) and on the constant-sound-speed enthalpy
+# form (3, 5), which are a different equation. Splitting them makes the 2x2 visible and gives
+# the enthalpy form its own name.
+DYNAMICS: dict[str, str] = {
+  "rayleigh-plesset": "incompressible; no equation of state enters",
+  "keller-miksis": "first order in wall Mach number, pressure form, constant sound speed",
+  "keller-enthalpy": "first order, enthalpy form, constant sound speed",
+  "gilmore": "Kirkwood-Bethe, enthalpy form, local wall sound speed",
 }
-RADIAL_NAMES: dict[int, str] = {code: name for name, code in RADIAL_MODELS.items()}
+LIQUID_EOS: tuple[str, ...] = ("tait", "mie-gruneisen")
+# the enthalpy forms need a closure for `hB`, `hH`; the other two never ask for one
+NEEDS_EOS: tuple[str, ...] = ("keller-enthalpy", "gilmore")
+
+_CODES: dict[tuple[str, str | None], int] = {
+  ("rayleigh-plesset", None): 1,
+  ("keller-miksis", None): 2,
+  ("keller-enthalpy", "tait"): 3,
+  ("gilmore", "tait"): 4,
+  ("keller-enthalpy", "mie-gruneisen"): 5,
+  ("gilmore", "mie-gruneisen"): 6,
+}
+_PAIRS: dict[int, tuple[str, str | None]] = {code: pair for pair, code in _CODES.items()}
+# every operator this package can integrate, as the pairs a caller writes
+OPERATORS: tuple[tuple[str, str | None], ...] = tuple(_CODES)
 
 
-def radial_code(radial):
-  """The integer a `radial` argument denotes, from a name or from itself."""
-  if isinstance(radial, str):
-    try: return RADIAL_MODELS[radial]
-    except KeyError:
-      raise ValueError(f"unknown radial model {radial!r}; choose from "
-                       f"{', '.join(RADIAL_MODELS)}") from None
-  return radial
+def operator_name(dynamics, liquid_eos) -> str:
+  """One readable label for a pair, for tables and figures."""
+  return dynamics if liquid_eos is None else f"{dynamics}/{liquid_eos}"
+
+
+def dynamics_code(dynamics, liquid_eos):
+  """The integer a `(dynamics, liquid_eos)` pair denotes, with the pairing checked.
+
+  The pairing is half the value of splitting the axes: `gilmore` without an equation of
+  state and `rayleigh-plesset` with one are both now nameable mistakes, and both are caught
+  here rather than silently resolving to whatever the flat table happened to hold.
+  """
+  if dynamics not in DYNAMICS:
+    raise ValueError(f"unknown dynamics {dynamics!r}; choose from {', '.join(DYNAMICS)}")
+  if dynamics in NEEDS_EOS:
+    if liquid_eos is None:
+      raise ValueError(f"dynamics={dynamics!r} is an enthalpy form and needs a liquid_eos; "
+                       f"choose from {', '.join(LIQUID_EOS)}")
+    if liquid_eos not in LIQUID_EOS:
+      raise ValueError(f"unknown liquid_eos {liquid_eos!r}; choose from {', '.join(LIQUID_EOS)}")
+  elif liquid_eos is not None:
+    raise ValueError(f"dynamics={dynamics!r} takes no liquid_eos: it never forms a wall "
+                     f"enthalpy. The enthalpy forms are {', '.join(NEEDS_EOS)}.")
+  return _CODES[(dynamics, liquid_eos)]
 
 
 def _validate_config(config) -> None:
@@ -399,7 +433,9 @@ def _validate_config(config) -> None:
   if not isinstance(c.material, _MATERIALS): raise TypeError("material must be a supported material model")
   for name, value in (("pA", c.pA), ("omega", c.omega), ("TW", c.TW), ("DT", c.DT), ("mn", c.mn)):
     if not np.isfinite(value): raise ValueError(f"{name} must be finite")
-  for name, value, allowed in (("radial", c.radial, range(1, 7)), ("wave_type", c.wave_type, range(0, 4))):
+  # `radial` is not checked here: it is derived, and `dynamics_code` is the only thing that
+  # can set it, from a pairing it has already validated
+  for name, value, allowed in (("wave_type", c.wave_type, range(0, 4)),):
     if not isinstance(value, Integral) or value not in allowed:
       raise ValueError(f"{name} must be one of: {', '.join(str(choice) for choice in allowed)}")
   for name, value in (("vapor", c.vapor), ("bubtherm", c.bubtherm), ("medtherm", c.medtherm), ("masstrans", c.masstrans)):

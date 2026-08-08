@@ -70,7 +70,7 @@ config = SimulationConfig(
 ## Sensitivities
 
 The tangent-linear solver differentiates the production RHS rather than a
-reduced surrogate. It covers radial models 1-5, every typed material, thermal
+reduced surrogate. It covers every operator but `gilmore/mie-gruneisen`, every typed material, thermal
 and mass-transfer states, distributed nonlinear memory, forcing, geometry,
 initial conditions, and continuous physical parameters.
 
@@ -266,13 +266,13 @@ through --- so they compare by holding the candidate fixed and varying the `solv
 ```python
 from pyimr.selection import DYNAMICS_MODELS
 
-for name, radial in DYNAMICS_MODELS.items():
-    ...  # build a solve callback at this `radial`, then fit and score as above
+for dynamics, liquid_eos in DYNAMICS_MODELS:
+    ...  # build a solve callback at this operator, then fit and score as above
 ```
 
 The parameter space is identical across the set, so the Occam terms cancel and the difference
 in log evidence is a Bayes factor between operators. Every candidate in this package assumes
-`radial=2`; on the records analysed in `docs/writeup`, two other operators beat it. See
+`dynamics="keller-miksis"`; on the records analysed in `docs/writeup`, two other operators beat it. See
 [open work](open-work.md) for what that comparison does and does not establish --- in
 particular, it must be run in identified coordinates, or the ranking follows the prior box
 rather than the data.

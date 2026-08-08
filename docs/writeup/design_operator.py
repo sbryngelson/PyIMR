@@ -41,7 +41,8 @@ HIGH = np.array([431.9, 0.05005, 2.325e-7, 9.432])
 RADII = np.geomspace(50e-6, 1200e-6, 16)
 STRETCH = np.linspace(3.0, 20.0, 14)
 RELATIVE_NOISE, SAMPLES = 0.018, 201
-RIVALS = ("keller-miksis", "keller-miksis-mie")                                   # the package default against what replicated
+# the package default against what replicated, as (dynamics, liquid_eos) pairs
+RIVALS = (("keller-miksis", None), ("keller-enthalpy", "mie-gruneisen"))
 # the three experiments actually performed, from the shared record table
 PERFORMED = {name: (records.DATASETS[name], records.load(name)[4]) for name in records.DATASETS}
 
@@ -57,16 +58,18 @@ def information(design):
   material = pyimr.QuadraticZener(FIT[0], FIT[1], FIT[2], 0.0, FIT[3])
 
   traces = {}
-  for radial in RIVALS:
-    config = pyimr.SimulationConfig(radius, radius / stretch, material, radial=radial,
+  for operator in RIVALS:
+    config = pyimr.SimulationConfig(radius, radius / stretch, material, dynamics=operator[0],
+                                    liquid_eos=operator[1],
                                     rtol=1e-7, atol=1e-9, max_steps=200_000)
     try:
-      traces[radial] = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
+      traces[operator] = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
     except Exception:                                # noqa: BLE001
       return design, None
   if not all(np.all(np.isfinite(t)) for t in traces.values()): return design, None
 
-  base = pyimr.SimulationConfig(radius, radius / stretch, material, radial=RIVALS[0],
+  base = pyimr.SimulationConfig(radius, radius / stretch, material, dynamics=RIVALS[0][0],
+                                liquid_eos=RIVALS[0][1],
                                 rtol=1e-7, atol=1e-9, max_steps=200_000)
   inference = prepare_inference(
     base, RadiusObservation(times, traces[RIVALS[0]] * radius, RELATIVE_NOISE * radius),

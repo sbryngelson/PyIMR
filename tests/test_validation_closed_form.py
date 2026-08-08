@@ -26,7 +26,7 @@ _RESOLUTION = _WINDOW / (_SAMPLES - 1) / _ANALYTIC
 
 
 def _collapse_time(ratio):
-  config = pyimr.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=pyimr.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13)
+  config = pyimr.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=pyimr.NoStress(), dynamics="rayleigh-plesset", physics=_INVISCID, rtol=1e-11, atol=1e-13)
   times = np.linspace(0.0, _WINDOW, _SAMPLES)
   radius = np.asarray(pyimr.simulate(times, config).radius_ratio)
   return float(times[int(np.argmin(radius))])
@@ -45,7 +45,7 @@ def test_collapse_time_converges_to_rayleigh(measured):
 def test_the_step_budget_failure_is_retried_at_higher_order(measured):
   """The retry that replaces LSODA's switching, asserted on the case that needed it."""
   config = pyimr.SimulationConfig(
-    R0=_R0, Req=_R0 * 0.02, material=pyimr.NoStress(), radial=1, physics=_INVISCID, rtol=1e-11, atol=1e-13
+    R0=_R0, Req=_R0 * 0.02, material=pyimr.NoStress(), dynamics="rayleigh-plesset", physics=_INVISCID, rtol=1e-11, atol=1e-13
   )
   result = pyimr.simulate(np.linspace(0.0, _WINDOW, 2001), config)
   measured("step-budget retry", f"backend={result.stats.backend}")
@@ -63,18 +63,18 @@ def test_gas_content_lengthens_the_collapse(measured):
   assert loose > tight > _ANALYTIC * (1.0 - _RESOLUTION)
 
 
-def _trace(ratio, radial, sound_speed=None, window=60e-6, samples=4000):
+def _trace(ratio, dynamics, liquid_eos=None, sound_speed=None, window=60e-6, samples=4000):
   physics = (
     _INVISCID
     if sound_speed is None
     else pyimr.PhysicalParameters(surface_tension_n_m=_SIGMA, far_field_pressure_pa=_P8, medium_density_kg_m3=_RHO, sound_speed_m_s=sound_speed)
   )
-  config = pyimr.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=pyimr.NoStress(), radial=radial, physics=physics, rtol=1e-12, atol=1e-14)
+  config = pyimr.SimulationConfig(R0=_R0, Req=_R0 * ratio, material=pyimr.NoStress(), dynamics=dynamics, liquid_eos=liquid_eos, physics=physics, rtol=1e-12, atol=1e-14)
   return pyimr.simulate(np.linspace(0.0, window, samples), config)
 
 
-def _first_integral_residual(ratio, radial=1):
-  result = _trace(ratio, radial=radial)
+def _first_integral_residual(ratio, dynamics="rayleigh-plesset", liquid_eos=None):
+  result = _trace(ratio, dynamics, liquid_eos)
   radius = np.asarray(result.radius_ratio) * _R0
   velocity = np.asarray(result.wall_velocity_m_s)
 
@@ -98,8 +98,8 @@ def test_rayleigh_plesset_conserves_its_first_integral(ratio, measured):
 
 def test_keller_miksis_is_compressible_at_all(measured):
   """The converse of the test above. At a physical sound speed Keller-Miksis"""
-  incompressible = _first_integral_residual(1.0 / 6.0, radial=1)
-  compressible = _first_integral_residual(1.0 / 6.0, radial=2)
+  incompressible = _first_integral_residual(1.0 / 6.0, dynamics="rayleigh-plesset")
+  compressible = _first_integral_residual(1.0 / 6.0, dynamics="keller-miksis")
   measured("KM violates the RP invariant", f"RP rel={incompressible:.1e}  KM rel={compressible:.2f}")
   assert compressible > 0.1, "KM satisfies the incompressible invariant -- is it actually solving RP?"
   assert incompressible < 1e-8
@@ -109,8 +109,8 @@ def test_keller_miksis_approaches_rayleigh_plesset_as_first_order_in_one_over_c(
   """`c -> inf` is the easy half. The order matters more: Keller-Miksis carries"""
   gaps = []
   for sound_speed in (1e7, 1e9):
-    reference = np.asarray(_trace(1.0 / 6.0, radial=1, sound_speed=sound_speed).radius_ratio)
-    compressible = np.asarray(_trace(1.0 / 6.0, radial=2, sound_speed=sound_speed).radius_ratio)
+    reference = np.asarray(_trace(1.0 / 6.0, dynamics="rayleigh-plesset", sound_speed=sound_speed).radius_ratio)
+    compressible = np.asarray(_trace(1.0 / 6.0, dynamics="keller-miksis", sound_speed=sound_speed).radius_ratio)
     gaps.append(float(np.max(np.abs(compressible - reference))))
 
   ratio = gaps[0] / gaps[1]
@@ -144,7 +144,7 @@ def _polytropic_state(conductivity_scale, exponent, samples=600, thermal=None, m
     R0=_R0,
     Req=_R0 / 6,
     material=pyimr.NoStress(),
-    radial=1,
+    dynamics="rayleigh-plesset",
     bubtherm=1,
     Nt=25,
     physics=_scaled_conductivity(conductivity_scale),
@@ -218,7 +218,7 @@ def test_a_dry_run_ignores_the_vapour_conductivity(options, measured):
       vapor_conductivity_offset=_BASE_PHYSICS.vapor_conductivity_offset * scale,
     )
     config = pyimr.SimulationConfig(
-      R0=_R0, Req=_R0 / 6, material=pyimr.NoStress(), radial=1, physics=physics, rtol=1e-10, atol=1e-12, **options
+      R0=_R0, Req=_R0 / 6, material=pyimr.NoStress(), dynamics="rayleigh-plesset", physics=physics, rtol=1e-10, atol=1e-12, **options
     )
     trace = np.asarray(pyimr.simulate(times, config).radius_ratio)
     baseline = trace if baseline is None else baseline
@@ -227,8 +227,8 @@ def test_a_dry_run_ignores_the_vapour_conductivity(options, measured):
   assert worst < 1e-7
 
 
-@pytest.mark.parametrize("radial", (5, 6))
-def test_the_mie_gruneisen_domain_is_one_boundary_not_two(radial, measured):
+@pytest.mark.parametrize("dynamics", ("keller-enthalpy", "gilmore"))
+def test_the_mie_gruneisen_domain_is_one_boundary_not_two(dynamics, measured):
   """The Hugoniot's density root and its sound speed fail at the same place."""
   s, nog = _thermal._HUGONIOT_S, _thermal._NOG
   limit = -1.0 / (4.0 * (s + nog))
@@ -240,10 +240,10 @@ def test_the_mie_gruneisen_domain_is_one_boundary_not_two(radial, measured):
   radicand = (1.0 + (s + 2.0 * nog) * mu) / (1.0 - s * mu) ** 3
   assert np.all(radicand >= 0.0), "a real density root must imply a real sound speed"
 
-  config = pyimr.SimulationConfig(R0=_R0, Req=_R0 / 6, material=pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1), radial=radial)
+  config = pyimr.SimulationConfig(R0=_R0, Req=_R0 / 6, material=pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1), dynamics=dynamics, liquid_eos="mie-gruneisen")
   parameters = pyimr.prepare(config).parameters
   result = pyimr.simulate(np.linspace(0.0, 60e-6, 2000), config)
   bubble = np.asarray(result.internal_pressure_pa) + np.asarray(result.stress_integral_pa)
   reached = (bubble / parameters["P8"] - parameters["iWe"] / np.asarray(result.radius_ratio)) / parameters["Cstar"] ** 2
-  measured(f"Mie-Gruneisen A range r={radial}", f"[{reached.min():.2e}, {reached.max():.2e}] vs limit {limit:.4f}")
+  measured(f"Mie-Gruneisen A range {dynamics}", f"[{reached.min():.2e}, {reached.max():.2e}] vs limit {limit:.4f}")
   assert reached.min() > limit, "the trajectory must stay inside the Hugoniot's domain"

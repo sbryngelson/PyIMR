@@ -50,9 +50,10 @@ DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 
 GRID_COUNT = 10
 MODELS = STANDARD_MODELS  # every candidate: #196 made the distributed pair affordable
-# Keller-Miksis. Laser cavitation is compressible; PYIMR_RADIAL=1 recovers the
-# incompressible Rayleigh-Plesset results for comparison.
-_RADIAL = int(os.environ.get('PYIMR_RADIAL', '2'))
+# Keller-Miksis. Laser cavitation is compressible; PYIMR_DYNAMICS=rayleigh-plesset
+# recovers the incompressible results for comparison.
+_DYNAMICS = os.environ.get('PYIMR_DYNAMICS', 'keller-miksis')
+_LIQUID_EOS = os.environ.get('PYIMR_LIQUID_EOS') or None
 # Step budget per solve. Points that collapse to a fraction of a percent of R_max and
 # creep instead of rebounding run to any ceiling they are given; the healthy points of
 # the same grid finish under 7e3 steps. Against the 1e6 default this runs 6.3x faster
@@ -87,7 +88,7 @@ def screen(trials):
   spread = trials.std(axis=0, ddof=1)
   return ~(trials > _MAX_RATIO).any(axis=0) & (spread > 0.0)
 
-def setup(dataset, thermal_nodes, radial=_RADIAL):
+def setup(dataset, thermal_nodes, dynamics=_DYNAMICS, liquid_eos=_LIQUID_EOS):
   """Per-dataset state, rebuilt from picklable arguments alone.
 
   Workers cannot receive a closure, so they reconstruct this from the dataset name. The
@@ -103,7 +104,7 @@ def setup(dataset, thermal_nodes, radial=_RADIAL):
   )
   # annotated: an inferred dict[str, int | str] makes every SimulationConfig field
   # int | str through the **options splat, which pyright rejects across the board
-  options: dict[str, Any] = {"radial": radial}
+  options: dict[str, Any] = {"dynamics": dynamics, "liquid_eos": liquid_eos}
   if thermal_nodes: options |= {"bubtherm": 1, "thermal": "spectral", "Nt": thermal_nodes}
 
   def solve(material):

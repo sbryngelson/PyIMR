@@ -39,7 +39,7 @@ def _candidate(ratio):
 def _job(argument):
   dataset, name, ratio = argument
   times, mean, spread, maximum, stretch = records.load(dataset)
-  solve = records.solver(times, maximum, stretch, radial=name)
+  solve = records.solver(times, maximum, stretch, dynamics=name[0], liquid_eos=name[1])
   try:
     # starts=10, not the default 6. At 6 the 33 C fits sat at chi2/N = 1.151 while a fit at
     # 0.439 exists, so all six operators were stuck in the same poor basin -- which looks

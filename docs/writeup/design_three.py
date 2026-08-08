@@ -67,7 +67,7 @@ def information(job):
   try:
     base = run(base_material)
     perturbed = {
-      "dynamics": run(base_material, radial="keller-miksis-mie"),
+      "dynamics": run(base_material, dynamics="keller-enthalpy", liquid_eos="mie-gruneisen"),
       "constitutive": run(_material(product, tau=2e-6, share=0.2)),
       "thermal": run(base_material, bubtherm=1, medtherm=1, Nt=11, Mt=11),
     }
@@ -76,7 +76,7 @@ def information(job):
   traces = [base, *perturbed.values()]
   if not all(np.all(np.isfinite(t)) for t in traces): return job, None
 
-  config = pyimr.SimulationConfig(radius, radius / stretch, base_material, radial="keller-miksis", **common)
+  config = pyimr.SimulationConfig(radius, radius / stretch, base_material, dynamics="keller-miksis", **common)
   low, high = np.array([1e2, 1e-3, 1e-8, 1e-1]), np.array([1e4, 1e0, 1e-5, 1e2])
   centre = np.array([np.sqrt(product * RATIO), 0.04651, 1.964e-7, np.sqrt(product / RATIO)])
   inference = prepare_inference(

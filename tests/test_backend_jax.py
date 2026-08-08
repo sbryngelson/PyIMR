@@ -8,7 +8,7 @@ import pytest
 import pyimr
 import pyimr.sensitivity
 from pyimr import _jax
-from _validation_support import NHKV, R0, REQ, oldroyd_b, tangent_deviation, zener
+from _validation_support import NHKV, R0, REQ, tangent_deviation, zener
 
 
 SECTION = "7. jax backend"
@@ -16,14 +16,6 @@ SECTION = "7. jax backend"
 _TIMES = np.linspace(0.0, 40e-6, 300)
 
 _MAX_BOUND, _MEDIAN_BOUND = 1e-05, 1e-06
-
-_CASES = [(radial, "NHKV", NHKV) for radial in range(1, 7)] + [
-  (2, "NoStress", pyimr.NoStress()),
-  (2, "qKV", pyimr.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)),
-  (2, "Zener", zener()),
-  (2, "OldroydB", oldroyd_b()),
-  (4, "Zener", zener()),
-]
 
 _THERMAL_CASES = [
   ("bubtherm fd", dict(bubtherm=1, Nt=17, thermal="fd")),
@@ -139,10 +131,10 @@ _SAMPLED_CASES: list[tuple[str, np.ndarray, dict[str, Any]]] = [
 ]
 
 _CONFIG_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float]] = [
-  ("mechanical R0", dict(radial=2), ("R0",), 1e-05),
-  ("mechanical Req", dict(radial=2), ("Req",), 1e-05),
-  ("mechanical pA", dict(radial=2, wave_type=1, pA=5e4, TW=5e-6, DT=2e-5), ("pA",), 1e-05),
-  ("mechanical T8 w/ vapor", dict(radial=2, vapor=1), ("T8",), 1e-05),
+  ("mechanical R0", dict(dynamics="keller-miksis"), ("R0",), 1e-05),
+  ("mechanical Req", dict(dynamics="keller-miksis"), ("Req",), 1e-05),
+  ("mechanical pA", dict(dynamics="keller-miksis", wave_type=1, pA=5e4, TW=5e-6, DT=2e-5), ("pA",), 1e-05),
+  ("mechanical T8 w/ vapor", dict(dynamics="keller-miksis", vapor=1), ("T8",), 1e-05),
   ("coupled R0", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("R0",), 1e-04),
   ("coupled Req", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("Req",), 5e-04),
   ("coupled T8", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), ("T8",), 1e-04),
@@ -207,11 +199,11 @@ def test_params_branches_only_on_concrete_configuration():
 
 
 _STRUCTURE_TANGENT_CASES: list[tuple[str, dict[str, Any], tuple[str, ...], float]] = [
-  ("mechanical P8", dict(radial=2), ("physics.far_field_pressure_pa",), 1e-05),
-  ("mechanical density", dict(radial=2), ("physics.medium_density_kg_m3",), 1e-05),
-  ("mechanical surface tension", dict(radial=2), ("physics.surface_tension_n_m",), 1e-05),
-  ("mechanical sound speed", dict(radial=2), ("physics.sound_speed_m_s",), 1e-05),
-  ("mechanical initial velocity", dict(radial=2), ("initial.wall_velocity_m_s",), 1e-05),
+  ("mechanical P8", dict(dynamics="keller-miksis"), ("physics.far_field_pressure_pa",), 1e-05),
+  ("mechanical density", dict(dynamics="keller-miksis"), ("physics.medium_density_kg_m3",), 1e-05),
+  ("mechanical surface tension", dict(dynamics="keller-miksis"), ("physics.surface_tension_n_m",), 1e-05),
+  ("mechanical sound speed", dict(dynamics="keller-miksis"), ("physics.sound_speed_m_s",), 1e-05),
+  ("mechanical initial velocity", dict(dynamics="keller-miksis"), ("initial.wall_velocity_m_s",), 1e-05),
   (
     "mass transfer conductivity",
     dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=9, Mt=9, thermal="fd"),
@@ -373,15 +365,15 @@ def test_the_traced_path_covers_every_differentiable_scalar_field():
 
 
 _TANGENT_CASES: list[tuple[str, str, dict[str, Any], str, float]] = [
-  ("material G", "material.shear_modulus_pa", dict(radial=2), "radius_ratio", 5e-06),
-  ("material mu", "material.viscosity_pa_s", dict(radial=2), "radius_ratio", 5e-06),
-  ("R0", "R0", dict(radial=2), "radius_ratio", 5e-06),
-  ("Req", "Req", dict(radial=2), "radius_ratio", 5e-06),
-  ("pA", "pA", dict(radial=2, wave_type=1, pA=5e4, TW=5e-6, DT=2e-5), "radius_ratio", 5e-05),
-  ("physics P8", "physics.far_field_pressure_pa", dict(radial=2), "radius_ratio", 5e-06),
-  ("physics density", "physics.medium_density_kg_m3", dict(radial=2), "radius_ratio", 5e-06),
-  ("physics surface tension", "physics.surface_tension_n_m", dict(radial=2), "radius_ratio", 5e-06),
-  ("initial velocity", "initial.wall_velocity_m_s", dict(radial=2, initial=pyimr.InitialState(wall_velocity_m_s=-2.0)), "radius_ratio", 5e-06),
+  ("material G", "material.shear_modulus_pa", dict(dynamics="keller-miksis"), "radius_ratio", 5e-06),
+  ("material mu", "material.viscosity_pa_s", dict(dynamics="keller-miksis"), "radius_ratio", 5e-06),
+  ("R0", "R0", dict(dynamics="keller-miksis"), "radius_ratio", 5e-06),
+  ("Req", "Req", dict(dynamics="keller-miksis"), "radius_ratio", 5e-06),
+  ("pA", "pA", dict(dynamics="keller-miksis", wave_type=1, pA=5e4, TW=5e-6, DT=2e-5), "radius_ratio", 5e-05),
+  ("physics P8", "physics.far_field_pressure_pa", dict(dynamics="keller-miksis"), "radius_ratio", 5e-06),
+  ("physics density", "physics.medium_density_kg_m3", dict(dynamics="keller-miksis"), "radius_ratio", 5e-06),
+  ("physics surface tension", "physics.surface_tension_n_m", dict(dynamics="keller-miksis"), "radius_ratio", 5e-06),
+  ("initial velocity", "initial.wall_velocity_m_s", dict(dynamics="keller-miksis", initial=pyimr.InitialState(wall_velocity_m_s=-2.0)), "radius_ratio", 5e-06),
   ("bubtherm G", "material.shear_modulus_pa", dict(bubtherm=1, Nt=13, thermal="fd"), "bubble_temperature_k", 5e-05),
   ("coupled T8", "T8", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), "bubble_temperature_k", 5e-04),
   ("coupled medium", "physics.medium_conductivity_w_m_k", dict(bubtherm=1, medtherm=1, Nt=11, Mt=11, thermal="fd"), "medium_temperature_k", 5e-04),

@@ -23,13 +23,13 @@ def _centered_output(times, config, field, step, output):
   return (ahead - behind) / (2.0 * step)
 
 
-@pytest.mark.parametrize("radial", range(1, 6))
-def test_material_tangent_matches_centered_difference(radial, measured):
-  config = pyimr.SimulationConfig(R0, REQ, NHKV, radial=radial, rtol=1e-10, atol=1e-12)
+@pytest.mark.parametrize(("dynamics", "liquid_eos"), pyimr.OPERATORS)
+def test_material_tangent_matches_centered_difference(dynamics, liquid_eos, measured):
+  config = pyimr.SimulationConfig(R0, REQ, NHKV, dynamics=dynamics, liquid_eos=liquid_eos, rtol=1e-10, atol=1e-12)
   tangent = pyimr.simulate_with_sensitivities(_TIMES, config, ["material.shear_modulus_pa"]).radius_ratio[:, 0]
   difference = _centered_output(_TIMES, config, "shear_modulus_pa", 25.0, lambda result: result.radius_ratio)
   error = float(np.linalg.norm(tangent - difference) / np.linalg.norm(difference))
-  measured(f"radial={radial} material tangent", f"rel={error:.2e}")
+  measured(f"{pyimr.operator_name(dynamics, liquid_eos)} material tangent", f"rel={error:.2e}")
   assert error < 2e-4
 
 
@@ -46,7 +46,7 @@ def test_coupled_heat_mass_transfer_output_tangent(measured):
 
 
 def test_collapse_shooting_tangent(measured):
-  config = pyimr.SimulationConfig(R0, REQ, pyimr.Zener(2500.0, 0.1, 40e-6, 8e-6), radial=2, collapse=pyimr.CollapseInitialization())
+  config = pyimr.SimulationConfig(R0, REQ, pyimr.Zener(2500.0, 0.1, 40e-6, 8e-6), dynamics="keller-miksis", collapse=pyimr.CollapseInitialization())
   tangent = pyimr.simulate_with_sensitivities(np.array([0.0, 1e-8]), config, ["material.shear_modulus_pa"]).state[0, -1, 0]
   step = 0.025
   difference = (

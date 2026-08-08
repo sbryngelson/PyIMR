@@ -1,0 +1,1102 @@
+{
+ "gelatin_15C|rayleigh-plesset|None": {
+  "chi2_per_n": 2.586487085124238,
+  "log_evidence": 362.1656653534496,
+  "lag_one": 0.9038634196103426,
+  "n_eff": 30.32837359517933,
+  "failure_fraction": 0.02006335797254488,
+  "modes": 2,
+  "fitted": {
+   "mu": 0.7772556038012178,
+   "galpha": 3447.2375368667467,
+   "lambda1": 3.4761576774847235e-06
+  },
+  "pinned": []
+ },
+ "gelatin_15C|keller-miksis|None": {
+  "chi2_per_n": 0.9710144924140237,
+  "log_evidence": 527.1446246557017,
+  "lag_one": 0.9189599416443307,
+  "n_eff": 10.123935987748778,
+  "failure_fraction": 0.016830968982928587,
+  "modes": 7,
+  "fitted": {
+   "mu": 0.04636496736098687,
+   "galpha": 1069.441249190644,
+   "lambda1": 1.9864863540629203e-07
+  },
+  "pinned": []
+ },
+ "gelatin_15C|keller-enthalpy/tait|None": {
+  "chi2_per_n": 0.9079447729522941,
+  "log_evidence": 533.250166888063,
+  "lag_one": 0.913101587774458,
+  "n_eff": 6.987305122787961,
+  "failure_fraction": 0.011347517730496455,
+  "modes": 5,
+  "fitted": {
+   "mu": 0.042524086878284545,
+   "galpha": 1049.8851764059568,
+   "lambda1": 6.629944130969212e-08
+  },
+  "pinned": []
+ },
+ "gelatin_15C|gilmore/tait|None": {
+  "chi2_per_n": 0.7781293595639786,
+  "log_evidence": 545.6381212004029,
+  "lag_one": 0.8764094554643193,
+  "n_eff": 7.80335218414008,
+  "failure_fraction": 0.013447432762836185,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.03589640174483767,
+   "galpha": 1189.5956546884868,
+   "lambda1": 1.2265868256850972e-08
+  },
+  "pinned": []
+ },
+ "gelatin_15C|keller-enthalpy/mie-gruneisen|None": {
+  "chi2_per_n": 0.9253065955261258,
+  "log_evidence": 531.8817795452587,
+  "lag_one": 0.914594913043361,
+  "n_eff": 7.117848352261976,
+  "failure_fraction": 0.011118832522585128,
+  "modes": 5,
+  "fitted": {
+   "mu": 0.043331883002693077,
+   "galpha": 1054.3180610592567,
+   "lambda1": 9.098545672092434e-08
+  },
+  "pinned": []
+ },
+ "gelatin_15C|gilmore/mie-gruneisen|None": {
+  "chi2_per_n": 0.7557961482543875,
+  "log_evidence": 547.8737900933512,
+  "lag_one": 0.8764080023033222,
+  "n_eff": 7.778055972462494,
+  "failure_fraction": 0.00989078920255512,
+  "modes": 7,
+  "fitted": {
+   "mu": 0.03342223172798295,
+   "galpha": 1181.2936616989475,
+   "lambda1": 5.1271161027034495e-09
+  },
+  "pinned": []
+ },
+ "gelatin_15C|rayleigh-plesset|0.03": {
+  "chi2_per_n": 2.4919835349793398,
+  "log_evidence": 371.27233018783784,
+  "lag_one": 0.9013975293802816,
+  "n_eff": 31.107541254723944,
+  "failure_fraction": 0.025974025974025976,
+  "modes": 4,
+  "fitted": {
+   "mu": 0.764570246961129,
+   "galpha": 3580.1688174206433,
+   "lambda1": 3.4256469031047584e-06,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_15C|keller-miksis|0.03": {
+  "chi2_per_n": 0.8063715185600083,
+  "log_evidence": 543.160365043376,
+  "lag_one": 0.9070958392551111,
+  "n_eff": 11.999051181056794,
+  "failure_fraction": 0.009554140127388535,
+  "modes": 7,
+  "fitted": {
+   "mu": 0.0474513879075376,
+   "galpha": 1121.3088117963432,
+   "lambda1": 9.646342910848811e-08,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_15C|keller-enthalpy/tait|0.03": {
+  "chi2_per_n": 0.7585661140482435,
+  "log_evidence": 547.2562123515575,
+  "lag_one": 0.903341533352321,
+  "n_eff": 8.050424669280098,
+  "failure_fraction": 0.007035419699175158,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.04557722312029496,
+   "galpha": 1112.1865696220534,
+   "lambda1": 4.7414070861515006e-08,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_15C|gilmore/tait|0.03": {
+  "chi2_per_n": 0.6330292356670373,
+  "log_evidence": 559.5491238168645,
+  "lag_one": 0.8559972730228926,
+  "n_eff": 8.414356160017883,
+  "failure_fraction": 0.004917754790571477,
+  "modes": 6,
+  "fitted": {
+   "mu": 0.03959691121014509,
+   "galpha": 1262.7516113668632,
+   "lambda1": 1.1319397883236857e-08,
+   "req_scale": 1.030927835051545
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_15C|keller-enthalpy/mie-gruneisen|0.03": {
+  "chi2_per_n": 0.7715494400971178,
+  "log_evidence": 546.2186967136668,
+  "lag_one": 0.9045978617668049,
+  "n_eff": 8.130625587071325,
+  "failure_fraction": 0.0090255468869512,
+  "modes": 11,
+  "fitted": {
+   "mu": 0.04613714405328777,
+   "galpha": 1114.923945955282,
+   "lambda1": 5.6896653046880814e-08,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_15C|gilmore/mie-gruneisen|0.03": {
+  "chi2_per_n": 0.6480401104148629,
+  "log_evidence": 557.760987941736,
+  "lag_one": 0.8787559462371066,
+  "n_eff": 7.978281002317024,
+  "failure_fraction": 0.00586940572267058,
+  "modes": 12,
+  "fitted": {
+   "mu": 0.03758171179181638,
+   "galpha": 1080.1466942394377,
+   "lambda1": 4.856695749324674e-09,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_15C|rayleigh-plesset|0.1": {
+  "chi2_per_n": 2.3799878744185574,
+  "log_evidence": 381.21249005954985,
+  "lag_one": 0.8979891318679032,
+  "n_eff": 32.27363997585131,
+  "failure_fraction": 0.025552825552825554,
+  "modes": 2,
+  "fitted": {
+   "mu": 0.7304577585250912,
+   "galpha": 3931.59739010666,
+   "lambda1": 3.2840172303117986e-06,
+   "req_scale": 1.1111111111111103
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_15C|keller-miksis|0.1": {
+  "chi2_per_n": 0.6317373950735092,
+  "log_evidence": 558.9392318012244,
+  "lag_one": 0.8502959364011602,
+  "n_eff": 22.391487707935188,
+  "failure_fraction": 0.0034222656795641847,
+  "modes": 10,
+  "fitted": {
+   "mu": 0.053864821658151235,
+   "galpha": 1505.9210146129963,
+   "lambda1": 3.487463137245145e-08,
+   "req_scale": 1.1076058496197239
+  },
+  "pinned": []
+ },
+ "gelatin_15C|keller-enthalpy/tait|0.1": {
+  "chi2_per_n": 0.6129703308629814,
+  "log_evidence": 560.5981161368935,
+  "lag_one": 0.844579656509857,
+  "n_eff": 22.497233879458168,
+  "failure_fraction": 0.009395088181968023,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.05245460919758582,
+   "galpha": 1491.82771425662,
+   "lambda1": 2.7477723345562745e-08,
+   "req_scale": 1.1038630465692065
+  },
+  "pinned": []
+ },
+ "gelatin_15C|gilmore/tait|0.1": {
+  "chi2_per_n": 0.5210310307873418,
+  "log_evidence": 569.6334645191167,
+  "lag_one": 0.830044870256688,
+  "n_eff": 10.807569243940174,
+  "failure_fraction": 0.004414498141263941,
+  "modes": 7,
+  "fitted": {
+   "mu": 0.047373186238832556,
+   "galpha": 1416.1838966565763,
+   "lambda1": 9.969896921124472e-09,
+   "req_scale": 1.089963366068611
+  },
+  "pinned": []
+ },
+ "gelatin_15C|keller-enthalpy/mie-gruneisen|0.1": {
+  "chi2_per_n": 0.618531402526598,
+  "log_evidence": 560.104720799744,
+  "lag_one": 0.846402279775662,
+  "n_eff": 22.45697981515455,
+  "failure_fraction": 0.00979381443298969,
+  "modes": 9,
+  "fitted": {
+   "mu": 0.05289761940332253,
+   "galpha": 1496.3934451898572,
+   "lambda1": 2.9514248231420054e-08,
+   "req_scale": 1.104971297815326
+  },
+  "pinned": []
+ },
+ "gelatin_15C|gilmore/mie-gruneisen|0.1": {
+  "chi2_per_n": 0.5596219518978176,
+  "log_evidence": 565.4970955291602,
+  "lag_one": 0.861596368175086,
+  "n_eff": 11.533385349926968,
+  "failure_fraction": 0.006073992269464384,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.04513474532284697,
+   "galpha": 1198.2689260069274,
+   "lambda1": 4.62854074011123e-09,
+   "req_scale": 1.0825938815906602
+  },
+  "pinned": []
+ },
+ "gelatin_15C|rayleigh-plesset|0.25": {
+  "chi2_per_n": 2.3797652939642786,
+  "log_evidence": 380.22744013259427,
+  "lag_one": 0.8979611339091238,
+  "n_eff": 32.29543987605163,
+  "failure_fraction": 0.009182412149037613,
+  "modes": 3,
+  "fitted": {
+   "mu": 0.7288581644955066,
+   "galpha": 3947.806976927489,
+   "lambda1": 3.277179361890138e-06,
+   "req_scale": 1.1147657399461968
+  },
+  "pinned": []
+ },
+ "gelatin_15C|keller-miksis|0.25": {
+  "chi2_per_n": 0.6230931236149433,
+  "log_evidence": 558.7825039560292,
+  "lag_one": 0.8452340136502134,
+  "n_eff": 13.263129912056785,
+  "failure_fraction": 0.004900359359686377,
+  "modes": 10,
+  "fitted": {
+   "mu": 0.055637982895454574,
+   "galpha": 1484.2026412921055,
+   "lambda1": 3.927055520578928e-08,
+   "req_scale": 1.106600747177754
+  },
+  "pinned": []
+ },
+ "gelatin_15C|keller-enthalpy/tait|0.25": {
+  "chi2_per_n": 0.6129703320372601,
+  "log_evidence": 559.593654835289,
+  "lag_one": 0.8445771628938576,
+  "n_eff": 22.49730868599692,
+  "failure_fraction": 0.012125805229253505,
+  "modes": 10,
+  "fitted": {
+   "mu": 0.05245362899031917,
+   "galpha": 1491.7971356465098,
+   "lambda1": 2.7479342089152495e-08,
+   "req_scale": 1.1038513630629718
+  },
+  "pinned": []
+ },
+ "gelatin_15C|gilmore/tait|0.25": {
+  "chi2_per_n": 0.5673181346467271,
+  "log_evidence": 563.7462831832079,
+  "lag_one": 0.865747378504251,
+  "n_eff": 11.806814978649204,
+  "failure_fraction": 0.006427423674343867,
+  "modes": 11,
+  "fitted": {
+   "mu": 0.04598758542379067,
+   "galpha": 1206.5791291234734,
+   "lambda1": 9.862401875526978e-09,
+   "req_scale": 1.0843670982465297
+  },
+  "pinned": []
+ },
+ "gelatin_15C|keller-enthalpy/mie-gruneisen|0.25": {
+  "chi2_per_n": 0.6185314024507949,
+  "log_evidence": 559.1002542023739,
+  "lag_one": 0.8464012870020938,
+  "n_eff": 22.457077720218496,
+  "failure_fraction": 0.012833366753559254,
+  "modes": 10,
+  "fitted": {
+   "mu": 0.05289723077816861,
+   "galpha": 1496.3851035308687,
+   "lambda1": 2.951440396384469e-08,
+   "req_scale": 1.1049692615817603
+  },
+  "pinned": []
+ },
+ "gelatin_15C|gilmore/mie-gruneisen|0.25": {
+  "chi2_per_n": 0.5078851645958019,
+  "log_evidence": 569.9372226004494,
+  "lag_one": 0.8291969685625636,
+  "n_eff": 10.316372228415597,
+  "failure_fraction": 0.008083411433926898,
+  "modes": 14,
+  "fitted": {
+   "mu": 0.0462046585617594,
+   "galpha": 1406.0546352162255,
+   "lambda1": 4.768308531194508e-09,
+   "req_scale": 1.0873415372578958
+  },
+  "pinned": []
+ },
+ "gelatin_23C|rayleigh-plesset|None": {
+  "chi2_per_n": 1.7942059426502375,
+  "log_evidence": 402.803203092697,
+  "lag_one": 0.8923288968647718,
+  "n_eff": 33.05356126228057,
+  "failure_fraction": 0.018805829807240243,
+  "modes": 1,
+  "fitted": {
+   "mu": 0.6300894471953111,
+   "galpha": 2167.1953296863426,
+   "lambda1": 2.783402158864026e-06
+  },
+  "pinned": []
+ },
+ "gelatin_23C|keller-miksis|None": {
+  "chi2_per_n": 1.028725652283702,
+  "log_evidence": 479.7314274663602,
+  "lag_one": 0.9675135145108307,
+  "n_eff": 12.554440961015096,
+  "failure_fraction": 0.011040339702760084,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.057973698228498745,
+   "galpha": 667.0894464798766,
+   "lambda1": 1.2333389850093906e-07
+  },
+  "pinned": []
+ },
+ "gelatin_23C|keller-enthalpy/tait|None": {
+  "chi2_per_n": 1.007863840608783,
+  "log_evidence": 481.8430496738721,
+  "lag_one": 0.9676308511995105,
+  "n_eff": 6.91663949185099,
+  "failure_fraction": 0.01003844510892781,
+  "modes": 5,
+  "fitted": {
+   "mu": 0.05541990847991145,
+   "galpha": 658.9202936238045,
+   "lambda1": 6.542865977385003e-08
+  },
+  "pinned": []
+ },
+ "gelatin_23C|gilmore/tait|None": {
+  "chi2_per_n": 0.9780830890507647,
+  "log_evidence": 484.05680232417706,
+  "lag_one": 0.9679643612806509,
+  "n_eff": 6.593838572504312,
+  "failure_fraction": 0.013567438148443736,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.05069457088722205,
+   "galpha": 645.1529178240007,
+   "lambda1": 1.2287711185745687e-08
+  },
+  "pinned": []
+ },
+ "gelatin_23C|keller-enthalpy/mie-gruneisen|None": {
+  "chi2_per_n": 1.0142301134305705,
+  "log_evidence": 481.3122651887091,
+  "lag_one": 0.9674628945987216,
+  "n_eff": 12.48600835732527,
+  "failure_fraction": 0.009900990099009901,
+  "modes": 6,
+  "fitted": {
+   "mu": 0.056098615737563584,
+   "galpha": 661.8251658898038,
+   "lambda1": 8.19286936017558e-08
+  },
+  "pinned": []
+ },
+ "gelatin_23C|gilmore/mie-gruneisen|None": {
+  "chi2_per_n": 0.9773240414284993,
+  "log_evidence": 484.04648546917554,
+  "lag_one": 0.9679389209668049,
+  "n_eff": 6.555543622058493,
+  "failure_fraction": 0.012257405515832482,
+  "modes": 10,
+  "fitted": {
+   "mu": 0.050177820402480484,
+   "galpha": 643.0916881438903,
+   "lambda1": 4.848576640215785e-09
+  },
+  "pinned": []
+ },
+ "gelatin_23C|rayleigh-plesset|0.03": {
+  "chi2_per_n": 1.7504840881027848,
+  "log_evidence": 406.85007061373136,
+  "lag_one": 0.8901020926090278,
+  "n_eff": 33.602798758139976,
+  "failure_fraction": 0.02406159769008662,
+  "modes": 2,
+  "fitted": {
+   "mu": 0.616571659988696,
+   "galpha": 2236.3017602552923,
+   "lambda1": 2.717116312598432e-06,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_23C|keller-miksis|0.03": {
+  "chi2_per_n": 0.950303228231475,
+  "log_evidence": 487.0210210181271,
+  "lag_one": 0.9673252014327536,
+  "n_eff": 13.339718827455972,
+  "failure_fraction": 0.005662121562283337,
+  "modes": 6,
+  "fitted": {
+   "mu": 0.06212516748176931,
+   "galpha": 708.4419868718388,
+   "lambda1": 8.785840938199068e-08,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_23C|keller-enthalpy/tait|0.03": {
+  "chi2_per_n": 0.9377061624858273,
+  "log_evidence": 488.0309259819903,
+  "lag_one": 0.9675627815602507,
+  "n_eff": 13.132303606631954,
+  "failure_fraction": 0.007809344284367847,
+  "modes": 5,
+  "fitted": {
+   "mu": 0.06061484543742363,
+   "galpha": 702.4797323279929,
+   "lambda1": 5.063459642419048e-08,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_23C|gilmore/tait|0.03": {
+  "chi2_per_n": 0.9196072524037838,
+  "log_evidence": 489.27801494071286,
+  "lag_one": 0.9677824603488431,
+  "n_eff": 12.866245681316665,
+  "failure_fraction": 0.00530052058684335,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.05718165527267717,
+   "galpha": 692.5759727667898,
+   "lambda1": 1.1722450383511808e-08,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_23C|keller-enthalpy/mie-gruneisen|0.03": {
+  "chi2_per_n": 0.9409044573821714,
+  "log_evidence": 487.8458145858786,
+  "lag_one": 0.9674767030289817,
+  "n_eff": 13.202912520733484,
+  "failure_fraction": 0.00899085413114246,
+  "modes": 7,
+  "fitted": {
+   "mu": 0.06101895794350778,
+   "galpha": 704.4270408675857,
+   "lambda1": 6.008271703380842e-08,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_23C|gilmore/mie-gruneisen|0.03": {
+  "chi2_per_n": 0.9208243997496349,
+  "log_evidence": 489.09038840202,
+  "lag_one": 0.9678182659447543,
+  "n_eff": 12.83432657907435,
+  "failure_fraction": 0.00725210970464135,
+  "modes": 11,
+  "fitted": {
+   "mu": 0.05702159774160785,
+   "galpha": 691.2906186845089,
+   "lambda1": 4.8857635542754805e-09,
+   "req_scale": 1.030927835051546
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_23C|rayleigh-plesset|0.1": {
+  "chi2_per_n": 1.719904900445692,
+  "log_evidence": 408.53509447029916,
+  "lag_one": 0.8881603610491977,
+  "n_eff": 33.91214512153123,
+  "failure_fraction": 0.015506433520290333,
+  "modes": 2,
+  "fitted": {
+   "mu": 0.5869691728662153,
+   "galpha": 2345.890908643888,
+   "lambda1": 2.5650720255785212e-06,
+   "req_scale": 1.0860198080087535
+  },
+  "pinned": []
+ },
+ "gelatin_23C|keller-miksis|0.1": {
+  "chi2_per_n": 0.9010917420197498,
+  "log_evidence": 490.3767869077439,
+  "lag_one": 0.9650006124107178,
+  "n_eff": 14.650553502903799,
+  "failure_fraction": 0.005663332931678516,
+  "modes": 7,
+  "fitted": {
+   "mu": 0.07135890941962993,
+   "galpha": 788.9983854281427,
+   "lambda1": 5.472448438182548e-08,
+   "req_scale": 1.083070522187136
+  },
+  "pinned": []
+ },
+ "gelatin_23C|keller-enthalpy/tait|0.1": {
+  "chi2_per_n": 0.8974761556319893,
+  "log_evidence": 490.45042926407075,
+  "lag_one": 0.9653147415475256,
+  "n_eff": 14.476077149305558,
+  "failure_fraction": 0.008448652585579024,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.07013615999801055,
+   "galpha": 780.8717810918969,
+   "lambda1": 3.811440387735093e-08,
+   "req_scale": 1.0799134417869038
+  },
+  "pinned": []
+ },
+ "gelatin_23C|gilmore/tait|0.1": {
+  "chi2_per_n": 0.8899166996368791,
+  "log_evidence": 490.8979363203663,
+  "lag_one": 0.9659293538760446,
+  "n_eff": 14.22370858128029,
+  "failure_fraction": 0.004977826047606118,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.06716142492671764,
+   "galpha": 766.646183580118,
+   "lambda1": 1.1212574459155563e-08,
+   "req_scale": 1.075003001392462
+  },
+  "pinned": []
+ },
+ "gelatin_23C|keller-enthalpy/mie-gruneisen|0.1": {
+  "chi2_per_n": 0.8982777061937733,
+  "log_evidence": 490.46471125683996,
+  "lag_one": 0.9652225641228621,
+  "n_eff": 14.523019111924107,
+  "failure_fraction": 0.00757173219978746,
+  "modes": 7,
+  "fitted": {
+   "mu": 0.07047722442523993,
+   "galpha": 783.3043361731043,
+   "lambda1": 4.24747336706051e-08,
+   "req_scale": 1.080723558039898
+  },
+  "pinned": []
+ },
+ "gelatin_23C|gilmore/mie-gruneisen|0.1": {
+  "chi2_per_n": 0.892531576389661,
+  "log_evidence": 490.60049387266133,
+  "lag_one": 0.9660565409611015,
+  "n_eff": 14.193265034292972,
+  "failure_fraction": 0.005320216823930937,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.06715937022087091,
+   "galpha": 764.9773514621879,
+   "lambda1": 5.015092097862063e-09,
+   "req_scale": 1.0744223342324148
+  },
+  "pinned": []
+ },
+ "gelatin_23C|rayleigh-plesset|0.25": {
+  "chi2_per_n": 1.7199049004040623,
+  "log_evidence": 407.53062637422545,
+  "lag_one": 0.8881603571637628,
+  "n_eff": 33.9121448819407,
+  "failure_fraction": 0.01495448634590377,
+  "modes": 2,
+  "fitted": {
+   "mu": 0.5869691065006644,
+   "galpha": 2345.891530680325,
+   "lambda1": 2.565071666866869e-06,
+   "req_scale": 1.0860200602301218
+  },
+  "pinned": []
+ },
+ "gelatin_23C|keller-miksis|0.25": {
+  "chi2_per_n": 0.9010917422753906,
+  "log_evidence": 489.37229757145354,
+  "lag_one": 0.9650002333325781,
+  "n_eff": 14.65067492679695,
+  "failure_fraction": 0.004121537429310841,
+  "modes": 12,
+  "fitted": {
+   "mu": 0.07135909898631596,
+   "galpha": 789.0026047387711,
+   "lambda1": 5.472228923128302e-08,
+   "req_scale": 1.0830742372937499
+  },
+  "pinned": []
+ },
+ "gelatin_23C|keller-enthalpy/tait|0.25": {
+  "chi2_per_n": 0.8974761557496423,
+  "log_evidence": 489.4459928298062,
+  "lag_one": 0.9653149003411451,
+  "n_eff": 14.475868309257299,
+  "failure_fraction": 0.007749122169754208,
+  "modes": 9,
+  "fitted": {
+   "mu": 0.0701367913289058,
+   "galpha": 780.8705202593475,
+   "lambda1": 3.811582484512354e-08,
+   "req_scale": 1.0799112958833905
+  },
+  "pinned": []
+ },
+ "gelatin_23C|gilmore/tait|0.25": {
+  "chi2_per_n": 0.8899166992425876,
+  "log_evidence": 489.8934857923921,
+  "lag_one": 0.9659287738140234,
+  "n_eff": 14.223901968084743,
+  "failure_fraction": 0.006156390701093448,
+  "modes": 10,
+  "fitted": {
+   "mu": 0.06716504325164542,
+   "galpha": 766.667850518103,
+   "lambda1": 1.1212752896210861e-08,
+   "req_scale": 1.0750139262194565
+  },
+  "pinned": []
+ },
+ "gelatin_23C|keller-enthalpy/mie-gruneisen|0.25": {
+  "chi2_per_n": 0.8982777050046744,
+  "log_evidence": 489.46020899591684,
+  "lag_one": 0.9652218894336042,
+  "n_eff": 14.523130498234583,
+  "failure_fraction": 0.014644351464435146,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.07047793036083243,
+   "galpha": 783.311658551904,
+   "lambda1": 4.2472531737165785e-08,
+   "req_scale": 1.0807304318814046
+  },
+  "pinned": []
+ },
+ "gelatin_23C|gilmore/mie-gruneisen|0.25": {
+  "chi2_per_n": 1.3561325245896565,
+  "log_evidence": 444.864158482955,
+  "lag_one": 0.894263135276966,
+  "n_eff": 7.652620919600042,
+  "failure_fraction": 0.006609569912493018,
+  "modes": 12,
+  "fitted": {
+   "mu": 0.11247357838637151,
+   "galpha": 774.725618983747,
+   "lambda1": 1.3346455611670298e-08,
+   "req_scale": 1.1373332047552296
+  },
+  "pinned": []
+ },
+ "gelatin_33C|rayleigh-plesset|None": {
+  "chi2_per_n": 1.1563484899534442,
+  "log_evidence": 476.3882298520838,
+  "lag_one": 0.8148487597749762,
+  "n_eff": 38.79097390743812,
+  "failure_fraction": 0.013193504736129905,
+  "modes": 2,
+  "fitted": {
+   "mu": 0.6364189717773971,
+   "galpha": 2100.877015788005,
+   "lambda1": 3.1142177389677986e-06
+  },
+  "pinned": []
+ },
+ "gelatin_33C|keller-miksis|None": {
+  "chi2_per_n": 0.4392021185075102,
+  "log_evidence": 550.7444840237254,
+  "lag_one": 0.9107298419947135,
+  "n_eff": 7.346857183463579,
+  "failure_fraction": 0.006159014557670772,
+  "modes": 10,
+  "fitted": {
+   "mu": 0.07232692056921698,
+   "galpha": 513.0328058209305,
+   "lambda1": 1.1858767323173652e-07
+  },
+  "pinned": []
+ },
+ "gelatin_33C|keller-enthalpy/tait|None": {
+  "chi2_per_n": 0.43339011851847375,
+  "log_evidence": 551.5606049776319,
+  "lag_one": 0.909831550184744,
+  "n_eff": 7.257521207721032,
+  "failure_fraction": 0.015900449360525405,
+  "modes": 8,
+  "fitted": {
+   "mu": 0.07054391769618083,
+   "galpha": 506.7910377495481,
+   "lambda1": 7.703272904691064e-08
+  },
+  "pinned": []
+ },
+ "gelatin_33C|gilmore/tait|None": {
+  "chi2_per_n": 0.42386163451501585,
+  "log_evidence": 552.6482764966089,
+  "lag_one": 0.9086836114194528,
+  "n_eff": 6.977895137296789,
+  "failure_fraction": 0.015078821110349555,
+  "modes": 11,
+  "fitted": {
+   "mu": 0.06741869931057005,
+   "galpha": 495.5997818460856,
+   "lambda1": 1.6386067641687382e-08
+  },
+  "pinned": []
+ },
+ "gelatin_33C|keller-enthalpy/mie-gruneisen|None": {
+  "chi2_per_n": 0.4351862945849067,
+  "log_evidence": 551.3432611327369,
+  "lag_one": 0.9100975260042875,
+  "n_eff": 7.298361984515754,
+  "failure_fraction": 0.029696578437701744,
+  "modes": 9,
+  "fitted": {
+   "mu": 0.07109625203886559,
+   "galpha": 509.11708010478424,
+   "lambda1": 9.010676430103023e-08
+  },
+  "pinned": []
+ },
+ "gelatin_33C|gilmore/mie-gruneisen|None": {
+  "chi2_per_n": 0.42486149748807234,
+  "log_evidence": 551.8057978033337,
+  "lag_one": 0.908811481571072,
+  "n_eff": 6.948224225303499,
+  "failure_fraction": 0.02167630057803468,
+  "modes": 10,
+  "fitted": {
+   "mu": 0.0675072234631841,
+   "galpha": 494.27632014956424,
+   "lambda1": 6.5942981658380984e-09
+  },
+  "pinned": []
+ },
+ "gelatin_33C|rayleigh-plesset|0.03": {
+  "chi2_per_n": 1.0982059594553877,
+  "log_evidence": 481.37964501635474,
+  "lag_one": 0.8218569521728112,
+  "n_eff": 39.20469778199322,
+  "failure_fraction": 0.011111111111111112,
+  "modes": 4,
+  "fitted": {
+   "mu": 0.6259078520400212,
+   "galpha": 2174.889320250856,
+   "lambda1": 3.0507039446154522e-06,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_33C|keller-miksis|0.03": {
+  "chi2_per_n": 0.3805007587080415,
+  "log_evidence": 555.8904499601014,
+  "lag_one": 0.9142423025156619,
+  "n_eff": 7.77229562173262,
+  "failure_fraction": 0.00462085308056872,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.07912350710821793,
+   "galpha": 550.2785909898624,
+   "lambda1": 9.995412628820393e-08,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_33C|keller-enthalpy/tait|0.03": {
+  "chi2_per_n": 0.37792156860120985,
+  "log_evidence": 556.7306083486159,
+  "lag_one": 0.911603120328821,
+  "n_eff": 8.737565098508163,
+  "failure_fraction": 0.006011315417256012,
+  "modes": 11,
+  "fitted": {
+   "mu": 0.07594962564429052,
+   "galpha": 549.1592800061287,
+   "lambda1": 5.5813628443735315e-08,
+   "req_scale": 1.0309278350507398
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_33C|gilmore/tait|0.03": {
+  "chi2_per_n": 0.3756926145613864,
+  "log_evidence": 555.8884752052506,
+  "lag_one": 0.9113778321672352,
+  "n_eff": 8.62953963007723,
+  "failure_fraction": 0.004839267196681645,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.07413712647480261,
+   "galpha": 543.1554638750939,
+   "lambda1": 1.4769869316858873e-08,
+   "req_scale": 1.0309278350515463
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_33C|keller-enthalpy/mie-gruneisen|0.03": {
+  "chi2_per_n": 0.37941159600564495,
+  "log_evidence": 556.0935560168715,
+  "lag_one": 0.9138766915881184,
+  "n_eff": 7.717918425192761,
+  "failure_fraction": 0.011043967493227756,
+  "modes": 14,
+  "fitted": {
+   "mu": 0.07831895333719739,
+   "galpha": 547.1686543582667,
+   "lambda1": 7.615388527605795e-08,
+   "req_scale": 1.0309278350515465
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_33C|gilmore/mie-gruneisen|0.03": {
+  "chi2_per_n": 0.3772930188554055,
+  "log_evidence": 555.6007581994147,
+  "lag_one": 0.9115884784430223,
+  "n_eff": 8.612000259002555,
+  "failure_fraction": 0.005901570239224365,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.07437614997490945,
+   "galpha": 542.3705791792366,
+   "lambda1": 6.381909396239352e-09,
+   "req_scale": 1.030927835045767
+  },
+  "pinned": [
+   "req_scale"
+  ]
+ },
+ "gelatin_33C|rayleigh-plesset|0.1": {
+  "chi2_per_n": 1.0947897328031126,
+  "log_evidence": 480.4744898640589,
+  "lag_one": 0.8236553955041372,
+  "n_eff": 39.157729276828796,
+  "failure_fraction": 0.011904761904761904,
+  "modes": 2,
+  "fitted": {
+   "mu": 0.6226798892632871,
+   "galpha": 2197.6534291761914,
+   "lambda1": 3.0308923419113474e-06,
+   "req_scale": 1.0404344157380305
+  },
+  "pinned": []
+ },
+ "gelatin_33C|keller-miksis|0.1": {
+  "chi2_per_n": 0.37883994709277513,
+  "log_evidence": 555.4223377295123,
+  "lag_one": 0.910658198221608,
+  "n_eff": 8.98200836821854,
+  "failure_fraction": 0.006038291605301915,
+  "modes": 12,
+  "fitted": {
+   "mu": 0.07769004487814006,
+   "galpha": 558.870492992542,
+   "lambda1": 8.245369140528577e-08,
+   "req_scale": 1.0348796147085164
+  },
+  "pinned": []
+ },
+ "gelatin_33C|keller-enthalpy/tait|0.1": {
+  "chi2_per_n": 0.3775592707264863,
+  "log_evidence": 554.8304408062038,
+  "lag_one": 0.9106512214902619,
+  "n_eff": 8.872292827180713,
+  "failure_fraction": 0.009360649947015189,
+  "modes": 11,
+  "fitted": {
+   "mu": 0.0765349179580678,
+   "galpha": 553.4008075152965,
+   "lambda1": 5.451686497750251e-08,
+   "req_scale": 1.033766583915093
+  },
+  "pinned": []
+ },
+ "gelatin_33C|gilmore/tait|0.1": {
+  "chi2_per_n": 0.377336247094408,
+  "log_evidence": 554.5917024097454,
+  "lag_one": 0.9124803788325232,
+  "n_eff": 7.707876806939511,
+  "failure_fraction": 0.005173263261619314,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.07640191579903959,
+   "galpha": 541.759261760387,
+   "lambda1": 1.655334888459746e-08,
+   "req_scale": 1.033321803313199
+  },
+  "pinned": []
+ },
+ "gelatin_33C|keller-enthalpy/mie-gruneisen|0.1": {
+  "chi2_per_n": 0.3785258479968795,
+  "log_evidence": 554.8527715349669,
+  "lag_one": 0.9131001969514101,
+  "n_eff": 7.930139205002188,
+  "failure_fraction": 0.008116122990479164,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.0791254433123165,
+   "galpha": 553.4797261888197,
+   "lambda1": 7.277455455952824e-08,
+   "req_scale": 1.0353393748108966
+  },
+  "pinned": []
+ },
+ "gelatin_33C|gilmore/mie-gruneisen|0.1": {
+  "chi2_per_n": 0.3791478324674314,
+  "log_evidence": 554.2468867838348,
+  "lag_one": 0.9123555446870426,
+  "n_eff": 7.702434644682004,
+  "failure_fraction": 0.012618296529968454,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.07657994292837832,
+   "galpha": 540.7776732997802,
+   "lambda1": 7.069157031746976e-09,
+   "req_scale": 1.033259463233523
+  },
+  "pinned": []
+ },
+ "gelatin_33C|rayleigh-plesset|0.25": {
+  "chi2_per_n": 1.094789732810919,
+  "log_evidence": 479.47002184027184,
+  "lag_one": 0.8236553493895127,
+  "n_eff": 39.15773175679008,
+  "failure_fraction": 0.009310279308379252,
+  "modes": 3,
+  "fitted": {
+   "mu": 0.6226799592480252,
+   "galpha": 2197.653562025881,
+   "lambda1": 3.030892654342252e-06,
+   "req_scale": 1.0404344048176581
+  },
+  "pinned": []
+ },
+ "gelatin_33C|keller-miksis|0.25": {
+  "chi2_per_n": 0.37928249224755967,
+  "log_evidence": 553.6917623416524,
+  "lag_one": 0.913252329253614,
+  "n_eff": 8.018430732660732,
+  "failure_fraction": 0.006132147784761613,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.07999163586724052,
+   "galpha": 557.4432796153075,
+   "lambda1": 9.4987599543207e-08,
+   "req_scale": 1.0360758744612728
+  },
+  "pinned": []
+ },
+ "gelatin_33C|keller-enthalpy/tait|0.25": {
+  "chi2_per_n": 0.3775592708285273,
+  "log_evidence": 554.5310575978315,
+  "lag_one": 0.9106504077644209,
+  "n_eff": 8.872295894896483,
+  "failure_fraction": 0.01589938300901756,
+  "modes": 12,
+  "fitted": {
+   "mu": 0.07653542308840772,
+   "galpha": 553.4036491746956,
+   "lambda1": 5.451673077305716e-08,
+   "req_scale": 1.0337680029150413
+  },
+  "pinned": []
+ },
+ "gelatin_33C|gilmore/tait|0.25": {
+  "chi2_per_n": 0.3756367982684216,
+  "log_evidence": 553.648847114663,
+  "lag_one": 0.9110367675588911,
+  "n_eff": 8.690276382796048,
+  "failure_fraction": 0.008335406817616322,
+  "modes": 12,
+  "fitted": {
+   "mu": 0.0744035385050897,
+   "galpha": 544.9940013480817,
+   "lambda1": 1.4729020176363551e-08,
+   "req_scale": 1.0320673156297344
+  },
+  "pinned": []
+ },
+ "gelatin_33C|keller-enthalpy/mie-gruneisen|0.25": {
+  "chi2_per_n": 0.37784511894548256,
+  "log_evidence": 554.5429475722624,
+  "lag_one": 0.9106057790374806,
+  "n_eff": 8.907790607013082,
+  "failure_fraction": 0.023255813953488372,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.07685778306983095,
+   "galpha": 555.2381495191306,
+   "lambda1": 6.212461061049856e-08,
+   "req_scale": 1.0340910406326713
+  },
+  "pinned": []
+ },
+ "gelatin_33C|gilmore/mie-gruneisen|0.25": {
+  "chi2_per_n": 0.37724461861246583,
+  "log_evidence": 553.3617297591037,
+  "lag_one": 0.9112745479035845,
+  "n_eff": 8.669353249386145,
+  "failure_fraction": 0.0076468543621828295,
+  "modes": 13,
+  "fitted": {
+   "mu": 0.0746280119632798,
+   "galpha": 544.1020426757055,
+   "lambda1": 6.379196328517908e-09,
+   "req_scale": 1.031993908167876
+  },
+  "pinned": []
+ }
+}

@@ -75,7 +75,7 @@ def test_the_distributed_stress_rate_is_the_time_derivative(quadrature, measured
   from pyimr._stress import _distributed_stress
 
   material = pyimr.Giesekus(0.1, 2 * T0, 0.4 * T0, 0.2, points=64, quadrature=quadrature)
-  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=material, radial=2)
+  config = pyimr.SimulationConfig(R0=R0, Req=REQ, material=material, dynamics="keller-miksis")
   problem = prepare(config)
   p = problem.parameters
   state = np.asarray(problem.initial_state, dtype=float)

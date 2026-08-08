@@ -18,7 +18,7 @@ _R0, _REQ = 277e-6, 277e-6 / 7.09
 
 
 def _config(material, **overrides):
-  options = {"radial": 2, "rtol": 1e-6, "atol": 1e-8, "max_steps": 50_000} | overrides
+  options = {"dynamics": "keller-miksis", "rtol": 1e-6, "atol": 1e-8, "max_steps": 50_000} | overrides
   return pyimr.SimulationConfig(_R0, _REQ, material, **options)
 
 

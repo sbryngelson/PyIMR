@@ -29,7 +29,7 @@ SECTION = "16. Model comparison driver"
 _GRID = np.linspace(1.0, 2.0, 6)
 
 
-def _sensitive(material):
+def _sensitive(material, _config=None):
   """Cheap stand-in forward model that actually varies with the parameters."""
   value = material.viscosity_pa_s + material.shear_modulus_pa
   return _GRID * (1.0 + value), _GRID * (1.0 + value)
@@ -221,7 +221,7 @@ def test_a_model_identical_to_its_child_is_fully_redundant(measured):
   """
   candidate = CandidateModel("parent", STANDARD_MODELS["NHKV"].build, ("mu", "g"), ("newtonian",))
   models = {"parent": candidate, "newtonian": STANDARD_MODELS["newtonian"]}
-  identical = lambda _material: (_GRID, _GRID)  # noqa: E731
+  identical = lambda _material, _config=None: (_GRID, _GRID)  # noqa: E731
 
   points, _, _, stresses = solve_grid(candidate, identical, count=4)
   redundancies = redundancy_over_grid(candidate, models, points, stresses, identical)
@@ -234,9 +234,9 @@ def test_an_unsolvable_child_leaves_the_weight_alone():
   scored as either redundant or distinguishable.
   """
   points, _, _, stresses = solve_grid(STANDARD_MODELS["NHKV"], _sensitive, count=3)
-  identical = lambda _material: (_GRID, _GRID)  # noqa: E731
+  identical = lambda _material, _config=None: (_GRID, _GRID)  # noqa: E731
   assert np.all(redundancy_over_grid(STANDARD_MODELS["NHKV"], STANDARD_MODELS, points, stresses, identical) < 1.0)
-  assert np.all(redundancy_over_grid(STANDARD_MODELS["NHKV"], STANDARD_MODELS, points, stresses, lambda _m: None) == 1.0)
+  assert np.all(redundancy_over_grid(STANDARD_MODELS["NHKV"], STANDARD_MODELS, points, stresses, lambda _m, _c=None: None) == 1.0)
 
 
 def test_a_model_that_differs_from_its_child_keeps_its_prior():
@@ -244,7 +244,7 @@ def test_a_model_that_differs_from_its_child_keeps_its_prior():
   # a flat child: a different SHAPE, since eqn 22 aligns amplitudes and would score a pure
   # rescaling as redundant. Flat also keeps the child's own stress scale tiny, so the
   # difference is well above what it can resolve and the penalty is not earned.
-  divergent = lambda _material: (_GRID, np.ones_like(_GRID))  # noqa: E731
+  divergent = lambda _material, _config=None: (_GRID, np.ones_like(_GRID))  # noqa: E731
   assert np.all(redundancy_over_grid(STANDARD_MODELS["NHKV"], STANDARD_MODELS, points, stresses, divergent) > 0.9)
 
 
@@ -299,8 +299,8 @@ def test_the_unit_map_refuses_a_mismatched_point():
 def _qsls_solve(times, rtol=1e-10):
   import pyimr
 
-  def solve(material):
-    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+  def solve(material, _config):
+    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
                                     rtol=rtol, atol=rtol * 1e-2, max_steps=800_000)
     radius = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
     return radius, radius
@@ -332,10 +332,10 @@ def test_the_candidate_evidence_agrees_with_the_traced_sensitivities(measured):
   unit = np.array([normalize_log_coordinates(fit[a], *PARAMETER_BOUNDS[a]) for a in candidate.axes])
 
   material = candidate.build(fit)
-  clean = solve(material)[0]
+  clean = solve(material, {})[0]
   observed = clean + 0.004 * np.sin(np.arange(times.size))   # the fit must not be exact
 
-  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
                                   rtol=1e-10, atol=1e-12, max_steps=800_000)
   traced = np.asarray(pyimr.prepare(config).solve_with_sensitivities(
     times, tuple(paths[a] for a in candidate.axes)).radius_ratio, dtype=float)
@@ -357,7 +357,7 @@ def test_the_candidate_evidence_prefers_the_point_that_fits():
   fit = {"mu": 0.04651, "g": 204.3, "lambda1": 1.964e-7, "alpha": 5.301}
   from pyimr.prior import normalize_log_coordinates
   unit = np.array([normalize_log_coordinates(fit[a], *PARAMETER_BOUNDS[a]) for a in candidate.axes])
-  observed = solve(candidate.build(fit))[0]
+  observed = solve(candidate.build(fit), {})[0]
 
   matched = candidate_log_evidence(candidate, solve, observed, 0.02, unit)
   displaced = candidate_log_evidence(candidate, solve, observed, 0.02, np.clip(unit + 0.05, 0.0, 1.0))

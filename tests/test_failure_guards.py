@@ -21,7 +21,7 @@ _TIMES = np.linspace(0.0, 2e-5, 20)
 
 def _prepare(**collapse):
   return pyimr.prepare(
-    pyimr.SimulationConfig(R0, REQ, _MATERIAL, radial=2, collapse=pyimr.CollapseInitialization(**collapse))
+    pyimr.SimulationConfig(R0, REQ, _MATERIAL, dynamics="keller-miksis", collapse=pyimr.CollapseInitialization(**collapse))
   )
 
 
@@ -103,7 +103,7 @@ def test_an_equilibrium_at_the_observed_maximum_is_refused(measured):
   """
   def prepare(fraction):
     return pyimr.prepare(
-      pyimr.SimulationConfig(R0, R0 * fraction, _MATERIAL, radial=2, collapse=pyimr.CollapseInitialization())
+      pyimr.SimulationConfig(R0, R0 * fraction, _MATERIAL, dynamics="keller-miksis", collapse=pyimr.CollapseInitialization())
     )
 
   prepare(0.9999)  # neighbour: equilibrium a hair below the maximum still works

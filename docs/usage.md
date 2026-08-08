@@ -70,7 +70,7 @@ config = SimulationConfig(
 ## Sensitivities
 
 The tangent-linear solver differentiates the production RHS rather than a
-reduced surrogate. It covers radial models 1-5, every typed material, thermal
+reduced surrogate. It covers every operator but `gilmore/mie-gruneisen`, every typed material, thermal
 and mass-transfer states, distributed nonlinear memory, forcing, geometry,
 initial conditions, and continuous physical parameters.
 
@@ -258,21 +258,28 @@ rank them -- see [open work](open-work.md).
 
 ### The forward operator is a model choice too
 
-`DYNAMICS_MODELS` names the six bubble-dynamics equations, from Rayleigh--Plesset through
-Keller--Miksis to Gilmore, with Tait and Mie--Grueneisen equations of state. They are not
+`DYNAMICS_MODELS` names the fourteen operators, as `(dynamics, liquid_eos)` pairs. Six
+dynamics --- Rayleigh--Plesset, the Keller--Miksis pressure form, and the enthalpy forms
+`keller-enthalpy`, `herring`, `gilmore` and `lezzi-prosperetti-2` --- of which the last four
+take one of three equations of state: `tait`, `mie-gruneisen` or `nasg`. `keller-enthalpy` and
+`herring` are the `lambda = 0` and `lambda = 1` members of the Prosperetti--Lezzi (1986)
+first-order family, not separate theories; `gilmore` is Kirkwood--Bethe, with the local wall
+sound speed; `lezzi-prosperetti-2` is their 1987 second-order equation (8.7) at the authors'
+recommended `(lambda, theta) = (0.5, 0)`, and is the only one implicit in the acceleration.
+It requires a steady far field, because the second-order far-field terms are dropped. They are not
 `CandidateModel`s --- a candidate is a material, and this is the operator it is pushed
 through --- so they compare by holding the candidate fixed and varying the `solve` callback:
 
 ```python
 from pyimr.selection import DYNAMICS_MODELS
 
-for name, radial in DYNAMICS_MODELS.items():
-    ...  # build a solve callback at this `radial`, then fit and score as above
+for dynamics, liquid_eos in DYNAMICS_MODELS:
+    ...  # build a solve callback at this operator, then fit and score as above
 ```
 
 The parameter space is identical across the set, so the Occam terms cancel and the difference
 in log evidence is a Bayes factor between operators. Every candidate in this package assumes
-`radial=2`; on the records analysed in `docs/writeup`, two other operators beat it. See
+`dynamics="keller-miksis"`; on the records analysed in `docs/writeup`, two other operators beat it. See
 [open work](open-work.md) for what that comparison does and does not establish --- in
 particular, it must be run in identified coordinates, or the ranking follows the prior box
 rather than the data.

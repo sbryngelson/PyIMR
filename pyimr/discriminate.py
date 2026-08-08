@@ -37,7 +37,7 @@ from numbers import Integral
 import numpy as np
 from scipy.special import logsumexp
 
-__all__ = ["DiscriminationEvaluation", "expected_log_bayes_factor", "laplace_log_evidence", "log_evidence"]
+__all__ = ["DiscriminationEvaluation", "ModelScreen", "expected_log_bayes_factor", "laplace_log_evidence", "log_evidence", "screen_models"]
 
 def _checked(bank, label):
   table = np.asarray(bank, dtype=float)
@@ -210,3 +210,75 @@ def expected_log_bayes_factor(bank_true, bank_rival, deviation, *, seed=0, outer
     effective_draws_true=float(np.median(effective_true)),
     effective_draws_rival=float(np.median(effective_rival)),
   )
+
+
+@dataclass(frozen=True, slots=True)
+class ModelScreen:
+  """Which rivals are still live, which the data has already settled, and their weights."""
+
+  weights: np.ndarray
+  decided: np.ndarray
+  live: np.ndarray
+  best: int
+  margins: np.ndarray
+
+  @property
+  def undecided(self) -> int: return int(np.count_nonzero(~self.decided))
+
+  def __str__(self) -> str:
+    return (f"{self.undecided} of {self.weights.size} models still live; "
+            f"best is index {self.best}, margins {np.round(self.margins, 1)}")
+
+
+def screen_models(log_evidence, *, decisive=5.0, floor=1e-3):
+  """Decide which rivals are worth designing an experiment for.
+
+  Designing to separate models is only sensible for models the data has not already
+  separated. Two failures sit at opposite ends and both waste the batch.
+
+  A model the existing records have DECIDED against needs no experiment: if its evidence
+  trails the best by more than `decisive` nats, the question about it is closed, and a
+  criterion that still ranks designs by how well they would distinguish it is spending runs on
+  a settled matter. `decided` marks those, and the weights are renormalized over the rest.
+
+  A model the records have decided FOR is the same statement from the other side, and it is
+  why this returns weights rather than a single winner: a design should serve the posterior it
+  actually has, so a rival at 0.001 posterior contributes 0.001 of the discrimination utility
+  without anyone choosing a cutoff for it.
+
+  The complementary failure -- rivals so far apart that a local criterion misprices them -- is
+  not this function's to fix, but it is the same coin. Models that are far apart are easy to
+  tell apart, so they end up `decided` here and drop out; what survives is by construction the
+  close pairs, which is exactly the regime a derivative-based criterion is right for.
+
+  `log_evidence` is one value per model on the data already in hand. `floor` clips the
+  returned weights so a live model cannot round to exactly zero and vanish silently.
+  """
+  values = np.asarray(log_evidence, dtype=float).ravel()
+  if values.size == 0: raise ValueError("at least one model is required")
+  if not np.all(np.isfinite(values)): raise ValueError("log_evidence must be finite")
+  if not np.isfinite(decisive) or float(decisive) <= 0.0: raise ValueError("decisive must be positive")
+  if not 0.0 <= float(floor) < 1.0: raise ValueError("floor must lie in [0, 1)")
+
+  best = int(np.argmax(values))
+  margins = values - values[best]
+  decided = margins < -float(decisive)
+  live = np.flatnonzero(~decided)
+  # a posterior over the survivors, computed in a way that does not overflow
+  shifted = np.where(decided, -np.inf, margins)
+  weights = np.exp(shifted - np.max(shifted[~decided]))
+  weights = np.where(decided, 0.0, weights)
+  weights = weights / weights.sum()
+  if float(floor) > 0.0 and live.size > 0:
+    if float(floor) * live.size >= 1.0:
+      raise ValueError(f"floor {floor} cannot be met by {live.size} live models")
+    # Raise the small ones to the floor and take the room from the LARGE ones. Renormalising
+    # everything afterwards instead would push the floored weights straight back under it --
+    # it did, landing at 0.009974 against a floor of 0.01.
+    below = (weights > 0.0) & (weights < float(floor))
+    if below.any():
+      above = (weights > 0.0) & ~below
+      weights = np.where(below, float(floor), weights)
+      spare = 1.0 - float(floor) * int(below.sum())
+      weights = np.where(above, weights * spare / weights[above].sum(), weights)
+  return ModelScreen(weights=weights, decided=decided, live=live, best=best, margins=margins)

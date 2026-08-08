@@ -23,12 +23,12 @@ def _instantaneous_values(material, radius=0.5, velocity=-0.3, need_rate=True):
   return _stress(material, problem.parameters, radius, velocity, None, problem.instantaneous_material, need_rate)
 
 
-@pytest.mark.parametrize("radial", (1, 2))
-def test_composable_matches_closed_form(radial, measured):
-  closed = solve_radius(reference_times(), NHKV, radial=radial, **_EQUIVALENCE)
-  generic = solve_radius(reference_times(), _GENERIC_NH, radial=radial, **_EQUIVALENCE)
+@pytest.mark.parametrize("dynamics", ("rayleigh-plesset", "keller-miksis"))
+def test_composable_matches_closed_form(dynamics, measured):
+  closed = solve_radius(reference_times(), NHKV, dynamics=dynamics, **_EQUIVALENCE)
+  generic = solve_radius(reference_times(), _GENERIC_NH, dynamics=dynamics, **_EQUIVALENCE)
   worst = float(np.max(np.abs(generic - closed)))
-  measured(f"composable NH/Newtonian radial={radial}", f"max|dR|={worst:.2e}")
+  measured(f"composable NH/Newtonian {dynamics}", f"max|dR|={worst:.2e}")
   assert worst < _TRAJECTORY_TOLERANCE
 
 
@@ -186,8 +186,8 @@ def test_zero_nonlinearity_reproduces_ucm(label, model, ucm_trajectory, measured
 
 
 def test_zero_nonlinearity_reproduces_ucm_keller_miksis(measured):
-  ucm = solve_radius(_MEMORY_TIMES, oldroyd_b(), radial=2)
-  distributed = solve_radius(_MEMORY_TIMES, pyimr.Giesekus(0.1, _RELAXATION, _RETARDATION), radial=2)
+  ucm = solve_radius(_MEMORY_TIMES, oldroyd_b(), dynamics="keller-miksis")
+  distributed = solve_radius(_MEMORY_TIMES, pyimr.Giesekus(0.1, _RELAXATION, _RETARDATION), dynamics="keller-miksis")
   worst = deviation(distributed, ucm)
   measured("KM Giesekus -> UCM", f"max|dR|={worst:.2e}")
   assert worst < 2e-3
@@ -240,14 +240,14 @@ def test_yield_stress_needs_no_suppression(label, viscous, measured):
 _MAXWELL_VISCOSITY = 0.1
 
 
-@pytest.mark.parametrize("radial", (1, 2))
-def test_linear_maxwell_reduces_to_newtonian_as_relaxation_vanishes(radial, measured):
+@pytest.mark.parametrize("dynamics", ("rayleigh-plesset", "keller-miksis"))
+def test_linear_maxwell_reduces_to_newtonian_as_relaxation_vanishes(dynamics, measured):
   """A Maxwell fluid with no memory is a Newtonian one. Convergence must be first order
   in the relaxation time with no floor -- a floor would mean a term that survives the
   limit, which is how the `Zener` coefficient bug in #174 shows up.
 
   This also validates `LinearMaxwell`'s `acceleration_coefficient` of 0, which is only
-  live at `radial >= 2`: `S = Z1/R^3` carries no instantaneous `Rd`, so no `R-ddot` term
+  live in the compressible forms: `S = Z1/R^3` carries no instantaneous `Rd`, so no `R-ddot` term
   moves to the left of Keller-Miksis. The Newtonian reference declares `4/Re8`, and the
   two still agree because in the stiff limit that coupling re-emerges through `Z1`'s ODE.
   """
@@ -257,37 +257,37 @@ def test_linear_maxwell_reduces_to_newtonian_as_relaxation_vanishes(radial, meas
   # divergence, not the limit. Tests that compare algebraically identical formulations can
   # use the full window; this one cannot.
   times = np.linspace(0.0, 20e-6, 200)
-  newtonian = solve_radius(times, pyimr.NeoHookeanKelvinVoigt(1e-6, _MAXWELL_VISCOSITY), radial=radial, **_EQUIVALENCE)
+  newtonian = solve_radius(times, pyimr.NeoHookeanKelvinVoigt(1e-6, _MAXWELL_VISCOSITY), dynamics=dynamics, **_EQUIVALENCE)
 
   errors = []
   for relaxation in (1e-7, 1e-8, 1e-9):
-    radius = solve_radius(times, pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, relaxation), radial=radial, **_EQUIVALENCE)
+    radius = solve_radius(times, pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, relaxation), dynamics=dynamics, **_EQUIVALENCE)
     errors.append(float(np.max(np.abs(radius - newtonian))))
 
-  measured(f"Maxwell -> Newtonian radial={radial}", "  ".join(f"{e:.2e}" for e in errors))
+  measured(f"Maxwell -> Newtonian {dynamics}", "  ".join(f"{e:.2e}" for e in errors))
   for coarse, fine in zip(errors, errors[1:]):
     assert coarse / fine > 8.0, f"{coarse:.3e} -> {fine:.3e} is not first-order decay"
   assert errors[-1] < 1e-5, f"error floor at {errors[-1]:.3e} means a term survives the limit"
 
 
-@pytest.mark.parametrize("radial", (1, 2))
-def test_linear_maxwell_is_zener_without_the_parallel_spring(radial, measured):
+@pytest.mark.parametrize("dynamics", ("rayleigh-plesset", "keller-miksis"))
+def test_linear_maxwell_is_zener_without_the_parallel_spring(dynamics, measured):
   """`Zener` is `LinearMaxwell` plus an elastic branch, so removing the modulus recovers it.
 
-  `radial=2` is the case that matters: the acceleration coefficient is unused at
-  `radial=1`, so only the compressible branch exercises it. This limit stalled at 1.57e-03
+  `dynamics="keller-miksis"` is the case that matters: the acceleration coefficient is unused at
+  `dynamics="rayleigh-plesset"`, so only the compressible branch exercises it. This limit stalled at 1.57e-03
   there while `Zener` carried IMRv2's `4/Re8`, and converges since it was corrected to
   `4*LAM/Re8` (#174). It is the test that catches that coefficient.
   """
   times = reference_times()
-  maxwell = solve_radius(times, pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, 2e-6), radial=radial, **_EQUIVALENCE)
+  maxwell = solve_radius(times, pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, 2e-6), dynamics=dynamics, **_EQUIVALENCE)
 
   errors = []
   for modulus in (1e0, 1e-2, 1e-4):
-    zener = solve_radius(times, pyimr.Zener(modulus, _MAXWELL_VISCOSITY, 2e-6, 0.0), radial=radial, **_EQUIVALENCE)
+    zener = solve_radius(times, pyimr.Zener(modulus, _MAXWELL_VISCOSITY, 2e-6, 0.0), dynamics=dynamics, **_EQUIVALENCE)
     errors.append(float(np.max(np.abs(zener - maxwell))))
 
-  measured(f"Zener(G->0) -> Maxwell radial={radial}", "  ".join(f"{e:.2e}" for e in errors))
+  measured(f"Zener(G->0) -> Maxwell {dynamics}", "  ".join(f"{e:.2e}" for e in errors))
   for coarse, fine in zip(errors, errors[1:]):
     assert coarse / fine > 80.0, f"{coarse:.3e} -> {fine:.3e} is not first-order in the modulus"
   assert errors[-1] < 1e-7

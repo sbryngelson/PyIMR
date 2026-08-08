@@ -75,9 +75,61 @@ refitting could absorb more. These are upper bounds on what is detectable.
 
 ## Open
 
-**1. Change the default operator, or justify it.** `radial=2` is assumed by every candidate
+**0a. The correlated likelihood now decides WHICH QUESTIONS ARE OPEN, not just how confident
+we are.** `screen.py` screens each model axis by evidence margin. At face value the records
+have settled almost everything -- 1 of 17 constitutive candidates live, 2 of 6 operators. But
+every evidence assumes independent residuals and `check_residuals` puts N_eff near 10 of 201,
+so the margins are inflated by roughly N/N_eff. Deflated by 20: SLS comes back live, five or
+six operators come back, all three thermal treatments come back. Screening turns a margin into
+a yes-or-no, so a twentyfold factor moves margins wholesale across the threshold. Until item 2
+is fixed we cannot say which model questions are open, and every design that targets a
+"live" pair is targeting a pair whose liveness is an artefact of the likelihood.
+
+**0b. Prefer derivatives to sampling for design utilities.** `identify.py` first scored 48
+geometries by a sampled expected log Bayes factor and reproduced every documented failure of
+the double-loop estimator: 22 of 48 designs unscorable at fewer than 4 effective draws, and a
+first run that put 10 of 12 batch runs on the design whose utility rested on 1.15 draws. The
+derivative route -- `measure.augmented_information`, the model label as a Jacobian column --
+scores 45 of 48 (every design that integrates), certifies at 1.0e-09, and needs no prior on
+the rival. PyIMR is differentiable end to end; the Jacobians are already computed for the
+estimation half of the same criterion. The sampled route should not come back without a
+specific reason.
+
+**0. No criterion here takes model error as an argument, and the ranking of designs depends on
+it.** `sloppy_design.py` fits cold one-mode qSLS to a thermal truth and to a two-mode truth at
+four geometries. Robust across both: the discrimination-optimal geometry is worse on BOTH
+counts BOTH times (fit 1.8x/2.1x, `g*alpha` recovery 9.8x/12.2x). Not robust: the E-optimal
+geometry loses on both counts under thermal error and is neutral under constitutive error, and
+the 60 um point goes from best to 8.7x worse recovery. So the actionable statement is not
+"optimal designs are worse" but "which design is safe depends on which physics is missing" --
+and `lackoffit.py` says the model IS inadequate on every record without saying in what
+direction. Designing robustly needs a criterion that takes the model-error hypothesis as an
+input; none of ours does.
+
+**0b. The lack-of-fit test is now the cheapest diagnostic here, and it is not wired in.**
+`lackoffit.py` runs it standalone. It belongs beside `chi2/N` in `records.score`, because it
+answers the question `chi2/N` is usually mistaken for.
+
+**1. Change the default operator, or justify it.** `dynamics="keller-miksis"` is assumed by every candidate
 and example, and is beaten on two independent records. A one-line change that would move
 every fit and evidence in the study, so it is a decision rather than a task.
+
+  Narrowed by `req_prior.py`: with `Req` fitted rather than pinned, Gilmore still beats the
+  pressure form at 15 C by 5 to 11 nats at every prior width, but the 23 C and 33 C margins
+  collapse to under a nat. So the case for changing the default now rests on one record.
+
+**1b. Explain the Req offset, or measure it independently.** The fit wants `Req` 3-11% larger
+than inferred, consistently across six operators, three records and two prior widths, and the
+offset shrinks as the gel warms (11%, 8%, 3.4%). chi2/N improves markedly with it free. This
+is either a systematic in how `Req` is inferred or physics the model is absorbing into a
+geometry parameter, and nothing here distinguishes them.
+
+**1c. Warm-start the thermal fits.** `thermal.py` does not converge on 15 C or 33 C at any of
+three budgets tried, and 24 restarts fit WORSE than 10 on two cells -- the multistart is
+landing in different basins rather than refining one. 23 C is bit-stable across a 2.4x budget
+change and says bubble +2.6, bubble+medium +8.0. The fix is to start each thermal fit from the
+converged cold optimum instead of sampling the box afresh; more restarts is demonstrably not
+the remedy.
 
 **2. A likelihood that does not assume independence.** Every `chi2/N` and `log Z` here
 presumes white residuals; with `N_eff` near 8 of 201 the likelihood overstates its

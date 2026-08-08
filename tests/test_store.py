@@ -17,7 +17,7 @@ _R0, _REQ = 277e-6, 277e-6 / 7.09
 
 
 def _config(**overrides):
-  options = {"radial": 2, "rtol": 1e-6, "atol": 1e-8} | overrides
+  options = {"dynamics": "keller-miksis", "rtol": 1e-6, "atol": 1e-8} | overrides
   return pyimr.SimulationConfig(_R0, _REQ, pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1), **options)
 
 
@@ -38,7 +38,7 @@ def test_a_hit_returns_the_same_result_the_solver_would_have(tmp_path, measured)
 
 @pytest.mark.parametrize(
   "overrides",
-  [{"rtol": 1e-7}, {"atol": 1e-9}, {"radial": 1}, {"max_steps": 999}, {"bubtherm": 1, "Nt": 9}],
+  [{"rtol": 1e-7}, {"atol": 1e-9}, {"dynamics": "rayleigh-plesset"}, {"max_steps": 999}, {"bubtherm": 1, "Nt": 9}],
 )
 def test_anything_that_changes_the_answer_changes_the_key(tmp_path, overrides):
   store = ResultStore(tmp_path)
@@ -50,7 +50,7 @@ def test_anything_that_changes_the_answer_changes_the_key(tmp_path, overrides):
 def test_a_different_material_or_time_grid_misses(tmp_path):
   store = ResultStore(tmp_path)
   store.simulate(_TIMES, _config())
-  store.simulate(_TIMES, pyimr.SimulationConfig(_R0, _REQ, pyimr.NeoHookeanKelvinVoigt(2600.0, 0.1), radial=2))
+  store.simulate(_TIMES, pyimr.SimulationConfig(_R0, _REQ, pyimr.NeoHookeanKelvinVoigt(2600.0, 0.1), dynamics="keller-miksis"))
   store.simulate(np.linspace(0.0, 1.4e-4, 122), _config())
   assert store.misses == 3
 

@@ -39,20 +39,22 @@ from pyimr.noise import (
 from pyimr.selection import (
   STANDARD_MODELS,
   bounds_for_invariant,
-  strain_invariant,
   compare,
+  evaluate_at,
   log_evidence,
   parameter_grid,
   redundancy_over_grid,
+  strain_invariant,
 )
 
 DATA = Path.home() / "fastscratch/papers/paper_imr_windowing/data"
 
 GRID_COUNT = 10
 MODELS = STANDARD_MODELS  # every candidate: #196 made the distributed pair affordable
-# Keller-Miksis. Laser cavitation is compressible; PYIMR_RADIAL=1 recovers the
-# incompressible Rayleigh-Plesset results for comparison.
-_RADIAL = int(os.environ.get('PYIMR_RADIAL', '2'))
+# Keller-Miksis. Laser cavitation is compressible; PYIMR_DYNAMICS=rayleigh-plesset
+# recovers the incompressible results for comparison.
+_DYNAMICS = os.environ.get('PYIMR_DYNAMICS', 'keller-miksis')
+_LIQUID_EOS = os.environ.get('PYIMR_LIQUID_EOS') or None
 # Step budget per solve. Points that collapse to a fraction of a percent of R_max and
 # creep instead of rebounding run to any ceiling they are given; the healthy points of
 # the same grid finish under 7e3 steps. Against the 1e6 default this runs 6.3x faster
@@ -87,7 +89,7 @@ def screen(trials):
   spread = trials.std(axis=0, ddof=1)
   return ~(trials > _MAX_RATIO).any(axis=0) & (spread > 0.0)
 
-def setup(dataset, thermal_nodes, radial=_RADIAL):
+def setup(dataset, thermal_nodes, dynamics=_DYNAMICS, liquid_eos=_LIQUID_EOS):
   """Per-dataset state, rebuilt from picklable arguments alone.
 
   Workers cannot receive a closure, so they reconstruct this from the dataset name. The
@@ -103,10 +105,10 @@ def setup(dataset, thermal_nodes, radial=_RADIAL):
   )
   # annotated: an inferred dict[str, int | str] makes every SimulationConfig field
   # int | str through the **options splat, which pyright rejects across the board
-  options: dict[str, Any] = {"radial": radial}
+  options: dict[str, Any] = {"dynamics": dynamics, "liquid_eos": liquid_eos}
   if thermal_nodes: options |= {"bubtherm": 1, "thermal": "spectral", "Nt": thermal_nodes}
 
-  def solve(material):
+  def solve(material, _config):
     """`(radius, stress)`, or `None` for a point this solver cannot integrate.
 
     A grid point that will not run drops out of the parameter prior rather than taking
@@ -138,7 +140,7 @@ def solve_chunk(payload):
   _, times, weights, solve, _, _, bounds = setup(dataset, thermal_nodes)
   candidate = MODELS[model]
   points = parameter_grid(candidate.axes, GRID_COUNT, bounds)[0][low:high]
-  solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
+  solved = [evaluate_at(candidate, solve, dict(zip(candidate.axes, row))) for row in points]
 
   ok = np.array([item is not None for item in solved])
   radii, redundancies = np.full((len(points), len(times)), np.nan), np.zeros(len(points))

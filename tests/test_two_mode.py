@@ -18,7 +18,7 @@ G, MU, LAM1, ALPHA = 204.3, 0.04651, 1.964e-7, 5.301
 
 
 def solve(material, rtol=1e-9):
-  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
                                   rtol=rtol, atol=rtol * 1e-2, max_steps=400_000)
   return np.asarray(pyimr.simulate(TIMES, config).radius_ratio, dtype=float)
 
@@ -78,7 +78,7 @@ def test_the_new_parameters_are_differentiable():
   # they were given their own SCALE_PATHS slots; without those the sensitivity is silently
   # zero rather than an error, which is the failure this catches
   material = pyimr.TwoModeQuadraticZener(G, MU, LAM1, 0.0, ALPHA, 2e-6, 0.25)
-  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
                                   rtol=1e-9, atol=1e-11, max_steps=400_000)
   problem = pyimr.prepare(config)
   for path, value in (("material.second_relaxation_time_s", 2e-6), ("material.second_share", 0.25)):
@@ -109,7 +109,7 @@ def test_a_sweep_over_the_new_parameters_compiles_once():
 
   def radius(second_time, share):
     material = pyimr.TwoModeQuadraticZener(G, MU, LAM1, 0.0, ALPHA, second_time, share)
-    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2, rtol=1e-7, atol=1e-9)
+    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis", rtol=1e-7, atol=1e-9)
     return np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
 
   _jax._COMPILED.clear()

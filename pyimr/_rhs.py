@@ -7,7 +7,7 @@ from typing import NamedTuple
 import numpy as np
 
 from ._arrays import at_set
-from ._config import StateLayout
+from ._config import ENTHALPY_FORMS, SECOND_ORDER_THETA, StateLayout
 from ._materials import _stress_state_count
 from ._stress import _distributed_stress, _stress
 from ._thermal import _apply_thermal_boundaries, _dissipation, _distributed_dissipation, _mie_gruneisen
@@ -202,19 +202,78 @@ def _rhs(
     num = (1 + Rd / Cs) * (P - 1 - Pf8 - iWe / R + S) + R / Cs * (Pdot + iWe * Rd / R**2 + Sdot - Pf8dot) - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
     den = (1 - Rd / Cs) * R + acceleration_coefficient / Cs
     Rdd = num / den
-  elif radial in (3, 4, 5, 6):  # enthalpy forms: 3/5 Keller-Miksis, 4/6 Gilmore
-    if radial in (3, 4):  # Tait
+  # One equation, reached nine ways. Prosperetti & Lezzi (1986) eq. 17 is a one-parameter
+  # family in `lam`, first order in the wall Mach number,
+  #
+  #   [1 - (lam+1) Rd/c] R Rdd + (3/2)[1 - (3 lam + 1)/3 Rd/c] Rd^2
+  #       = [1 + (1 - lam) Rd/c] hB + (R/c) hBdot,
+  #
+  # with lam = 0 the Keller form and lam = 1 the Herring form. Gilmore is not a member -- it
+  # is Kirkwood-Bethe, lam = 0 with the LOCAL wall sound speed rather than `Cstar` -- so the
+  # two axes below are `lam` and `local`, and the equation of state is the third.
+  #
+  # As published, eq. 17 prints `=` where this has `+` between the two left-hand terms, which
+  # would leave the equation with two equals signs. The `+` is what reduces to the Keller
+  # equation at lam = 0, and it is what this branch computed before the family was added.
+  elif radial in ENTHALPY_FORMS:
+    lam, local, eos, order = ENTHALPY_FORMS[radial]
+    if eos == "tait":
       Pb = P - iWe / R + p["tait_gamma"] + S
       hB = p["tait_sam"] / p["tait_no"] * ((Pb / p["tait_sam"]) ** p["tait_no"] - 1.0)
       hH = (p["tait_sam"] / Pb) ** (1.0 / p["tait_exponent"])
-      Cs = p["Cstar"] if radial == 3 else xp.sqrt(p["tait_exponent"] * Pb * hH)
+      C = xp.sqrt(p["tait_exponent"] * Pb * hH)
+    elif eos == "nasg":
+      # Noble-Abel stiffened gas. The isentrope is (v - b)(p + p_inf)^(1/g) = const, so with
+      # `bstar = b rho_inf` the specific volume ratio, the enthalpy `int v dp` and the sound
+      # speed `-v^2 (dp/dv)_s` are all closed form. At `bstar = 0` each line below becomes the
+      # Tait line above it, term for term.
+      bstar = p["nasg_b"]
+      Pb = P - iWe / R + p["nasg_gamma"] + S
+      hH = bstar + (1.0 - bstar) * (p["nasg_sam"] / Pb) ** (1.0 / p["nasg_exponent"])
+      hB = bstar * (Pb - p["nasg_sam"]) + (1.0 - bstar) * p["nasg_sam"] / p["nasg_no"] * (
+        (Pb / p["nasg_sam"]) ** p["nasg_no"] - 1.0)
+      C = xp.sqrt(p["nasg_exponent"] * Pb * hH**2 / (hH - bstar))
     else:  # Mie-Gruneisen. Upstream omits +S from Pb here; restoring it is what
       Pb = P - iWe / R + S
       C, hB, hH = _mie_gruneisen(Pb, p["Cstar"], p["hugoniot_slope"], p["nog"], p["mie_reference"], xp=xp)
-      Cs = p["Cstar"] if radial == 5 else C
-    num = (1 + Rd / Cs) * (hB - Pf8) - R / Cs * Pf8dot + R / Cs * hH * (Pdot + iWe * Rd / R**2 + Sdot) - 1.5 * (1 - Rd / (3 * Cs)) * Rd**2
-    den = (1 - Rd / Cs) * R + acceleration_coefficient * hH / Cs
-    Rdd = num / den
+    Cs = C if local else p["Cstar"]
+    M = Rd / Cs
+    enthalpy_rate = hH * (Pdot + iWe * Rd / R**2 + Sdot) - Pf8dot
+    if order == 1:
+      num = ((1 + (1.0 - lam) * M) * (hB - Pf8) + R / Cs * enthalpy_rate
+             - 1.5 * (1 - (3.0 * lam + 1.0) / 3.0 * M) * Rd**2)
+      den = (1 - (lam + 1.0) * M) * R + acceleration_coefficient * hH / Cs
+      Rdd = num / den
+    else:
+      # Lezzi & Prosperetti (1987) eq. 8.7, at their own recommended (lambda, theta):
+      #
+      #   [1 - (lam+1)M + (14/5 + 2 lam + th) M^2] R Rdd
+      #     + (3/2)[1 - (lam + 1/3)M + (16/15 + 4 lam/3 + th) M^2] Rd^2 + R^2 Rdd^2/c^2
+      #   = [1 + (1-lam)M + th M^2] hB + [1 - (1+lam)M] (R/c) hBdot
+      #
+      # The `R^2 Rdd^2` term makes this QUADRATIC in Rdd -- the first equation here that is
+      # not solved by a division -- and is why the second-order forms are known to be
+      # delicate. Dropping every M^2 term returns eq. 8.7 to the first-order branch above,
+      # term for term, which is the reduction `test_lezzi_prosperetti.py` pins.
+      th = SECOND_ORDER_THETA
+      quadratic = R**2 / Cs**2
+      linear = (R * (1 - (lam + 1.0) * M + (2.8 + 2.0 * lam + th) * M**2)
+                + (1 - (1.0 + lam) * M) * acceleration_coefficient * hH / Cs)
+      constant = (1.5 * (1 - (lam + 1.0 / 3.0) * M + (16.0 / 15.0 + 4.0 * lam / 3.0 + th) * M**2) * Rd**2
+                  - (1 + (1.0 - lam) * M + th * M**2) * (hB - Pf8)
+                  - (1 - (1.0 + lam) * M) * R / Cs * enthalpy_rate)
+      # The root that survives `c -> infinity`, where `quadratic -> 0` and the equation must
+      # return `-constant/linear`. Taking `(-b + sqrt(b^2-4ac))/(2a)` directly loses that limit
+      # to cancellation; the `constant/q` branch is the numerically stable statement of the
+      # same root and is exact in the limit.
+      discriminant = linear**2 - 4.0 * quadratic * constant
+      # A negative discriminant means no real acceleration satisfies the equation -- the known
+      # failure of second-order forms at high Mach. Clamping keeps the integrator on a finite
+      # trajectory rather than poisoning every downstream gradient with a nan; the trajectory
+      # is then wrong, and `max_radius_ratio` and the residual are what catch it.
+      root = xp.sqrt(xp.maximum(discriminant, 0.0))
+      q = -0.5 * (linear + xp.where(linear >= 0.0, 1.0, -1.0) * root)
+      Rdd = constant / xp.where(xp.abs(q) < 1e-300, 1e-300, q)
   else:
     raise ValueError(f"radial={radial} not supported")
   if distributed_stress is None:

@@ -45,7 +45,7 @@ constitutive selector, no shared bag of parameters.
 
 | | |
 |---|---|
-| radial dynamics | Rayleigh-Plesset, Keller-Miksis, Gilmore; Tait or Mie-Gruneisen |
+| bubble dynamics | `dynamics=` Rayleigh-Plesset, Keller-Miksis, Keller enthalpy, Herring, Gilmore, Lezzi-Prosperetti (2nd order); the last four take `liquid_eos=` Tait, Mie-Gruneisen or Noble-Abel stiffened gas |
 | thermodynamics | polytropic closure, or gas and liquid thermal PDEs with vapor transport |
 | discretization | Chebyshev collocation (default) or second-order finite difference |
 | forcing | constant, Gaussian, histotripsy, Heaviside step, or a sampled pressure history |

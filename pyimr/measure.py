@@ -38,7 +38,7 @@ from numbers import Integral
 
 import numpy as np
 
-__all__ = ["MeasureResult", "optimal_measure", "sensitivity"]
+__all__ = ["ExactDesign", "MeasureResult", "apportion", "optimal_measure", "sensitivity"]
 
 _FLOOR = 1e-12
 
@@ -180,3 +180,88 @@ def optimal_measure(matrices, *, utility=None, blend=0.0, iterations=100_000, to
   final = float(np.max(_sensitivity(stack, cleaned, vector, float(blend))))
   return MeasureResult(weights=cleaned, support=np.flatnonzero(keep), value=_value(stack, cleaned, utility, blend),
                        gap=final, iterations=step)
+
+
+@dataclass(frozen=True, slots=True)
+class ExactDesign:
+  """An integer allocation of `runs` to candidates, and what it costs against the measure."""
+
+  counts: np.ndarray
+  support: np.ndarray
+  efficiency: float
+  runs: int
+
+  @property
+  def table(self):
+    """`(candidate index, run count)` for the candidates that get runs, most runs first."""
+    order = np.argsort(-self.counts[self.support])
+    return [(int(self.support[i]), int(self.counts[self.support[i]])) for i in order]
+
+
+def apportion(weights, runs, matrices=None, *, utility=None, blend=0.0):
+  """Turn a design measure into a whole number of runs per candidate.
+
+  `optimal_measure` returns weights, and an experiment runs integers. With three support
+  points at 0.45/0.31/0.24 and twelve bubbles, somebody has to choose 5/4/3 or 6/4/2, and the
+  equivalence-theorem certificate says nothing about which -- it certifies optimality over
+  MEASURES, and an exact design is not one.
+
+  The method is the efficient rounding of Pukelsheim and Rieder (1992): give every supported
+  candidate one run, hand out the rest by largest remainder, and take the best over the
+  admissible starting multipliers. It is the apportionment rule that maximises the smallest
+  ratio `n_i / (runs * w_i)`, which is what keeps a support point from being rounded away.
+
+  This is a heuristic and it is honest about that. The literature is explicit that rounding
+  works well for large `runs` and carries no guarantee for small ones, which is exactly the
+  regime IMR reaches. So pass `matrices` and the efficiency is MEASURED --
+  `(det M(exact) / det M(xi))^(1/p)`, the D-efficiency of the integer design against the
+  measure it came from -- rather than assumed. For a handful of runs, read that number before
+  believing the design; an exact-design search is the alternative when it is poor.
+  """
+  share = np.asarray(weights, dtype=float)
+  if share.ndim != 1: raise ValueError("weights must be one-dimensional")
+  if not np.all(np.isfinite(share)) or np.any(share < 0.0): raise ValueError("weights must be finite and non-negative")
+  total = share.sum()
+  if total <= 0.0: raise ValueError("weights must not be all zero")
+  share = share / total
+  if not isinstance(runs, Integral) or int(runs) < 1: raise ValueError("runs must be a positive integer")
+  runs = int(runs)
+  support = np.flatnonzero(share > _FLOOR)
+  if runs < support.size:
+    raise ValueError(f"{runs} runs cannot cover {support.size} support points; "
+                     "drop candidates or raise the budget")
+
+  best = None
+  # Pukelsheim-Rieder sweeps the multiplier: each choice gives a different integer design and
+  # the rule is to keep the one whose smallest n_i/(runs w_i) is largest.
+  for multiplier in range(support.size, 2 * runs + 1):
+    counts = np.zeros(share.size, dtype=int)
+    raw = multiplier * share[support]
+    counts[support] = np.maximum(np.ceil(raw).astype(int), 1)
+    excess = int(counts.sum()) - runs
+    while excess != 0:
+      if excess > 0:
+        movable = support[counts[support] > 1]
+        if movable.size == 0: break
+        counts[movable[np.argmax(counts[movable] / (runs * share[movable]))]] -= 1
+        excess -= 1
+      else:
+        counts[support[np.argmin(counts[support] / (runs * share[support]))]] += 1
+        excess += 1
+    if int(counts.sum()) != runs: continue
+    score = float(np.min(counts[support] / (runs * share[support])))
+    if best is None or score > best[0]: best = (score, counts)
+  if best is None: raise ValueError(f"no admissible allocation of {runs} runs was found")
+  counts = best[1]
+
+  efficiency = float("nan")
+  if matrices is not None:
+    stack = _checked(matrices)
+    if stack.shape[0] != share.size: raise ValueError("matrices and weights disagree in length")
+    exact = _value(stack, counts / runs, utility, blend)
+    ideal = _value(stack, share, utility, blend)
+    dimension = stack.shape[1]
+    # log det, so the ratio of determinants is the exponential of the difference and the
+    # per-parameter efficiency takes the p-th root
+    efficiency = float(np.exp((exact - ideal) / dimension)) if blend <= 0.0 else float(exact / ideal)
+  return ExactDesign(counts=counts, support=support, efficiency=efficiency, runs=runs)

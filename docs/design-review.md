@@ -23,6 +23,13 @@ nothing about how much is lost by rounding. This is the *approximate-to-exact* g
 sample sizes IMR actually reaches it is not a rounding detail: it is the difference between a
 theorem and a protocol.
 
+**CLOSED.** `pyimr.measure.apportion` implements Pukelsheim--Rieder efficient rounding and
+reports the D-efficiency achieved rather than asserting one, because the rule carries no
+guarantee at small budgets. On cubic regression, where everything is closed form: budgets
+divisible by four lose nothing, six runs give 2/2/1/1 at efficiency 0.9428 exactly, and at
+weights 0.7/0.2/0.1 with four runs it keeps the support point that proportional rounding drops
+-- which would otherwise leave the information matrix singular.
+
 Three further gaps, each specific:
 
 - **The design space is not a box we control.** Our answer wants `R_max` near 60 um at high
@@ -226,18 +233,44 @@ Stated as deliverables rather than criteria:
    ones, and that has not been measured -- on real records, where both are exposed to the model
    error the synthetic study could not show.
 
-6. **Run the lack-of-fit test.** We have 18 replicates at each of three settings and have never
-   used them for the one classical test that addresses our central claim.
+6. **The lack-of-fit test: RUN, and it confirms the claim by an independent route.** `F` is
+   14.2 at 15 C, 2.9 at 23 C and 3.3 at 33 C against a critical value near 1.2, and 23.3 / 4.8 /
+   5.4 once the 39.3% of trial variance that is bubble-to-bubble parameter spread is divided
+   out. It also separates the records, which lag-one does not: the three lag-one values are
+   effectively identical (0.919 / 0.968 / 0.911), but 15 C repeats itself three times more
+   tightly, so its inadequacy stands 14 times above its own scatter where the others stand 3.
+   The strongest evidence the model is incomplete comes from the record with the best
+   apparatus.
 
 7. **Treat sampling times as a design variable.** `N_eff ~ 10` of 201 says the time series is
    about 20x redundant. Frames are cheap but not free, and the trade against bubble count,
    window length and SNR has never been posed.
 
-8. **Test the sloppy-model warning before acting on the design.** Simulate a record at the
-   E-optimal geometry, fit it, and check whether `chi^2/N` and the residual correlation get
-   better or worse than at the performed geometry. If they get worse, the optimal design is
-   buying identifiability at the cost of adequacy, and we should say so before a collaborator
-   spends bubbles on it.
+8. **The sloppy-model warning: TESTED, and confirmed worse than advertised.** Cold qSLS fitted
+   to a truth carrying thermal transport, at four geometries. The literature describes a TRADE
+   -- better parameters, worse fit. Two of our three recommendations lose on BOTH counts: the
+   E-optimal geometry fits 2.1x worse and recovers `g*alpha` 1.6x worse, and the
+   discrimination-optimal geometry fits 1.8x worse and recovers nearly 10x worse. The geometry
+   already performed beats both.
+
+   The mechanism is in the model-error column: a criterion computed under the correct-model
+   assumption sends the experiment where the model is most sensitive, which for these models is
+   where it is most wrong -- the thermal mismatch grows from 0.53 noise units at the performed
+   geometry to 1.24 at the E-optimal one, and the parameters absorb it.
+
+   The exception is instructive. The small support point at 60 um carries the LEAST model error
+   of the four (0.15) and is the only geometry that fits better than the one performed.
+   Robustness to measured model error, not information under the assumption of none, is what
+   picks it out. **A design should be scored against the model error we have measured before it
+   is offered to anyone.**
+
+9. **Frames: measured, and there is an enormous amount of slack.** The D-optimal measure over
+   the 201 candidate times is certified on SIX support points, and 50 observations placed on
+   them carry more information than all 201 uniform frames. That is slack, not a
+   recommendation -- six distinct times leaves no degrees of freedom to notice the model is
+   wrong, which is precisely what the lack-of-fit test consumes. The usable conclusion is that
+   frames are cheap relative to their information and should be traded for something scarce:
+   bubbles, window length, or the replication `F` needs.
 
 ## 5. The one thing worth saying to a collaborator now
 

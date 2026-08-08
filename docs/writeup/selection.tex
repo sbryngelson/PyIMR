@@ -813,6 +813,51 @@ A residual with $\rho = 0.918$ is not noise the model failed to average away. It
 \emph{structure} the model does not contain. The fit is excellent in that no candidate does
 better, and not excellent in that it is inconsistent with the measurement error.
 
+\paragraph{The classical test agrees, and says more.} The argument above rests on lag-one
+autocorrelation, which \cref{sec:limitations} shows is a blunt instrument. There is a standard
+test for the same question and these records already carry what it needs: replicates. The
+trial spread at each time is \emph{pure error}, costing no model, so the residual of the mean
+splits into that and what the model cannot follow,
+%
+\begin{equation}
+F = \frac{J\sum_i (\bar y_i - \hat y_i)^2 \,/\, (k-p)}
+         {(J-1)\sum_i s_i^2 \,/\, k(J-1)} ,
+\label{eq:lackoffit}
+\end{equation}
+%
+with $J=18$ trials at $k=201$ times and $p=4$ parameters.
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+record & $\chi^2/N$ & pure error & lack of fit & $F$ & corrected \\
+\midrule
+\SI{15}{\celsius} & $0.973$ & $5.20\times10^{-4}$ & $7.36\times10^{-3}$ & $\mathbf{14.2}$ & $\mathbf{23.3}$ \\
+\SI{23}{\celsius} & $1.017$ & $1.86\times10^{-3}$ & $5.47\times10^{-3}$ & $2.9$ & $4.8$ \\
+\SI{33}{\celsius} & $1.130$ & $1.91\times10^{-3}$ & $6.23\times10^{-3}$ & $3.3$ & $5.4$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent At $197$ against $3417$ degrees of freedom the five percent critical value is near
+$1.2$, so every record shows lack of fit and \SI{15}{\celsius} shows it by an order of
+magnitude. The conclusion is the one above, reached with none of the same machinery.
+
+Two things make it worth the page. It gets the factor of $J$ right by construction --- the fit
+compares the \emph{mean} of the trials against the spread \emph{between} them, and the $J$ in
+the numerator is that missing $\sqrt{J}$ --- and it is conservative in a direction we can
+quantify: \SI{39.3}{\percent} of the trial variance is bubble-to-bubble parameter spread rather
+than measurement, so pure error is inflated and the corrected column divides that share out.
+
+It also separates the records, which lag-one does not. The lag-one values are $0.919$, $0.968$
+and $0.911$, effectively identical. But \SI{15}{\celsius} repeats itself three times more
+tightly than the others, so its systematic deviation stands $14$ times above its own scatter
+where theirs stand $3$. The strongest evidence that the model is incomplete comes from the
+record with the best apparatus, not the worst fit.
+
+The $p$-value is not usable: $F$ assumes independent errors across time and these are
+correlated at $0.918$. The ratio needs no such assumption, and is read here as an effect size.
+
 Three things follow, and they should be read together.
 
 \begin{enumerate}
@@ -2085,6 +2130,102 @@ operator is $77.7\%$ absorbed, leaving under two noise units, which is why its r
 so fragile; the constitutive and thermal axes leave $8.1$ and $8.5$.}
 \label{fig:absorption}
 \end{figure}
+
+\section{What the design survives}
+\label{sec:survives}
+
+The certified measure of \cref{sec:design} is a theorem. Three things stand between it and an
+experiment somebody can run, and each is measurable rather than arguable.
+
+\subsection*{A measure assigns weights; an experiment runs integers}
+
+The optimum splits runs three ways. With twelve bubbles that is $5.4/3.7/2.9$, and the
+equivalence theorem certifies optimality over \emph{measures} --- an exact design is not one,
+so the certificate does not reach it. \texttt{pyimr.measure.apportion} closes the gap by the
+efficient rounding of Pukelsheim and Rieder, and because that rule carries no guarantee at
+small budgets, it reports the D-efficiency it achieved rather than asserting one.
+
+On the four-point design of cubic regression, where every quantity is closed form: budgets
+divisible by four lose nothing, and six runs give $2/2/1/1$ at an efficiency of $0.9428$, which
+is $\left[(2/6)^2(1/6)^2/(1/4)^4\right]^{1/4}$ exactly. The rule earns its complexity on
+awkward budgets --- at weights $0.7/0.2/0.1$ and four runs, proportional rounding gives
+$3/1/0$, dropping a support point and leaving the information matrix singular.
+
+\subsection*{Frames are a design variable, and there are far too many of them}
+
+\Cref{sec:limitations} reports $201$ samples carrying the information of about ten. Redundancy
+is a design variable: a camera trades frame rate against window length, against exposure, and
+against how many bubbles fit in a session. Scoring frames by $\log\det J^{\mathsf T}J$ at the
+fitted qSLS, with the same number of observations spent each way:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+observations & uniform & optimally placed & gain \\
+\midrule
+$201$ & $18.54$ & $25.72$ & $6.0\times$ \\
+$50$ & $11.73$ & $20.15$ & $8.2\times$ \\
+$12$ & $5.98$ & $14.42$ & $8.3\times$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The D-optimal measure over the $201$ candidate times is certified at a gap of
+$10^{-10}$ on \emph{six} support points. Fifty observations placed on those six carry more
+information than all $201$ spread uniformly.
+
+That is a measurement of slack, not a recommendation. A design on six distinct times leaves no
+degrees of freedom to notice the model is wrong, and the lack-of-fit test above is exactly what
+those degrees of freedom buy. The honest reading is that frames are cheap relative to their
+information, so the camera should be traded for something scarce --- bubbles, or window, or
+the replication that makes \eqref{eq:lackoffit} possible.
+
+\subsection*{The recommended geometries do not survive model error}
+
+Optimal designs are computed assuming the model is right. Ours is not: \eqref{eq:lackoffit}
+says so at every temperature. The literature on sloppy systems warns that a model can fit worse
+on data from its own optimal experiment, and that is testable before a bubble is spent.
+
+The test must not generate data from the model being fitted --- that is the assumption under
+examination, and a study that makes it finds nothing. So the truth here carries the thermal
+transport the fitted model lacks, a mismatch \cref{sec:axes} measures at $16$ noise units, and
+cold qSLS is fitted to it at four geometries.
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+geometry & $\chi^2/N$ & lag-one & $g\alpha$ error & model error \\
+\midrule
+performed, \SI{277}{\micro\metre} at $7.09$ & $1.231$ & $0.231$ & $\mathbf{3.8\%}$ & $0.53$ \\
+E-optimal, \SI{199}{\micro\metre} at $3.55$ & $2.533$ & $0.504$ & $5.9\%$ & $1.24$ \\
+discrimination-optimal, \SI{100}{\micro\metre} at $20.0$ & $2.197$ & $0.488$ & $\mathbf{37.1\%}$ & $1.17$ \\
+measure support, \SI{60}{\micro\metre} at $18.0$ & $\mathbf{0.892}$ & $0.009$ & $5.2\%$ & $\mathbf{0.15}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The warning is real and it is worse than advertised. The sloppy-systems literature
+describes a \emph{trade} --- better parameters, worse fit. Two of these three recommendations
+lose on both counts. The E-optimal geometry fits $2.1$ times worse and recovers $g\alpha$
+$1.6$ times worse; the discrimination-optimal geometry fits $1.8$ times worse and recovers
+$g\alpha$ nearly \emph{ten} times worse. The geometry already performed beats both.
+
+The mechanism is visible in the last column. A criterion computed under the correct-model
+assumption sends the experiment where the model is most sensitive, and for these models that is
+also where it is most wrong: the thermal mismatch grows from $0.53$ noise units at the
+performed geometry to $1.24$ at the E-optimal one. The parameters then absorb the mismatch,
+which is why recovery degrades rather than improving.
+
+One design escapes, and instructively. The small support point at \SI{60}{\micro\metre} carries
+the \emph{least} model error of the four, $0.15$ against $0.53$, and is the only geometry that
+fits better than the one performed. Robustness to the error we have measured, not information
+under the assumption that we have none, is what distinguishes it.
+
+This is one mismatch at one truth, and a different model error could rank differently. What
+does not depend on that choice is the direction: design criteria evaluated under a model the
+data reject can recommend experiments that are worse on every axis they were meant to improve.
+A design should be scored against the model error we have measured before it is offered to
+anyone.
 
 \section{Temperature dependence}
 

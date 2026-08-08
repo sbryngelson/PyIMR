@@ -15,6 +15,8 @@
 \author{Spencer H. Bryngelson}
 \date{\today}
 
+\DeclareMathOperator*{\argmax}{arg\,max}
+
 \begin{document}
 \maketitle
 
@@ -2233,6 +2235,194 @@ operator is $77.7\%$ absorbed, leaving under two noise units, which is why its r
 so fragile; the constitutive and thermal axes leave $8.1$ and $8.5$.}
 \label{fig:absorption}
 \end{figure}
+
+\section{Choosing the next \texorpdfstring{$N$}{N} experiments}
+\label{sec:batch}
+
+Everything above scores designs. None of it answers the question a collaborator actually
+asks: \emph{we can run $N$ more bubbles, what should they be?} This section is that recipe. It
+is five steps, four of which are already derived above and one of which is new.
+
+\subsection*{Step 0: ask which questions are still open}
+
+A batch that separates models the records have already separated buys nothing. Given the log
+evidence $\log Z_m$ of each rival on the data in hand, write the margin against the best,
+$\Delta_m = \log Z_m - \max_k \log Z_k$, and call a rival \emph{decided} when
+$\Delta_m < -\delta$ for a threshold $\delta$ we take as five nats. Survivors carry the
+posterior they have earned,
+%
+\begin{equation}
+w_m = \frac{e^{\Delta_m}}{\sum_{k \text{ live}} e^{\Delta_k}} ,
+\qquad w_m = 0 \text{ for decided } m .
+\label{eq:screen}
+\end{equation}
+
+This step does more than save runs. The criterion below is \emph{local} --- it linearizes the
+model difference --- which is the right approximation for rivals that are close and the wrong
+one for rivals far apart. But rivals far apart are easy to separate and are exactly the ones
+\eqref{eq:screen} decides. What survives screening is the close pairs, which is the regime the
+linearization is valid in, so the two failure modes cancel rather than compound.
+
+\subsection*{Step 1: make the model choice a parameter}
+
+For a live rival $m$ against the incumbent, write
+$R(\theta,\varepsilon_m) = (1-\varepsilon_m) R_{\text{inc}}(\theta) + \varepsilon_m R_m(\theta)$,
+so that $\partial R/\partial\varepsilon_m = R_m - R_{\text{inc}}$ at $\varepsilon_m = 0$. The
+model question becomes one more column of the Jacobian. With the material sensitivities
+whitened by the measurement deviation, the augmented Jacobian at a candidate setting $x$ is
+%
+\begin{equation}
+\tilde J(x) = \Big[\; \underbrace{\sigma^{-1}\partial R/\partial\theta}_{p \text{ columns}}
+ \;\Big|\; \underbrace{\sqrt{w_1}\,\sigma^{-1}\Delta_1 \;\cdots\; \sqrt{w_q}\,\sigma^{-1}\Delta_q}_{q \text{ rivals}} \;\Big],
+\qquad M(x) = \tilde J(x)^{\mathsf T} \tilde J(x) .
+\label{eq:augmented}
+\end{equation}
+%
+The $\sqrt{w_m}$ is what makes \eqref{eq:screen} bite: a rival at a tenth of the posterior
+contributes a tenth of the information about its own coordinate, and a decided rival
+contributes none.
+
+Nothing is sampled here. This is the point at which an expected log Bayes factor would
+normally be estimated, and \cref{sec:integral} explains why that estimator fails on records
+this long --- the effective sample size collapses to one. The derivative is exact, costs one
+Jacobian, and needs no prior on the rival, which also removes the prior-placement trap of
+\cref{sec:design}: only the difference direction enters, never the rival's own parameters.
+
+\subsection*{Step 2: optimize over measures, not over settings}
+
+A batch is a measure. Let $\xi$ put weight $\xi_i$ on candidate $x_i$; the information is
+$M(\xi) = \sum_i \xi_i M(x_i)$, \emph{linear} in $\xi$, so $\log\det M(\xi)$ is concave and
+%
+\begin{equation}
+\xi^\star = \argmax_{\xi} \; \log\det M(\xi)
+\label{eq:batchcriterion}
+\end{equation}
+%
+has no local optima. Because $M$ carries both blocks, \eqref{eq:batchcriterion} balances
+estimating the material against determining which model produced the trace without any
+weighting parameter to choose.
+
+This is deliberately not the compound criterion of \cref{sec:design}. That form blends
+$\log\det$ with a utility, and the blend is concave only because the utility is \emph{linear}
+in $\xi$. The natural discrimination utility --- the posterior variance of $\varepsilon$ --- is
+not linear, so blending it would forfeit the certificate. Putting $\varepsilon$ inside the
+matrix keeps one concave criterion and the proof that comes with it.
+
+\subsection*{Step 3: certify}
+
+By Kiefer--Wolfowitz, $\xi^\star$ solves \eqref{eq:batchcriterion} exactly when no candidate
+setting offers an uphill direction:
+%
+\begin{equation}
+d(x,\xi^\star) = \operatorname{tr}\!\left[M(\xi^\star)^{-1} M(x)\right] \le p + q
+\quad\text{for all } x,
+\end{equation}
+%
+with equality on the support. The gap $\max_x d(x,\xi^\star) - (p+q)$ is a proof, not a
+convergence report, and it is what distinguishes this from every single-design search in this
+document.
+
+\subsection*{Step 4: spend the budget}
+
+$\xi^\star$ is a measure and the experiment runs integers. For a budget of $N$, apportion by
+efficient rounding \citep{pukelsheim1992efficient}: give every support point one run and
+allocate the rest by the rule that maximizes $\min_i n_i/(N\xi^\star_i)$, so no support point
+is rounded away. The rule carries no guarantee at small $N$, which is the regime here, so the
+loss is \emph{measured} rather than assumed:
+%
+\begin{equation}
+\text{D-efficiency} = \left(\frac{\det M(n/N)}{\det M(\xi^\star)}\right)^{1/(p+q)} .
+\end{equation}
+
+What the batch buys is then read off the inverse. The variance of the coordinate that says
+which model produced the trace, after the material has absorbed everything it can, is the
+Schur complement
+%
+\begin{equation}
+\operatorname{Var}(\varepsilon_m) =
+\Big[\big(M_{\varepsilon\varepsilon} - M_{\varepsilon\theta} M_{\theta\theta}^{-1} M_{\theta\varepsilon}\big)^{-1}\Big]_{mm} ,
+\label{eq:postmaterial}
+\end{equation}
+%
+and an infinite entry is the statement that no design separates that pair at all --- the
+difference lies entirely in the span of $\partial R/\partial\theta$ and refitting reproduces it.
+
+\subsection*{The answer for these records}
+
+Screening \eqref{eq:screen} on the operator axis leaves five live rivals against
+Gilmore/Mie--Gr\"uneisen. Over $48$ candidate geometries spanning
+\SIrange{50}{1200}{\micro\metre} and stretch $3$ to $20$, \eqref{eq:batchcriterion} certifies at
+a gap of $10^{-9}$ on five support points, and a budget of $N=12$ apportions to
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+$R_{\max}$ & stretch & runs \\
+\midrule
+\SI{1200}{\micro\metre} & $9.8$ & $6$ \\
+\SI{1200}{\micro\metre} & $6.4$ & $3$ \\
+\SI{307}{\micro\metre} & $16.6$ & $1$ \\
+\SI{50}{\micro\metre} & $20.0$ & $1$ \\
+\SI{484}{\micro\metre} & $6.4$ & $1$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent at $99.6\%$ of the measure's own efficiency. Against spending all twelve at the
+geometry already performed, \eqref{eq:postmaterial} falls by $16.0$, $17.7$ and $9.3$ times for
+Gilmore/Tait, Keller enthalpy/Tait and Keller enthalpy/Mie--Gr\"uneisen respectively.
+
+Two caveats travel with that table. Every design that integrates is scorable here, where the
+sampled criterion could rank only $26$ of the same $48$ --- but the criterion is still
+evaluated at one material and one incumbent, so it is locally optimal in exactly the sense
+\cref{sec:survives} shows can mislead under model error. And the screening that produced the
+rival list rests on margins computed under an independent likelihood; \cref{sec:screening}
+shows that deflating them by $N/N_{\rm eff}$ changes which rivals are live at all.
+
+\section{Which questions are open}
+\label{sec:screening}
+
+Step 0 of \cref{sec:batch} asks which rivals the records have already decided. Run on this
+package's three axes, the answer is stark and then immediately contingent.
+
+At face value almost nothing is still in question. Of seventeen constitutive candidates, one
+is live on every record; the rest trail by up to $4573$ nats. Of the six operators scored, two
+survive on every record. Each record admits a single thermal treatment.
+
+That reading would mean the design of \cref{sec:batch} is aimed at a question already settled,
+and by a wide margin. It does not survive the likelihood.
+
+Every log evidence in this document assumes the residuals are independent, and
+\cref{sec:limitations} measures $N_{\rm eff}$ near $10$ of $201$. Evidence differences scale
+with the count of independent observations, so each margin is inflated by roughly
+$N/N_{\rm eff}$. Deflating by that factor and re-screening:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+axis & live at face value & live deflated by $N/N_{\rm eff}$ \\
+\midrule
+constitutive (17 candidates) & $1$ & $2$ \\
+bubble dynamics (6 operators) & $2$--$5$ & $5$--$6$ \\
+thermal treatment (3) & $1$ & $3$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent SLS returns, five or six operators return, and every thermal treatment returns.
+
+Screening is where this matters most, and the reason is structural rather than numerical.
+Elsewhere the correlation inflates a quantity we report and compare --- an evidence, a
+$\chi^2/N$ --- and the ranking survives because every model is inflated alike.
+\Cref{sec:limitations} says exactly that: the ranking survives, the absolute claim does not.
+But a screen converts a margin into a \emph{yes or no}, and a twentyfold factor moves margins
+across a threshold wholesale. Here the inflation does not cancel, because the comparison is no
+longer between models but between a margin and a constant.
+
+So which model questions are open is at present undetermined --- and undetermined by the
+likelihood rather than by anything about the models. That promotes the correlated likelihood
+from a caveat on the magnitudes to a precondition for the design work: until it is fixed, a
+batch aimed at a live pair may be aimed at a pair whose liveness is an artifact.
 
 \section{What the design survives}
 \label{sec:survives}

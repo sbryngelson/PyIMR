@@ -85,7 +85,7 @@ def solver(times, maximum_radius, stretch, *, dynamics="keller-miksis", liquid_e
 
 
 def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=200,
-          trials=None):
+          trials=None, seeds=None):
   """Fit, then the evidence summed over modes and the residual diagnostics at the best.
 
   Summed rather than taken at the best because the expansion is about one mode and the
@@ -98,7 +98,7 @@ def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=
   from scipy.special import logsumexp
 
   fit = fit_candidate(candidate, solve, mean, spread, bounds=bounds, starts=starts,
-                      max_evaluations=evaluations)
+                      max_evaluations=evaluations, seeds=seeds)
   scored = []
   for point in fit.modes:
     try: scored.append(candidate_log_evidence(candidate, solve, mean, spread, point, bounds=bounds))
@@ -119,6 +119,9 @@ def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=
     misfit = lack_of_fit(mean, model, spread, int(trials), candidate.dimension).ratio
   box = bounds or PARAMETER_BOUNDS
   return dict(chi2_per_n=fit.chi_squared, log_evidence=float(logsumexp(scored)) if scored else float("nan"),
+              # in the prior's unit coordinates, so a neighbouring fit can be warm-started
+              # from it -- the physical `fitted` cannot be, the box may differ
+              unit=[float(v) for v in fit.unit],
               lack_of_fit=misfit,
               lag_one=float(check.lag_one), n_eff=float(check.effective_samples),
               failure_fraction=fit.failure_fraction, modes=len(fit.modes), fitted=fitted,

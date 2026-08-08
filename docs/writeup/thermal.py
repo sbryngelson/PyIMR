@@ -41,28 +41,49 @@ def _candidate():
   return CandidateModel("qSLS|identified", build, ("mu", "galpha", "lambda1"))
 
 
-def _job(argument):
-  dataset, name = argument
+def _score(dataset, name, *, starts, seeds=None):
   times, mean, spread, maximum, stretch = records.load(dataset)
   solve = records.solver(times, maximum, stretch, max_steps=600_000, **TREATMENTS[name])
+  return records.score(_candidate(), solve, mean, spread, bounds=BOX, starts=starts,
+                       evaluations=600, trials=records.trial_count(dataset), seeds=seeds)
+
+
+def _job(dataset):
+  """One record: the cold fit, then every thermal treatment warm-started from it.
+
+  Raising the budget did not work. Across three budgets -- 5, 10 and 24 restarts -- the
+  15 C and 33 C rows moved by 15 to 153 nats while 23 C was bit-stable, and at two cells the
+  fit was WORSE at 24 restarts than at 10. Best-of-24 cannot lose to best-of-10 at a converged
+  optimum, so the multistart was sampling basins rather than refining one, and a fourth budget
+  would have been the same mistake a fourth time.
+
+  The cold fit, by contrast, is converged everywhere: its log evidence agrees to 0.03 nats
+  across those same budget changes. The treatments differ from it by added physics and not by
+  parameters -- the material axes are identical, which is what makes the comparison a Bayes
+  factor at all -- so the cold optimum is a far better starting point than any random one.
+  Each thermal fit therefore starts there as well as from its own hypercube.
+  """
   try:
-    # starts=24, not 10. At 10 the cold baselines still disagreed across records in the way
-    # that indicates a search failing on some rows rather than physics -- 15 C reported
-    # bubble+medium at -131 nats while 23 C reported it at +8 for the same treatment. Only
-    # nine fits run here, so the budget is cheap; a margin read off an under-converged
-    # baseline is not.
-    got = records.score(_candidate(), solve, mean, spread, bounds=BOX, starts=24,
-                        evaluations=600, trials=records.trial_count(dataset))
+    cold = _score(dataset, "cold", starts=24)
   except Exception as error:                          # noqa: BLE001
-    got = {"failed": f"{type(error).__name__}: {error}"}
-  return (dataset, name), got
+    return dataset, {n: {"failed": f"cold: {type(error).__name__}: {error}"} for n in TREATMENTS}
+
+  got = {"cold": cold}
+  for name in TREATMENTS:
+    if name == "cold": continue
+    try:
+      got[name] = _score(dataset, name, starts=12, seeds=[cold["unit"]])
+    except Exception as error:                        # noqa: BLE001
+      got[name] = {"failed": f"{type(error).__name__}: {error}"}
+  return dataset, got
 
 
 def main():
 
-  jobs = [(d, n) for d in records.DATASETS for n in TREATMENTS]
+  jobs = list(records.DATASETS)
   with records.pool(len(jobs)) as pool:
-    table = dict(pool.map(_job, jobs))
+    nested = dict(pool.map(_job, jobs))
+  table = {(d, n): row for d, rows in nested.items() for n, row in rows.items()}
 
   print("thermal treatments scored by evidence, identified coordinates, capped Occam\n")
   print(f"{'record':>14} {'treatment':>15} {'chi2/N':>9} {'log Z':>11} {'vs cold':>9} {'lag-1':>8}")

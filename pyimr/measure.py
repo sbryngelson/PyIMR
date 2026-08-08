@@ -38,7 +38,7 @@ from numbers import Integral
 
 import numpy as np
 
-__all__ = ["BatchDesign", "ExactDesign", "MeasureResult", "apportion", "identification_front", "optimal_measure", "sensitivity"]
+__all__ = ["BatchDesign", "ExactDesign", "MeasureResult", "apportion", "augmented_information", "identification_front", "optimal_measure", "sensitivity", "separability"]
 
 _FLOOR = 1e-12
 
@@ -367,3 +367,86 @@ def identification_front(matrices, utility, runs, *, blends=None, iterations=100
       log_det=value, discrimination=float(counts @ vector), efficiency=efficiency,
       gap=measure.gap, certified=bool(measure.certified)))
   return front
+
+
+def augmented_information(jacobian, differences, *, weights=None):
+  """Information about the material AND about which model produced the trace, in one matrix.
+
+  Writing a model choice as a continuous coordinate, `R(theta, eps) = (1 - eps) R_A + eps R_B`,
+  gives `dR/deps = R_B - R_A` at `eps = 0`. The model label is then one more column of the
+  Jacobian and discrimination stops being a separate criterion: `J^T J` over the augmented set
+  carries both, is linear in the design measure, and so composes with `optimal_measure` and its
+  certificate exactly as the material-only matrix does.
+
+  WHY THIS AND NOT AN EVIDENCE INTEGRAL. Scoring designs by a sampled Bayes factor is the
+  double-loop estimator the Laplace literature exists to replace, and it fails here in the
+  documented way: on this package's own records the inner integral collapsed to one effective
+  draw, and a front built on it put ten of twelve runs on the design whose utility was purest
+  noise. It also forces a choice nobody can make well -- a prior for each rival, which if
+  centred on one model's fit measures prior placement rather than discriminability. None of
+  those exist here. Only the difference direction enters, and it is exact.
+
+  WHAT IT GIVES UP. It is local. `R_B - R_A` measures separability in a neighbourhood, which is
+  the right question when rivals are close and the wrong one when they are far apart -- but
+  rivals that are far apart are easy to separate and should have been screened out by
+  `pyimr.discriminate.screen_models` before any design is computed. What survives screening is
+  the close pairs, which is this criterion's own regime.
+
+  `jacobian` is the whitened material sensitivity, `(samples, p)`. `differences` is
+  `(samples,)` or `(rivals, samples)`, whitened the same way. `weights` are the rivals' current
+  posterior probabilities -- from `screen_models` -- so a rival the data has nearly settled
+  contributes nearly nothing, and a decided one contributes exactly nothing.
+  """
+  material = np.asarray(jacobian, dtype=float)
+  if material.ndim != 2: raise ValueError(f"jacobian must be (samples, p); got {material.shape}")
+  columns = np.atleast_2d(np.asarray(differences, dtype=float))
+  if columns.shape[1] != material.shape[0]:
+    raise ValueError(f"differences must have {material.shape[0]} samples; got {columns.shape}")
+  if not np.all(np.isfinite(material)) or not np.all(np.isfinite(columns)):
+    raise ValueError("jacobian and differences must be finite")
+  if weights is not None:
+    share = np.asarray(weights, dtype=float).ravel()
+    if share.size != columns.shape[0]:
+      raise ValueError(f"weights must be one per rival; got {share.size} for {columns.shape[0]}")
+    if np.any(share < 0.0) or not np.all(np.isfinite(share)):
+      raise ValueError("weights must be finite and non-negative")
+    # amplitude, not variance: the coordinate is scaled so a half-weight rival contributes
+    # half the sensitivity, which is what makes the augmented determinant read as a posterior
+    # average rather than as a mixture of unrelated units
+    columns = columns * np.sqrt(share)[:, None]
+  full = np.hstack([material, columns.T])
+  return full.T @ full
+
+
+def separability(jacobian, differences, *, weights=None):
+  """Post-material variance of each model coordinate: what a design can still see.
+
+  The number that matters is not how far apart two models are but how much of that difference
+  survives refitting the material, because the part lying in the span of `dR/dtheta` is
+  reproduced by adjusting the parameters and is invisible at every design. This returns the
+  diagonal of the inverse augmented information restricted to the model coordinates -- the
+  variance of each mixing coordinate after the material has been fitted out -- and the share of
+  each difference the material absorbs.
+
+  Smaller variance is a better-determined model choice. `inf` means the coordinate is not
+  identified at all: the difference lies entirely in the material's span, and no amount of data
+  at this design will separate the models.
+  """
+  material = np.asarray(jacobian, dtype=float)
+  columns = np.atleast_2d(np.asarray(differences, dtype=float))
+  information = augmented_information(material, columns, weights=weights)
+  count, rivals = material.shape[1], columns.shape[0]
+  try:
+    covariance = np.linalg.inv(information)
+    variance = np.diag(covariance)[count:].copy()
+  except np.linalg.LinAlgError:
+    variance = np.full(rivals, np.inf)
+  variance = np.where(variance > 0.0, variance, np.inf)
+
+  basis, _ = np.linalg.qr(material)
+  absorbed = np.empty(rivals)
+  for index, row in enumerate(columns):
+    size = np.linalg.norm(row)
+    left = np.linalg.norm(row - basis @ (basis.T @ row))
+    absorbed[index] = 1.0 - left / size if size > 0.0 else 1.0
+  return variance, absorbed

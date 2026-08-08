@@ -50,6 +50,8 @@ BANK = 768
 RUNS = 12
 # a lognormal prior about the fit rather than a decades-wide box: see the module docstring
 PRIOR_SPREAD = 0.35
+# the estimator's own reliability gate: below this the utility is one draw's opinion
+EFFECTIVE_FLOOR = 4.0
 FIT = {"g": 204.3, "mu": 0.04651, "lambda1": 1.964e-7, "alpha": 5.301}
 PATHS = ("material.shear_modulus_pa", "material.viscosity_pa_s",
          "material.relaxation_time_s", "material.stiffening")
@@ -118,10 +120,16 @@ def main():
   with records.pool(len(DESIGNS)) as pool:
     table = dict(pool.map(_job, DESIGNS))
 
-  usable = [d for d in DESIGNS if "failed" not in table[d]]
-  unreliable = [d for d in usable if not table[d]["reliable"]]
-  print(f"{len(usable)} of {len(DESIGNS)} designs scored; {len(unreliable)} have an unreliable "
-        "evidence integral")
+  scored = [d for d in DESIGNS if "failed" not in table[d]]
+  # A design whose evidence integral rests on one effective draw has a utility made of noise,
+  # and the front will happily concentrate on it: the first run of this study put 10 of 12
+  # runs on the single highest-utility design, whose S_eff was 1.15. Excluded from the
+  # CANDIDATE SET rather than flagged afterwards, because a candidate the criterion can rank
+  # is a candidate the criterion will choose.
+  usable = [d for d in scored if table[d]["effective"] >= EFFECTIVE_FLOOR]
+  dropped = len(scored) - len(usable)
+  print(f"{len(scored)} of {len(DESIGNS)} designs scored; {dropped} dropped for an evidence "
+        f"integral resting on fewer than {EFFECTIVE_FLOOR} effective draws")
   if len(usable) < 8:
     print("  too few designs survived to build a front")
     for d in DESIGNS[:5]:
@@ -131,6 +139,9 @@ def main():
   information = np.array([table[d]["information"] for d in usable], dtype=float)
   utility = np.array([table[d]["utility"] for d in usable], dtype=float)
   print(f"  expected log Bayes factor per run spans {utility.min():.2f} to {utility.max():.2f} nats")
+  print(f"  effective draws across the surviving designs: "
+        f"{min(table[d]['effective'] for d in usable):.1f} to "
+        f"{max(table[d]['effective'] for d in usable):.1f}")
   best = usable[int(np.argmax(utility))]
   print(f"  most discriminating single setting: R_max {best[0]*1e6:.0f} um at stretch {best[1]:.1f}")
 

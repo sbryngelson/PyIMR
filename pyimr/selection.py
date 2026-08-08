@@ -510,7 +510,7 @@ class CandidateFit:
     return len(self.costs) > 1 and (self.costs[1] - self.costs[0]) < 1.0
 
 def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=8, seed=0,
-                  max_evaluations=200, separation=1e-2):
+                  max_evaluations=200, separation=1e-2, seeds=None):
   """Fit a candidate by multistart least squares in the prior's unit coordinates.
 
   `candidate_log_evidence` expands about a fitted point and nothing produced one: a
@@ -528,6 +528,11 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
   earlier in this package. No analytic Jacobian: `least_squares` differences the residual
   itself, which costs `p` extra solves an iteration and is what makes this work for axes
   that are not material fields.
+
+  `seeds` are starting points in the same unit coordinates, tried in addition to the
+  hypercube. Use them when a converged neighbouring fit exists -- the same candidate through a
+  forward model that differs only by added physics, say -- because a good start beats a larger
+  budget on a rough objective, and a larger budget can even do worse.
 
   BUDGET. That differencing makes `max_evaluations` mean far less than it appears to: an
   iteration costs `p + 1` solves, so 80 evaluations is about sixteen steps in four
@@ -581,6 +586,22 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
   points = (strata + rng.random((count, dimension))) / count
   points[0] = 0.5
 
+  # WARM STARTS. A Latin hypercube knows nothing about the problem, and where the objective is
+  # rough that is a liability rather than neutral: `docs/writeup/thermal.py` raised its budget
+  # from 5 to 10 to 24 restarts and two cells fitted WORSE at 24 than at 10, which cannot
+  # happen at a converged optimum and means the search was sampling basins rather than
+  # refining one. When a neighbouring fit is already converged -- the same material through a
+  # forward model that differs only by added physics -- its optimum is a far better starting
+  # point than any random one, and it costs one extra descent to try.
+  if seeds is not None:
+    warm = np.atleast_2d(np.asarray(seeds, dtype=float))
+    if warm.ndim != 2 or warm.shape[1] != dimension:
+      raise ValueError(f"seeds must be points in the {dimension}-dimensional unit cube; "
+                       f"got shape {warm.shape}")
+    if not np.all(np.isfinite(warm)) or np.any(warm < 0.0) or np.any(warm > 1.0):
+      raise ValueError("seeds must be finite and lie in the unit cube the prior is defined on")
+    points = np.vstack([warm, points])
+
   endpoints = []
   for start in points:
     outcome = least_squares(residual, start, bounds=(0.0, 1.0), max_nfev=int(max_evaluations), x_scale="jac")
@@ -588,7 +609,7 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
     # in with the real ones would put a spurious mode in `modes`
     if np.isfinite(outcome.cost) and 2.0 * outcome.cost / measured.size < _UNREACHABLE**2:
       endpoints.append((float(outcome.cost), np.clip(np.asarray(outcome.x, dtype=float), 0.0, 1.0)))
-  if not endpoints: raise ValueError(f"{candidate.name} did not fit from any of {count} starts")
+  if not endpoints: raise ValueError(f"{candidate.name} did not fit from any of {len(points)} starts")
 
   endpoints.sort(key=lambda item: item[0])
   modes, costs = [], []

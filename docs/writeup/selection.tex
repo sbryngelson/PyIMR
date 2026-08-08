@@ -1107,6 +1107,67 @@ candidate fixed and vary the forward solve. The parameter space is then identica
 set, the Occam terms cancel, and the difference in $\log Z$ is a Bayes factor between
 operators.
 
+\subsection{What the operators are}
+\label{sec:operators}
+
+The set is a product of two choices rather than a list of equations, and reading it as a list
+hid a defect. The enthalpy forms share one equation: they differ only in which equation of
+state supplies the wall enthalpy and whether the sound speed is the constant $c_\infty$ or the
+local wall value. The name \emph{Keller--Miksis} was doing double duty, standing for both the
+pressure form and the constant-sound-speed enthalpy form, which are different equations.
+
+Separating the axes gives four dynamics that need an equation of state and two that do not:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+dynamics & order & closure \\
+\midrule
+Rayleigh--Plesset & incompressible & none \\
+Keller--Miksis & $O(M)$, pressure form & none \\
+Keller enthalpy & $O(M)$, enthalpy form, $\lambda=0$ & Tait, Mie--Gr\"uneisen or NASG \\
+Herring & $O(M)$, enthalpy form, $\lambda=1$ & Tait, Mie--Gr\"uneisen or NASG \\
+Gilmore & Kirkwood--Bethe, local $c$ & Tait, Mie--Gr\"uneisen or NASG \\
+Lezzi--Prosperetti & $O(M^2)$, implicit in $\ddot R$ & Tait, Mie--Gr\"uneisen or NASG \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Fourteen operators, of which six were available when the results below were
+computed. Keller enthalpy and Herring are the $\lambda=0$ and $\lambda=1$ members of the
+one-parameter family of \citet{prosperetti1986bubble}, not two theories; NASG~\citep{lemetayer2016noble} adds the
+covolume Tait lacks and reduces to Tait exactly at zero covolume.
+
+\paragraph{The second-order equation, and two typos in reading it.} Equation 8.7 of
+\citet{lezzi1987bubble} is the only member here that is not first order in the Mach number, and
+the only one implicit in the acceleration: an $R^2\ddot R^2/c^2$ term makes it quadratic, so it
+is solved rather than divided, on the branch that stays finite as $c\to\infty$. It is used at
+the authors' own recommended $(\lambda,\theta) = (0.5, 0)$.
+
+A secondary source we worked from first prints two errors in the pair, and both were caught
+before implementation --- the first because $\lambda=0$ must reduce to the Keller form, the
+second because the term multiplying $\dot h_B$ is dimensionally impossible as printed. Neither
+is a criticism of that paper so much as an argument for reading the source: coefficients are
+exactly the thing a transcription loses.
+
+The same equation carries a group of $O(M^2)$ far-field terms that vanish only for a steady
+drive. This implementation drops them and \emph{refuses} a time-varying one, rather than
+quietly losing the order the equation exists to supply.
+
+\paragraph{Validating a coefficient no asymptotic argument reaches.} Members of a family agree
+to one order beyond the family's accuracy, so varying $\lambda$ or $\theta$ tests only the
+terms they multiply --- and the constants $14/5$ and $16/15$ multiply neither. With no
+compressible reference solver available, the gate is direct: take the acceleration the solver
+returns, substitute it into 8.7 transcribed independently, and require the residual to vanish.
+It does, to $10^{-11}$, and six mutations of the coefficients each break it.
+
+That gate exists because a weaker one passed. The first check on the first-order family --- that
+its members agree to $O(M^2)$ --- gave the right ratios and survived a deliberate error, since
+members agree at that order for \emph{any} constant in the $\dot R^2$ coefficient. The test
+that works compares against the independently written pressure form, which has no free constant
+in it, and it needs the sound speed raised together with the equation of state or the two forms
+describe different liquids.
+
 \paragraph{The prior box sets the answer.} Scored with the bounds of \cref{sec:prior},
 Keller enthalpy/Mie--Gr\"uneisen ranks first at $+4.02$ nats and Gilmore/Tait second to last at
 $-27.66$. Three of the six fits sit on $g=10^2$ or $\lambda_1=10^{-7}$, their own floors.
@@ -1264,7 +1325,10 @@ Published comparisons vary the first and leave the other two at the origin. Some
 change can be canceled by refitting stiffness and viscosity, which makes it invisible no
 matter how the experiment is run; what remains is $22\%$ of an operator change, $57\%$ of a
 constitutive change and $53\%$ of a thermal one, and no two of those remainders point in
-similar directions. All three are therefore distinguishable in principle.}
+similar directions. All three are therefore distinguishable in principle. The $77.7\%$ is the
+CLOSEST pair of operators rather than the axis: across the six dynamics of
+\cref{sec:operators} absorption runs from there down to $19.5\%$, and the second-order
+equation leaves twenty-two times as much as the pair drawn here.}
 \label{fig:modelspace}
 \end{figure}
 
@@ -1306,8 +1370,41 @@ survives refitting most. So the earlier observation -- that switching it on made
 slightly worse -- says the direction it moves in is not the one the record wants, not that it
 is small.
 
-The operator is the most absorbed axis by a wide margin. That is the mechanism behind
-\cref{sec:operator}: most of an operator change can be mimicked by adjusting the material.
+The operator pair measured here is the most absorbed of the three, and that is the mechanism
+behind \cref{sec:operator}: most of \emph{this} operator change can be mimicked by adjusting
+the material.
+
+It does not generalize to the axis, and the difference matters because it was read as a
+property of operators. Absorption is a property of a \emph{pair}, and the pair above is the
+closest one available at the time. Measured against Keller--Miksis on the same record, with the
+same projection, the six dynamics of \cref{sec:operators} span the range rather than clustering
+at its top:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+against Keller--Miksis & size & after refit & absorbed \\
+\midrule
+Keller enthalpy/Mie--G & $8.89$ & $\mathbf{1.98}$ & $\mathbf{77.7\%}$ \\
+Keller enthalpy/Tait & $12.85$ & $5.81$ & $54.8\%$ \\
+Herring/Tait & $34.49$ & $24.80$ & $28.1\%$ \\
+Gilmore/Tait & $39.30$ & $29.33$ & $25.4\%$ \\
+Lezzi--Prosperetti (2nd order)/Tait & $53.21$ & $\mathbf{42.83}$ & $\mathbf{19.5\%}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The second-order equation leaves $42.8$ noise units where the pair this section was
+built on leaves $1.98$ --- twenty-two times as much, and four fifths of it visible to the data
+rather than one fifth. So the operator axis is not uniquely hidden; the two operators available
+when that claim was made happened to be the two hardest to tell apart.
+
+The peak wall Mach number on this record's own geometry is $0.110$, so $O(M^2)$ is near
+$1.2\%$ and a second-order correction is not a refinement --- it is the largest operator
+difference measured here. One caution on reading the column: it is an $L^2$ norm over the whole
+record, so it is dominated by how far the trajectories decohere near collapse rather than by a
+pointwise $O(M^2)$ magnitude. It is the right yardstick against the other entries and the wrong
+one for a physical size.
 
 \paragraph{A design against all three.} Make each axis a parameter through
 $R(\theta,\varepsilon)=(1-\varepsilon)R_A+\varepsilon R_B$, so $\partial R/\partial\varepsilon =

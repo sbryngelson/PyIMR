@@ -20,6 +20,7 @@ import records
 
 RATIO = 38.5
 BOX = {"mu": (1e-5, 1e1), "galpha": (1e0, 1e7), "lambda1": (1e-9, 1e-2)}
+STARTS, EVALUATIONS = 24, 600
 # each treatment adds physics, not parameters: the material axes are identical throughout,
 # so the Occam terms cancel and the difference in log evidence is a Bayes factor
 TREATMENTS = {
@@ -45,45 +46,50 @@ def _score(dataset, name, *, starts, seeds=None):
   times, mean, spread, maximum, stretch = records.load(dataset)
   solve = records.solver(times, maximum, stretch, max_steps=600_000, **TREATMENTS[name])
   return records.score(_candidate(), solve, mean, spread, bounds=BOX, starts=starts,
-                       evaluations=600, trials=records.trial_count(dataset), seeds=seeds)
+                       evaluations=EVALUATIONS, trials=records.trial_count(dataset), seeds=seeds)
 
 
-def _job(dataset):
-  """One record: the cold fit, then every thermal treatment warm-started from it.
+def _cold(dataset):
+  return dataset, _score(dataset, "cold", starts=STARTS)
 
-  Raising the budget did not work. Across three budgets -- 5, 10 and 24 restarts -- the
-  15 C and 33 C rows moved by 15 to 153 nats while 23 C was bit-stable, and at two cells the
-  fit was WORSE at 24 restarts than at 10. Best-of-24 cannot lose to best-of-10 at a converged
-  optimum, so the multistart was sampling basins rather than refining one, and a fourth budget
-  would have been the same mistake a fourth time.
 
-  The cold fit, by contrast, is converged everywhere: its log evidence agrees to 0.03 nats
-  across those same budget changes. The treatments differ from it by added physics and not by
-  parameters -- the material axes are identical, which is what makes the comparison a Bayes
-  factor at all -- so the cold optimum is a far better starting point than any random one.
-  Each thermal fit therefore starts there as well as from its own hypercube.
+def _treatment(argument):
+  """One thermal fit: warm-started from its record's cold optimum AND fully random-started.
+
+  BOTH, because neither alone is enough, and the evidence is in this study's own history.
+  Across three budgets the multistart wandered -- 15 C and 33 C moved by 15 to 153 nats while
+  23 C stayed bit-stable, and two cells fitted worse at 24 restarts than at 10, which cannot
+  happen at a converged optimum. Warm-starting from the cold fit repaired five of those six
+  cells and found one basin no random search had reached (33 C bubble, chi2/N 0.502).
+
+  It lost one. At 15 C bubble+medium a purely random search at 24 starts reached 0.766 where
+  the warm start reached 0.918: the cold optimum is a good guess and not always the right
+  basin. So the seed is added TO the full random complement rather than allowed to replace
+  part of it. Nothing is traded away, and the cost is one extra descent per fit -- which is
+  free here, since the old structure was using three cores of a hundred and twenty-eight.
   """
+  dataset, name, seed = argument
   try:
-    cold = _score(dataset, "cold", starts=24)
+    return (dataset, name), _score(dataset, name, starts=STARTS, seeds=[seed])
   except Exception as error:                          # noqa: BLE001
-    return dataset, {n: {"failed": f"cold: {type(error).__name__}: {error}"} for n in TREATMENTS}
-
-  got = {"cold": cold}
-  for name in TREATMENTS:
-    if name == "cold": continue
-    try:
-      got[name] = _score(dataset, name, starts=12, seeds=[cold["unit"]])
-    except Exception as error:                        # noqa: BLE001
-      got[name] = {"failed": f"{type(error).__name__}: {error}"}
-  return dataset, got
+    return (dataset, name), {"failed": f"{type(error).__name__}: {error}"}
 
 
 def main():
 
-  jobs = list(records.DATASETS)
+  # Two phases, because the warm start creates exactly one dependency -- cold before the
+  # treatments -- and nothing else. Running all three fits of a record inside one worker
+  # honoured that dependency by serialising things that did not need it: three workers on a
+  # 128-core machine, each grinding three fits in sequence, for 36 minutes. Phase 2 is six
+  # independent fits, so the wall clock is one cold fit plus one treatment rather than three
+  # fits end to end.
+  records_list = list(records.DATASETS)
+  with records.pool(len(records_list)) as pool:
+    cold = dict(pool.map(_cold, records_list))
+  jobs = [(d, n, cold[d]["unit"]) for d in records_list for n in TREATMENTS if n != "cold"]
   with records.pool(len(jobs)) as pool:
-    nested = dict(pool.map(_job, jobs))
-  table = {(d, n): row for d, rows in nested.items() for n, row in rows.items()}
+    table = dict(pool.map(_treatment, jobs))
+  table.update({(d, "cold"): row for d, row in cold.items()})
 
   print("thermal treatments scored by evidence, identified coordinates, capped Occam\n")
   print(f"{'record':>14} {'treatment':>15} {'chi2/N':>9} {'log Z':>11} {'vs cold':>9} {'lag-1':>8}")

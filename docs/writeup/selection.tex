@@ -165,9 +165,9 @@ p(y \mid \theta) = \prod_i \frac{1}{\sqrt{2\pi}\,\sigma_i}
 
 Three assumptions are buried here and each is separately checkable. \emph{Gaussianity} is
 the weakest claim, and is reasonable because $y_i$ is a mean over $18$ trials.
-\emph{Known $\sigma_i$} is not innocuous -- using the sample spread as if it were the true
-deviation understates uncertainty -- and is handled in \cref{sec:beta} by giving the noise
-scale a prior and integrating it out. \emph{Independence} is the one that fails: the
+\emph{Known $\sigma_i$} is not innocuous: using the sample spread as the true deviation
+understates uncertainty. \Cref{sec:beta} handles it by giving the noise scale a prior and
+integrating it out. \emph{Independence} is the one that fails: the
 diagonal covariance in~\eqref{eq:likelihood} says each residual carries fresh information,
 and \cref{sec:limitations} measures a lag-one autocorrelation of $0.90$.
 
@@ -302,13 +302,14 @@ Z_M = p(y \mid M) = \int p(y \mid \theta, M)\,\pi(\theta \mid M)\,\mathrm{d}\the
 \label{eq:evidence}
 \end{equation}
 %
-This is the only quantity that answers ``which model should I believe'' without an
-arbitrary complexity penalty. Comparing best fits cannot: a nested model can never fit
-worse than the model containing it, so $\chi^2$ ranks by flexibility. Information criteria
-add a penalty -- $2k$ for AIC, $k\log N$ for BIC -- but BIC is an asymptotic
-approximation to $-2\log Z$ that assumes a regular, well-identified model with $N$ large,
-and \cref{sec:identifiability} shows this one is not identified in a direction. The
-integral itself makes no such assumption.
+This is the only quantity that answers ``which model should I believe'' without an arbitrary
+complexity penalty. Comparing best fits cannot: a nested model never fits worse than the model
+containing it, so $\chi^2$ ranks by flexibility.
+
+Information criteria add a penalty -- $2k$ for AIC, $k\log N$ for BIC. But BIC is an
+asymptotic approximation to $-2\log Z$ assuming a regular, well-identified model with $N$
+large, and \cref{sec:identifiability} shows this one is not identified in a direction. The
+integral itself assumes none of that.
 
 The penalty appears explicitly on expanding~\eqref{eq:evidence} about the maximum. With
 $\hat\theta$ the best fit, $H = -\nabla^2\log p(y\mid\theta)$ evaluated there, and
@@ -341,25 +342,27 @@ Equation~\eqref{eq:evidence} needs $\pi(\theta\mid M)$, and a uniform box would 
 answer depend on where the box was drawn. Two factors are used instead, both computed on
 the same grid the quadrature runs over.
 
-The \emph{bottleneck} maps each parameter to $u_j\in[0,1]$ in logarithms -- the parameters
-span decades, so a linear map would encode the bounds rather than the physics -- and takes
-the harmonic mean $H(\theta) = p\big/\sum_j u_j^{-1}$. The harmonic mean is chosen over the
-arithmetic one precisely because it is dominated by its smallest argument: a parameter
-driven to the bottom of its range drags the whole prior down, on the reasoning that a
-parameter the data pushed to a boundary is one the model did not need.
+The \emph{bottleneck} maps each parameter to $u_j\in[0,1]$ in logarithms, then takes the
+harmonic mean $H(\theta) = p\big/\sum_j u_j^{-1}$. Logarithms because the parameters span
+decades, where a linear map would encode the bounds rather than the physics.
 
-The \emph{redundancy} weight asks whether a model is merely emulating a simpler one it
-contains. For a candidate and each nested child, the relative stress mismatch $F$ is mapped
-by $F^n/(F^n + \tau^n)$ against the resolvable scale $\tau$, giving a number near $0$ when
-the parent is imitating the child and approaching $1$ when it does something genuinely
-different. The weight is the \emph{minimum} over children: a model that can imitate any one
-simpler model is redundant there, however different it looks from the rest.
+The harmonic mean beats the arithmetic one here precisely because it is dominated by its
+smallest argument. A parameter driven to the bottom of its range drags the whole prior down.
+The reasoning: a parameter the data pushed to a boundary is one the model did not need.
+
+The \emph{redundancy} weight asks whether a model merely emulates a simpler one it contains.
+For a candidate and each nested child, the relative stress mismatch $F$ is mapped by
+$F^n/(F^n + \tau^n)$ against the resolvable scale $\tau$. That gives a number near $0$ when
+the parent imitates the child, approaching $1$ when it does something genuinely different.
+
+The weight is the \emph{minimum} over children. A model that can imitate any one simpler
+model is redundant there, however different it looks from the rest.
 
 \subsection{The Fisher information, and what its eigenvectors are}
 \label{sec:identifiability}
 
-Differentiating $-\log p$ twice at fixed data and taking the expectation over noise, the
-term containing $\partial^2 m$ vanishes because $\mathbb{E}[y_i - m_i] = 0$, leaving
+Differentiate $-\log p$ twice at fixed data and take the expectation over noise. The term
+containing $\partial^2 m$ vanishes because $\mathbb{E}[y_i - m_i] = 0$, leaving
 %
 \begin{equation}
 F_{jk} = \sum_i \frac{1}{\sigma_i^2}
@@ -388,12 +391,11 @@ all directions equally.
 Two conventions are load-bearing. Taking $\theta = \log(\text{parameters})$ makes an
 eigenvector a power law: moving along $v$ sends $\Delta\log g = v_g t$ and
 $\Delta\log\alpha = v_\alpha t$, so $g \propto \alpha^{v_g/v_\alpha}$ and the exponent is
-read directly off the components. And if the sensitivities are taken with respect to a
-scaled coordinate $u_j = (\log\theta_j - a_j)/w_j$, then
-$\Delta\log\theta_j = w_j\tilde v_j$ and the exponent is
-$(w_g\tilde v_g)/(w_\alpha\tilde v_\alpha)$ -- with box widths of three and four decades
-here, a $25\%$ correction, and getting it wrong is what produced a spurious agreement
-earlier in this work.
+read directly off the components. Second, sensitivities taken with respect to a scaled
+coordinate $u_j = (\log\theta_j - a_j)/w_j$ give $\Delta\log\theta_j = w_j\tilde v_j$, so the
+exponent is $(w_g\tilde v_g)/(w_\alpha\tilde v_\alpha)$. With box widths of three and four
+decades that is a $25\%$ correction. Getting it wrong produced a spurious agreement earlier
+in this work.
 
 Finally, $F$ is the observability Gramian of the system augmented with $\dot\theta = 0$:
 identifiability and observability are the same statement. The distinction that matters is
@@ -470,7 +472,7 @@ which is the failure Brynjarsd\'ottir and O'Hagan warn about.
 \subsection{Which design criterion, and why they disagree}
 \label{sec:criteria}
 
-An experiment is chosen by a scalar summary of $F$, and the classical family is
+An experiment is chosen by a scalar summary of $F$. The classical family is
 %
 \begin{equation}
 \text{D: } \max \det F, \qquad
@@ -480,9 +482,9 @@ An experiment is chosen by a scalar summary of $F$, and the classical family is
 \end{equation}
 %
 D minimizes the volume of the confidence ellipsoid, A its mean squared axis length, E its
-longest axis, and c the variance of one nominated combination. They rank designs
-differently because they summarise the same spectrum differently, and the choice is a
-statement about what one wants to learn.
+longest axis, and c the variance of one nominated combination. They rank designs differently
+because they summarize the same spectrum differently. The choice states what one wants to
+learn.
 
 For identifiability the relevant fact is a scaling argument. A design change that only
 amplifies signal -- more samples, less noise, a larger bubble -- sends $F \to sF$. Then
@@ -493,17 +495,16 @@ while
 \kappa = \frac{\lambda_{\max}}{\lambda_{\min}} \quad\text{is unchanged.}
 \end{equation}
 %
-Degeneracy is a property of the eigen\emph{vectors}, not the eigenvalues, and only a design
-that rotates them can remove it. This is exactly why the E-optimal search preferred a larger
-bubble while conditioning preferred a gentler collapse: more signal against better
-separation.
+Degeneracy is a property of the eigen\emph{vectors}, not the eigenvalues. Only a design that
+rotates them can remove it. That is why the E-optimal search preferred a larger bubble while
+conditioning preferred a gentler collapse: more signal against better separation.
 
-The c-optimal choice carries a smallr trap. Nominating $c$ as the sloppy direction
-\emph{of the present design} optimizes for a direction that moves once the design changes,
-and in this study that criterion recommended the opposite of the right answer.
+The c-optimal choice carries a small trap. Nominating $c$ as the sloppy direction \emph{of the
+present design} optimizes for a direction that moves once the design changes. In this study
+that criterion recommended the opposite of the right answer.
 
-When the model itself is in doubt, none of these apply, since all presuppose the model whose
-$F$ is being computed. T-optimality asks instead for the design maximizing the discrepancy
+When the model itself is in doubt, none of these apply: all presuppose the model whose $F$ is
+being computed. T-optimality asks instead for the design maximizing the discrepancy
 between rival predictions, $\max_\xi \|m_1(\hat\theta_1;\xi) - m_2(\hat\theta_2;\xi)\|$, and
 privileges neither.
 
@@ -599,11 +600,11 @@ in $g \propto \alpha^{v_g/v_\alpha}$. This is also the observability Gramian of 
 augmented with $\dot\theta = 0$, which is why identifiability and observability are the same
 statement here.
 
-One caution, since it caught us. When the sensitivities are taken with respect to a unit
-cube $u_j = (\log\theta_j - a_j)/w_j$ rather than $\log\theta_j$ directly, the eigenvector
-components carry the box widths: $\Delta\log\theta_j = w_j\,\tilde v_j$, so the exponent is
-$(w_g \tilde v_g)/(w_\alpha \tilde v_\alpha)$, not $\tilde v_g/\tilde v_\alpha$. With $w$ of
-three and four decades the two differ by $25\%$.
+One caution, since it caught us. Sensitivities taken with respect to a unit cube
+$u_j = (\log\theta_j - a_j)/w_j$, rather than $\log\theta_j$ directly, give eigenvector
+components that carry the box widths. Then $\Delta\log\theta_j = w_j\,\tilde v_j$, so the
+exponent is $(w_g \tilde v_g)/(w_\alpha \tilde v_\alpha)$, not $\tilde v_g/\tilde v_\alpha$.
+With $w$ of three and four decades the two differ by $25\%$.
 
 \begin{figure}[htbp]
 \centering
@@ -631,9 +632,9 @@ without the data objecting.}
 
 \paragraph{Modulus and stiffening trade against each other.}
 Two independent analyses agree. The Fisher information at the fitted optimum has an
-eigenvalue spectrum spanning six decades, and the eigenvector of its smallest eigenvalue is
-almost purely a shear-modulus-against-stiffening direction, with weights $-0.796$ and
-$+0.604$ and contributions of $-0.003$ and $-0.032$ from viscosity and relaxation time.
+eigenvalue spectrum spanning six decades. The eigenvector of its smallest eigenvalue is almost
+purely a shear-modulus-against-stiffening direction: weights $-0.796$ and $+0.604$, against
+contributions of $-0.003$ and $-0.032$ from viscosity and relaxation time.
 Separately, profiling the likelihood in $\alpha$ -- fixing it and re-optimizing everything
 else -- gives $g \propto \alpha^{-0.80}$ across two decades. Sampling the posterior gives a
 third, independent measurement: its widest direction is
@@ -641,10 +642,10 @@ $(-0.682,\,+0.002,\,-0.082,\,+0.727)$ in the logarithms of
 $(g, \mu, \lambda_1, \alpha)$, and $\log g$ is $98.7\%$ anticorrelated with $\log\alpha$.
 
 The three exponents are $-0.99$ from local curvature, $-0.94$ from the posterior covariance,
-and $-0.80$ from the profile. They agree that the trade is near-reciprocal and disagree in
-the third digit, which is expected rather than troubling: the valley is curved, so a
-curvature estimate at one point and a chord measured across two decades are not measuring
-the same slope. The correlation is the more robust statement.
+and $-0.80$ from the profile. They agree the trade is near-reciprocal and disagree in the
+third digit. That is expected rather than troubling: the valley is curved, so a curvature
+estimate at one point and a chord across two decades measure different slopes. The correlation
+is the more robust statement.
 
 So viscosity and relaxation time are cleanly determined, while modulus and stiffening are
 constrained only in combination. The identifiable quantity is closer to $g\,\alpha^{0.8}$
@@ -662,9 +663,9 @@ white region at upper right is where the model is not physical.}
 \label{fig:valley}
 \end{figure}
 
-\Cref{fig:valley} shows why the four estimates in this study disagree about $g$ by an
-order of magnitude while agreeing about the fit: they are different points on the floor of a
-single flat-bottomed trench.
+\Cref{fig:valley} shows why the four estimates in this study disagree about $g$ by an order of
+magnitude while agreeing about the fit. They are different points on the floor of one
+flat-bottomed trench.
 
 \paragraph{The stiffening is nonetheless identified, once the prior allows it.}
 Sampling with the ceiling on $\alpha$ placed at $1$, $10$ and $100$:
@@ -681,9 +682,9 @@ $100$ & $2172.4$ & $5.27$ & $8.73$ \\
 \end{tabular}
 \end{center}
 
-Widening the prior tenfold moves the median only from $6.37$ to $5.27$ and the evidence by
-$1.5$ out of $2173$, so $\alpha$ is identified near $5$ with $97.5\%$ of posterior mass
-below about $9$. A prior-dominated parameter would have tracked its bound. The ceiling of
+Widening the prior tenfold moves the median only from $6.37$ to $5.27$, and the evidence by
+$1.5$ out of $2173$. So $\alpha$ is identified near $5$, with $97.5\%$ of posterior mass below
+about $9$. A prior-dominated parameter would have tracked its bound. The ceiling of
 $1$ shows what genuine truncation looks like: the median pins against it and $11$ log units
 of evidence are lost.
 
@@ -1634,7 +1635,7 @@ from $87\%$ to $66\%$). Both are correct answers to different questions, and
 \eqref{eq:separability} says which question matters here.
 
 So there are two distinct disagreements in play, and they have different resolutions. The
-classical criteria disagree among themselves because they summarise one spectrum
+classical criteria disagree among themselves because they summarize one spectrum
 differently; that is a choice about what one wants to learn. Estimation and discrimination
 disagree because they are about different quantities altogether. The next subsection
 resolves the second, and in doing so dissolves the first.

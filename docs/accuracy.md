@@ -34,7 +34,7 @@ centered differences on the production RHS:
 
 | configuration | relative error | limited by |
 |---|---|---|
-| mechanical, `radial = 1`-`5` | ~7e-07 | the finite-difference check |
+| mechanical, every operator | ~7e-07 | the finite-difference check |
 | coupled heat/mass transfer, `thermal = "spectral"` | ~5e-05 | time integration |
 | coupled heat/mass transfer, `thermal = "fd"` | ~8e-05 | time integration |
 

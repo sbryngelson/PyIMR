@@ -43,7 +43,7 @@ def _job(name):
     paths, keys, start_values = MODELS[name]
     lo = np.array([BOX[k][0] for k in keys]); hi = np.array([BOX[k][1] for k in keys])
     config = pyimr.SimulationConfig(R_MAX, R_MAX/record["stretch"], _material(name, start_values),
-                                    radial="keller-miksis", rtol=1e-8, atol=1e-10, max_steps=300_000)
+                                    dynamics="keller-miksis", rtol=1e-8, atol=1e-10, max_steps=300_000)
     inference = prepare_inference(config, RadiusObservation(times, mean*R_MAX, spread*R_MAX),
         tuple(InferenceParameter(p, a, b, "log") for p, a, b in zip(paths, lo, hi)))
     default = np.clip((np.log(start_values)-np.log(lo))/(np.log(hi)-np.log(lo)), 1e-4, 1-1e-4)

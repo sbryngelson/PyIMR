@@ -69,7 +69,7 @@ def main():
 
   config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH,
                                   pyimr.QuadraticZener(FIT[0], FIT[1], FIT[2], 0.0, FIT[3]),
-                                  radial="keller-miksis", rtol=1e-9, atol=1e-11, max_steps=400_000)
+                                  dynamics="keller-miksis", rtol=1e-9, atol=1e-11, max_steps=400_000)
   problem = pyimr.prepare(config)
   model = np.asarray(problem.solve(times).radius_ratio, dtype=float)
   sensitivity = np.asarray(problem.solve_with_sensitivities(times, PATHS).radius_ratio,

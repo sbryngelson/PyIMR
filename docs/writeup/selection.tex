@@ -19,34 +19,36 @@
 \maketitle
 
 \begin{abstract}
-We compare seventeen constitutive models against laser-induced cavitation records in
-gelatin at three temperatures, using Bayesian model selection with a noise scale measured
-from trial-to-trial spread and a prior that prices a model down where it merely reproduces
-a simpler one it contains. A quadratic Zener solid -- strain-stiffening elasticity
-\emph{and} stress relaxation -- wins at every temperature, reaching $\chi^2/N = 1.23$ to
-$1.35$ on the selection grid across the three temperatures, and $0.96$ when refitted to its
-true optimum at \SI{15}{\celsius}. Neither ingredient suffices alone: at that temperature
-relaxation without stiffening reaches $1.98$, and both memoryless candidates land at $20$ --
-where they fit each other to one part in a thousand, so the stiffening term does no work at
-all without a relaxation mode to act on. The advantage of stiffening collapses as the gel
-warms, which is the clearest physical signal in the comparison.
+We compare seventeen constitutive models against laser-induced cavitation records in gelatin
+at three temperatures. The method is Bayesian model selection, with a noise scale measured
+from trial-to-trial spread and a prior that prices a model down where it merely reproduces a
+simpler one it contains.
+
+A quadratic Zener solid -- strain-stiffening elasticity \emph{and} stress relaxation -- wins at
+every temperature. It reaches $\chi^2/N = 1.23$ to $1.35$ on the selection grid, and $0.96$
+refitted to its true optimum at \SI{15}{\celsius}. Neither ingredient suffices alone: at that
+temperature relaxation without stiffening reaches $1.98$, and both memoryless candidates land
+at $20$, where they fit each other to one part in a thousand. The stiffening term does no work
+at all without a relaxation mode to act on. Its advantage collapses as the gel warms, the
+clearest physical signal in the comparison.
 
 We report the limitations plainly. The residuals are ceilings rather than estimates, because
 the winning model's best-fitting region is partly unintegrable. More importantly, a good
-$\chi^2/N$ overstates how well the model does: the residual has lag-one autocorrelation
+$\chi^2/N$ overstates how well the model does. The residual has lag-one autocorrelation
 $0.918$, so the $201$ samples carry the information of about ten independent ones, and what
-remains is structure the model lacks rather than noise it failed to average away. The
-ranking survives this ($3\%$ change under a correlated likelihood); the absolute claim does
+remains is structure the model lacks rather than noise it failed to average away. The ranking
+survives this -- a $3\%$ change under a correlated likelihood -- but the absolute claim does
 not.
 
 We then ask what experiment would do better. Scored by parameter precision and by model
-discrimination, the criteria disagree, and both are shown to be delicate: a criterion defined
-by an inner minimum is multimodal here and every improvement to the optimiser lowers it.
-Reformulating over design \emph{measures} rather than single designs makes the problem
-convex, and the Kiefer--Wolfowitz equivalence theorem then certifies the answer. Over $480$
-candidates the optimum splits the runs three ways and beats the best single design by a
-D-efficiency factor of $5.74$ -- certified globally optimal at a gap of $9\times10^{-10}$,
-not merely the best found.
+discrimination, the criteria disagree, and both prove delicate: a criterion defined by an
+inner minimum is multimodal here, and every improvement to the optimizer lowers it.
+
+Reformulating over design \emph{measures} rather than single designs makes the problem convex,
+and the Kiefer--Wolfowitz equivalence theorem then certifies the answer. Over $480$ candidates
+the optimum splits the runs three ways and beats the best single design by a D-efficiency
+factor of $5.74$ -- certified globally optimal at a gap of $9\times10^{-10}$, not merely the
+best found.
 \end{abstract}
 
 \noindent\textbf{Keywords:} inertial microcavitation rheometry; model selection; Bayesian evidence; identifiability; optimal experimental design
@@ -69,21 +71,24 @@ Bayesian evidence rather than by fit, since the candidates nest and best fit the
 the most flexible one~\citep{freund2015quantitative}. We then ask what the records can settle,
 which turns out to be considerably less than the reported parameters suggest.
 
-Three results follow. The likelihood depends on the product $g\alpha$ alone, so the shear
-modulus is set by where the prior box cuts a ridge and not by the data; moving the box swings
-the model ranking by fifty nats. The bubble-dynamics operator, held fixed at Keller--Miksis in
-every published comparison we are aware of, is beaten on all three records by
-Gilmore/Tait. And the correlated residual that motivates richer constitutive models is not
-removed by a second relaxation time, by a rate-dependent one, by fitting individual trials, or
-by any of six operators.
+Three results follow. First, the likelihood depends on the product $g\alpha$ alone. The shear
+modulus is then set by where the prior box cuts a ridge, not by the data, and moving the box
+swings the model ranking by fifty nats.
 
-We also ask what experiment would settle the question. Treating the choice of model as one
-more unknown to be fitted lets a single calculation say how well a given experiment separates
-the models and how well it pins the material. The answer comes with a proof of optimality,
-which is unusual for a design calculation and follows from a classical
-result~\citep{kiefer1960equivalence}. Judged that way, the experiments analyzed here are close
-to the best possible for the hardest of the three choices and $24$ to $41$ times worse than
-the best for the two easiest.
+Second, the bubble-dynamics operator -- held fixed at Keller--Miksis in every published
+comparison we are aware of -- is beaten on all three records by Gilmore/Tait. Third, the
+correlated residual that motivates richer constitutive models survives everything we tried
+against it: a second relaxation time, a rate-dependent one, fitting individual trials, and all
+six operators.
+
+We also ask what experiment would settle the question. Treat the choice of model as one more
+unknown to be fitted, and one calculation says both how well an experiment separates the
+models and how well it pins the material. The answer comes with a proof of optimality --
+unusual for a design calculation, and following from a classical
+result~\citep{kiefer1960equivalence}.
+
+Judged that way, the experiments analyzed here are near the best possible for the hardest of
+the three choices, and $24$ to $41$ times worse than the best for the two easiest.
 
 
 \begin{figure}[t]
@@ -116,10 +121,10 @@ parameters always fits at least as well as the simpler model inside it.}
 
 
 Each dataset is a set of repeated laser-induced cavitation events at one temperature,
-recorded as $R(t)/R_{\max}$. \Cref{fig:records} shows the mean trace and the
-trial-to-trial spread, which is what we use as the measurement noise: it is measured
-rather than assumed, so a residual of $\chi^2/N \approx 1$ means a model reproduces the
-record to within experimental repeatability.
+recorded as $R(t)/R_{\max}$. \Cref{fig:records} shows the mean trace and the trial-to-trial
+spread. We use that spread as the measurement noise. It is measured rather than assumed, so
+$\chi^2/N \approx 1$ means a model reproduces the record to within experimental
+repeatability.
 
 \begin{figure}[htbp]
 \centering
@@ -129,18 +134,19 @@ deviation across trials at each time. The spread is the noise model.}
 \label{fig:records}
 \end{figure}
 
-Two samples are excluded before fitting. A trial reading above its own maximum radius is
-a tracking failure, and the $t=0$ sample where every trial agrees exactly is a definition
-rather than a measurement -- giving it an error bar would invent an uncertainty and let
-it constrain the fit.
+Two samples are excluded before fitting. A trial reading above its own maximum radius is a
+tracking failure. And the $t=0$ sample, where every trial agrees exactly, is a definition
+rather than a measurement: giving it an error bar would invent an uncertainty and let it
+constrain the fit.
 
-Each candidate is evaluated on a log-spaced grid over its own parameters, at one
-resolution for every model so that grid luck cannot decide the winner. The evidence is a
-grid quadrature over that box, with the noise scale marginalized under a half-Cauchy
-prior, a redundancy factor that down-weights parameters where a model merely reproduces a
-simpler model it contains, and a BIC-style complexity penalty. Trajectories are
-compressible (Keller--Miksis~\citep{keller1980bubble}); the incompressible approximation changes the residuals by a
-factor of two to four and must not be used for these records.
+Each candidate is evaluated on a log-spaced grid over its own parameters, at one resolution
+for every model, so grid luck cannot decide the winner. The evidence is a grid quadrature over
+that box. It carries three further pieces: the noise scale marginalized under a half-Cauchy
+prior, a redundancy factor down-weighting parameters where a model merely reproduces a simpler
+model it contains, and a BIC-style complexity penalty.
+
+Trajectories are compressible~\citep{keller1980bubble}. The incompressible approximation
+changes the residuals by a factor of two to four and must not be used for these records.
 
 \section{Method}
 
@@ -164,9 +170,9 @@ p(y \mid \theta) = \prod_i \frac{1}{\sqrt{2\pi}\,\sigma_i}
 
 Three assumptions are buried here and each is separately checkable. \emph{Gaussianity} is
 the weakest claim, and is reasonable because $y_i$ is a mean over $18$ trials.
-\emph{Known $\sigma_i$} is not innocuous -- using the sample spread as if it were the true
-deviation understates uncertainty -- and is handled in \cref{sec:beta} by giving the noise
-scale a prior and integrating it out. \emph{Independence} is the one that fails: the
+\emph{Known $\sigma_i$} is not innocuous: using the sample spread as the true deviation
+understates uncertainty. \Cref{sec:beta} handles it by giving the noise scale a prior and
+integrating it out. \emph{Independence} is the one that fails: the
 diagonal covariance in~\eqref{eq:likelihood} says each residual carries fresh information,
 and \cref{sec:limitations} measures a lag-one autocorrelation of $0.90$.
 
@@ -301,13 +307,14 @@ Z_M = p(y \mid M) = \int p(y \mid \theta, M)\,\pi(\theta \mid M)\,\mathrm{d}\the
 \label{eq:evidence}
 \end{equation}
 %
-This is the only quantity that answers ``which model should I believe'' without an
-arbitrary complexity penalty. Comparing best fits cannot: a nested model can never fit
-worse than the model containing it, so $\chi^2$ ranks by flexibility. Information criteria
-add a penalty -- $2k$ for AIC, $k\log N$ for BIC -- but BIC is an asymptotic
-approximation to $-2\log Z$ that assumes a regular, well-identified model with $N$ large,
-and \cref{sec:identifiability} shows this one is not identified in a direction. The
-integral itself makes no such assumption.
+This is the only quantity that answers ``which model should I believe'' without an arbitrary
+complexity penalty. Comparing best fits cannot: a nested model never fits worse than the model
+containing it, so $\chi^2$ ranks by flexibility.
+
+Information criteria add a penalty -- $2k$ for AIC, $k\log N$ for BIC. But BIC is an
+asymptotic approximation to $-2\log Z$ assuming a regular, well-identified model with $N$
+large, and \cref{sec:identifiability} shows this one is not identified in a direction. The
+integral itself assumes none of that.
 
 The penalty appears explicitly on expanding~\eqref{eq:evidence} about the maximum. With
 $\hat\theta$ the best fit, $H = -\nabla^2\log p(y\mid\theta)$ evaluated there, and
@@ -340,25 +347,27 @@ Equation~\eqref{eq:evidence} needs $\pi(\theta\mid M)$, and a uniform box would 
 answer depend on where the box was drawn. Two factors are used instead, both computed on
 the same grid the quadrature runs over.
 
-The \emph{bottleneck} maps each parameter to $u_j\in[0,1]$ in logarithms -- the parameters
-span decades, so a linear map would encode the bounds rather than the physics -- and takes
-the harmonic mean $H(\theta) = p\big/\sum_j u_j^{-1}$. The harmonic mean is chosen over the
-arithmetic one precisely because it is dominated by its smallest argument: a parameter
-driven to the bottom of its range drags the whole prior down, on the reasoning that a
-parameter the data pushed to a boundary is one the model did not need.
+The \emph{bottleneck} maps each parameter to $u_j\in[0,1]$ in logarithms, then takes the
+harmonic mean $H(\theta) = p\big/\sum_j u_j^{-1}$. Logarithms because the parameters span
+decades, where a linear map would encode the bounds rather than the physics.
 
-The \emph{redundancy} weight asks whether a model is merely emulating a simpler one it
-contains. For a candidate and each nested child, the relative stress mismatch $F$ is mapped
-by $F^n/(F^n + \tau^n)$ against the resolvable scale $\tau$, giving a number near $0$ when
-the parent is imitating the child and approaching $1$ when it does something genuinely
-different. The weight is the \emph{minimum} over children: a model that can imitate any one
-simpler model is redundant there, however different it looks from the rest.
+The harmonic mean beats the arithmetic one here precisely because it is dominated by its
+smallest argument. A parameter driven to the bottom of its range drags the whole prior down.
+The reasoning: a parameter the data pushed to a boundary is one the model did not need.
+
+The \emph{redundancy} weight asks whether a model merely emulates a simpler one it contains.
+For a candidate and each nested child, the relative stress mismatch $F$ is mapped by
+$F^n/(F^n + \tau^n)$ against the resolvable scale $\tau$. That gives a number near $0$ when
+the parent imitates the child, approaching $1$ when it does something genuinely different.
+
+The weight is the \emph{minimum} over children. A model that can imitate any one simpler
+model is redundant there, however different it looks from the rest.
 
 \subsection{The Fisher information, and what its eigenvectors are}
 \label{sec:identifiability}
 
-Differentiating $-\log p$ twice at fixed data and taking the expectation over noise, the
-term containing $\partial^2 m$ vanishes because $\mathbb{E}[y_i - m_i] = 0$, leaving
+Differentiate $-\log p$ twice at fixed data and take the expectation over noise. The term
+containing $\partial^2 m$ vanishes because $\mathbb{E}[y_i - m_i] = 0$, leaving
 %
 \begin{equation}
 F_{jk} = \sum_i \frac{1}{\sigma_i^2}
@@ -387,12 +396,11 @@ all directions equally.
 Two conventions are load-bearing. Taking $\theta = \log(\text{parameters})$ makes an
 eigenvector a power law: moving along $v$ sends $\Delta\log g = v_g t$ and
 $\Delta\log\alpha = v_\alpha t$, so $g \propto \alpha^{v_g/v_\alpha}$ and the exponent is
-read directly off the components. And if the sensitivities are taken with respect to a
-scaled coordinate $u_j = (\log\theta_j - a_j)/w_j$, then
-$\Delta\log\theta_j = w_j\tilde v_j$ and the exponent is
-$(w_g\tilde v_g)/(w_\alpha\tilde v_\alpha)$ -- with box widths of three and four decades
-here, a $25\%$ correction, and getting it wrong is what produced a spurious agreement
-earlier in this work.
+read directly off the components. Second, sensitivities taken with respect to a scaled
+coordinate $u_j = (\log\theta_j - a_j)/w_j$ give $\Delta\log\theta_j = w_j\tilde v_j$, so the
+exponent is $(w_g\tilde v_g)/(w_\alpha\tilde v_\alpha)$. With box widths of three and four
+decades that is a $25\%$ correction. Getting it wrong produced a spurious agreement earlier
+in this work.
 
 Finally, $F$ is the observability Gramian of the system augmented with $\dot\theta = 0$:
 identifiability and observability are the same statement. The distinction that matters is
@@ -469,7 +477,7 @@ which is the failure Brynjarsd\'ottir and O'Hagan warn about.
 \subsection{Which design criterion, and why they disagree}
 \label{sec:criteria}
 
-An experiment is chosen by a scalar summary of $F$, and the classical family is
+An experiment is chosen by a scalar summary of $F$. The classical family is
 %
 \begin{equation}
 \text{D: } \max \det F, \qquad
@@ -479,9 +487,9 @@ An experiment is chosen by a scalar summary of $F$, and the classical family is
 \end{equation}
 %
 D minimizes the volume of the confidence ellipsoid, A its mean squared axis length, E its
-longest axis, and c the variance of one nominated combination. They rank designs
-differently because they summarise the same spectrum differently, and the choice is a
-statement about what one wants to learn.
+longest axis, and c the variance of one nominated combination. They rank designs differently
+because they summarize the same spectrum differently. The choice states what one wants to
+learn.
 
 For identifiability the relevant fact is a scaling argument. A design change that only
 amplifies signal -- more samples, less noise, a larger bubble -- sends $F \to sF$. Then
@@ -492,17 +500,16 @@ while
 \kappa = \frac{\lambda_{\max}}{\lambda_{\min}} \quad\text{is unchanged.}
 \end{equation}
 %
-Degeneracy is a property of the eigen\emph{vectors}, not the eigenvalues, and only a design
-that rotates them can remove it. This is exactly why the E-optimal search preferred a larger
-bubble while conditioning preferred a gentler collapse: more signal against better
-separation.
+Degeneracy is a property of the eigen\emph{vectors}, not the eigenvalues. Only a design that
+rotates them can remove it. That is why the E-optimal search preferred a larger bubble while
+conditioning preferred a gentler collapse: more signal against better separation.
 
-The c-optimal choice carries a smallr trap. Nominating $c$ as the sloppy direction
-\emph{of the present design} optimizes for a direction that moves once the design changes,
-and in this study that criterion recommended the opposite of the right answer.
+The c-optimal choice carries a small trap. Nominating $c$ as the sloppy direction \emph{of the
+present design} optimizes for a direction that moves once the design changes. In this study
+that criterion recommended the opposite of the right answer.
 
-When the model itself is in doubt, none of these apply, since all presuppose the model whose
-$F$ is being computed. T-optimality asks instead for the design maximizing the discrepancy
+When the model itself is in doubt, none of these apply: all presuppose the model whose $F$ is
+being computed. T-optimality asks instead for the design maximizing the discrepancy
 between rival predictions, $\max_\xi \|m_1(\hat\theta_1;\xi) - m_2(\hat\theta_2;\xi)\|$, and
 privileges neither.
 
@@ -598,11 +605,11 @@ in $g \propto \alpha^{v_g/v_\alpha}$. This is also the observability Gramian of 
 augmented with $\dot\theta = 0$, which is why identifiability and observability are the same
 statement here.
 
-One caution, since it caught us. When the sensitivities are taken with respect to a unit
-cube $u_j = (\log\theta_j - a_j)/w_j$ rather than $\log\theta_j$ directly, the eigenvector
-components carry the box widths: $\Delta\log\theta_j = w_j\,\tilde v_j$, so the exponent is
-$(w_g \tilde v_g)/(w_\alpha \tilde v_\alpha)$, not $\tilde v_g/\tilde v_\alpha$. With $w$ of
-three and four decades the two differ by $25\%$.
+One caution, since it caught us. Sensitivities taken with respect to a unit cube
+$u_j = (\log\theta_j - a_j)/w_j$, rather than $\log\theta_j$ directly, give eigenvector
+components that carry the box widths. Then $\Delta\log\theta_j = w_j\,\tilde v_j$, so the
+exponent is $(w_g \tilde v_g)/(w_\alpha \tilde v_\alpha)$, not $\tilde v_g/\tilde v_\alpha$.
+With $w$ of three and four decades the two differ by $25\%$.
 
 \begin{figure}[htbp]
 \centering
@@ -630,9 +637,9 @@ without the data objecting.}
 
 \paragraph{Modulus and stiffening trade against each other.}
 Two independent analyses agree. The Fisher information at the fitted optimum has an
-eigenvalue spectrum spanning six decades, and the eigenvector of its smallest eigenvalue is
-almost purely a shear-modulus-against-stiffening direction, with weights $-0.796$ and
-$+0.604$ and contributions of $-0.003$ and $-0.032$ from viscosity and relaxation time.
+eigenvalue spectrum spanning six decades. The eigenvector of its smallest eigenvalue is almost
+purely a shear-modulus-against-stiffening direction: weights $-0.796$ and $+0.604$, against
+contributions of $-0.003$ and $-0.032$ from viscosity and relaxation time.
 Separately, profiling the likelihood in $\alpha$ -- fixing it and re-optimizing everything
 else -- gives $g \propto \alpha^{-0.80}$ across two decades. Sampling the posterior gives a
 third, independent measurement: its widest direction is
@@ -640,10 +647,10 @@ $(-0.682,\,+0.002,\,-0.082,\,+0.727)$ in the logarithms of
 $(g, \mu, \lambda_1, \alpha)$, and $\log g$ is $98.7\%$ anticorrelated with $\log\alpha$.
 
 The three exponents are $-0.99$ from local curvature, $-0.94$ from the posterior covariance,
-and $-0.80$ from the profile. They agree that the trade is near-reciprocal and disagree in
-the third digit, which is expected rather than troubling: the valley is curved, so a
-curvature estimate at one point and a chord measured across two decades are not measuring
-the same slope. The correlation is the more robust statement.
+and $-0.80$ from the profile. They agree the trade is near-reciprocal and disagree in the
+third digit. That is expected rather than troubling: the valley is curved, so a curvature
+estimate at one point and a chord across two decades measure different slopes. The correlation
+is the more robust statement.
 
 So viscosity and relaxation time are cleanly determined, while modulus and stiffening are
 constrained only in combination. The identifiable quantity is closer to $g\,\alpha^{0.8}$
@@ -661,9 +668,9 @@ white region at upper right is where the model is not physical.}
 \label{fig:valley}
 \end{figure}
 
-\Cref{fig:valley} shows why the four estimates in this study disagree about $g$ by an
-order of magnitude while agreeing about the fit: they are different points on the floor of a
-single flat-bottomed trench.
+\Cref{fig:valley} shows why the four estimates in this study disagree about $g$ by an order of
+magnitude while agreeing about the fit. They are different points on the floor of one
+flat-bottomed trench.
 
 \paragraph{The stiffening is nonetheless identified, once the prior allows it.}
 Sampling with the ceiling on $\alpha$ placed at $1$, $10$ and $100$:
@@ -680,9 +687,9 @@ $100$ & $2172.4$ & $5.27$ & $8.73$ \\
 \end{tabular}
 \end{center}
 
-Widening the prior tenfold moves the median only from $6.37$ to $5.27$ and the evidence by
-$1.5$ out of $2173$, so $\alpha$ is identified near $5$ with $97.5\%$ of posterior mass
-below about $9$. A prior-dominated parameter would have tracked its bound. The ceiling of
+Widening the prior tenfold moves the median only from $6.37$ to $5.27$, and the evidence by
+$1.5$ out of $2173$. So $\alpha$ is identified near $5$, with $97.5\%$ of posterior mass below
+about $9$. A prior-dominated parameter would have tracked its bound. The ceiling of
 $1$ shows what genuine truncation looks like: the median pins against it and $11$ log units
 of evidence are lost.
 
@@ -704,8 +711,8 @@ identified parameter from a prior-driven one.}
 
 \cref{tab:fits} and \Cref{fig:fits} give the outcome. The quadratic Zener model
 \texttt{qSLS} -- strain-stiffening elasticity with stress relaxation -- wins at every
-temperature, and the ordering beneath it separates cleanly into three tiers: models with
-both ingredients, models with relaxation only, and memoryless models.
+temperature. The ordering beneath it separates into three tiers: models with both
+ingredients, models with relaxation only, and memoryless models.
 
 \begin{table}[htbp]
 \centering
@@ -743,19 +750,20 @@ The dashed line is the measurement-noise floor.}
 
 \subsection{Reading the posteriors}
 
-The model posteriors saturate: the winner takes essentially all the mass and the
-runners-up are reported as $10^{-29}$ or smaller. These magnitudes should not be read
-literally. Evidence differences scale with sample count, and with roughly $3600$ samples a
-modest per-sample difference in fit compounds into an astronomical Bayes factor. The
-defensible reading is ordinal -- the winner is decisive and the ordering is meaningful,
-the magnitudes are not. The residual $\chi^2/N$ is the quantity to quote.
+The model posteriors saturate. The winner takes essentially all the mass and the runners-up
+are reported as $10^{-29}$ or smaller. Do not read these magnitudes literally.
+
+Evidence differences scale with sample count. With roughly $3600$ samples, a modest
+per-sample difference in fit compounds into an astronomical Bayes factor. The defensible
+reading is ordinal: the winner is decisive and the ordering means something, the magnitudes
+do not. Quote the residual $\chi^2/N$.
 
 \subsection{How good are the fits, really?}
 \label{sec:fitquality}
 
-The table above reports the best $\chi^2/N$ found on the evaluation grid. Two separate
-questions follow, and they have different answers: how well does the winning model fit,
-and how much does a good $\chi^2/N$ entitle us to claim?
+The table above reports the best $\chi^2/N$ found on the evaluation grid. Two questions
+follow, with different answers. How well does the winning model fit? And how much does a good
+$\chi^2/N$ entitle us to claim?
 
 \paragraph{The grid understates the fit.}
 The model-selection grid evaluates each candidate at log-spaced parameter nodes, so its
@@ -782,13 +790,13 @@ unchanged, and the gaps are large: relaxation without stiffening doubles the res
 both memoryless models sit twenty times above it.
 
 \paragraph{Stiffening buys nothing without relaxation.}
-qKV and NHKV differ by the stiffening exponent $\alpha$ and by nothing else, and they fit
-identically -- $20.18$ against $20.16$, a difference of one part in a thousand on a
-residual twenty times too large. The strain-stiffening term, which is decisive in the
-presence of a relaxation mode, is worth nothing without one. That is a sharper statement
-than the evidence ranking makes on its own: it is not that qKV is a worse model than qSLS,
-but that its extra parameter does no work at all. It also explains why the temperature
-trend is carried by the interaction of the two mechanisms rather than by either alone.
+qKV and NHKV differ only by the stiffening exponent $\alpha$, and they fit identically:
+$20.18$ against $20.16$, one part in a thousand on a residual twenty times too large. The
+strain-stiffening term is decisive alongside a relaxation mode and worth nothing without one.
+
+That is sharper than the evidence ranking alone. It is not that qKV is a worse model than
+qSLS; its extra parameter does no work at all. It also explains why the temperature trend is
+carried by the interaction of the two mechanisms rather than by either alone.
 
 \paragraph{But $\chi^2/N \approx 1$ does not mean the fit is within noise.}
 The statistic $\chi^2/N$ compares the residual to its expectation under the assumption that
@@ -797,13 +805,64 @@ autocorrelation of the qSLS residual is $0.918$, and by the Geyer initial-positi
 estimator~\citep{geyer1992practical} of~\eqref{eq:ess} the $201$ samples carry the information of about
 $N_{\rm eff} = 10$ independent ones. Dividing by that count instead gives $18.9$.
 
-That number should not be read as a calibrated test -- for correlated residuals the
-correct statistic is $r^{\mathsf T}\Sigma^{-1}r$ with the true covariance, not $\chi^2$
-rescaled by an effective count -- but its message is robust and it is the opposite of the
-headline's. A residual with $\rho = 0.918$ is not noise the model failed to average away;
-it is \emph{structure} the model does not contain. The fit is excellent in the sense that no
-candidate does better, and it is not excellent in the sense of being consistent with the
-measurement error.
+That number is not a calibrated test. For correlated residuals the correct statistic is
+$r^{\mathsf T}\Sigma^{-1}r$ with the true covariance, not $\chi^2$ rescaled by an effective
+count. But its message is robust, and it is the opposite of the headline's.
+
+A residual with $\rho = 0.918$ is not noise the model failed to average away. It is
+\emph{structure} the model does not contain. The fit is excellent in that no candidate does
+better, and not excellent in that it is inconsistent with the measurement error.
+
+\paragraph{The classical test agrees, and says more.} The argument above rests on lag-one
+autocorrelation, which \cref{sec:limitations} shows is a blunt instrument. There is a standard
+test for the same question and these records already carry what it needs: replicates. The
+trial spread at each time is \emph{pure error}, costing no model, so the residual of the mean
+splits into that and what the model cannot follow,
+%
+\begin{equation}
+F = \frac{J\sum_i (\bar y_i - \hat y_i)^2 \,/\, (k-p)}
+         {(J-1)\sum_i s_i^2 \,/\, k(J-1)} ,
+\label{eq:lackoffit}
+\end{equation}
+%
+with $J$ trials at $k$ times and $p=4$ parameters. The records do not carry equal replication:
+$J$ is $18$, $14$ and $7$.
+
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+record & $J$ & $\chi^2/N$ & pure error & lack of fit & $F$ & corrected \\
+\midrule
+\SI{15}{\celsius} & $18$ & $0.973$ & $5.20\times10^{-4}$ & $7.36\times10^{-3}$ & $\mathbf{14.2}$ & $\mathbf{23.3}$ \\
+\SI{23}{\celsius} & $14$ & $1.017$ & $1.86\times10^{-3}$ & $5.47\times10^{-3}$ & $2.9$ & $4.8$ \\
+\SI{33}{\celsius} & $7$ & $1.130$ & $1.91\times10^{-3}$ & $6.23\times10^{-3}$ & $3.3$ & $5.4$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Degrees of freedom are $197$ against $3417$ at \SI{15}{\celsius} and fall with $J$
+elsewhere, so the five percent critical value is near $1.2$ throughout. Every record shows lack
+of fit. The conclusion is the one above, reached with none of the same machinery.
+
+Two things make it worth the page. It gets the factor of $J$ right by construction --- the fit
+compares the \emph{mean} of the trials against the spread \emph{between} them, and the $J$ in
+the numerator is that missing $\sqrt{J}$ --- and it is conservative in a direction we can
+quantify: \SI{39.3}{\percent} of the trial variance is bubble-to-bubble parameter spread rather
+than measurement, so pure error is inflated and the corrected column divides that share out.
+
+It also separates the records, which lag-one does not: those values are $0.919$, $0.968$ and
+$0.911$, effectively identical. Two things drive the separation and both are real.
+\SI{15}{\celsius} repeats itself about three times more tightly, and it was run with more than
+twice the replicates of \SI{33}{\celsius} --- replication is what buys power to detect lack of
+fit, so the $F$ column correctly rewards it. Removing the replicate factor, the systematic
+misfit variance stands at $0.79$, $0.21$ and $0.47$ of pure error, so the ordering survives but
+the spread is milder than $14.2$ against $3.3$ suggests.
+
+The strongest evidence that the model is incomplete therefore comes from the record with the
+best apparatus and the most repeats, not from the worst fit.
+
+The $p$-value is not usable: $F$ assumes independent errors across time and these are
+correlated at $0.918$. The ratio needs no such assumption, and is read here as an effect size.
 
 Three things follow, and they should be read together.
 
@@ -813,18 +872,18 @@ whitening of an estimated AR(1) covariance changes the qSLS--SLS evidence gap by
 the correlation destroys is the absolute claim, not the comparison, and the comparison is
 what the study is for.
 \item \emph{The denominator is the wrong yardstick.} The scale $\sigma_i$ is the
-trial-to-trial spread, which is substantially variation in the
-parameters between bubbles rather than error in measuring any one of them. A $\chi^2$
-formed against it is therefore not comparing the model to measurement precision at all.
-\item \emph{The misfit is in the early record.} It is not, as one might expect, concentrated
-where the tracking is hardest. Restricting the fit to a later window makes $\chi^2/N$ worse,
-from $0.97$ to $1.95$, and does not whiten the residual -- so the structure cannot be
-excised by discarding the awkward part of the record.
+trial-to-trial spread. Much of that is variation in the parameters between bubbles, not error
+in measuring any one of them. A $\chi^2$ formed against it is not comparing the model to
+measurement precision at all.
+\item \emph{The misfit is in the early record}, not where the tracking is hardest.
+Restricting the fit to a later window makes $\chi^2/N$ worse, $0.97$ to $1.95$, and does not
+whiten the residual. The structure cannot be excised by discarding the awkward part of the
+record.
 \end{enumerate}
 
-The honest summary is that qSLS is the best available description of these records by a
-wide margin, that it is measurably incomplete, and that the size of what is missing is
-better indicated by the residual's correlation than by its magnitude.
+The honest summary: qSLS is the best available description of these records by a wide
+margin, it is measurably incomplete, and the size of what is missing is better read from the
+residual's correlation than from its magnitude.
 
 \subsection{What the trial spread actually is}
 \label{sec:latent}
@@ -835,12 +894,13 @@ ways that matter for how the numbers above should be read.
 
 \paragraph{Part of the spread is the parameters, not the measurement.}
 If the $18$ trials differed only by measurement error, their deviations from the trial mean
-would be white and would point nowhere in particular. They do neither. The singular spectrum
-of the $18 \times 201$ deviation matrix puts $53.9\%$ of the variance in one component where
-white noise would give $5.9\%$, and projecting each deviation onto the span of
-$G = \partial (R/R_{\max})/\partial\theta$ for the six parameters
-$(R_0, R_{\rm eq}, g, \mu, \lambda_1, \alpha)$ captures $39.3\%$ of the total variance against
-a chance level of $6/201 = 3.0\%$. Noise does not align with a six-dimensional subspace of a
+would be white and point nowhere in particular. They do neither.
+
+The singular spectrum of the $18 \times 201$ deviation matrix puts $53.9\%$ of the variance in
+one component, where white noise would give $5.9\%$. Projecting each deviation onto the span
+of $G = \partial (R/R_{\max})/\partial\theta$ for the six parameters
+$(R_0, R_{\rm eq}, g, \mu, \lambda_1, \alpha)$ captures $39.3\%$ of the variance against a
+chance level of $6/201 = 3.0\%$. Noise does not align with a six-dimensional subspace of a
 $201$-dimensional space by accident.
 
 The physical reading is that each bubble has its own parameters, drawn from a population:
@@ -851,11 +911,11 @@ C \;=\; \frac{1}{J}\Big(G\,\Sigma\,G^{\mathsf T} \;+\; \sigma^2_{\rm meas} I\Big
 \label{eq:hierarchical}
 \end{equation}
 %
-low rank plus diagonal rather than diagonal. Note that $\Sigma$ itself is not estimable here
--- regressing the deviations onto $G$ inherits the $g$--$\alpha$ degeneracy of
-\cref{sec:identifiability} and returns $\mathrm{sd}(\log g) = 159$ -- but only the
-prediction covariance $G\Sigma G^{\mathsf T}$ enters~\eqref{eq:hierarchical}, and that is the
-sample covariance of the projected deviations, which needs no inversion.
+low rank plus diagonal rather than diagonal. Note that $\Sigma$ itself is not estimable here.
+Regressing the deviations onto $G$ inherits the $g$--$\alpha$ degeneracy of
+\cref{sec:identifiability} and returns $\mathrm{sd}(\log g) = 159$. But only the prediction
+covariance $G\Sigma G^{\mathsf T}$ enters~\eqref{eq:hierarchical}, and that is the sample
+covariance of the projected deviations, which needs no inversion.
 
 \paragraph{It is not what makes the residuals correlated.}
 The natural hypothesis is that the lag-one correlation of the fit residual is this same
@@ -872,10 +932,10 @@ hierarchical, \eqref{eq:hierarchical} & $21.96$ & $\mathbf{0.516}$ \\
 \end{tabular}
 \end{center}
 
-The correlation falls by about a third and most of it survives; $\chi^2$ gets \emph{worse},
-so the residual sits in directions where $C$ is small. The dominant term is therefore
-model-form error, not variation between bubbles. Both effects are real and the model-error
-one is larger -- which separates two things that \cref{sec:limitations} had conflated.
+The correlation falls by about a third, and most of it survives. $\chi^2$ gets \emph{worse},
+so the residual sits in directions where $C$ is small. The dominant term is model-form error,
+not variation between bubbles. Both effects are real and the model-error one is larger, which
+separates two things \cref{sec:limitations} had conflated.
 
 \begin{figure}[htbp]
 \centering
@@ -1014,7 +1074,7 @@ qSLSthin  & 6 & 0.922 & 532.05 & $+2.79$ & 0.875 & \phantom{0}8.2 \\
 \end{center}
 %
 The one-mode $\chi^2/N$ of $0.962$ reproduces \cref{sec:fitquality} exactly, by a different
-optimiser in different coordinates, which is the check that the fits are comparable at all.
+optimizer in different coordinates, which is the check that the fits are comparable at all.
 
 Both enrichments are preferred, and neither margin means what it appears to. The residual
 autocorrelation is the defect they were reached for, and it does not move: $0.918$ unchanged
@@ -1048,14 +1108,14 @@ set, the Occam terms cancel, and the difference in $\log Z$ is a Bayes factor be
 operators.
 
 \paragraph{The prior box sets the answer.} Scored with the bounds of \cref{sec:prior},
-Keller--Miksis/Mie--Gr\"uneisen ranks first at $+4.02$ nats and Gilmore/Tait second to last at
+Keller enthalpy/Mie--Gr\"uneisen ranks first at $+4.02$ nats and Gilmore/Tait second to last at
 $-27.66$. Three of the six fits sit on $g=10^2$ or $\lambda_1=10^{-7}$, their own floors.
 Widening the box to $g\in(10^0,10^6)$ and $\lambda_1\in(10^{-9},10^{-2})$ reverses the
-ranking: Gilmore/Tait leads at $+21.93$ and KM/Mie--G falls to $+7.32$.
+ranking: Gilmore/Tait leads at $+21.93$ and Keller enthalpy/Mie--G falls to $+7.32$.
 
 Widening moves the pinning rather than removing it. Five of six fits then sit on
 $\alpha=10^3$ with $g$ collapsed to \SIrange{1.1}{3.5}{\pascal}. \Cref{fig:ridge} shows the
-mechanism: the optimiser slides along the $g\alpha$ valley until it meets an edge.
+mechanism: the optimizer slides along the $g\alpha$ valley until it meets an edge.
 
 \paragraph{Identified coordinates.} Fixing $g/\alpha$ and fitting the product $g\alpha$
 removes the pinning entirely, with none of $54$ fits on a bound. We repeat at three ratios
@@ -1069,8 +1129,8 @@ ordering & \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
 \midrule
 compressible $>$ Rayleigh--Plesset & $+162$ to $+182$ & $+74$ to $+79$ & $+74$ to $+75$ \\
 \textbf{Gilmore/Tait $>$ Keller--Miksis} & $\mathbf{+17.1}$ & $\mathbf{+4.2}$ & $\mathbf{+1.2}$ \\
-Keller--Miksis/Tait $>$ Keller--Miksis & $+5.8$ & $+2.0$ & \\
-Keller--Miksis/Mie--G $>$ Keller--Miksis & $+4.5$ & $+1.5$ & \\
+Keller enthalpy/Tait $>$ Keller--Miksis & $+5.8$ & $+2.0$ & \\
+Keller enthalpy/Mie--G $>$ Keller--Miksis & $+4.5$ & $+1.5$ & \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -1087,6 +1147,55 @@ $\chi^2/N = 0.42$ where six starts found $1.151$.
 
 Every operator had been held in the same poor basin. A record that cannot decide and a search
 that has not converged produce the same output. Only a better search separates them.
+
+\paragraph{The initial radius is not exact.} Every fit above holds $R_{\mathrm{eq}}$ at its
+inferred value, which asserts that it is known exactly. It is not: $R_{\max}$ is read off the
+images, but $R_{\mathrm{eq}}$ is inferred, and the margins in the table are small enough that
+this matters. Perturbing $R_{\mathrm{eq}}$ alone and projecting off the material span, as in
+\cref{sec:axes}, an error of \SI{1.68}{\percent} leaves the same residual as replacing
+Keller--Miksis with its Mie--Gr\"uneisen enthalpy form.
+
+That is not a license to ignore the ranking. The two remainders lie at
+\SI{58.4}{\degree}, so an initial-radius error and an operator change are separable in
+principle -- an experiment can tell them apart, and \cref{sec:axes} shows the initial state
+absorbs under \SI{5}{\percent} of the operator difference. What it means is narrower and
+worse: a quantity we set to zero is the size of the effect being reported. The remedy is to
+fit $R_{\mathrm{eq}}$ rather than assert it, which \cref{sec:reqprior} does.
+
+The perturbation is superlinear -- the residual per unit fractional error runs $79$, $93$,
+$138$ across half, one and two percent -- so \SI{1.68}{\percent} is solved for by re-solving
+rather than scaled from any one of those rows. Read linearly off the \SI{1}{\percent} row it
+would come out a third larger.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.15]
+  \fill[gray!14] (0.2,0) -- (5.4,0) -- (6.9,1.35) -- (1.7,1.35) -- cycle;
+  \draw[gray!55] (0.2,0) -- (5.4,0) -- (6.9,1.35) -- (1.7,1.35) -- cycle;
+  \node[gray!65,anchor=north east] at (5.5,-0.05)
+    {\footnotesize $\operatorname{span}\partial R/\partial\theta$ -- refitting absorbs this};
+  % the two remainders, drawn at the measured 58.4 degrees and the same measured length
+  \draw[-{Latex[length=2.4mm]},very thick,blue!70!black] (3,1) -- (2.549,3.560);
+  \draw[-{Latex[length=2.4mm]},very thick,red!75!black] (3,1) -- (4.944,2.726);
+  \draw[gray!70] (3,1) ++(41.6:0.95) arc (41.6:100:0.95);
+  \node[gray!55!black] at (3.62,2.05) {\footnotesize $58.4^\circ$};
+  \fill[black] (3,1) circle (1.5pt);
+  \node[blue!70!black,anchor=south east,align=right] at (2.6,3.62)
+    {\footnotesize operator:\\[-2pt]\footnotesize KM $\to$ Keller enthalpy/Mie--G\\[-2pt]\footnotesize $1.98$ noise units};
+  \node[red!75!black,anchor=west,align=left] at (5.05,2.62)
+    {\footnotesize initial radius:\\[-2pt]\footnotesize $R_{\mathrm{eq}}$ off by $1.68\%$\\[-2pt]\footnotesize $1.98$ noise units};
+\end{tikzpicture}
+\caption{The size of the operator result, against the size of an error bar this work set to
+zero. Both arrows are what survives refitting the material -- the part of a perturbation that
+lies outside the shaded span, and so the only part any experiment can see. They are drawn at
+their measured length and their measured separation. A \SI{1.68}{\percent} error in the
+inferred equilibrium radius leaves exactly as much residual as replacing the bubble-dynamics
+operator does. The \SI{58.4}{\degree} between them is the reason this is a call to fit
+$R_{\mathrm{eq}}$ rather than to abandon the ranking: at that angle the two are separable in
+principle, and \cref{sec:axes} confirms the initial state absorbs under \SI{5}{\percent} of
+the operator difference.}
+\label{fig:reqsize}
+\end{figure}
 
 
 \begin{figure}[t]
@@ -1162,38 +1271,48 @@ similar directions. All three are therefore distinguishable in principle.}
 \section{Separability of the model axes}
 \label{sec:axes}
 
-With the constitutive law, the operator and the thermal treatment all uncertain, the design
-question is not which experiment discriminates but whether the axes are separable at all.
-Two ways they need not be. A difference lying in the span of $\partial R/\partial\theta$ is
-reproduced by refitting the material and is invisible at every design (\cref{fig:absorption});
-and two axes whose remainders are nearly parallel move the evidence together, so no design can
-say which moved it.
+With the constitutive law, the operator and the thermal treatment all uncertain, the question
+is not which experiment discriminates but whether the axes are separable at all. They need not
+be, in two ways. A difference lying in the span of $\partial R/\partial\theta$ is reproduced by
+refitting the material, and is then invisible at every design (\cref{fig:absorption}). And two
+axes whose remainders are nearly parallel move the evidence together, so no design can say
+which moved it.
 
 \begin{center}
-\begin{tabular}{lccc}
+\begin{tabular}{lcccc}
 \toprule
-axis & size & after refit & absorbed \\
+axis & size & after refit & absorbed & \,+\,initial state \\
 \midrule
-dynamics (KM $\to$ KM/Mie--G) & 8.89 & \textbf{1.98} & \textbf{77.7\%} \\
-constitutive (one $\to$ two modes) & 14.42 & 8.14 & 43.5\% \\
-thermal (cold $\to$ bubble\,+\,medium) & \textbf{15.99} & 8.46 & 47.1\% \\
+dynamics (KM $\to$ Keller enthalpy/Mie--G) & 8.89 & \textbf{1.98} & \textbf{77.7\%} & 1.89 \\
+constitutive (one $\to$ two modes) & 14.42 & 8.14 & 43.5\% & 7.72 \\
+thermal (cold $\to$ bubble\,+\,medium) & \textbf{15.99} & 8.46 & 47.1\% & 7.80 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent in units of the record's noise. The remainders sit at $46$, $71$ and
-\SI{38}{\degree} to one another, so no pair is confounded and the design problem is well
-posed for all three. Two things follow that were not expected. Thermal is the \emph{largest}
-lever, not a negligible one -- it moves the trace most and survives refitting most, so the
-earlier observation that switching it on made $\chi^2/N$ slightly worse says the direction it
-moves in is not the one the record wants, not that it is small. And the operator is the most
-absorbed axis by a wide margin, which is the mechanism behind \cref{sec:operator}: most of an
-operator change can be mimicked by adjusting the material.
+\noindent in units of the record's noise. The last column widens the refit span to include
+$R_0$ and $R_{\mathrm{eq}}$, which are held at their measured values everywhere else in this
+work. They take a further $4.7$, $5.2$ and \SI{7.8}{\percent} of what the material left, so
+none of these differences is initial-state freedom in disguise. A near-zero number here is
+also what a broken projection would report, so the operation is checked both ways on the same
+vectors: handed the difference itself the basis absorbs it to $5\times10^{-15}$, handed a
+random column it absorbs $0.02$ of $1.98$.
 
-\paragraph{A design against all three.} Making each axis a parameter through
-$R(\theta,\varepsilon)=(1-\varepsilon)R_A+\varepsilon R_B$, so that
-$\partial R/\partial\varepsilon = R_B-R_A$ is one more column of $J$, puts discrimination and
-estimation in one information matrix and leaves the criterion concave -- the certificate of
+The remainders sit at $46$, $71$ and \SI{38}{\degree} to one another. No pair is confounded,
+so the design problem is well posed for all three. Two things follow that were not expected.
+
+Thermal is the \emph{largest} lever, not a negligible one. It moves the trace most and
+survives refitting most. So the earlier observation -- that switching it on made $\chi^2/N$
+slightly worse -- says the direction it moves in is not the one the record wants, not that it
+is small.
+
+The operator is the most absorbed axis by a wide margin. That is the mechanism behind
+\cref{sec:operator}: most of an operator change can be mimicked by adjusting the material.
+
+\paragraph{A design against all three.} Make each axis a parameter through
+$R(\theta,\varepsilon)=(1-\varepsilon)R_A+\varepsilon R_B$, so $\partial R/\partial\varepsilon =
+R_B-R_A$ is one more column of $J$. This puts discrimination and estimation in one information
+matrix and leaves the criterion concave, so the certificate of
 \cref{fig:certificate-schematic} applies unchanged. The information is averaged over a
 decade of $g\alpha$, because operator information is governed by collapse depth and a measure
 certified at one material misranks others. The measure certifies at a gap of $10^{-9}$ on four
@@ -1211,13 +1330,125 @@ thermal & $4.40\times10^{-4}$ & $1.05\times10^{-2}$ & $4.2\%$ \\
 \end{tabular}
 \end{center}
 
-\noindent Reported per axis rather than as one determinant, because a design maximizing
-$\det$ could buy its whole score on the two easy axes and leave the operator undetermined
-without saying so. The experiments performed are near-best for the hardest axis and $24$ to
-$41$ times off for the two easiest, so a change of geometry buys a great deal of constitutive
-and thermal discrimination at little cost to the operator: the support wants $R_{\max}$ near
+\noindent Reported per axis rather than as one determinant. A design maximizing $\det$ could
+buy its whole score on the two easy axes and leave the operator undetermined without saying
+so. The experiments performed are near-best for the hardest axis and $24$ to $41$ times off for
+the two easiest. So a change of geometry buys a great deal of constitutive and thermal
+discrimination at little cost to the operator. The support wants $R_{\max}$ near
 \SI{60}{\micro\metre} at high stretch and near \SI{1200}{\micro\metre} at low stretch, against
 the \SI{277}{\micro\metre} and stretch $7.09$ performed.
+
+\section{Fitting the initial radius}
+\label{sec:reqprior}
+
+\Cref{sec:operator} reports operator margins of a few nats while holding $R_{\mathrm{eq}}$
+fixed, and a \SI{1.68}{\percent} error in $R_{\mathrm{eq}}$ is worth as much as the operator
+change those margins measure. A quantity that large cannot be asserted. So we fit it, as a
+nuisance parameter with a prior. The question is not whether the evidence moves -- adding a
+parameter always moves it -- but whether the \emph{ordering} does. An operator preferred by $17$ nats
+with $R_{\mathrm{eq}}$ pinned, and not preferred once it floats, was never an operator result.
+
+The prior width is the whole argument, and nothing measures it. Too wide and $R_{\mathrm{eq}}$ absorbs the operator difference, which reads as ``the
+operators are indistinguishable'' while being a statement about the box. Too narrow and the
+pinned answer is reproduced by construction. We therefore sweep the half-width over
+$\SIrange{3}{25}{\percent}$ rather than choose one. A conclusion that holds across that range
+is a conclusion; one that flips inside it is a prior.
+
+\paragraph{A convergence gate with no tuning constant.} Every wider box contains every
+narrower one, and all of them contain $R_{\mathrm{eq}}$ at its inferred value, which is the
+pinned fit. The best attainable $\chi^2/N$ can therefore only fall as the width grows. A cell
+that rises has not found its own optimum. This matters because it caught a real failure: at
+ten multistart restarts, five of $72$ cells failed it, one reporting $-117$ nats between a
+$+13$ and a $+7$ -- which reads as a prior effect and is a search that stopped early. At $24$
+restarts two cells fail, and both are excluded below rather than read as physics.
+
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{2}{c}{\SI{15}{\celsius}} & \multicolumn{2}{c}{\SI{23}{\celsius}}
+& \multicolumn{2}{c}{\SI{33}{\celsius}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+operator & pinned & $\pm25\%$ & pinned & $\pm25\%$ & pinned & $\pm25\%$ \\
+\midrule
+Rayleigh--Plesset & $-165.0$ & $\mathbf{-178.6}$ & $-76.9$ & $\mathbf{-81.8}$ & $-74.4$ & $\mathbf{-74.2}$ \\
+Keller--Miksis & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
+Keller enthalpy/Tait & $+6.1$ & $+0.8$ & $+2.1$ & $+0.1$ & $+0.8$ & $+0.8$ \\
+Gilmore/Tait & $+18.5$ & $\mathbf{+5.0}$ & $+4.3$ & $+0.5$ & $+1.9$ & $-0.0$ \\
+Keller enthalpy/Mie--G & $+4.7$ & $+0.3$ & $+1.6$ & $+0.1$ & $+0.6$ & $+0.9$ \\
+Gilmore/Mie--G & $+20.7$ & $\mathbf{+11.2}$ & $+4.3$ & --- & $+1.1$ & $-0.3$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent nats against Keller--Miksis; ``---'' marks the one cell the gate excluded. Of $17$
+orderings the pinned fit called decisive, $15$ stay decisive and keep their sign at every
+width. None reverses. Two fall below five nats at some width, both at \SI{15}{\celsius}.
+
+The conclusions of \cref{sec:operator} therefore survive, but not equally. \emph{Compressibility
+is required} at every width and on every record, by $74$ to $179$ nats -- the most robust
+statement in this work. \emph{Gilmore beats the pressure form} at \SI{15}{\celsius}, still by
+$5$ to $11$ nats with $R_{\mathrm{eq}}$ free. But at \SI{23}{\celsius} and \SI{33}{\celsius}
+every margin above Keller--Miksis collapses to under a nat. Those two records never had
+operator discrimination; pinning $R_{\mathrm{eq}}$ is what made it look as though they did.
+
+\paragraph{The data want a larger equilibrium radius.} The fitted scale is the same story
+told forwards, and it is the most consistent number in this study. At $\pm3\%$ every one of
+the $18$ cells pins against the upper edge. Given room, they agree closely: $1.104$ to
+$1.115$ at \SI{15}{\celsius}, $1.074$ to $1.086$ at \SI{23}{\celsius}, and $1.032$ to $1.040$
+at \SI{33}{\celsius}, across six operators and two prior widths.
+
+So $R_{\mathrm{eq}}$ is inferred about \SIrange{3}{11}{\percent} too small, and the fit says
+so whichever operator it is asked through. The residual improves accordingly --- $\chi^2/N$
+falls from $0.97$ to $0.62$ at \SI{15}{\celsius}, $1.03$ to $0.90$ at \SI{23}{\celsius}, and
+$0.44$ to $0.38$ at \SI{33}{\celsius}. That the offset shrinks as the gel warms is a pattern
+we can measure but not yet explain, and it is larger than the \SI{1.68}{\percent} that makes
+$R_{\mathrm{eq}}$ worth as much as the operator choice.
+
+\section{Scoring the thermal treatment, and failing to}
+\label{sec:thermal}
+
+\Cref{sec:axes} finds the thermal treatment the largest of the three model axes: it moves the
+trace by $16$ noise units and keeps $8.5$ after the material absorbs what it can. It is also
+the only one never scored. The one number in circulation is a $\chi^2/N$ that got slightly
+worse when heat transfer was switched on, which is a fit statistic and not evidence.
+
+Scoring it means running the same comparison as \cref{sec:operator} with the thermal
+treatment varied and the material axes held identical, so the Occam terms cancel and the
+difference is a Bayes factor between physics. We report the attempt because it did not work,
+and because how it failed is worth knowing.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+record & cold & bubble & bubble\,+\,medium \\
+\midrule
+\SI{15}{\celsius} & $0$ & $-6.4$ & $+21.6$ \\
+\SI{23}{\celsius} & $0$ & $\mathbf{+2.6}$ & $\mathbf{+8.0}$ \\
+\SI{33}{\celsius} & $0$ & $-5.7$ & $-66.0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent nats against the cold model, at $24$ multistart restarts. Only the middle row may
+be read. Repeating the study at ten restarts and again at $24$ -- a $2.4\times$ change of
+budget -- moves the \SI{23}{\celsius} rows by $0.00$, $0.00$ and $0.01$ nats, and the others
+by $15$, $153$, $19$ and $68$. The cold baselines are stable everywhere, so the record and
+the material are not at fault; the thermal likelihood surface is.
+
+The decisive detail is that \emph{more restarts fitted worse}. At \SI{15}{\celsius} the bubble
+treatment reached $\chi^2/N = 0.895$ from ten starts and $1.039$ from twenty-four; at
+\SI{33}{\celsius} bubble\,+\,medium went from $0.428$ to $1.073$. Best-of-$24$ cannot be worse
+than best-of-$10$ at a converged optimum, so the search is landing in different basins rather
+than refining one. A third increase of the budget is therefore not the remedy, and this is the
+third budget tried.
+
+What this does and does not say. It does not say the thermal treatment is unsupported: on the
+one record where the fit converges, both treatments are favored, bubble\,+\,medium by $8$
+nats. It says that scoring thermal physics by multistart least squares does not work on these
+records, and that the fix is a better search -- warm-starting each thermal fit from the
+converged cold optimum, rather than sampling a four-dimensional box afresh. Until then the
+\SI{15}{\celsius} and \SI{33}{\celsius} rows above are search noise, and we decline to read
+the sign of either.
 
 \section{Experimental design}
 \label{sec:design}
@@ -1228,12 +1459,11 @@ Everything above optimizes the Fisher information of one model at its fitted par
 which is circular if that model is wrong. Two checks that do not privilege it.
 
 \paragraph{The record is information-rich; the parameterization is not.}
-Drawing $400$ trajectories from the posterior and taking the singular values of the centred
-ensemble, eleven modes rise above the trial noise floor of $0.018\,R_{\max}$. That is not a
-count of identifiable combinations -- four varied parameters span at most a four
-dimensional manifold, and the extra modes are its curvature -- but it does say the
-measurement can distinguish far more shapes than the fit extracts. The limit is how qSLS
-parameterizes the physics, not the information in the record.
+Draw $400$ trajectories from the posterior and take the singular values of the centered
+ensemble. Eleven modes clear the trial noise floor of $0.018\,R_{\max}$. That is not a count
+of identifiable combinations: four parameters span at most a four-dimensional manifold, and
+the extra modes are its curvature. But the record distinguishes far more shapes than the fit
+extracts. The limit is qSLS, not the measurement.
 
 \paragraph{Discrimination does not privilege a model.}
 T-optimality \citep{atkinson1975design} asks a different question: which design makes the
@@ -1244,19 +1474,18 @@ T(d) \;=\; \min_{\theta_2} \; \bigl\lVert m_1(\hat\theta_1, d) - m_2(\theta_2, d
 \label{eq:topt}
 \end{equation}
 %
-and the minimization is the whole content of it. A rival that can retune its parameters to
-imitate has not been discriminated against, so the separation must be measured against the
-rival's \emph{best imitation}, not against its own fitted values.
+and the minimization is the whole content of it. A rival that retunes its parameters to
+imitate has not been discriminated against. So the separation is measured against the rival's
+\emph{best imitation}, never against its own fitted values.
 
-Two distinct errors were made here, and both inflate $T$ for the same structural reason:
-$T$ is a \emph{minimum}, so anything that stops short of it -- evaluating at fixed
-parameters, or a minimization that terminates early -- reports discrimination that is not
-there. An earlier version of this table evaluated each rival at its own fit, giving $2.69$
-for qSLS--SLS at the present design. Re-fitting the rival with a single Nelder--Mead pass
-gave $0.67$. Restarting and polishing that minimization changed other entries again: at
-$1200\,\mu$m the reported $4.92$ fell to $2.38$, and a $0.1\%$ change of design moved one
-loose evaluation from $7.25$ to $1.36$, which is the signature of the optimiser rather than
-the physics. The converged values are:
+Two errors here inflated $T$, both for one structural reason. $T$ is a \emph{minimum}, so
+anything stopping short of it reports discrimination that is not there. Evaluating each rival
+at its own fit gave $2.69$ for qSLS--SLS at the present design; re-fitting with one
+Nelder--Mead pass gave $0.67$.
+
+Restarting and polishing changed other entries again. At $1200\,\mu$m the reported $4.92$
+fell to $2.38$. A $0.1\%$ change of design moved one loose evaluation from $7.25$ to $1.36$
+-- the optimizer's signature, not the physics. The converged values are:
 
 \begin{center}
 \begin{tabular}{lccc}
@@ -1276,23 +1505,25 @@ $57\,\mu$m, stretch $19.5$ & $1.64$ & $5.53$ & $5.00$ \\
 \end{tabular}
 \end{center}
 
-At the present design SLS imitates qSLS to within $0.67$ noise units, comfortably inside
-the measurement scatter. That figure is corroborated from an unrelated direction: a
-systematic offset of $0.668\sigma$ over $201$ samples contributes
-$201 \times 0.668^2 = 89.7$ to $\chi^2$, against the measured log-evidence gap of $101.6$
-between the two models. Two computations sharing no machinery, agreeing to about $12\%$.
+At the present design SLS imitates qSLS to within $0.67$ noise units, inside the measurement
+scatter. An unrelated calculation corroborates it. A systematic offset of $0.668\sigma$ over
+$201$ samples contributes $201 \times 0.668^2 = 89.7$ to $\chi^2$, against a measured
+log-evidence gap of $101.6$. Two computations sharing no machinery, agreeing to $12\%$.
 
 \paragraph{These values are upper bounds, and the criterion is the reason.}
-$T$ is defined by an inner \emph{global} minimization, and that minimization is multimodal.
-Nelder--Mead and Gauss--Newton both converge, to different basins: at $895\,\mu$m
-Nelder--Mead returns $2.39$ where Gauss--Newton returns $1.52$, and at $1200\,\mu$m the
-ordering reverses. Multistart Gauss--Newton -- which analytic Jacobians make $44\times$
-cheaper than the derivative-free version, $34$\,s against $25$ minutes for the whole table
--- finds a lower value in $12$ of $27$ cells, and a stationarity check built from the same
-Jacobians reports that $11$ cells are still not at a minimum. Every improvement to the
-optimiser lowers the scores, because a better-optimized rival imitates better. The tabulated
-values should therefore be read as upper bounds on discrimination, and the true separations
-are smaller than any of them.
+$T$ is an inner \emph{global} minimization, and that minimization is multimodal.
+Nelder--Mead and Gauss--Newton both converge, to different basins. At $895\,\mu$m
+Nelder--Mead returns $2.39$ against Gauss--Newton's $1.52$; at $1200\,\mu$m the ordering
+reverses.
+
+Multistart Gauss--Newton finds a lower value in $12$ of $27$ cells. Analytic Jacobians make
+it $44\times$ cheaper than the derivative-free version -- $34$\,s against $25$ minutes for
+the table. A stationarity check from the same Jacobians reports $11$ cells still not at a
+minimum.
+
+Every improvement to the optimizer lowers the scores, because a better-optimized rival
+imitates better. So the tabulated values are upper bounds on discrimination. The true
+separations are smaller than any of them.
 
 This is not a defect of the implementation but of the criterion. A minimum is attained at a
 point, so landing in the wrong basin gives a wrong answer with no indication that anything
@@ -1304,45 +1535,44 @@ The structural fix is to replace the minimum with an integral. Treating the mode
 discrete parameter makes discrimination an expected-information-gain problem over the
 augmented parameter $(\theta, m)$, whose inner quantity is the marginal likelihood
 $\int p(Y\mid\theta,M,d)\,\pi(\theta\mid M)\,\mathrm d\theta$. An integral accumulates over
-all modes rather than requiring that the best one be located, so multimodality stops being a
-failure mode and becomes a property of the integrand; a missed mode biases the evidence
-slightly instead of corrupting the criterion. It also unifies discrimination with the
-parameter-precision criteria above in one framework. The cost is
-that the marginal likelihood is prior-sensitive in a way $T$ is not, so the prior becomes
-part of the criterion rather than a nuisance.
+all modes instead of requiring the best one be found. Multimodality stops being a failure mode
+and becomes a property of the integrand: a missed mode biases the evidence slightly rather
+than corrupting the criterion.
+
+It also puts discrimination and parameter precision in one framework. The cost is that the
+marginal likelihood is prior-sensitive where $T$ is not. The prior becomes part of the
+criterion rather than a nuisance.
 
 \paragraph{The criteria do not agree.}
-Computed correctly, the criteria want different experiments. E-optimality peaks at
-$199\,\mu$m and stretch $3.55$; separating qSLS from SLS or from NHKV is best at
-$895\,\mu$m and stretch $4.93$; separating qSLS from qKV is best at $100\,\mu$m and stretch
-$20$, near the opposite corner of the design space. At the E-optimal design the
+Computed correctly, the criteria want different experiments. E-optimality peaks at $199\,\mu$m and stretch $3.55$. Separating qSLS from SLS or from NHKV is
+best at $895\,\mu$m and stretch $4.93$. Separating qSLS from qKV is best at $100\,\mu$m and
+stretch $20$, near the opposite corner of the design space. At the E-optimal design the
 discrimination scores are the worst in the table, so the conflict is not marginal.
 
-The reason is physical rather than numerical. Distinguishing a material with a relaxation
-mode from one without requires a collapse fast enough to excite that mode, whereas
-separating $g$ from $\alpha$ requires a gentle collapse, since the term of $Z_e$ carrying
-that distinction dies as $\lambda^{-4}$. The design cannot be both fast and gentle.
+The reason is physical, not numerical. Telling a material with a relaxation mode from one
+without needs a collapse fast enough to excite it. Separating $g$ from $\alpha$ needs a gentle
+collapse, because the term of $Z_e$ carrying that distinction dies as $\lambda^{-4}$. No design
+is both fast and gentle.
 
 There is accordingly no single best design, and a scalar design objective is answering a
 question that has no scalar answer. What replaces it is the \emph{Pareto front}: the set of
 designs on which no other design is better on every criterion at once. Enumerating a
 $14\times18$ grid over $(R_{\max}, \lambda)$ and applying that test leaves $12$ designs
-undominated, spanning $50$--$1200\,\mu$m and stretch $4$--$18$. Reporting that set, rather
-than a single optimum, is the honest summary of an experiment that must serve several
-questions at once; \texttt{pyimr.pareto.explore\_tradeoff} computes it. Given the caution above,
-the $T$ columns entering the domination test are upper bounds, so the front should be
-regarded as provisional in its discrimination coordinates while the E-optimality
-coordinate -- an eigenvalue of $J^{\mathsf T}J$, with no inner optimization -- is not
-subject to that reservation.
+undominated, spanning $50$--$1200\,\mu$m and stretch $4$--$18$. Reporting that set rather than
+a single optimum is the honest summary of an experiment serving several questions at once;
+\texttt{pyimr.pareto.explore\_tradeoff} computes it.
+
+The $T$ columns entering the domination test are upper bounds, so the front is provisional in
+its discrimination coordinates. The E-optimality coordinate is an eigenvalue of
+$J^{\mathsf T}J$ with no inner optimization, and carries no such reservation.
 
 \subsection*{Discrimination as an integral rather than a minimum}
 \label{sec:integral}
 
-Everything above scores a design by $T$, which is defined through a \emph{global minimum}
-over the rival's parameters. That definition is the source of the trouble in the previous
-subsection, and the trouble is structural rather than computational. This subsection derives
-a criterion with the minimum replaced by an integral, states precisely why that is more
-robust, and reports what it gives.
+Everything above scores a design by $T$, defined through a \emph{global minimum} over the
+rival's parameters. That definition is the trouble in the previous subsection, and the trouble
+is structural rather than computational. Here we replace the minimum with an integral, say why
+that is more robust, and report what it gives.
 
 \paragraph{The model label is a parameter.}
 Write $M \in \{M_1, M_2\}$ for the model index with prior $p(M)$, and let each model carry
@@ -1358,12 +1588,11 @@ p(Y \mid d) = \sum_{M} p(M)\, p(Y \mid M, d),
 \label{eq:model-mi}
 \end{equation}
 %
-which is the expected reduction in entropy of $M$, exactly as the expected information gain
-used for the design study above is the expected reduction in entropy of $\theta$. Discrimination
-and estimation are therefore the same criterion applied to different components of the
-augmented unknown $(\theta, M)$; they are not competing philosophies, and the earlier
-tension between $T$- and $E$-optimality is a tension between \emph{which component we care
-about}, not between two schools.
+the expected reduction in entropy of $M$ -- exactly as the expected information gain above is
+the expected reduction in entropy of $\theta$. Discrimination and estimation are one criterion
+applied to different components of the augmented unknown $(\theta, M)$. They are not competing
+philosophies: the earlier tension between $T$- and $E$-optimality is about \emph{which
+component we care about}, not about two schools.
 
 The quantity entering~\eqref{eq:model-mi} is the marginal likelihood, or evidence,
 %
@@ -1389,22 +1618,24 @@ U(d)
 \end{equation}
 %
 Recognizing it as a Kullback--Leibler divergence between the two prior-predictive
-distributions settles its properties without further work. By Gibbs' inequality $U(d) \ge 0$,
-with equality if and only if the two predictives agree almost everywhere: \emph{a model
-cannot discriminate against itself, at any design}. That is a sharp, falsifiable statement
-about the estimator, and it is the property the implementation is tested against -- two
-independently drawn banks from one family must score zero, and any systematic excess is
-bias. Related to~\eqref{eq:model-mi} by
+distributions settles its properties. By Gibbs' inequality $U(d) \ge 0$, with equality exactly
+when the two predictives agree almost everywhere: \emph{a model cannot discriminate against
+itself, at any design}.
+
+That is sharp and falsifiable, and it is what the implementation is tested against. Two
+independently drawn banks from one family must score zero; any systematic excess is bias.
+
+Equation~\eqref{eq:model-mi} relates by
 $I(M;Y\mid d) = \tfrac12[D_{\mathrm{KL}}(p_1\|\bar p) + D_{\mathrm{KL}}(p_2\|\bar p)]$ with
-$\bar p$ the equal mixture, so~\eqref{eq:elbf} is the same comparison read against the rival
-rather than against the mixture, and is the more direct statement of ``how strongly will
-this experiment favor the truth''.
+$\bar p$ the equal mixture. So~\eqref{eq:elbf} is the same comparison read against the rival
+rather than the mixture -- the more direct statement of ``how strongly will this experiment
+favor the truth''.
 
 \paragraph{Why an integral is robust where a minimum is not.}
 Both criteria require an inner computation that can go wrong. The asymmetry is in how the
 error propagates.
 
-For $T$, any optimiser returns $\hat T = \lVert m_1 - m_2(\hat\theta_2)\rVert/\sigma$ at
+For $T$, any optimizer returns $\hat T = \lVert m_1 - m_2(\hat\theta_2)\rVert/\sigma$ at
 whatever point it stopped, and since $T$ is a minimum, $\hat T \ge T$ always. If $\hat\theta_2$
 lies in the correct basin but is imprecise, stationarity gives
 $\hat T - T = O(\lVert\hat\theta_2 - \theta_2^\star\rVert^2)$ and the error is negligible. If
@@ -1443,7 +1674,7 @@ w_s = p(Y \mid \theta_s, M, d),
 \end{equation}
 %
 which is unbiased for $Z$, though $\log \hat Z$ is biased low by Jensen's inequality. Its
-reliability is carried by the spread of the weights, summarized by the effective sample size
+reliability rides on the spread of the weights, summarized by the effective sample size
 %
 \begin{equation}
 S_{\mathrm{eff}} = \frac{\left(\sum_s w_s\right)^2}{\sum_s w_s^2}
@@ -1452,14 +1683,14 @@ S_{\mathrm{eff}} = \frac{\left(\sum_s w_s\right)^2}{\sum_s w_s^2}
 \end{equation}
 %
 which equals $S$ when all draws contribute equally and $1$ when a single draw dominates. It
-costs nothing to compute and it is the only thing standing between this estimator and a
+costs nothing to compute. It is also the only thing standing between this estimator and a
 confidently reported number with no content.
 
 That it must fail here can be seen in advance. With $N$ samples the log-likelihood scales as
 $\log p(Y\mid\theta) \simeq -\tfrac12 N \bar d(\theta)$ for a mean squared discrepancy
 $\bar d$, so weights are $w_s \propto \exp[-\tfrac12 N \bar d(\theta_s)]$ and the ratio of the
-two largest is exponential in $N$. Useful draws are those falling inside the posterior, whose
-width is $O(N^{-1/2})$ in each of $p$ directions, so the expected number of them is
+two largest is exponential in $N$. Useful draws are those landing inside the posterior. Its
+width is $O(N^{-1/2})$ in each of $p$ directions, so the expected number of useful draws is
 %
 \begin{equation}
 \mathbb{E}[\#\text{useful}] \;\sim\; S \cdot \frac{\mathrm{vol}(\text{posterior})}
@@ -1468,14 +1699,16 @@ width is $O(N^{-1/2})$ in each of $p$ directions, so the expected number of them
 \end{equation}
 %
 For the present study $N = 201$, $p = 4$ and $S = 220$, giving
-$220 \times 201^{-2} \approx 5 \times 10^{-3}$: fewer than one useful draw. The measurement
-agrees exactly -- $S_{\mathrm{eff}} = 1.0$ at \emph{every} design tried, with reported values
-between $793$ and $10\,979$ nats that are pure noise. The standard errors were $56$ to $130$
-throughout and looked entirely respectable. Without~\eqref{eq:ess-evidence} the failure is invisible.
+$220 \times 201^{-2} \approx 5 \times 10^{-3}$ -- fewer than one useful draw.
+
+The measurement agrees exactly. $S_{\mathrm{eff}} = 1.0$ at \emph{every} design tried, with
+reported values between $793$ and $10\,979$ nats that are pure noise. The standard errors ran
+$56$ to $130$ throughout and looked entirely respectable. Without~\eqref{eq:ess-evidence} the
+failure is invisible.
 
 \paragraph{Estimating the evidence II: Laplace.}
-Expanding $\log[p(Y\mid\theta)\pi(\theta)]$ to second order about its maximum $\hat\theta$ and
-performing the resulting Gaussian integral gives, as in~\eqref{eq:laplace},
+Expand $\log[p(Y\mid\theta)\pi(\theta)]$ to second order about its maximum $\hat\theta$ and do
+the resulting Gaussian integral. As in~\eqref{eq:laplace},
 %
 \begin{equation}
 \log Z \simeq \log p(Y \mid \hat\theta)
@@ -1487,10 +1720,10 @@ H = -\nabla^2 \log p(Y\mid\theta)\big|_{\hat\theta}.
 \label{eq:laplace-evidence}
 \end{equation}
 %
-For Gaussian data $H = J^{\mathsf T}J + \sum_i r_i \nabla^2 r_i$, and dropping the second term
--- the Gauss--Newton approximation, valid when residuals are small or the model nearly linear
--- leaves $H \simeq J^{\mathsf T}J$, already computed by the fit. Parameterizing so the prior
-is uniform on the unit cube makes $\pi(\hat\theta) = 1$, and with whitened residuals
+For Gaussian data $H = J^{\mathsf T}J + \sum_i r_i \nabla^2 r_i$. Dropping the second term --
+the Gauss--Newton approximation, valid when residuals are small or the model nearly linear --
+leaves $H \simeq J^{\mathsf T}J$, which the fit already computed. Parameterizing so the prior is
+uniform on the unit cube makes $\pi(\hat\theta) = 1$, and with whitened residuals
 $r = (m - y)/\sigma$,
 %
 \begin{equation}
@@ -1546,44 +1779,48 @@ fourth parameter.
 Two prices are paid for removing the minimum, and both are real.
 
 \emph{Prior sensitivity.} $Z$ depends on $\pi(\theta\mid M)$ through the normalization
-of~\eqref{eq:model-evidence}, and widening a prior by a factor $c$ in each of $p$ directions
+of~\eqref{eq:model-evidence}. Widening a prior by a factor $c$ in each of $p$ directions
 divides the evidence by roughly $c^{p}$ without changing the fit at all. This is the
-Lindley--Jeffreys~\citep{lindley1957statistical,jeffreys1935some} effect, and it is not a defect to be engineered away: a model whose prior is
-diffuse really is less supported by data that pin it down. But it means the prior is part of
-the criterion and must be stated, where $T$ needed no prior. Centring each rival's prior on
-its fit to the \emph{existing} record produced a criterion that measured prior placement
-instead of discriminability, with every Laplace expansion invalid; the results reported here
-use the wide, physically motivated box of the model-selection grid, identical across models on every
-shared parameter.
+Lindley--Jeffreys effect~\citep{lindley1957statistical,jeffreys1935some}, and it is not a
+defect to engineer away: a model whose prior is diffuse really is less supported by data that
+pin it down.
+
+But it makes the prior part of the criterion, where $T$ needed none, so the prior must be
+stated. Centering each rival's prior on its fit to the \emph{existing} record produced a
+criterion measuring prior placement instead of discriminability, with every Laplace expansion
+invalid. The results here use the wide, physically motivated box of the model-selection grid,
+identical across models on every shared parameter.
 
 \emph{Boundary pinning.} Equation~\eqref{eq:laplace-evidence} presumes an interior maximum. In
-$50$--$90\%$ of the fits at each design, the rival's best parameters lie on a face of the
-prior box, where the expansion does not apply and the reported value is not to be trusted.
-That this happens is itself informative -- a rival that can imitate qSLS only by driving a
-parameter to the edge of physical plausibility has, in a meaningful sense, been discriminated
-against -- but expressing that requires a criterion built for a constrained maximum rather
-than a quadratic expansion about an interior one. Determining which parameter pins, and
-whether the pinning is physical or an artefact of the box, is the outstanding step.
+$50$--$90\%$ of the fits at each design the rival's best parameters lie on a face of the prior
+box, where the expansion does not apply and the value is not to be trusted.
 
-The honest summary is that the integral criterion is better founded than $T$ and not yet more
-reliable on this problem. The multimodality that made $T$ untrustworthy is genuinely gone;
-what replaces it is a dependence on the prior, now explicit rather than hidden, and a
-boundary condition that the current estimator does not handle.
+That it happens is itself informative. A rival that can imitate qSLS only by driving a
+parameter to the edge of physical plausibility has, in a meaningful sense, been discriminated
+against. But saying so needs a criterion built for a constrained maximum, not a quadratic
+expansion about an interior one. Which parameter pins, and whether the pinning is physical or
+an artifact of the box, is the outstanding step.
+
+The honest summary: the integral criterion is better founded than $T$ and not yet more
+reliable on this problem. The multimodality that made $T$ untrustworthy is genuinely gone.
+What replaces it is a dependence on the prior -- now explicit rather than hidden -- and a
+boundary condition the current estimator does not handle.
 
 \subsection*{Which criterion the conflict is between}
 
-The scaling argument of \cref{sec:criteria} says that a design change which merely
-amplifies the signal leaves the condition number $\kappa$ untouched, so degeneracy is a
-property of the eigenvectors and only a design that rotates them can remove it. The
-consequence for these records is that E-optimality preferred a larger bubble
-($895\,\mu$m, $\lambda_{\min} = 12.8$) while conditioning and eigenvector composition
-preferred a gentler collapse at the present size ($277\,\mu$m at stretch $5$,
-$\kappa = 4.2\times10^3$, with the modulus--stiffening share of the worst direction falling
-from $87\%$ to $66\%$). Both are correct answers to different questions, and
-\eqref{eq:separability} says which question matters here.
+The scaling argument of \cref{sec:criteria} says a design change that merely amplifies signal
+leaves the condition number $\kappa$ untouched. Degeneracy is a property of the eigenvectors,
+and only a design that rotates them can remove it.
+
+For these records, E-optimality preferred a larger bubble ($895\,\mu$m,
+$\lambda_{\min} = 12.8$). Conditioning and eigenvector composition preferred a gentler collapse
+at the present size ($277\,\mu$m at stretch $5$, $\kappa = 4.2\times10^3$, the
+modulus--stiffening share of the worst direction falling from $87\%$ to $66\%$). Both are
+correct answers to different questions, and \eqref{eq:separability} says which one matters
+here.
 
 So there are two distinct disagreements in play, and they have different resolutions. The
-classical criteria disagree among themselves because they summarise one spectrum
+classical criteria disagree among themselves because they summarize one spectrum
 differently; that is a choice about what one wants to learn. Estimation and discrimination
 disagree because they are about different quantities altogether. The next subsection
 resolves the second, and in doing so dissolves the first.
@@ -1713,7 +1950,7 @@ function with a linear map is concave, so $\Phi(\xi) = \log\det M(\xi)$ is conca
 simplex -- a convex set. A concave function on a convex set has no local maximum that is
 not global, and its first-order condition is not merely necessary but sufficient. Every
 pathology this study ran into -- wrong basins, surrogate blind spots, answers that improve
-whenever the optimiser does -- is a symptom of non-convexity, and none of them can occur
+whenever the optimizer does -- is a symptom of non-convexity, and none of them can occur
 here.
 
 The same holds for $\Phi_A = -\operatorname{tr}M(\xi)^{-1}$ and $\Phi_E =
@@ -1748,18 +1985,20 @@ d(x,\xi^\star) \equiv \operatorname{tr}\!\left[M(\xi^\star)^{-1}M(x)\right] \le 
 \label{eq:equivalence}
 \end{equation}
 %
-with equality at every support point of $\xi^\star$. This is the theorem of Kiefer and Wolfowitz~\citep{kiefer1960equivalence}, and it is the object this whole section exists to obtain: a quantity that can be
-computed from a candidate answer and that \emph{proves} the answer optimal. The gap
+with equality at every support point of $\xi^\star$. This is the theorem of Kiefer and
+Wolfowitz~\citep{kiefer1960equivalence}, and it is what this section exists to obtain: a
+quantity computed from a candidate answer that \emph{proves} the answer optimal. The gap
 $\max_x d(x,\xi) - p$ is a certificate, not a convergence report.
 
-Two further facts come free. The equality condition says the support sits exactly where
-$d(x,\xi^\star)$ attains its maximum, so the optimal design places its runs at the settings
-of greatest standardized prediction variance -- D-optimality and G-optimality coincide.
+Two further facts come free. Equality puts the support exactly where $d(x,\xi^\star)$ is
+largest, so the optimal design runs at the settings of greatest standardized prediction
+variance. D-optimality and G-optimality coincide.
 And by Carath\'eodory's theorem applied to the convex hull of the $M(x)$, an optimal measure
 supported on at most $p(p+1)/2 + 1$ points always exists: at most $11$ here.
 
 \paragraph{Computing it.}
-The implementation uses the multiplicative algorithm of Silvey, Titterington and Torsney~\citep{silvey1978algorithm},
+The implementation uses the multiplicative algorithm of Silvey, Titterington and
+Torsney~\citep{silvey1978algorithm},
 %
 \begin{equation}
 \xi_i \;\longleftarrow\; \frac{\xi_i\,F_i}{\sum_j \xi_j F_j},
@@ -1769,21 +2008,24 @@ F_i = \operatorname{tr}\!\left[M(\xi)^{-1}M(x_i)\right]
 \label{eq:multiplicative}
 \end{equation}
 %
-which stays on the simplex by construction -- weights remain non-negative and normalized
-without projection -- and increases the criterion at each step. Note that
+which stays on the simplex by construction: weights remain non-negative and normalized
+without projection, and the criterion rises at each step. Note that
 $\sum_i \xi_i F_i = p$ identically, so~\eqref{eq:multiplicative} moves mass toward designs
 whose $d(x,\xi)$ exceeds $p$, which is precisely the set that~\eqref{eq:equivalence} says
 must be empty at the optimum. The update and the certificate are the same quantity.
 
-Vertex-direction steps with a line search were tried first and cannot converge here: the
-step required near the optimum falls below any fixed search grid and the iteration stalls
-with a positive gap. Convergence of~\eqref{eq:multiplicative} degrades as candidates crowd
-together, since a design just off the support is nearly as good as one on it and its weight
-decays in proportion -- certifying a parabola on $[-1,1]$ took $6400$ iterations over $51$
-candidates, $25\,000$ over $101$, and $329\,000$ over $401$, with the criterion value correct
-to six figures long before any of those. An exhausted iteration budget therefore yields a
-converged value without a proof, which is a different thing from a wrong answer, and the
-reported gap distinguishes them.
+Vertex-direction steps with a line search were tried first and cannot converge here. The step
+required near the optimum falls below any fixed search grid, and the iteration stalls with a
+positive gap.
+
+Convergence of~\eqref{eq:multiplicative} degrades as candidates crowd together. A design just
+off the support is nearly as good as one on it, and its weight decays in proportion.
+Certifying a parabola on $[-1,1]$ took $6400$ iterations over $51$ candidates, $25\,000$ over
+$101$, and $329\,000$ over $401$ -- with the criterion value correct to six figures long
+before any of those.
+
+An exhausted budget therefore yields a converged value without a proof. That is a different
+thing from a wrong answer, and the reported gap distinguishes them.
 
 \paragraph{The certified design for these records.}
 Over $480$ candidates spanning $R_{\max} \in [50, 1200]\,\mu$m and stretch $[3, 20]$, with
@@ -1824,18 +2066,18 @@ this document.}
 
 \paragraph{The mixture is the resolution of the conflict.}
 The support is worth reading physically. Nearly half the runs go to a large, gently driven
-bubble and the rest to small, hard-driven ones -- the two corners that the earlier
-subsections found pulling in opposite directions. Separating $g$ from $\alpha$ wants a gentle
-collapse because the distinguishing term of $Z_e$ decays as $\lambda^{-4}$; exciting the
-relaxation mode wants a fast one. A single design has to choose between them and a measure
-does not, so the trade-off that motivated the Pareto front dissolves once the design space is
-enlarged to the one the experiment actually admits. The front was answering a question made
-artificially hard by the restriction to a single setting.
+bubble and the rest to small, hard-driven ones -- the two corners the earlier subsections
+found pulling in opposite directions. Separating $g$ from $\alpha$ wants a gentle collapse,
+because the distinguishing term of $Z_e$ decays as $\lambda^{-4}$; exciting the relaxation
+mode wants a fast one.
+
+A single design must choose between them. A measure need not. So the trade-off that motivated
+the Pareto front dissolves once the design space is the one the experiment actually admits --
+the front was answering a question made hard by an artificial restriction.
 
 \paragraph{Discrimination in the same frame.}
-A utility that averages over runs -- an expected log Bayes factor per run, as
-in~\eqref{eq:elbf}, since log evidence is additive over independent experiments -- is
-linear in $\xi$ and therefore concave, so the compound criterion
+Log evidence is additive over independent experiments, so an expected log Bayes factor per
+run is linear in $\xi$ and therefore concave. The compound criterion
 %
 \begin{equation}
 \Phi_\beta(\xi) = (1-\beta)\log\det M(\xi) + \beta\, u^{\mathsf T}\xi,
@@ -1843,26 +2085,29 @@ linear in $\xi$ and therefore concave, so the compound criterion
 \label{eq:compound}
 \end{equation}
 %
-is concave for every $\beta$ and inherits the certificate unchanged; its directional
-derivative is the corresponding combination of~\eqref{eq:directional} and
-$u_x - u^{\mathsf T}\xi$. This is the compound-criterion construction of Atkinson and of Cook and
-Wong~\citep{atkinson2008dt,cook1994equivalence}, and it is the principled form of the estimation-versus-discrimination trade this
-study has otherwise handled by search. Sweeping $\beta$ traces the Pareto front, and because
-each criterion is concave in $\xi$ the front is convex -- which is why the classical
-literature scalarizes with weighted sums where this study needed a Chebyshev form. The
-non-convexity that forced the more elaborate scalarization was an artefact of optimizing over
-a single design point.
+is then concave for every $\beta$ and inherits the certificate unchanged. Its directional
+derivative is the matching combination of~\eqref{eq:directional} and $u_x - u^{\mathsf T}\xi$.
+This is the compound-criterion construction of Atkinson and of Cook and
+Wong~\citep{atkinson2008dt,cook1994equivalence} -- the principled form of the trade this study
+otherwise handled by search.
+
+Sweeping $\beta$ traces the Pareto front, and each criterion being concave in $\xi$ makes that
+front convex. This is why the classical literature scalarizes with weighted sums where this
+study needed a Chebyshev form. The non-convexity that forced the elaborate scalarization was
+an artifact of optimizing over a single design point.
 
 \paragraph{What this does not fix.}
-Three limitations are worth stating plainly. The information matrices are evaluated at a
-point estimate of $\theta$, so the design is locally optimal in the parameters even though it
-is globally optimal in $\xi$; a prior average over $\theta$ restores the guarantee at
-proportionate cost, since the average of concave criteria is concave. The candidate set is
-still a grid, so the certificate is a proof of optimality \emph{over that grid} -- though
-the sensitivity function $d(x,\xi^\star)$ can be evaluated anywhere, which turns checking for
-a missed region into a cheap scan rather than another search. And the compound form was not
-run on these records, because the per-design log Bayes factor still suffers the boundary
-pinning described above.
+Three limitations, stated plainly. The information matrices are evaluated at a point estimate
+of $\theta$, so the design is locally optimal in the parameters though globally optimal in
+$\xi$. A prior average over $\theta$ restores the guarantee at proportionate cost, since the
+average of concave criteria is concave.
+
+The candidate set is still a grid, so the certificate proves optimality \emph{over that grid}.
+But $d(x,\xi^\star)$ can be evaluated anywhere, which makes checking for a missed region a
+cheap scan rather than another search.
+
+The compound form was not run on these records. The per-design log Bayes factor still suffers
+the boundary pinning described above.
 
 
 \begin{figure}[t]
@@ -1892,6 +2137,108 @@ so fragile; the constitutive and thermal axes leave $8.1$ and $8.5$.}
 \label{fig:absorption}
 \end{figure}
 
+\section{What the design survives}
+\label{sec:survives}
+
+The certified measure of \cref{sec:design} is a theorem. Three things stand between it and an
+experiment somebody can run, and each is measurable rather than arguable.
+
+\subsection*{A measure assigns weights; an experiment runs integers}
+
+The optimum splits runs three ways. With twelve bubbles that is $5.4/3.7/2.9$, and the
+equivalence theorem certifies optimality over \emph{measures} --- an exact design is not one,
+so the certificate does not reach it. \texttt{pyimr.measure.apportion} closes the gap by the
+efficient rounding of Pukelsheim and Rieder, and because that rule carries no guarantee at
+small budgets, it reports the D-efficiency it achieved rather than asserting one.
+
+On the four-point design of cubic regression, where every quantity is closed form: budgets
+divisible by four lose nothing, and six runs give $2/2/1/1$ at an efficiency of $0.9428$, which
+is $\left[(2/6)^2(1/6)^2/(1/4)^4\right]^{1/4}$ exactly. The rule earns its complexity on
+awkward budgets --- at weights $0.7/0.2/0.1$ and four runs, proportional rounding gives
+$3/1/0$, dropping a support point and leaving the information matrix singular.
+
+\subsection*{Frames are a design variable, and there are far too many of them}
+
+\Cref{sec:limitations} reports $201$ samples carrying the information of about ten. Redundancy
+is a design variable: a camera trades frame rate against window length, against exposure, and
+against how many bubbles fit in a session. Scoring frames by $\log\det J^{\mathsf T}J$ at the
+fitted qSLS, with the same number of observations spent each way:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+observations & uniform & optimally placed & gain \\
+\midrule
+$201$ & $18.54$ & $25.72$ & $6.0\times$ \\
+$50$ & $11.73$ & $20.15$ & $8.2\times$ \\
+$12$ & $5.98$ & $14.42$ & $8.3\times$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The D-optimal measure over the $201$ candidate times is certified at a gap of
+$10^{-10}$ on \emph{six} support points. Fifty observations placed on those six carry more
+information than all $201$ spread uniformly.
+
+That is a measurement of slack, not a recommendation. A design on six distinct times leaves no
+degrees of freedom to notice the model is wrong, and the lack-of-fit test above is exactly what
+those degrees of freedom buy. The honest reading is that frames are cheap relative to their
+information, so the camera should be traded for something scarce --- bubbles, or window, or
+the replication that makes \eqref{eq:lackoffit} possible.
+
+\subsection*{The recommended geometries do not survive model error}
+
+Optimal designs are computed assuming the model is right. Ours is not: \eqref{eq:lackoffit}
+says so at every temperature. The literature on sloppy systems warns that a model can fit worse
+on data from its own optimal experiment, and that is testable before a bubble is spent.
+
+The test must not generate data from the model being fitted --- that is the assumption under
+examination, and a study that makes it finds nothing. So the truth carries physics the fitted
+model lacks, and cold one-mode qSLS is fitted to it at four geometries. Two mismatches are
+used, because one would not distinguish a property of the design from a property of the
+missing physics: thermal transport, which \cref{sec:axes} sizes at $16$ noise units, and a
+second relaxation mode, at $14.4$.
+
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{3}{c}{thermal truth} & \multicolumn{3}{c}{two-mode truth} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+geometry & $\chi^2/N$ & $g\alpha$ err & model err & $\chi^2/N$ & $g\alpha$ err & model err \\
+\midrule
+performed, \SI{277}{\micro\metre} at $7.09$ & $1.231$ & $\mathbf{3.8\%}$ & $0.53$ & $0.905$ & $5.0\%$ & $\mathbf{0.11}$ \\
+E-optimal, \SI{199}{\micro\metre} at $3.55$ & $2.533$ & $5.9\%$ & $1.24$ & $0.877$ & $4.9\%$ & $0.19$ \\
+discrimination-optimal, \SI{100}{\micro\metre} at $20.0$ & $2.197$ & $\mathbf{37.1\%}$ & $1.17$ & $1.915$ & $\mathbf{60.7\%}$ & $1.06$ \\
+measure support, \SI{60}{\micro\metre} at $18.0$ & $0.892$ & $5.2\%$ & $0.15$ & $0.909$ & $\mathbf{43.5\%}$ & $0.25$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent One result holds under both mismatches, and it is the strongest thing here. The
+\textbf{discrimination-optimal geometry is worse on both counts, both times}: it fits $1.8$ and
+$2.1$ times worse than the geometry already performed, and recovers $g\alpha$ $9.8$ and $12.2$
+times worse. A design chosen to separate constitutive models degrades the parameter it was
+supposed to help measure, whichever physics is missing.
+
+The rest does not survive the change of mismatch, and saying so is the point of running two.
+Under thermal error the E-optimal geometry loses on both counts; under constitutive error it is
+indistinguishable from the performed one ($0.97$ and $0.98$). The \SI{60}{\micro\metre} support
+point reverses more sharply: it carries the least model error under thermal truth and recovers
+$g\alpha$ $8.7$ times worse under two-mode truth.
+
+So the sloppy-systems warning is not simply confirmed. What these records support is narrower
+and, for a collaborator, worse: \emph{which design is safe depends on which physics is missing,
+and we do not know which is missing}. \Cref{eq:lackoffit} says the model is inadequate on every
+record; it does not say in what direction. A design cannot be certified robust without naming
+the model error it is robust to, and no criterion in \cref{sec:design} takes model error as an
+argument at all.
+
+The mechanism is visible in the model-error columns. A criterion computed under the
+correct-model assumption sends the experiment where the model is most \emph{sensitive}, which is
+often where it is most \emph{wrong}: the thermal mismatch grows from $0.53$ noise units at the
+performed geometry to $1.24$ at the E-optimal one, and the fitted parameters absorb it. That
+mechanism is general. Which geometry it punishes is not.
+
 \section{Temperature dependence}
 
 The most informative result is not any single number but a trend
@@ -1900,7 +2247,7 @@ shrinks monotonically as the gel warms: the gap between \texttt{SLS} and \texttt
 falls from $2.94$ versus $1.35$ at \SI{15}{\celsius} to $1.41$ versus $1.23$ at
 \SI{33}{\celsius}. A warmer, softer gel needs less strain-stiffening to explain its
 record. Because this is a trend across three independent datasets rather than a single
-fitted value, it is harder to attribute to a fitting artefact than any individual
+fitted value, it is harder to attribute to a fitting artifact than any individual
 $\chi^2$.
 
 \begin{figure}[htbp]
@@ -1914,29 +2261,39 @@ $\chi^2$.
 \section{Conclusions}
 
 We have treated the model comparison in inertial microcavitation rheometry as the object of
-study rather than as a step toward a parameter value. Ranking by evidence in coordinates the
-records can answer, three findings hold. The shear modulus is not identified separately from
-the stiffening exponent, so a reported modulus is a statement about the prior box. The
-bubble-dynamics operator assumed throughout this literature is beaten on every record. And a
-correlated residual that has been read as constitutive model error survives every
-constitutive, observational and operator change tested here.
+study rather than a step toward a parameter value. Ranking by evidence in coordinates the
+records can answer, three findings hold.
+
+The shear modulus is not identified separately from the stiffening exponent, so a reported
+modulus is a statement about the prior box. The bubble-dynamics operator assumed throughout
+this literature is beaten on every record. And a correlated residual that has been read as
+constitutive model error survives every constitutive, observational and operator change tested
+here.
+
+Two of those findings needed qualifying once the equilibrium radius was fitted rather than
+asserted. Compressibility is required on every record at every prior width, by $74$ to $179$
+nats. Gilmore still beats the pressure form at \SI{15}{\celsius}. But at \SI{23}{\celsius} and
+\SI{33}{\celsius} the operator margins collapse to under a nat, so those records never
+discriminated operators at all -- pinning $R_{\mathrm{eq}}$ is what made it appear they did.
+The fit wants $R_{\mathrm{eq}}$ \SIrange{3}{11}{\percent} larger than inferred, consistently
+across six operators and three records, and we cannot yet explain the trend with temperature.
 
 \subsection{Limitations of this work}
 \label{sec:limitations}
 
 \paragraph{The dropped points are outside the model, not outside the solver.}
-Roughly one point in six of the winner's parameter box cannot be integrated. That is not a
-numerical shortcoming. In that region the model expands to $R/R_0 = 2132$ after its
-collapse -- identically at relative tolerances of $10^{-3}$, $10^{-4}$ and $10^{-5}$, so a
-converged property of the equations rather than an artefact. The bubble begins at its
-maximum radius and its energy is finite, so growth of that size is the constitutive model
-failing, and refusing those points is the correct outcome.
+Roughly one point in six of the winner's parameter box cannot be integrated, and that is not
+a numerical shortcoming. In that region the model expands to $R/R_0 = 2132$ after its collapse
+-- identically at relative tolerances of $10^{-3}$, $10^{-4}$ and $10^{-5}$. So it is a
+converged property of the equations, not an artifact. The bubble begins at its maximum radius
+and its energy is finite, so growth of that size is the constitutive model failing. Refusing
+those points is the correct outcome.
 
-The count of physically admissible points is pinned near $1958$ of $2401$ sampled whatever
-the settings: looser tolerances and a $20\times$ step budget convert failures into runaways,
-never into usable solves. This corrects an earlier reading of the same failures as a
-stiffness problem. It also means the dropped points cannot be recovered by numerical
-effort, and that no claim about the winner's fit should be made in that region.
+The count of admissible points is pinned near $1958$ of $2401$ sampled whatever the settings.
+Looser tolerances and a $20\times$ step budget convert failures into runaways, never into
+usable solves. This corrects an earlier reading of the same failures as a stiffness problem.
+The dropped points cannot be recovered by numerical effort, and no claim about the winner's
+fit should be made in that region.
 
 \begin{figure}[htbp]
 \centering
@@ -1954,14 +2311,15 @@ against $2071.90 \pm 0.38$ for the relaxation-only model -- a gap of $101.6$ aga
 run-to-run noise near $0.4$, so the comparison is resolved by a wide margin. The tensor grid
 cannot say this on its own: it returns a single number with no uncertainty.
 
-The same grid cannot estimate parameters. Refining it from $12$ to $20$ points per axis
-moves the log evidence by $17.3$ and moves the best-fit point from $g = 658$, $\alpha = 1.52$
-to $g = 144$, $\alpha = 8.86$, because the best cell is simply whichever node lands nearest
-the ridge. Refinement cannot fix this: the posterior standard deviations are
-$0.0018$, $0.0025$, $0.0055$ and $0.078$ in unit coordinates against a grid spacing of
-$0.053$, so the posterior occupies about $10^{-7}$ of the prior volume and a uniform grid
-would need of order $10^{10}$ points. Discretization error of $17.3$ sits well inside the
-$101.6$ gap, so the ranking is safe; the reported best-fit parameters are not.
+The same grid cannot estimate parameters. Refining it from $12$ to $20$ points per axis moves
+the log evidence by $17.3$, and moves the best-fit point from $g = 658$, $\alpha = 1.52$ to
+$g = 144$, $\alpha = 8.86$. The best cell is simply whichever node lands nearest the ridge.
+
+Refinement cannot fix this. The posterior standard deviations are $0.0018$, $0.0025$, $0.0055$
+and $0.078$ in unit coordinates, against a grid spacing of $0.053$. The posterior therefore
+occupies about $10^{-7}$ of the prior volume, and a uniform grid would need of order $10^{10}$
+points. Discretization error of $17.3$ sits well inside the $101.6$ gap, so the ranking is
+safe; the reported best-fit parameters are not.
 \Cref{fig:coverage} shows which models lose points.
 
 \begin{figure}[htbp]
@@ -1975,10 +2333,12 @@ shown lost no points.}
 \paragraph{Consequences for the numbers reported here.}
 Three methods that resolve the posterior -- sampling, a refined grid, and continuous
 optimization -- agree that $g$ lies near $10^2$\,Pa. The coarse grid used for the ranking
-reports $2154$\,Pa. The ranking does not depend on this, but any material property quoted
-from the grid does. We also note that a modulus of that size is implausibly soft for
-gelatin, which is the degeneracy above making itself felt: the fit buys a lower residual by
-trading modulus against stiffening, along a direction the data barely constrain.
+reports $2154$\,Pa. The ranking does not depend on this; any material property quoted from the
+grid does.
+
+A modulus that size is also implausibly soft for gelatin. That is the degeneracy above making
+itself felt: the fit buys a lower residual by trading modulus against stiffening, along a
+direction the data barely constrain.
 
 \paragraph{One candidate was never genuinely exercised.}
 The Gent solid appears in the comparison but cannot be tested on these records. Its energy
@@ -2064,7 +2424,7 @@ $\operatorname{Var}(\hat\theta)\ge 1/F$; the multivariate statement is
 %
 So $F^{-1}$ is a floor on achievable precision, attained asymptotically by maximum
 likelihood: $\sqrt{N}(\hat\theta_N - \theta) \to \mathcal{N}(0, F_1^{-1})$ under regularity.
-This is the licence for reading $F^{-1}$ as a covariance and its eigenvectors as the axes of
+This is the license for reading $F^{-1}$ as a covariance and its eigenvectors as the axes of
 a confidence ellipsoid -- and the regularity conditions are exactly what near-singular $F$
 threatens, which is why sloppiness is worth detecting rather than tolerating.
 
@@ -2183,7 +2543,7 @@ direction the data does not determine has $\lambda_i \to 0$ and contributes a fa
 diverging to $+\infty$. The evidence then \emph{increases} with the addition of a parameter
 that does nothing, which is the opposite of what the Occam factor exists to do.
 
-The pathology is entirely an artefact of the Gaussian approximation. The fitted Gaussian has
+The pathology is entirely an artifact of the Gaussian approximation. The fitted Gaussian has
 width $\sqrt{2\pi/\lambda_i} \gg 1$ in that direction and so extends far outside the cube the
 prior actually occupies, while the true integral, taken over the cube, simply returns the
 prior mass. Imposing what the geometry already requires -- a posterior cannot be wider than
@@ -2238,7 +2598,7 @@ case rather than the exceptional one.
 \end{tikzpicture}
 \caption{Why a ``best fit'' for $g$ is a statement about the prior. The likelihood depends on
 the product $g\alpha$, so the misfit surface is a valley running along constant $g\alpha$ and
-the data is flat along $g/\alpha$. An optimiser slides until it meets the edge of the box, and
+the data is flat along $g/\alpha$. An optimizer slides until it meets the edge of the box, and
 \emph{where} it stops is set by the box: the two dashed rectangles give the two filled points,
 which differ in $g$ by more than thirtyfold. This is the mechanism behind the fifty-nat swing
 in the operator ranking of \cref{sec:operator} when the bounds were widened, and behind the

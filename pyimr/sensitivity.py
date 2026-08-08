@@ -58,6 +58,8 @@ _MECHANICAL_PARAMETER_KEYS = (
 
 _NONDIFFERENTIABLE_FIELDS = {
   "radial",
+  "dynamics",
+  "liquid_eos",
   "vapor",
   "wave_type",
   "bubtherm",

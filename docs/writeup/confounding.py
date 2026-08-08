@@ -45,21 +45,21 @@ def main():
   times, mean, spread, maximum, stretch = records.load(DATASET)
 
   def trace(material=None, **config):
-    settings = dict(radial="keller-miksis", rtol=1e-9, atol=1e-11, max_steps=600_000)
+    settings = dict(dynamics="keller-miksis", rtol=1e-9, atol=1e-11, max_steps=600_000)
     settings.update(config)
     problem = pyimr.SimulationConfig(maximum, maximum / stretch, material or _material(), **settings)
     return np.asarray(pyimr.simulate(times, problem).radius_ratio, dtype=float)
 
   base = trace()
   axes = {
-    "dynamics (KM -> KM/Mie-G)": trace(radial="keller-miksis-mie") - base,
+    "dynamics (KM -> KM/Mie-G)": trace(dynamics="keller-enthalpy", liquid_eos="mie-gruneisen") - base,
     "constitutive (one -> two modes)": trace(_material(tau=2e-6, share=0.2)) - base,
     "thermal (cold -> bubble+medium)": trace(bubtherm=1, medtherm=1) - base,
   }
 
   # the material sensitivity span, in the same whitened units
   problem = pyimr.prepare(pyimr.SimulationConfig(maximum, maximum / stretch, _material(),
-                                                 radial="keller-miksis", rtol=1e-9, atol=1e-11, max_steps=600_000))
+                                                 dynamics="keller-miksis", rtol=1e-9, atol=1e-11, max_steps=600_000))
   jacobian = np.asarray(problem.solve_with_sensitivities(times, PATHS).radius_ratio, dtype=float)
   jacobian = jacobian * np.array([FIT["g"], FIT["mu"], FIT["lambda1"], FIT["alpha"]]) / spread[:, None]
   basis, _ = np.linalg.qr(jacobian)

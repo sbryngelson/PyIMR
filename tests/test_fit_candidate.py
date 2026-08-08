@@ -34,7 +34,7 @@ def analytic(target):
   """
   grid = np.linspace(1.0, 2.0, SAMPLES)
 
-  def solve(material):
+  def solve(material, _config):
     coordinates = np.array([np.log(material.viscosity_pa_s), np.log(material.shear_modulus_pa)])
     offset = coordinates - np.log(np.array(target))
     trace = grid * (1.0 + offset[0]) + grid**2 * offset[1]
@@ -52,7 +52,7 @@ def unit_of(candidate, values):
 def test_it_finds_the_optimum_of_a_model_with_a_known_one():
   target = {"mu": 0.05, "g": 2000.0}
   solve = analytic((target["mu"], target["g"]))
-  observed = solve(TWO.build(target))[0]
+  observed = solve(TWO.build(target), {})[0]
 
   fit = fit_candidate(TWO, solve, observed, 1e-3, starts=6)
   recovered = dict(zip(TWO.axes, physical_from_unit(TWO.axes, fit.unit), strict=True))
@@ -73,10 +73,10 @@ def test_it_fits_at_least_as_well_as_the_point_the_data_came_from():
   target = {"mu": 0.05, "g": 2000.0}
   solve = analytic((target["mu"], target["g"]))
   rng = np.random.default_rng(0)
-  observed = solve(TWO.build(target))[0] + rng.normal(0.0, 1e-3, SAMPLES)
+  observed = solve(TWO.build(target), {})[0] + rng.normal(0.0, 1e-3, SAMPLES)
 
   fit = fit_candidate(TWO, solve, observed, 1e-3, starts=6)
-  truth_residual = (solve(TWO.build(target))[0] - observed) / 1e-3
+  truth_residual = (solve(TWO.build(target), {})[0] - observed) / 1e-3
   assert fit.chi_squared <= float(truth_residual @ truth_residual) / SAMPLES + 1e-9
 
 
@@ -89,12 +89,12 @@ def test_a_region_that_will_not_integrate_does_not_kill_the_fit():
   """
   target = {"mu": 0.05, "g": 2000.0}
   clean = analytic((target["mu"], target["g"]))
-  observed = clean(TWO.build(target))[0]
+  observed = clean(TWO.build(target), {})[0]
 
-  def hostile(material):
+  def hostile(material, _config):
     # a whole slab of the box is unintegrable, on the far side from the optimum
     if material.shear_modulus_pa > 2e4: raise RuntimeError("the maximum number of solver steps was reached")
-    return clean(material)
+    return clean(material, _config)
 
   fit = fit_candidate(TWO, hostile, observed, 1e-3, starts=8)
   recovered = dict(zip(TWO.axes, physical_from_unit(TWO.axes, fit.unit), strict=True))
@@ -111,11 +111,11 @@ def test_it_reports_the_share_of_evaluations_that_failed():
   """
   target = {"mu": 0.05, "g": 500.0}
   clean = analytic((target["mu"], target["g"]))
-  observed = clean(TWO.build(target))[0]
+  observed = clean(TWO.build(target), {})[0]
 
-  def obstructed(material):
+  def obstructed(material, _config):
     if material.shear_modulus_pa > 1e3: raise RuntimeError("nope")
-    return clean(material)
+    return clean(material, _config)
 
   fit = fit_candidate(TWO, obstructed, observed, 1e-3, starts=8)
   recovered = dict(zip(TWO.axes, physical_from_unit(TWO.axes, fit.unit), strict=True))
@@ -132,7 +132,7 @@ def test_a_solve_that_never_works_is_an_error_not_a_fit():
 def test_the_modes_it_keeps_are_distinct_and_ordered():
   target = {"mu": 0.05, "g": 2000.0}
   solve = analytic((target["mu"], target["g"]))
-  observed = solve(TWO.build(target))[0]
+  observed = solve(TWO.build(target), {})[0]
 
   fit = fit_candidate(TWO, solve, observed, 1e-3, starts=6, separation=1e-3)
   assert list(fit.costs) == sorted(fit.costs), "modes must be best first"
@@ -190,18 +190,18 @@ def test_it_fits_the_real_forward_model():
 
   times = np.linspace(0.0, 4e-5, 50)
 
-  def solve(material):
-    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, radial=2,
+  def solve(material, _config):
+    config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
                                     rtol=1e-7, atol=1e-9, max_steps=200_000)
     trace = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
     return trace, trace
 
   candidate = STANDARD_MODELS["qSLS"]
   truth = {"mu": 0.04651, "g": 204.3, "lambda1": 1.964e-7, "alpha": 5.301}
-  observed = solve(candidate.build(truth))[0] + np.random.default_rng(0).normal(0.0, 2e-3, times.size)
+  observed = solve(candidate.build(truth), {})[0] + np.random.default_rng(0).normal(0.0, 2e-3, times.size)
 
   fit = fit_candidate(candidate, solve, observed, 2e-3, starts=6, max_evaluations=150)
-  truth_residual = (solve(candidate.build(truth))[0] - observed) / 2e-3
+  truth_residual = (solve(candidate.build(truth), {})[0] - observed) / 2e-3
   assert fit.chi_squared <= float(truth_residual @ truth_residual) / times.size + 1e-6
   assert fit.failure_fraction < 0.5
   assert 0.0 <= fit.unit.min() and fit.unit.max() <= 1.0

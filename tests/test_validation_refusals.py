@@ -213,7 +213,7 @@ _RUNAWAY_R0, _RUNAWAY_REQ = 277e-6, 277e-6 / 7.09
 
 
 def _runaway_config(material, **overrides):
-  options = {"radial": 2, "rtol": 1e-4, "atol": 1e-6, "max_steps": 3_000_000} | overrides
+  options = {"dynamics": "keller-miksis", "rtol": 1e-4, "atol": 1e-6, "max_steps": 3_000_000} | overrides
   return pyimr.SimulationConfig(_RUNAWAY_R0, _RUNAWAY_REQ, material, **options)
 
 
@@ -258,7 +258,7 @@ def test_a_strongly_forced_bubble_started_at_equilibrium_is_not_refused(measured
   material = pyimr.NeoHookeanKelvinVoigt(2500.0, 0.1)
   equilibrium = 277e-6 / 7.09
   config = pyimr.SimulationConfig(
-    equilibrium, equilibrium, material, radial=2, rtol=1e-6, atol=1e-8, max_steps=3_000_000,
+    equilibrium, equilibrium, material, dynamics="keller-miksis", rtol=1e-6, atol=1e-8, max_steps=3_000_000,
     wave_type=1, pA=1e6, TW=5e-6, DT=2e-5,
   )
   largest = float(np.asarray(pyimr.simulate(_RUNAWAY_TIMES, config).radius_ratio).max())

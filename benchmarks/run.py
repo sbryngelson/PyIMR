@@ -34,7 +34,7 @@ PARAMS = ("material.shear_modulus_pa", "material.viscosity_pa_s", "R0", "Req")
 # longer than the work it measures does not get run.
 CASES = (
   ("nhkv", "forward", LONG, 0.06, dict(), 0),
-  ("nhkv-keller-miksis", "forward", LONG, 0.05, dict(radial=2), 0),
+  ("nhkv-keller-miksis", "forward", LONG, 0.05, dict(dynamics="keller-miksis"), 0),
   ("zener", "forward", LONG, 0.09, dict(material=F.Zener(2500.0, 0.1, 2 * T0, 0.4 * T0)), 0),
   (
     "gent-carreau",
@@ -50,8 +50,8 @@ CASES = (
   ("bubtherm-fd-25", "thermal", SHORT, 0.06, dict(bubtherm=1, Nt=25, thermal="fd"), 0),
   ("bubtherm-spectral-25", "thermal", SHORT, 0.08, dict(bubtherm=1, Nt=25, thermal="spectral"), 0),
   ("coupled-fd", "thermal", SHORT, 0.30, dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=25, Mt=25, thermal="fd"), 0),
-  ("sens-nhkv-1", "sensitivity", SHORT, 0.2, dict(radial=2), 1),
-  ("sens-nhkv-4", "sensitivity", SHORT, 0.2, dict(radial=2), 4),
+  ("sens-nhkv-1", "sensitivity", SHORT, 0.2, dict(dynamics="keller-miksis"), 1),
+  ("sens-nhkv-4", "sensitivity", SHORT, 0.2, dict(dynamics="keller-miksis"), 4),
   # Off the compiled path (#44): ~90% of runtime is Dual dispatch. Opt-in only.
   ("sens-coupled-fd-1", "sensitivity", SHORT, 900.0, dict(bubtherm=1, medtherm=1, masstrans=1, vapor=1, Nt=7, Mt=7, thermal="fd"), 1),
 )

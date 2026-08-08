@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ._config import RADIAL_MODELS
+from ._config import OPERATORS
 from ._materials import (
   ArrudaBoyce,
   Bingham,
@@ -60,7 +60,8 @@ __all__ = [
   "DYNAMICS_MODELS", "EXTENDED_MODELS", "PARAMETER_BOUNDS", "STANDARD_MODELS", "CandidateFit",
   "CandidateModel",
   "bounds_for_invariant", "candidate_log_evidence", "compare", "fit_candidate", "grid_ready",
-  "log_evidence", "parameter_grid", "physical_from_unit", "redundancy_over_grid", "solve_grid",
+  "evaluate_at", "log_evidence", "parameter_grid", "physical_from_unit",
+  "redundancy_over_grid", "solve_grid",
   "strain_invariant",
 ]
 
@@ -116,6 +117,15 @@ PARAMETER_BOUNDS = {
   # the weakly identified region in the bounds is what #199 rejected for Gent: the
   # redundancy prior exists to drive the weight down there and say so.
   "tau_ratio": (1.1, 1e3), "share": (1e-3, 9e-1),
+  # `Req` as a multiple of its inferred value -- a CONFIGURATION axis, not a material one.
+  # This bound is a prior, not a measurement, and it is the most consequential one here:
+  # `docs/writeup/initial_state.py` finds that a 1.68% error in Req leaves the residual that
+  # changing the bubble-dynamics operator does. Too wide and the operator comparison is
+  # absorbed and reads as "the operators are indistinguishable"; too narrow and Req is pinned
+  # at a precision the experiment does not have. +/-10% log-symmetric is the default, and
+  # `req_prior.py` reports how the ranking moves as the width changes rather than asserting
+  # that one width is right.
+  "req_scale": (0.9, 1.0 / 0.9),
 }
 
 # The bubble-dynamics equations are a model choice like any other and the one this package
@@ -129,7 +139,7 @@ PARAMETER_BOUNDS = {
 # and because the parameter space is then identical the difference in log evidence is a clean
 # Bayes factor with the Occam terms cancelling. The table itself lives in `_config` beside
 # the option it names, so there is one of it.
-DYNAMICS_MODELS = RADIAL_MODELS
+DYNAMICS_MODELS = OPERATORS
 
 _NEGLIGIBLE = 1e-9
 # Residual returned where the material will not integrate: far above any real whitened
@@ -160,6 +170,16 @@ class CandidateModel:
   build: Callable[[dict], MaterialModel]
   axes: tuple[str, ...]
   contains: tuple[str, ...] = ()
+  # Axes that reach the CONFIGURATION rather than the material. `Req` is the case this
+  # exists for: it is inferred, not measured, and a 1.68% error in it leaves the same
+  # residual as changing the bubble-dynamics operator, so pinning it asserts a precision
+  # the experiment does not have. Named here, such an axis is fitted and paid for by the
+  # Occam factor like any other.
+  config_axes: tuple[str, ...] = ()
+
+  def __post_init__(self) -> None:
+    if stray := [a for a in self.config_axes if a not in self.axes]:
+      raise ValueError(f"{self.name}: config_axes {stray} are not among its axes")
 
   @property
   def dimension(self) -> int: return len(self.axes)
@@ -374,6 +394,17 @@ def _deviation_for(deviation, samples):
     raise ValueError(f"deviation must be scalar or one per sample; got {scale.size} for {samples} observations")
   return scale
 
+def evaluate_at(candidate, solve, fields):
+  """Build the candidate at `fields` and solve it, splitting off the configuration axes.
+
+  Every caller that turns a parameter point into a trajectory goes through here, so the
+  split happens once. `solve` takes `(material, config)` whether or not the candidate has
+  configuration axes -- a signature that changed with the candidate would be a `TypeError`
+  waiting for whoever first writes a candidate that has them.
+  """
+  return solve(candidate.build(fields), {a: fields[a] for a in candidate.config_axes})
+
+
 def physical_from_unit(axes, unit_point, bounds=None):
   """Parameters from a point in the unit cube: the inverse of `normalize_log_coordinates`.
 
@@ -390,13 +421,13 @@ def physical_from_unit(axes, unit_point, bounds=None):
   return lower * (upper / lower) ** unit
 
 def solve_grid(candidate, solve, *, count, bounds=None):
-  """Evaluate a candidate over its grid. `solve(material)` returns `(radius, stress)`.
+  """Evaluate a candidate over its grid. `solve(material, config)` returns `(radius, stress)`.
 
   Every point must solve. A sweep whose points can fail wants its own loop, marking the
   failures so they can be dropped from the prior -- `examples/windowed_selection.py`.
   """
   points, normalized = parameter_grid(candidate.axes, count, bounds)
-  solved = [solve(candidate.build(dict(zip(candidate.axes, row)))) for row in points]
+  solved = [evaluate_at(candidate, solve, dict(zip(candidate.axes, row))) for row in points]
   return points, normalized, np.array([r for r, _ in solved]), np.array([s for _, s in solved])
 
 def redundancy_over_grid(candidate, models, points, stresses, solve, *, weights=None):
@@ -413,7 +444,7 @@ def redundancy_over_grid(candidate, models, points, stresses, solve, *, weights=
   for child in (models[name] for name in candidate.contains):
     for index, row in enumerate(points):
       theta = dict(zip(candidate.axes, row))
-      solved = solve(child.build({a: theta[a] for a in child.axes}))
+      solved = evaluate_at(child, solve, {a: theta[a] for a in child.axes})
       if solved is None: continue
       _, stress = solved
       redundancies[index] = min(
@@ -527,7 +558,7 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
     attempted += 1
     values = physical_from_unit(candidate.axes, np.clip(point, 0.0, 1.0), bounds)
     try:
-      solved = solve(candidate.build(dict(zip(candidate.axes, values, strict=True))))
+      solved = evaluate_at(candidate, solve, dict(zip(candidate.axes, values, strict=True)))
     except Exception:                                # noqa: BLE001 -- an excursion, not a bug
       failed += 1
       return np.full(measured.size, _UNREACHABLE)
@@ -587,7 +618,7 @@ def candidate_log_evidence(candidate, solve, observed, deviation, unit_point, *,
   `qSLS2` has `tau_ratio`, a ratio of two of them, and `oldroydb` likewise. It costs
   `1 + 2*dimension` solves, which against `count**dimension` is not the expensive part.
 
-  `solve(material)` returns `(radius, stress)`, the same callback `solve_grid` takes.
+  `solve(material, config)` returns `(radius, stress)`, the same callback `solve_grid` takes.
   """
   bounds = PARAMETER_BOUNDS if bounds is None else bounds
   unit = np.asarray(unit_point, dtype=float).ravel()
@@ -607,7 +638,7 @@ def candidate_log_evidence(candidate, solve, observed, deviation, unit_point, *,
     # sum over modes and drop the ones that will not score; that is only possible if the
     # failure is one catchable kind rather than whatever the integrator happened to throw.
     try:
-      solved = solve(candidate.build(dict(zip(candidate.axes, values, strict=True))))
+      solved = evaluate_at(candidate, solve, dict(zip(candidate.axes, values, strict=True)))
     except Exception as error:                       # noqa: BLE001
       raise ValueError(f"{candidate.name} does not solve at {dict(zip(candidate.axes, values))}: {error}") from error
     if solved is None: raise ValueError(f"{candidate.name} does not solve at {dict(zip(candidate.axes, values))}")

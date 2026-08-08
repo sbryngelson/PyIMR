@@ -1,0 +1,72 @@
+{
+ "full_logdet": 18.53866612790328,
+ "samples": 201,
+ "measure_gap": -1.0078338164021261e-10,
+ "measure_certified": true,
+ "measure_support": 6,
+ "rows": {
+  "201": {
+   "uniform": 18.53866612790328,
+   "uniform_efficiency": 1.0,
+   "optimal": 25.715981159360243,
+   "optimal_efficiency": 6.015435552520804,
+   "gain": 6.015435552520804
+  },
+  "100": {
+   "uniform": 14.458122521858305,
+   "uniform_efficiency": 0.3605459381055649,
+   "optimal": 22.923065998781745,
+   "optimal_efficiency": 2.99247249686574,
+   "gain": 8.29983694335663
+  },
+  "50": {
+   "uniform": 11.730298284654225,
+   "uniform_efficiency": 0.18230175673972654,
+   "optimal": 20.148528388848387,
+   "optimal_efficiency": 1.4955074268933903,
+   "gain": 8.203472383585071
+  },
+  "25": {
+   "uniform": 7.643150880318099,
+   "uniform_efficiency": 0.06561973355400134,
+   "optimal": 17.374753356549423,
+   "optimal_efficiency": 0.7475319793909747,
+   "gain": 11.39187770056698
+  },
+  "12": {
+   "uniform": 5.976560708685652,
+   "uniform_efficiency": 0.04326002178802636,
+   "optimal": 14.419654775898264,
+   "optimal_efficiency": 0.357095210028595,
+   "gain": 8.254623906071007
+  },
+  "8": {
+   "uniform": -0.11692393202289253,
+   "uniform_efficiency": 0.00942963853008789,
+   "optimal": 12.724461392750378,
+   "optimal_efficiency": 0.23373876321221573,
+   "gain": 24.78766948132816
+  },
+  "6": {
+   "uniform": -0.306686103253897,
+   "uniform_efficiency": 0.008992736727128125,
+   "optimal": 11.389639489168847,
+   "optimal_efficiency": 0.167418827070742,
+   "gain": 18.617116474197953
+  },
+  "5": {
+   "uniform": -8.396741877072976,
+   "uniform_efficiency": 0.0011899404665206396,
+   "optimal": -Infinity,
+   "optimal_efficiency": 0.0,
+   "gain": 0.0
+  },
+  "4": {
+   "uniform": -Infinity,
+   "uniform_efficiency": 0.0,
+   "optimal": -Infinity,
+   "optimal_efficiency": 0.0,
+   "gain": NaN
+  }
+ }
+}

@@ -24,7 +24,7 @@ R_MAX, STRETCH = 277e-6, 7.09
 
 
 def solve(material, rtol=1e-9):
-  config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH, material, radial=2,
+  config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH, material, dynamics="keller-miksis",
                                   rtol=rtol, atol=rtol * 1e-2, max_steps=400_000)
   return np.asarray(pyimr.simulate(TIMES, config).radius_ratio, dtype=float)
 
@@ -78,7 +78,7 @@ def test_the_new_parameters_are_differentiable():
   """They were given their own `SCALE_PATHS` slots. Without them the sensitivity is
   silently zero rather than an error, so the finite difference is the only witness.
   """
-  config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH, thinning(2e-6, 0.6), radial=2,
+  config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH, thinning(2e-6, 0.6), dynamics="keller-miksis",
                                   rtol=1e-9, atol=1e-11, max_steps=400_000)
   problem = pyimr.prepare(config)
   for path, value in (("material.thinning_time_s", 2e-6), ("material.power_index", 0.6)):
@@ -109,7 +109,7 @@ def test_a_sweep_over_the_new_parameters_compiles_once():
 
   def radius(time_s, index):
     config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH, pyimr.CarreauZener(G, MU, LAM1, 0.0, ALPHA, time_s, index),
-                                    radial=2, rtol=1e-7, atol=1e-9)
+                                    dynamics="keller-miksis", rtol=1e-7, atol=1e-9)
     return np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
 
   _jax._COMPILED.clear()

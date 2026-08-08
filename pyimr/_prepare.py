@@ -136,6 +136,10 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   tait_sam = 1.0 + tait_gamma
   tait_no = (physics.tait_exponent - 1.0) / physics.tait_exponent
   Cstar = physics.sound_speed_m_s / Uc
+  nasg_gamma = physics.nasg_pressure_pa / P8_value
+  nasg_sam = 1.0 + nasg_gamma
+  nasg_no = (physics.nasg_exponent - 1.0) / physics.nasg_exponent
+  nasg_b = physics.nasg_covolume_m3_kg * density
   nog = (physics.tait_exponent - 1.0) / 2.0
   mie_reference = _mie_F(_mu_of_A(1.0 / Cstar**2, physics.hugoniot_slope, nog, xp=xp), physics.hugoniot_slope, nog, xp=xp)
   return dict(
@@ -171,6 +175,11 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
     tait_sam=tait_sam,
     tait_no=tait_no,
     tait_exponent=physics.tait_exponent,
+    nasg_gamma=nasg_gamma,
+    nasg_sam=nasg_sam,
+    nasg_no=nasg_no,
+    nasg_b=nasg_b,
+    nasg_exponent=physics.nasg_exponent,
     hugoniot_slope=physics.hugoniot_slope,
     nog=nog,
     mie_reference=mie_reference,

@@ -33,10 +33,10 @@ _PINNED_MEDIAN_BOUNDS = {
   "masstrans=1+medtherm=1 (coupled)": 7e-06,
   "no constitutive stress": 7e-06,
   "quadratic Zener": 6e-06,
-  "radial=3 (KM enthalpy, Tait)": 2e-07,
-  "radial=4 (Gilmore, Tait)": 2e-07,
-  "radial=3+Zener": 7e-06,
-  "radial=4+Zener": 8e-06,
+  "keller-enthalpy/tait": 2e-07,
+  "gilmore/tait": 2e-07,
+  "keller-enthalpy/tait+Zener": 7e-06,
+  "gilmore/tait+Zener": 8e-06,
   "coupled Oldroyd-B": 5e-06,
   "coupled NHKV": 7e-06,
 }
@@ -75,8 +75,8 @@ _EXTENDED: list[tuple[str, dict[str, Any], str]] = [
   ("qKV alphax=0.25", dict(material=pyimr.QuadraticKelvinVoigt(2500.0, 0.1, 0.25)), "ref_qkv_a025.csv"),
   ("UCM/OldB De=0.5", dict(material=pyimr.OldroydB(0.1, 0.5 * T0, 0.1 * T0)), "ref_ucm_De005.csv"),
   ("UCM/OldB De=2.0", dict(material=oldroyd_b()), "ref_ucm_De020.csv"),
-  ("Keller-Miksis NHKV", dict(material=NHKV, radial=2), "ref_km_nhkv.csv"),
-  ("Keller-Miksis Zener", dict(material=zener(), radial=2), "ref_km_zener.csv"),
+  ("Keller-Miksis NHKV", dict(material=NHKV, dynamics="keller-miksis"), "ref_km_nhkv.csv"),
+  ("Keller-Miksis Zener", dict(material=zener(), dynamics="keller-miksis"), "ref_km_zener.csv"),
   ("Gaussian forcing pA=5e4", dict(wave_type=1, pA=5e4, TW=5e-6, DT=2e-5), "ref_gauss_pA50.csv"),
   ("Gaussian forcing pA=2e5", dict(wave_type=1, pA=2e5, TW=5e-6, DT=2e-5), "ref_gauss_pA200.csv"),
   ("constant offset pA=3e4", dict(wave_type=0, pA=3e4), "ref_imp_pA30.csv"),
@@ -88,14 +88,14 @@ _EXTENDED: list[tuple[str, dict[str, Any], str]] = [
   ("masstrans=1+medtherm=1 (coupled)", dict(bubtherm=1, vapor=1, masstrans=1, medtherm=1, Nt=25, Mt=25, thermal="fd"), "ref_masstrans_medtherm.csv"),
   ("no constitutive stress", dict(material=pyimr.NoStress()), "ref_stress0.csv"),
   ("quadratic Zener", dict(material=pyimr.QuadraticZener(2500.0, 0.1, 2 * T0, 0.4 * T0, 0.25)), "ref_stress4.csv"),
-  ("radial=3 (KM enthalpy, Tait)", dict(radial=3), "ref_radial3.csv"),
-  ("radial=4 (Gilmore, Tait)", dict(radial=4), "ref_radial4.csv"),
+  ("keller-enthalpy/tait", dict(dynamics="keller-enthalpy", liquid_eos="tait"), "ref_radial3.csv"),
+  ("gilmore/tait", dict(dynamics="gilmore", liquid_eos="tait"), "ref_radial4.csv"),
   # These three, and "Keller-Miksis Zener" above, no longer check against IMRv2. PyIMR
   # corrected the Zener acceleration coefficient to 4*LAM/Re8 (#174), which moves the
   # trajectory ~5e-02 from IMRv2, so the files were regenerated from a converged PyIMR
   # solve. They catch regressions; they no longer catch a disagreement with upstream.
-  ("radial=3+Zener", dict(radial=3, material=zener()), "ref_radial3_zener.csv"),
-  ("radial=4+Zener", dict(radial=4, material=zener()), "ref_radial4_zener.csv"),
+  ("keller-enthalpy/tait+Zener", dict(dynamics="keller-enthalpy", liquid_eos="tait", material=zener()), "ref_radial3_zener.csv"),
+  ("gilmore/tait+Zener", dict(dynamics="gilmore", liquid_eos="tait", material=zener()), "ref_radial4_zener.csv"),
 ]
 
 
@@ -201,30 +201,36 @@ def test_mie_enthalpy_weakly_compressible_limit(mie_parameters, measured):
 
 
 @pytest.fixture(scope="module")
-def radial_trajectories():
+def operator_trajectories():
   return {
-    n: pyimr.simulate(reference_times(), pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV, radial=n)).radius_ratio for n in (2, 3, 4, 5, 6)
+    pyimr.operator_name(*operator): pyimr.simulate(
+      reference_times(), pyimr.SimulationConfig(R0=R0, Req=REQ, material=NHKV,
+                                                dynamics=operator[0], liquid_eos=operator[1])).radius_ratio
+    for operator in pyimr.OPERATORS if operator[0] != "rayleigh-plesset"
   }
 
 
+# Each row holds one axis fixed and varies the other, which is the point of naming them as a
+# pair: the first two vary the equation of state under one dynamics, the third varies the
+# dynamics under one equation of state. Written as integers this read as "5 vs 3".
 @pytest.mark.parametrize(
-  "label,left,right,tolerance",
+  "left,right,tolerance",
   [
-    ("radial=5 (KM/Mie-G) vs radial=3 (KM/Tait)", 5, 3, 2e-3),
-    ("radial=6 (Gilmore/Mie-G) vs radial=4 (Gilmore/Tait)", 6, 4, 3e-2),
-    ("radial=6 vs radial=5 (Gilmore vs KM, same EoS)", 6, 5, 3e-2),
+    ("keller-enthalpy/mie-gruneisen", "keller-enthalpy/tait", 2e-3),
+    ("gilmore/mie-gruneisen", "gilmore/tait", 3e-2),
+    ("gilmore/mie-gruneisen", "keller-enthalpy/mie-gruneisen", 3e-2),
   ],
-  ids=["5-vs-3", "6-vs-4", "6-vs-5"],
 )
-def test_corrected_mie_agrees_with_tait(label, left, right, tolerance, radial_trajectories, measured):
+def test_corrected_mie_agrees_with_tait(left, right, tolerance, operator_trajectories, measured):
   """The corrected branches must agree with the independent Tait forms to"""
-  worst = deviation(radial_trajectories[left], radial_trajectories[right])
-  spread = deviation(radial_trajectories[3], radial_trajectories[4])
-  measured(label, f"{worst:.2e}  (reference spread radial=3 vs 4: {spread:.2e})")
+  worst = deviation(operator_trajectories[left], operator_trajectories[right])
+  spread = deviation(operator_trajectories["keller-enthalpy/tait"], operator_trajectories["gilmore/tait"])
+  measured(f"{left} vs {right}",
+           f"{worst:.2e}  (reference spread keller-enthalpy/tait vs gilmore/tait: {spread:.2e})")
   assert worst < tolerance
 
 
-def test_radial6_is_finite_and_real(radial_trajectories):
-  """radial=6 is unavailable upstream at all; assert it runs clean here."""
-  trajectory = radial_trajectories[6]
+def test_gilmore_mie_gruneisen_is_finite_and_real(operator_trajectories):
+  """gilmore/mie-gruneisen is unavailable upstream at all; assert it runs clean here."""
+  trajectory = operator_trajectories["gilmore/mie-gruneisen"]
   assert np.all(np.isfinite(trajectory)) and np.isrealobj(trajectory)

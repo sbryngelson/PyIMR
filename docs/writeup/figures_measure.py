@@ -39,7 +39,7 @@ def information(design):
   radius, stretch = design
   times = np.linspace(0.0, 5.0 * characteristic_time(radius), SAMPLES)
   material = pyimr.QuadraticZener(FIT[0], FIT[1], FIT[2], 0.0, FIT[3])
-  config = pyimr.SimulationConfig(radius, radius / stretch, material, radial="keller-miksis",
+  config = pyimr.SimulationConfig(radius, radius / stretch, material, dynamics="keller-miksis",
                                   rtol=1e-7, atol=1e-9, max_steps=200_000)
   try:
     truth = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)

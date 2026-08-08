@@ -46,7 +46,13 @@ def _job(argument):
   times, mean, spread, maximum, stretch = records.load(dataset)
   solve = records.solver(times, maximum, stretch, max_steps=600_000, **TREATMENTS[name])
   try:
-    got = records.score(_candidate(), solve, mean, spread, bounds=BOX, starts=10, evaluations=260)
+    # starts=24, not 10. At 10 the cold baselines still disagreed across records in the way
+    # that indicates a search failing on some rows rather than physics -- 15 C reported
+    # bubble+medium at -131 nats while 23 C reported it at +8 for the same treatment. Only
+    # nine fits run here, so the budget is cheap; a margin read off an under-converged
+    # baseline is not.
+    got = records.score(_candidate(), solve, mean, spread, bounds=BOX, starts=24,
+                        evaluations=600, trials=records.trial_count(dataset))
   except Exception as error:                          # noqa: BLE001
     got = {"failed": f"{type(error).__name__}: {error}"}
   return (dataset, name), got

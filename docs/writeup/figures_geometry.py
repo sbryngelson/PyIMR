@@ -43,7 +43,7 @@ def trajectory(values, times):
   g, mu, lam, alpha = (float(v) for v in values)
   config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH,
                                   pyimr.QuadraticZener(g, mu, lam, 0.0, alpha),
-                                  radial="keller-miksis", rtol=1e-7, atol=1e-9, max_steps=200_000)
+                                  dynamics="keller-miksis", rtol=1e-7, atol=1e-9, max_steps=200_000)
   try:
     return np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
   except Exception:                                  # noqa: BLE001
@@ -56,7 +56,7 @@ def information(times):
 
   config = pyimr.SimulationConfig(R_MAX, R_MAX / STRETCH,
                                   pyimr.QuadraticZener(*FIT[[0, 1, 2]], 0.0, FIT[3]),
-                                  radial="keller-miksis", rtol=1e-7, atol=1e-9, max_steps=200_000)
+                                  dynamics="keller-miksis", rtol=1e-7, atol=1e-9, max_steps=200_000)
   truth = np.asarray(pyimr.simulate(times, config).radius_ratio) * R_MAX
   inference = prepare_inference(
     config, RadiusObservation(times, truth, NOISE * R_MAX),

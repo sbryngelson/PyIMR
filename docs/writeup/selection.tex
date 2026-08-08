@@ -825,23 +825,24 @@ F = \frac{J\sum_i (\bar y_i - \hat y_i)^2 \,/\, (k-p)}
 \label{eq:lackoffit}
 \end{equation}
 %
-with $J=18$ trials at $k=201$ times and $p=4$ parameters.
+with $J$ trials at $k$ times and $p=4$ parameters. The records do not carry equal replication:
+$J$ is $18$, $14$ and $7$.
 
 \begin{center}
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccc}
 \toprule
-record & $\chi^2/N$ & pure error & lack of fit & $F$ & corrected \\
+record & $J$ & $\chi^2/N$ & pure error & lack of fit & $F$ & corrected \\
 \midrule
-\SI{15}{\celsius} & $0.973$ & $5.20\times10^{-4}$ & $7.36\times10^{-3}$ & $\mathbf{14.2}$ & $\mathbf{23.3}$ \\
-\SI{23}{\celsius} & $1.017$ & $1.86\times10^{-3}$ & $5.47\times10^{-3}$ & $2.9$ & $4.8$ \\
-\SI{33}{\celsius} & $1.130$ & $1.91\times10^{-3}$ & $6.23\times10^{-3}$ & $3.3$ & $5.4$ \\
+\SI{15}{\celsius} & $18$ & $0.973$ & $5.20\times10^{-4}$ & $7.36\times10^{-3}$ & $\mathbf{14.2}$ & $\mathbf{23.3}$ \\
+\SI{23}{\celsius} & $14$ & $1.017$ & $1.86\times10^{-3}$ & $5.47\times10^{-3}$ & $2.9$ & $4.8$ \\
+\SI{33}{\celsius} & $7$ & $1.130$ & $1.91\times10^{-3}$ & $6.23\times10^{-3}$ & $3.3$ & $5.4$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent At $197$ against $3417$ degrees of freedom the five percent critical value is near
-$1.2$, so every record shows lack of fit and \SI{15}{\celsius} shows it by an order of
-magnitude. The conclusion is the one above, reached with none of the same machinery.
+\noindent Degrees of freedom are $197$ against $3417$ at \SI{15}{\celsius} and fall with $J$
+elsewhere, so the five percent critical value is near $1.2$ throughout. Every record shows lack
+of fit. The conclusion is the one above, reached with none of the same machinery.
 
 Two things make it worth the page. It gets the factor of $J$ right by construction --- the fit
 compares the \emph{mean} of the trials against the spread \emph{between} them, and the $J$ in
@@ -849,11 +850,16 @@ the numerator is that missing $\sqrt{J}$ --- and it is conservative in a directi
 quantify: \SI{39.3}{\percent} of the trial variance is bubble-to-bubble parameter spread rather
 than measurement, so pure error is inflated and the corrected column divides that share out.
 
-It also separates the records, which lag-one does not. The lag-one values are $0.919$, $0.968$
-and $0.911$, effectively identical. But \SI{15}{\celsius} repeats itself three times more
-tightly than the others, so its systematic deviation stands $14$ times above its own scatter
-where theirs stand $3$. The strongest evidence that the model is incomplete comes from the
-record with the best apparatus, not the worst fit.
+It also separates the records, which lag-one does not: those values are $0.919$, $0.968$ and
+$0.911$, effectively identical. Two things drive the separation and both are real.
+\SI{15}{\celsius} repeats itself about three times more tightly, and it was run with more than
+twice the replicates of \SI{33}{\celsius} --- replication is what buys power to detect lack of
+fit, so the $F$ column correctly rewards it. Removing the replicate factor, the systematic
+misfit variance stands at $0.79$, $0.21$ and $0.47$ of pure error, so the ordering survives but
+the spread is milder than $14.2$ against $3.3$ suggests.
+
+The strongest evidence that the model is incomplete therefore comes from the record with the
+best apparatus and the most repeats, not from the worst fit.
 
 The $p$-value is not usable: $F$ assumes independent errors across time and these are
 correlated at $0.918$. The ratio needs no such assumption, and is read here as an effect size.

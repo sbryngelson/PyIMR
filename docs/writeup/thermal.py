@@ -51,7 +51,8 @@ def _job(argument):
     # bubble+medium at -131 nats while 23 C reported it at +8 for the same treatment. Only
     # nine fits run here, so the budget is cheap; a margin read off an under-converged
     # baseline is not.
-    got = records.score(_candidate(), solve, mean, spread, bounds=BOX, starts=24, evaluations=600)
+    got = records.score(_candidate(), solve, mean, spread, bounds=BOX, starts=24,
+                        evaluations=600, trials=records.trial_count(dataset))
   except Exception as error:                          # noqa: BLE001
     got = {"failed": f"{type(error).__name__}: {error}"}
   return (dataset, name), got

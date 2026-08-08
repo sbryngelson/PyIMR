@@ -30,7 +30,8 @@ def _job(operator):
   times, mean, spread, maximum, stretch = records.load(DATASET)
   solve = records.solver(times, maximum, stretch, dynamics=dynamics, liquid_eos=liquid_eos)
   try:
-    return operator, records.score(STANDARD_MODELS["qSLS"], solve, mean, spread, bounds=WIDE)
+    return operator, records.score(STANDARD_MODELS["qSLS"], solve, mean, spread, bounds=WIDE,
+                                   trials=records.trial_count(DATASET))
   except ValueError as error:
     return operator, {"failed": str(error)}
 

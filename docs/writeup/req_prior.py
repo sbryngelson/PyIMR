@@ -72,7 +72,8 @@ def _job(argument):
                          max_steps=600_000)
   try:
     got = records.score(_candidate(width), solve, mean, spread, bounds=_box(width),
-                        starts=STARTS, evaluations=EVALUATIONS)
+                        starts=STARTS, evaluations=EVALUATIONS,
+                        trials=records.trial_count(dataset))
   except Exception as error:                          # noqa: BLE001
     got = {"failed": f"{type(error).__name__}: {error}"}
   return (dataset, operator, width), got

@@ -149,8 +149,9 @@ structure our lag-one 0.918 residual has. So the certificate is not merely optim
 correlation; it is answering a different problem. This is the theoretical counterpart to gap 0
 below.
 
-**Replication versus distinct settings, and the lack-of-fit test.** Each record here is 18
-repeated bubbles, and we already use their spread as the noise scale. That is textbook *pure
+**Replication versus distinct settings, and the lack-of-fit test.** Each record here is a set
+of repeated bubbles -- 18, 14 and 7, not the uniform 18 we had assumed -- and we already use
+their spread as the noise scale. That is textbook *pure
 error*, and the classical apparatus built on it is the **lack-of-fit F-test**: it separates
 model inadequacy from measurement error using exactly the ingredients we have. `selection.tex`
 spends several pages establishing "the residual is model-form error, not noise" via lag-one

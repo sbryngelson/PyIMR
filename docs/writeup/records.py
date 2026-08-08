@@ -50,6 +50,16 @@ def load(dataset):
   return times[keep], mean[keep], spread[keep], DATASETS[dataset], record["stretch"]
 
 
+def trial_count(dataset):
+  """How many repeats the record carries. Not uniform: 18, 14 and 7.
+
+  Named apart from `score`'s `trials=` argument deliberately: a module function and a
+  keyword of the same name in one file is a shadow waiting for whoever calls one from
+  inside the other.
+  """
+  return int(json.loads((HERE / "results.json").read_text())[dataset]["trials"])
+
+
 def solver(times, maximum_radius, stretch, *, dynamics="keller-miksis", liquid_eos=None,
            rtol=1e-8, max_steps=400_000, **options):
   """A `solve(material)` callback of the shape `pyimr.selection` expects.
@@ -74,14 +84,15 @@ def solver(times, maximum_radius, stretch, *, dynamics="keller-miksis", liquid_e
   return solve
 
 
-def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=200):
+def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=200,
+          trials=None):
   """Fit, then the evidence summed over modes and the residual diagnostics at the best.
 
   Summed rather than taken at the best because the expansion is about one mode and the
   integral is over all of them; modes the expansion cannot use are dropped rather than
   allowed to abort the study.
   """
-  from pyimr.noise import check_residuals
+  from pyimr.noise import check_residuals, lack_of_fit
   from pyimr.selection import (PARAMETER_BOUNDS, candidate_log_evidence, evaluate_at,
                                fit_candidate, physical_from_unit)
   from scipy.special import logsumexp
@@ -97,10 +108,18 @@ def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=
   fitted = dict(zip(candidate.axes, (float(v) for v in values), strict=True))
   # through `evaluate_at`, or a candidate with configuration axes reports its residual at the
   # DEFAULT configuration while its evidence came from the fitted one
-  residual = (evaluate_at(candidate, solve, fitted)[0] - mean) / spread
+  model = evaluate_at(candidate, solve, fitted)[0]
+  residual = (model - mean) / spread
   check = check_residuals(np.asarray(residual, dtype=float))
+  # the replicate-based answer to the question `chi2_per_n` is usually mistaken for. `trials`
+  # differs by record -- 18, 14 and 7 -- and it enters the statistic, so it is read from the
+  # record rather than assumed
+  misfit = float("nan")
+  if trials is not None and int(trials) >= 2 and mean.size > candidate.dimension:
+    misfit = lack_of_fit(mean, model, spread, int(trials), candidate.dimension).ratio
   box = bounds or PARAMETER_BOUNDS
   return dict(chi2_per_n=fit.chi_squared, log_evidence=float(logsumexp(scored)) if scored else float("nan"),
+              lack_of_fit=misfit,
               lag_one=float(check.lag_one), n_eff=float(check.effective_samples),
               failure_fraction=fit.failure_fraction, modes=len(fit.modes), fitted=fitted,
               pinned=[k for k, v in fitted.items()

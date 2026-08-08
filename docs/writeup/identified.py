@@ -45,7 +45,7 @@ def _job(argument):
     # 0.439 exists, so all six operators were stuck in the same poor basin -- which looks
     # exactly like six operators that cannot be told apart, and was read that way.
     got = records.score(_candidate(ratio), solve, mean, spread, bounds=BOX, starts=10,
-                        evaluations=260)
+                        evaluations=260, trials=records.trial_count(dataset))
   except ValueError as error:
     got = {"failed": str(error)}
   return (dataset, name, ratio), got

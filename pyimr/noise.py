@@ -15,6 +15,7 @@ inflating its own error bars is penalized rather than rewarded.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from numbers import Integral
 
 import numpy as np
 from scipy.special import expit
@@ -23,15 +24,17 @@ from ._config import SimulationError
 
 __all__ = [
   "ATMOSPHERIC_PRESSURE",
+  "LackOfFit",
+  "ResidualCheck",
   "WATER_DENSITY",
   "beta_quadrature",
   "characteristic_time",
-  "hencky_strain_rate",
+  "check_residuals",
   "elliptical_gate",
+  "hencky_strain_rate",
+  "lack_of_fit",
   "marginal_log_likelihood",
   "marginalize_evaluation",
-  "ResidualCheck",
-  "check_residuals",
   "predicted_spread",
   "strain_rate_weights",
   "weighted_deviation",
@@ -285,3 +288,78 @@ def check_residuals(residual, *, threshold=None):
     effective_samples=float(effective), inflation=inflation,
     independent=bool(independent), summary=summary,
   )
+
+
+@dataclass(frozen=True, slots=True)
+class LackOfFit:
+  """The replicate-based split of a residual into model error and measurement scatter."""
+
+  pure_error: float
+  lack_of_fit: float
+  ratio: float
+  pure_df: int
+  lack_df: int
+  trials: int
+  summary: str
+
+  def __str__(self) -> str: return self.summary
+
+
+def lack_of_fit(observed, predicted, spread, trials, parameters):
+  """Split a residual into what the apparatus cannot repeat and what the model cannot follow.
+
+  `chi_squared/N` is routinely read as "the model fits to within the noise" and cannot answer
+  that, for a reason `check_residuals` gives from one side and this gives from another. With
+  replicates the question has a classical answer that costs no model at all: the spread
+  BETWEEN repeated runs at one setting is pure error, and whatever the model misses beyond it
+  is lack of fit.
+
+      SS_pure = (J-1) sum_i s_i^2                  df = k(J-1)
+      SS_lack = J sum_i (ybar_i - yhat_i)^2        df = k - p
+      ratio   = (SS_lack/df_lack) / (SS_pure/df_pure)
+
+  `observed` is the MEAN over `trials` repeats at each of `k` settings, `spread` their sample
+  standard deviation, and `predicted` the model there. Note the `J` in `SS_lack`: the data is
+  a mean, its standard error is smaller than the between-run spread by `sqrt(J)`, and a
+  `chi^2` formed against `spread` is quietly too forgiving by that factor. Here it is part of
+  the statistic rather than a correction anyone has to remember.
+
+  Measured on the gelatin records against their best-fitting qSLS: `ratio` of 14.2, 2.9 and
+  3.3 against a five-percent critical value near 1.2 -- every record rejects, and the coldest
+  rejects by an order of magnitude because its apparatus repeats three times more tightly, not
+  because its fit is worse. Lag-one cannot see that difference; it reads 0.919, 0.968, 0.911.
+
+  TWO THINGS THE RATIO IS NOT. It is not a p-value: the F distribution assumes the errors are
+  independent across settings, and on these records they are correlated at 0.918. Read it as
+  an effect size, which needs no such assumption. And it is a LOWER bound on model inadequacy
+  wherever the replicates differ by more than measurement -- if the repeats carry real
+  parameter variation, as bubble-to-bubble spread does here, pure error is inflated and the
+  denominator is too large.
+  """
+  mean = np.asarray(observed, dtype=float).ravel()
+  model = np.asarray(predicted, dtype=float).ravel()
+  scale = np.asarray(spread, dtype=float).ravel()
+  if not (mean.size == model.size == scale.size):
+    raise ValueError(f"observed, predicted and spread must agree in length; "
+                     f"got {mean.size}, {model.size}, {scale.size}")
+  if mean.size == 0: raise ValueError("at least one setting is required")
+  if not isinstance(trials, Integral) or int(trials) < 2:
+    raise ValueError("trials must be an integer of at least 2; pure error needs repeats")
+  if not isinstance(parameters, Integral) or int(parameters) < 0:
+    raise ValueError("parameters must be a non-negative integer")
+  if np.any(scale < 0.0) or not np.all(np.isfinite(scale)):
+    raise ValueError("spread must be finite and non-negative")
+  settings, trials, parameters = mean.size, int(trials), int(parameters)
+  if settings <= parameters:
+    raise ValueError(f"{settings} settings cannot support {parameters} parameters plus a "
+                     "lack-of-fit test; the numerator has no degrees of freedom")
+
+  pure_df, lack_df = settings * (trials - 1), settings - parameters
+  pure = float((trials - 1) * np.sum(scale**2)) / pure_df
+  lack = float(trials * np.sum((mean - model) ** 2)) / lack_df
+  ratio = lack / pure if pure > 0.0 else float("inf")
+  verdict = ("consistent with pure error" if ratio < 1.2 else
+             f"{ratio:.1f}x pure error -- the model misses structure the apparatus repeats")
+  return LackOfFit(pure_error=pure, lack_of_fit=lack, ratio=ratio, pure_df=pure_df,
+                   lack_df=lack_df, trials=trials,
+                   summary=f"lack of fit {ratio:.2f} on {lack_df} and {pure_df} df: {verdict}")

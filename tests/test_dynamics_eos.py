@@ -1,8 +1,8 @@
 """Naming the bubble-dynamics equations, on the two axes they actually have.
 
-`_rhs.py` carries one enthalpy-form equation. Codes 3-6 reach the same `num`/`den` and differ
-only in which equation of state supplies `hB`, `hH` and whether the sound speed is the
-constant `Cstar` or the local wall value -- a 2x2 that wore four names. Worse, `keller-miksis`
+`_rhs.py` carries one enthalpy-form equation. Every enthalpy code reaches the same `num`/`den`
+and differs only in the Prosperetti-Lezzi `lambda`, in which equation of state supplies `hB`,
+`hH`, and in whether the sound speed is the constant `Cstar` or the local wall value. Worse, `keller-miksis`
 named both the pressure form and the constant-sound-speed enthalpy form, which are different
 equations. So the pair is the interface now, the integer is derived and unsettable, and these
 tests pin what that buys: the pairing is checked, the 2x2 is complete, and each axis moves
@@ -29,7 +29,7 @@ def trace(**kw):
 
 
 def test_the_table_is_the_product_of_its_axes():
-  """Four dynamics, two of which take an equation of state, is exactly six operators.
+  """Five dynamics, three of which take an equation of state, is exactly eleven operators.
 
   Stated as a product rather than a count, so adding a dynamics or an EOS without extending
   the code table fails here rather than silently dropping a combination.
@@ -37,20 +37,20 @@ def test_the_table_is_the_product_of_its_axes():
   expected = {(d, None) for d in pyimr.DYNAMICS if d not in pyimr.NEEDS_EOS}
   expected |= {(d, e) for d in pyimr.NEEDS_EOS for e in pyimr.LIQUID_EOS}
   assert set(pyimr.OPERATORS) == expected
-  assert len(pyimr.OPERATORS) == len(set(pyimr.OPERATORS)) == 6
+  assert len(pyimr.OPERATORS) == len(set(pyimr.OPERATORS)) == 11
 
 
 @pytest.mark.parametrize(("dynamics", "liquid_eos"), pyimr.OPERATORS)
 def test_every_operator_resolves_to_a_distinct_code_and_solves(dynamics, liquid_eos):
   built = config(dynamics=dynamics, liquid_eos=liquid_eos)
   assert built.dynamics == dynamics and built.liquid_eos == liquid_eos
-  assert built.radial in range(1, 7)
+  assert built.radial in range(1, 12)
   assert np.all(np.isfinite(trace(dynamics=dynamics, liquid_eos=liquid_eos)))
 
 
 def test_the_codes_are_distinct_across_the_whole_table():
   codes = [config(dynamics=d, liquid_eos=e).radial for d, e in pyimr.OPERATORS]
-  assert sorted(codes) == list(range(1, 7)), "the pairs must cover the codes exactly"
+  assert sorted(codes) == list(range(1, 12)), "the pairs must cover the codes exactly"
 
 
 def test_the_derived_code_cannot_be_set():
@@ -75,7 +75,7 @@ def test_a_config_survives_a_replace():
   ({"dynamics": "keller-enthalpy"}, "needs a liquid_eos"),
   ({"dynamics": "keller-miksis", "liquid_eos": "tait"}, "takes no liquid_eos"),
   ({"dynamics": "rayleigh-plesset", "liquid_eos": "mie-gruneisen"}, "takes no liquid_eos"),
-  ({"dynamics": "gilmore", "liquid_eos": "nasg"}, "unknown liquid_eos"),
+  ({"dynamics": "gilmore", "liquid_eos": "stiffened-gas"}, "unknown liquid_eos"),
   ({"dynamics": "gilmore-mie"}, "unknown dynamics"),
   ({"dynamics": "keller-miksis-tait"}, "unknown dynamics"),
 ])

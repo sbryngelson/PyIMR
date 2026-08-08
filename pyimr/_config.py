@@ -94,6 +94,13 @@ class PhysicalParameters:
   tait_pressure_pa: float = _GAM_TAIT
   tait_exponent: float = _NSTATE_TAIT
   hugoniot_slope: float = _HUGONIOT_S
+  # Noble-Abel stiffened gas, for liquid water (Le Metayer & Saurel 2016). The covolume is
+  # what Tait lacks: molecules of finite size, so the liquid cannot be compressed past
+  # `v -> b`. At `b = 0` NASG IS Tait with `gamma <-> n` and `p_inf <-> B`, which is the
+  # reduction `tests/test_nasg.py` pins to round-off.
+  nasg_exponent: float = 1.19
+  nasg_pressure_pa: float = 7.028e8
+  nasg_covolume_m3_kg: float = 6.61e-4
   gas_conductivity_slope: float = _ATG
   gas_conductivity_offset: float = _BTG
   vapor_conductivity_slope: float = _ATV
@@ -110,9 +117,18 @@ class PhysicalParameters:
   def __post_init__(self) -> None:
     for name in self.__dataclass_fields__:
       value = getattr(self, name)
-      if not np.isfinite(value) or value <= 0.0: raise ValueError(f"physics.{name} must be finite and positive")
+      # the covolume alone may be zero: that is the Tait limit of NASG, and refusing it would
+      # make the one exact reduction this equation of state has unreachable from the API
+      floor = 0.0 if name == "nasg_covolume_m3_kg" else None
+      if not np.isfinite(value) or (value < 0.0 if floor is not None else value <= 0.0):
+        raise ValueError(f"physics.{name} must be finite and {'non-negative' if floor is not None else 'positive'}")
     if self.polytropic_exponent <= 1.0: raise ValueError("physics.polytropic_exponent must be greater than 1")
     if self.tait_exponent <= 1.0: raise ValueError("physics.tait_exponent must be greater than 1")
+    if self.nasg_exponent <= 1.0: raise ValueError("physics.nasg_exponent must be greater than 1")
+    # b*rho must stay below 1 or the liquid is denser than its own close-packed limit and
+    # both the sound speed and the enthalpy go singular
+    if self.nasg_covolume_m3_kg * self.medium_density_kg_m3 >= 1.0:
+      raise ValueError("physics.nasg_covolume_m3_kg * medium_density_kg_m3 must be below 1")
 
 @dataclass(frozen=True, slots=True)
 class SampledForcing:
@@ -380,20 +396,39 @@ def _readonly_optional(values) -> np.ndarray | None: return None if values is No
 DYNAMICS: dict[str, str] = {
   "rayleigh-plesset": "incompressible; no equation of state enters",
   "keller-miksis": "first order in wall Mach number, pressure form, constant sound speed",
-  "keller-enthalpy": "first order, enthalpy form, constant sound speed",
+  "keller-enthalpy": "first order, enthalpy form, constant sound speed (Prosperetti-Lezzi lambda=0)",
+  "herring": "first order, enthalpy form, constant sound speed (Prosperetti-Lezzi lambda=1)",
   "gilmore": "Kirkwood-Bethe, enthalpy form, local wall sound speed",
 }
-LIQUID_EOS: tuple[str, ...] = ("tait", "mie-gruneisen")
+LIQUID_EOS: tuple[str, ...] = ("tait", "mie-gruneisen", "nasg")
 # the enthalpy forms need a closure for `hB`, `hH`; the other two never ask for one
-NEEDS_EOS: tuple[str, ...] = ("keller-enthalpy", "gilmore")
+NEEDS_EOS: tuple[str, ...] = ("keller-enthalpy", "herring", "gilmore")
+
+# Prosperetti & Lezzi (1986) showed the first-order-in-Mach equations are a one-parameter
+# family, and that `keller-enthalpy` and `herring` are its lambda = 0 and lambda = 1 members
+# rather than two theories. `_ENTHALPY` below carries that lambda straight into the one
+# expression they share, so the family is visible in the code as it is in the paper.
+_LAMBDA: dict[str, float] = {"keller-enthalpy": 0.0, "herring": 1.0, "gilmore": 0.0}
+_LOCAL_SOUND_SPEED: tuple[str, ...] = ("gilmore",)
 
 _CODES: dict[tuple[str, str | None], int] = {
+  # 1-6 keep the numbering the IMRv2 reference trajectories were generated against
   ("rayleigh-plesset", None): 1,
   ("keller-miksis", None): 2,
   ("keller-enthalpy", "tait"): 3,
   ("gilmore", "tait"): 4,
   ("keller-enthalpy", "mie-gruneisen"): 5,
   ("gilmore", "mie-gruneisen"): 6,
+  ("herring", "tait"): 7,
+  ("herring", "mie-gruneisen"): 8,
+  ("keller-enthalpy", "nasg"): 9,
+  ("gilmore", "nasg"): 10,
+  ("herring", "nasg"): 11,
+}
+# what `_rhs` dispatches the enthalpy branch on: (lambda, local sound speed, equation of state)
+ENTHALPY_FORMS: dict[int, tuple[float, bool, str]] = {
+  code: (_LAMBDA[d], d in _LOCAL_SOUND_SPEED, e)
+  for (d, e), code in _CODES.items() if e is not None
 }
 _PAIRS: dict[int, tuple[str, str | None]] = {code: pair for pair, code in _CODES.items()}
 # every operator this package can integrate, as the pairs a caller writes

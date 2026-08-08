@@ -258,8 +258,12 @@ rank them -- see [open work](open-work.md).
 
 ### The forward operator is a model choice too
 
-`DYNAMICS_MODELS` names the six bubble-dynamics equations, from Rayleigh--Plesset through
-Keller--Miksis to Gilmore, with Tait and Mie--Grueneisen equations of state. They are not
+`DYNAMICS_MODELS` names the eleven operators, as `(dynamics, liquid_eos)` pairs. Five
+dynamics --- Rayleigh--Plesset, the Keller--Miksis pressure form, and the enthalpy forms
+`keller-enthalpy`, `herring` and `gilmore` --- of which the last three take one of three
+equations of state: `tait`, `mie-gruneisen` or `nasg`. `keller-enthalpy` and `herring` are the
+`lambda = 0` and `lambda = 1` members of the Prosperetti--Lezzi (1986) first-order family, not
+separate theories; `gilmore` is Kirkwood--Bethe, with the local wall sound speed. They are not
 `CandidateModel`s --- a candidate is a material, and this is the operator it is pushed
 through --- so they compare by holding the candidate fixed and varying the `solve` callback:
 

@@ -247,23 +247,31 @@ Stated as deliverables rather than criteria:
    about 20x redundant. Frames are cheap but not free, and the trade against bubble count,
    window length and SNR has never been posed.
 
-8. **The sloppy-model warning: TESTED, and confirmed worse than advertised.** Cold qSLS fitted
-   to a truth carrying thermal transport, at four geometries. The literature describes a TRADE
-   -- better parameters, worse fit. Two of our three recommendations lose on BOTH counts: the
-   E-optimal geometry fits 2.1x worse and recovers `g*alpha` 1.6x worse, and the
-   discrimination-optimal geometry fits 1.8x worse and recovers nearly 10x worse. The geometry
-   already performed beats both.
+8. **The sloppy-model warning: TESTED under two mismatches, and only partly confirmed.** Cold
+   one-mode qSLS fitted to a thermal truth and to a two-mode truth, at four geometries. Running
+   two was the point: with one, a property of the missing physics is indistinguishable from a
+   property of the design.
 
-   The mechanism is in the model-error column: a criterion computed under the correct-model
-   assumption sends the experiment where the model is most sensitive, which for these models is
-   where it is most wrong -- the thermal mismatch grows from 0.53 noise units at the performed
-   geometry to 1.24 at the E-optimal one, and the parameters absorb it.
+   ROBUST: the discrimination-optimal geometry is worse on BOTH counts under BOTH mismatches --
+   fits 1.8x and 2.1x worse than the performed geometry, recovers `g*alpha` 9.8x and 12.2x
+   worse. A design chosen to separate constitutive models degrades the parameter it was meant
+   to measure, whichever physics is missing.
 
-   The exception is instructive. The small support point at 60 um carries the LEAST model error
-   of the four (0.15) and is the only geometry that fits better than the one performed.
-   Robustness to measured model error, not information under the assumption of none, is what
-   picks it out. **A design should be scored against the model error we have measured before it
-   is offered to anyone.**
+   NOT ROBUST, and this corrects an earlier claim of mine: under thermal error the E-optimal
+   geometry loses on both counts, but under constitutive error it is indistinguishable from the
+   performed one (0.97, 0.98). The 60 um support point reverses harder -- least model error
+   under thermal truth, 8.7x worse `g*alpha` recovery under two-mode truth.
+
+   So the conclusion is narrower than "optimal designs are worse", and for a collaborator it is
+   worse than that: **which design is safe depends on which physics is missing, and we do not
+   know which is missing.** The lack-of-fit test says the model is inadequate on every record;
+   it does not say in what direction. A design cannot be certified robust without naming the
+   model error it is robust to, and no criterion in this package takes model error as an
+   argument at all.
+
+   The mechanism generalizes even though the ranking does not: a criterion computed under the
+   correct-model assumption sends the experiment where the model is most SENSITIVE, which is
+   often where it is most WRONG, and the fitted parameters absorb the difference.
 
 9. **Frames: measured, and there is an enormous amount of slack.** The D-optimal measure over
    the 201 candidate times is certified on SIX support points, and 50 observations placed on

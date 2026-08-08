@@ -75,14 +75,16 @@ refitting could absorb more. These are upper bounds on what is detectable.
 
 ## Open
 
-**0. Score every design against measured model error before offering it.** `sloppy_design.py`
-fits cold qSLS to a thermal truth at four geometries. The E-optimal and discrimination-optimal
-designs fit 2.1x and 1.8x worse than the geometry already performed AND recover `g*alpha` 1.6x
-and 9.8x worse -- they lose on both axes, not the trade the sloppy-systems literature
-describes. The design criteria are computed under the assumption the model is right, and
-`lackoffit.py` rejects that assumption on every record. Until a design is scored under model
-error it should not be handed to a collaborator. The 60 um support point is the exception and
-shows what to look for: it carries the least model error of the four.
+**0. No criterion here takes model error as an argument, and the ranking of designs depends on
+it.** `sloppy_design.py` fits cold one-mode qSLS to a thermal truth and to a two-mode truth at
+four geometries. Robust across both: the discrimination-optimal geometry is worse on BOTH
+counts BOTH times (fit 1.8x/2.1x, `g*alpha` recovery 9.8x/12.2x). Not robust: the E-optimal
+geometry loses on both counts under thermal error and is neutral under constitutive error, and
+the 60 um point goes from best to 8.7x worse recovery. So the actionable statement is not
+"optimal designs are worse" but "which design is safe depends on which physics is missing" --
+and `lackoffit.py` says the model IS inadequate on every record without saying in what
+direction. Designing robustly needs a criterion that takes the model-error hypothesis as an
+input; none of ours does.
 
 **0b. The lack-of-fit test is now the cheapest diagnostic here, and it is not wired in.**
 `lackoffit.py` runs it standalone. It belongs beside `chi2/N` in `records.score`, because it

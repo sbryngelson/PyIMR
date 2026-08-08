@@ -2193,45 +2193,51 @@ says so at every temperature. The literature on sloppy systems warns that a mode
 on data from its own optimal experiment, and that is testable before a bubble is spent.
 
 The test must not generate data from the model being fitted --- that is the assumption under
-examination, and a study that makes it finds nothing. So the truth here carries the thermal
-transport the fitted model lacks, a mismatch \cref{sec:axes} measures at $16$ noise units, and
-cold qSLS is fitted to it at four geometries.
+examination, and a study that makes it finds nothing. So the truth carries physics the fitted
+model lacks, and cold one-mode qSLS is fitted to it at four geometries. Two mismatches are
+used, because one would not distinguish a property of the design from a property of the
+missing physics: thermal transport, which \cref{sec:axes} sizes at $16$ noise units, and a
+second relaxation mode, at $14.4$.
 
 \begin{center}
-\begin{tabular}{lcccc}
+\begin{tabular}{lcccccc}
 \toprule
-geometry & $\chi^2/N$ & lag-one & $g\alpha$ error & model error \\
+& \multicolumn{3}{c}{thermal truth} & \multicolumn{3}{c}{two-mode truth} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+geometry & $\chi^2/N$ & $g\alpha$ err & model err & $\chi^2/N$ & $g\alpha$ err & model err \\
 \midrule
-performed, \SI{277}{\micro\metre} at $7.09$ & $1.231$ & $0.231$ & $\mathbf{3.8\%}$ & $0.53$ \\
-E-optimal, \SI{199}{\micro\metre} at $3.55$ & $2.533$ & $0.504$ & $5.9\%$ & $1.24$ \\
-discrimination-optimal, \SI{100}{\micro\metre} at $20.0$ & $2.197$ & $0.488$ & $\mathbf{37.1\%}$ & $1.17$ \\
-measure support, \SI{60}{\micro\metre} at $18.0$ & $\mathbf{0.892}$ & $0.009$ & $5.2\%$ & $\mathbf{0.15}$ \\
+performed, \SI{277}{\micro\metre} at $7.09$ & $1.231$ & $\mathbf{3.8\%}$ & $0.53$ & $0.905$ & $5.0\%$ & $\mathbf{0.11}$ \\
+E-optimal, \SI{199}{\micro\metre} at $3.55$ & $2.533$ & $5.9\%$ & $1.24$ & $0.877$ & $4.9\%$ & $0.19$ \\
+discrimination-optimal, \SI{100}{\micro\metre} at $20.0$ & $2.197$ & $\mathbf{37.1\%}$ & $1.17$ & $1.915$ & $\mathbf{60.7\%}$ & $1.06$ \\
+measure support, \SI{60}{\micro\metre} at $18.0$ & $0.892$ & $5.2\%$ & $0.15$ & $0.909$ & $\mathbf{43.5\%}$ & $0.25$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent The warning is real and it is worse than advertised. The sloppy-systems literature
-describes a \emph{trade} --- better parameters, worse fit. Two of these three recommendations
-lose on both counts. The E-optimal geometry fits $2.1$ times worse and recovers $g\alpha$
-$1.6$ times worse; the discrimination-optimal geometry fits $1.8$ times worse and recovers
-$g\alpha$ nearly \emph{ten} times worse. The geometry already performed beats both.
+\noindent One result holds under both mismatches, and it is the strongest thing here. The
+\textbf{discrimination-optimal geometry is worse on both counts, both times}: it fits $1.8$ and
+$2.1$ times worse than the geometry already performed, and recovers $g\alpha$ $9.8$ and $12.2$
+times worse. A design chosen to separate constitutive models degrades the parameter it was
+supposed to help measure, whichever physics is missing.
 
-The mechanism is visible in the last column. A criterion computed under the correct-model
-assumption sends the experiment where the model is most sensitive, and for these models that is
-also where it is most wrong: the thermal mismatch grows from $0.53$ noise units at the
-performed geometry to $1.24$ at the E-optimal one. The parameters then absorb the mismatch,
-which is why recovery degrades rather than improving.
+The rest does not survive the change of mismatch, and saying so is the point of running two.
+Under thermal error the E-optimal geometry loses on both counts; under constitutive error it is
+indistinguishable from the performed one ($0.97$ and $0.98$). The \SI{60}{\micro\metre} support
+point reverses more sharply: it carries the least model error under thermal truth and recovers
+$g\alpha$ $8.7$ times worse under two-mode truth.
 
-One design escapes, and instructively. The small support point at \SI{60}{\micro\metre} carries
-the \emph{least} model error of the four, $0.15$ against $0.53$, and is the only geometry that
-fits better than the one performed. Robustness to the error we have measured, not information
-under the assumption that we have none, is what distinguishes it.
+So the sloppy-systems warning is not simply confirmed. What these records support is narrower
+and, for a collaborator, worse: \emph{which design is safe depends on which physics is missing,
+and we do not know which is missing}. \Cref{eq:lackoffit} says the model is inadequate on every
+record; it does not say in what direction. A design cannot be certified robust without naming
+the model error it is robust to, and no criterion in \cref{sec:design} takes model error as an
+argument at all.
 
-This is one mismatch at one truth, and a different model error could rank differently. What
-does not depend on that choice is the direction: design criteria evaluated under a model the
-data reject can recommend experiments that are worse on every axis they were meant to improve.
-A design should be scored against the model error we have measured before it is offered to
-anyone.
+The mechanism is visible in the model-error columns. A criterion computed under the
+correct-model assumption sends the experiment where the model is most \emph{sensitive}, which is
+often where it is most \emph{wrong}: the thermal mismatch grows from $0.53$ noise units at the
+performed geometry to $1.24$ at the E-optimal one, and the fitted parameters absorb it. That
+mechanism is general. Which geometry it punishes is not.
 
 \section{Temperature dependence}
 

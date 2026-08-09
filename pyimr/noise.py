@@ -37,10 +37,82 @@ __all__ = [
   "marginalize_evaluation",
   "predicted_spread",
   "strain_rate_weights",
+  "correlation_time_from",
   "weighted_deviation",
+  "whitening",
 ]
 
 WATER_DENSITY, ATMOSPHERIC_PRESSURE = 998.0, 101325.0
+
+
+@dataclass(frozen=True, slots=True)
+class Whitening:
+  """Turns a residual into standard normal coordinates, and carries what that costs.
+
+  `apply` divides by the deviation when the samples are independent and solves the Cholesky
+  triangle when they are not. `log_determinant` is `log det (2 pi Sigma)`, which the two cases
+  compute differently and which every evidence in this package needs.
+  """
+
+  deviation: np.ndarray
+  factor: np.ndarray | None
+  log_determinant: float
+
+  def apply(self, values):
+    array = np.asarray(values, dtype=float)
+    if self.factor is None:
+      return array / (self.deviation[:, None] if array.ndim == 2 else self.deviation)
+    from scipy.linalg import solve_triangular
+    return solve_triangular(self.factor, array, lower=True)
+
+
+def whitening(times, deviation, correlation_time=None):
+  """The noise model as one object: independent, or exponentially correlated in time.
+
+  A Gaussian likelihood with independent samples treats every point as fresh information.
+  These records do not: `check_residuals` measures lag-one autocorrelation between $0.90$ and
+  $0.97$, so $201$ samples carry between $4$ and $10$ independent observations and every
+  evidence computed against the independent form is overconfident by that factor.
+
+  `correlation_time` sets the exponential kernel `Sigma_ij = s_i s_j exp(-|t_i - t_j|/tau)`,
+  the stationary covariance of an Ornstein-Uhlenbeck process, whose discrete sampling is
+  AR(1) with `rho = exp(-dt/tau)`. That is the one-parameter form the measured residuals
+  support; nothing here claims the process IS Ornstein-Uhlenbeck, only that one correlation
+  length is a better description than none.
+  """
+  spread = finite_array("deviation", deviation)
+  moment = finite_array("times", times).ravel()
+  if np.any(spread <= 0.0): raise ValueError("deviation must be positive")
+  spread = np.broadcast_to(spread, moment.shape).copy()
+  if correlation_time is None:
+    return Whitening(deviation=spread, factor=None,
+                     log_determinant=float(np.sum(np.log(2.0 * np.pi * spread**2))))
+
+  tau = positive_scalar("correlation_time", correlation_time)
+  lag = np.abs(moment[:, None] - moment[None, :])
+  covariance = np.outer(spread, spread) * np.exp(-lag / tau)
+  factor = np.linalg.cholesky(covariance)
+  return Whitening(deviation=spread, factor=factor,
+                   log_determinant=float(moment.size * np.log(2.0 * np.pi)
+                                         + 2.0 * np.sum(np.log(np.diag(factor)))))
+
+
+def correlation_time_from(residual, times):
+  """The `tau` whose AR(1) lag-one matches these residuals: `tau = -dt / log(rho)`.
+
+  Estimated from the fit's own residual rather than assumed, and `inf` when the residuals
+  show no positive correlation -- in which case the independent likelihood was right.
+  """
+  values = finite_array("residual", residual).ravel()
+  moment = finite_array("times", times).ravel()
+  if values.size < 8: raise ValueError("at least 8 residuals are needed")
+  centred = values - values.mean()
+  variance = float(centred @ centred)
+  if variance <= 0.0: raise ValueError("residuals are constant")
+  rho = float(centred[:-1] @ centred[1:]) / variance
+  if rho <= 0.0: return float("inf"), rho
+  spacing = float(np.median(np.diff(moment)))
+  return -spacing / np.log(rho), rho
 
 def characteristic_time(maximum_radius, *, density=WATER_DENSITY, ambient_pressure=ATMOSPHERIC_PRESSURE):
   """Inertial collapse time `R_max sqrt(rho / p_inf)` -- the usual nondimensionalization.

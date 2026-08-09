@@ -6,11 +6,11 @@ from dataclasses import dataclass, field, replace
 from itertools import repeat
 
 import numpy as np
-from scipy.linalg import solve_triangular
 from scipy.optimize import least_squares
 from scipy.stats import qmc
 
 from ._validate import positive_integer
+from .noise import whitening
 from .parallel import map_work, worker_pool
 from ._config import SimulationConfig, SolverStats
 from ._solver import prepare
@@ -121,22 +121,12 @@ class FieldObservation:
     object.__setattr__(self, "standard_deviation", _readonly(deviation))
 
 def _whitening_factor(item):
-  if item.correlation_time_s is None: return None
-  deviation = np.asarray(item.standard_deviation)
-  lag = np.abs(item.time_s[:, None] - item.time_s[None, :])
-  covariance = np.outer(deviation, deviation) * np.exp(-lag / item.correlation_time_s)
-  return np.linalg.cholesky(covariance)
+  """The shared noise model, keyed on the observation's own correlation time."""
+  return whitening(item.time_s, np.asarray(item.standard_deviation), item.correlation_time_s)
 
-def _whiten(values, item, factor):
-  if factor is None:
-    deviation = np.asarray(item.standard_deviation)
-    return values / (deviation[:, None] if values.ndim == 2 else deviation)
-  return solve_triangular(factor, values, lower=True)
+def _whiten(values, item, factor): return factor.apply(values)
 
-def _log_determinant(item, factor):
-  count = item.time_s.size
-  if factor is None: return float(np.sum(np.log(2.0 * np.pi * np.asarray(item.standard_deviation) ** 2)))
-  return float(count * np.log(2.0 * np.pi) + 2.0 * np.sum(np.log(np.diag(factor))))
+def _log_determinant(item, factor): return factor.log_determinant
 
 def _as_field_observations(observation):
   items = observation if isinstance(observation, (tuple, list)) else (observation,)

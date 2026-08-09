@@ -47,9 +47,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ._validate import finite_array, positive_integer, positive_scalar
+from scipy.stats import norm
 
-__all__ = ["Question", "QuestionGain", "expected_gain", "gain_criterion", "lack_of_fit_degrees"]
+from ._validate import finite_array, positive_integer, positive_scalar, unit_interval
+
+__all__ = ["Question", "QuestionGain", "expected_gain", "gain_criterion", "lack_of_fit_degrees",
+           "runs_to_precision", "runs_to_settle"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,3 +163,108 @@ def lack_of_fit_degrees(counts, parameters):
   settings = int(supported.size)
   return (settings, int(supported.min()) if settings else 0,
           settings - parameters, int(supported.sum() - settings))
+
+
+def _profiled(information, coordinate):
+  """Information about one coordinate with every other one unknown and fitted out.
+
+  The Schur complement, computed directly rather than as `1 / [M^-1]_kk`, because the design
+  information alone -- no prior -- is often singular and the inverse does not exist. Zero means
+  the coordinate is not identified at ANY budget: what it does to the trace, the other
+  coordinates can reproduce.
+  """
+  rest = [i for i in range(information.shape[0]) if i != coordinate]
+  own = float(information[coordinate, coordinate])
+  if not rest: return own
+  cross = information[rest, coordinate]
+  block = information[np.ix_(rest, rest)]
+  try:
+    absorbed = float(cross @ np.linalg.solve(block, cross))
+  except np.linalg.LinAlgError:
+    absorbed = float(cross @ np.linalg.lstsq(block, cross, rcond=None)[0])
+  return max(own - absorbed, 0.0)
+
+
+def runs_to_settle(per_run, coordinate, *, threshold=5.0, confidence=0.95, budget=None):
+  """How many runs before a model question DECIDES, and what `budget` runs would achieve.
+
+  Nats measure how much a batch teaches. They do not say whether it settles anything, which
+  is the question an experimentalist with a fixed budget is actually asking. It has a closed
+  form. Write `s` for the per-run information about the coordinate that distinguishes the two
+  models, after everything else is fitted out. Information adds over runs, so `N` runs give
+  `S = N s`, and the log Bayes factor the experiment will return is not yet known but its
+  distribution is:
+
+      Lambda ~ Normal(S/2, S)   under whichever model is true,
+
+  exact in the Gaussian-linear limit, not asymptotic. So the chance of clearing `threshold`
+  nats in favour of the truth is `Phi((S/2 - threshold)/sqrt(S))`, and inverting for
+  `confidence` gives
+
+      N >= (z + sqrt(z^2 + 2 threshold))^2 / s ,   z = Phi^-1(confidence) .
+
+  Returns `(runs, probability)`: the runs required, and the probability that `budget` runs
+  decide it (`nan` when no budget is given). `inf` runs means no experiment of this shape ever
+  settles it -- the difference lies in the span of the other coordinates and refitting
+  reproduces it, which `pyimr.measure.separability` reports as infinite variance.
+
+  TWO ASSUMPTIONS WORTH SAYING ALOUD. This presumes one of the two models is true; it is the
+  probability of identifying WHICH, not of either being right. On these records
+  `pyimr.noise.lack_of_fit` rejects both, so a small `runs` here answers "which of two rejected
+  models fits better" and that may not be the question worth buying. And `s` must come from a
+  likelihood that counts independent observations: with the correlated residuals these records
+  carry, an independent likelihood overstates `s` by `N/N_eff` and understates the runs
+  required by the same factor.
+  """
+  matrix = finite_array("per_run", per_run, shape=("d", "d"))
+  coordinate = positive_integer("coordinate", coordinate, minimum=0)
+  if coordinate >= matrix.shape[0]:
+    raise ValueError(f"coordinate {coordinate} is outside the {matrix.shape[0]} available")
+  threshold = positive_scalar("threshold", threshold)
+  confidence = unit_interval("confidence", confidence)
+  if not 0.0 < confidence < 1.0: raise ValueError("confidence must lie strictly inside (0, 1)")
+
+  each = _profiled(matrix, coordinate)
+  z = float(norm.ppf(confidence))
+  needed = (z + np.sqrt(z * z + 2.0 * threshold)) ** 2
+  runs = float("inf") if each <= 0.0 else needed / each
+
+  probability = float("nan")
+  if budget is not None:
+    total = positive_integer("budget", budget) * each
+    probability = 0.0 if total <= 0.0 else float(norm.cdf((0.5 * total - threshold) / np.sqrt(total)))
+  return runs, probability
+
+
+def runs_to_precision(per_run, coordinate, target, *, budget=None):
+  """How many runs before one coordinate is pinned to `target` standard deviations.
+
+  The same question as `runs_to_settle` in the same unit, for a parameter of a model already
+  agreed on: `N` runs leave posterior variance `[(I + N M)^-1]_kk` in prior-standardised
+  coordinates, so `target = 0.1` means "a tenth of the prior width". That shared unit -- runs
+  -- is what makes "settle which model" and "pin this parameter" comparable, which nats alone
+  are not: they measure different things about different objects.
+
+  Returns `(runs, achieved)`, the second being the standard deviation `budget` runs would
+  reach. `inf` runs means the prior is never improved on in that direction.
+  """
+  matrix = finite_array("per_run", per_run, shape=("d", "d"))
+  coordinate = positive_integer("coordinate", coordinate, minimum=0)
+  if coordinate >= matrix.shape[0]:
+    raise ValueError(f"coordinate {coordinate} is outside the {matrix.shape[0]} available")
+  target = positive_scalar("target", target)
+  if target >= 1.0: raise ValueError("target must be tighter than the unit prior it is measured against")
+
+  size = matrix.shape[0]
+  def deviation(runs):
+    return float(np.sqrt(np.linalg.inv(np.eye(size) + runs * matrix)[coordinate, coordinate]))
+
+  runs = float("inf")
+  if deviation(1e12) <= target:                 # bisect: the deviation falls monotonically
+    low, high = 0.0, 1e12
+    for _ in range(200):
+      middle = 0.5 * (low + high)
+      if deviation(middle) <= target: high = middle
+      else: low = middle
+    runs = high
+  return runs, (deviation(positive_integer("budget", budget)) if budget is not None else float("nan"))

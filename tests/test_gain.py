@@ -8,7 +8,8 @@ is reported as a proof without being one. Each is checked against a closed form.
 import numpy as np
 import pytest
 
-from pyimr.gain import Question, expected_gain, gain_criterion, lack_of_fit_degrees
+from pyimr.gain import (Question, expected_gain, gain_criterion, lack_of_fit_degrees,
+                        runs_to_precision, runs_to_settle)
 from pyimr.measure import apportion, optimal_measure, sensitivity
 
 
@@ -175,3 +176,69 @@ def test_impossible_questions_are_refused(bad, message):
 def test_a_question_outside_the_coordinates_is_refused(rng):
   with pytest.raises(ValueError, match="outside the 3 available"):
     expected_gain(information(10, 3, rng), [Question("q", (0, 7))])
+
+
+def test_the_settling_law_is_the_one_the_budget_is_derived_from(rng):
+  """`Lambda ~ N(S/2, S)` -- simulated, because every runs-to-settle number rests on it.
+
+  The whole closed form is this distribution. If the future log Bayes factor is not centred at
+  `S/2` with variance `S`, the budgets are fiction, so it is checked against data rather than
+  cited.
+  """
+  samples, size = 60, 4
+  jacobian = rng.standard_normal((samples, size))
+  difference = rng.standard_normal(samples)
+  projector = jacobian @ np.linalg.solve(jacobian.T @ jacobian, jacobian.T)
+  surviving = difference - projector @ difference
+  information = float(surviving @ surviving)
+
+  observed = difference + rng.standard_normal((40_000, samples))          # truth is the rival
+  def profiled(extra):
+    residual = observed - extra
+    residual = residual - (projector @ residual.T).T
+    return np.einsum("ij,ij->i", residual, residual)
+  ratio = 0.5 * (profiled(0.0) - profiled(difference))
+  assert ratio.mean() == pytest.approx(information / 2, rel=0.02)
+  assert ratio.var() == pytest.approx(information, rel=0.05)
+
+
+def test_runs_to_settle_inverts_its_own_probability(rng):
+  """The budget it reports must be the budget at which the probability reaches confidence."""
+  matrix = information(40, 5, rng)
+  runs, _ = runs_to_settle(matrix, 4, threshold=5.0, confidence=0.95)
+  scaled = matrix * runs                                    # the information those runs buy
+  _, reached = runs_to_settle(scaled, 4, threshold=5.0, budget=1)
+  assert reached == pytest.approx(0.95, abs=1e-9)
+
+
+def test_a_difference_the_material_absorbs_never_settles(rng):
+  """`inf` runs, not a large number: no budget separates models that refitting reproduces."""
+  jacobian = rng.standard_normal((30, 4))
+  absorbed = np.column_stack([jacobian, jacobian @ rng.standard_normal(4)])   # in the span
+  runs, probability = runs_to_settle(absorbed.T @ absorbed, 4, budget=10_000)
+  assert runs == float("inf") and probability == 0.0
+
+
+def test_more_runs_never_hurt(rng):
+  """Monotonicity, which the bisection in `runs_to_precision` assumes and does not check."""
+  matrix = information(30, 4, rng)
+  widths = [runs_to_precision(matrix, 0, 0.5, budget=n)[1] for n in (1, 4, 16, 64)]
+  assert widths == sorted(widths, reverse=True)
+  tight, loose = (runs_to_precision(matrix, 0, target)[0] for target in (0.05, 0.5))
+  assert tight > loose
+
+
+def test_a_coordinate_the_data_never_sees_needs_infinite_runs():
+  """The prior is never improved on, so no budget reaches a target tighter than it."""
+  blind = np.diag([1.0, 1.0, 0.0])
+  assert runs_to_precision(blind, 2, 0.5)[0] == float("inf")
+
+
+@pytest.mark.parametrize(("call", "message"), [
+  ({"coordinate": 9}, "outside the 5 available"),
+  ({"threshold": 0.0}, "threshold"),
+  ({"confidence": 1.0}, "strictly inside"),
+])
+def test_impossible_settling_questions_are_refused(call, message, rng):
+  with pytest.raises(ValueError, match=message):
+    runs_to_settle(information(20, 5, rng), **{"coordinate": 4} | call)

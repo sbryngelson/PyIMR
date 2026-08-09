@@ -77,7 +77,7 @@ def log_evidence(observations, bank, deviation, *, exclude=None):
   effective = np.sum(weights, axis=1) ** 2 / np.sum(weights**2, axis=1)
   return evidence, effective
 
-def laplace_log_evidence(residual, jacobian, deviation, *, cap_at_prior=False):
+def laplace_log_evidence(residual, jacobian, deviation, *, cap_at_prior=False, log_determinant=None):
   """`log p(Y | M)` by Laplace expansion at a fitted point, in unit prior coordinates.
 
   Use this wherever `log_evidence` degenerates, which is whenever the likelihood is much
@@ -100,6 +100,10 @@ def laplace_log_evidence(residual, jacobian, deviation, *, cap_at_prior=False):
   default because the expansion above is the textbook one; where every direction is sharper
   than the prior the two agree to round-off.
 
+  `log_determinant` supplies `log det(2 pi Sigma)` directly, for a caller that has already
+  whitened against a correlated covariance -- `deviation` is then only a shape, since a
+  per-sample scale cannot express `Sigma`.
+
   Laplace's assumptions apply -- one dominant, well-separated, roughly Gaussian mode. Where
   several modes matter the evidences add, so summing this over the modes a multistart finds
   is the robust form.
@@ -110,7 +114,8 @@ def laplace_log_evidence(residual, jacobian, deviation, *, cap_at_prior=False):
   scale = deviation_for(deviation, misfit.size)
 
   samples, parameters = matrix.shape
-  normalization = float(np.sum(np.log(2.0 * np.pi * np.broadcast_to(scale, (samples,)) ** 2)))
+  normalization = (float(log_determinant) if log_determinant is not None
+                   else float(np.sum(np.log(2.0 * np.pi * np.broadcast_to(scale, (samples,)) ** 2))))
   information = matrix.T @ matrix
   if cap_at_prior:
     # A posterior cannot be wider than the prior it came from, so each eigendirection's

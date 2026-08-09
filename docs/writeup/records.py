@@ -85,7 +85,7 @@ def solver(times, maximum_radius, stretch, *, dynamics="keller-miksis", liquid_e
 
 
 def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=200,
-          trials=None, seeds=None):
+          trials=None, seeds=None, correlation_time_s=None, times=None):
   """Fit, then the evidence summed over modes and the residual diagnostics at the best.
 
   Summed rather than taken at the best because the expansion is about one mode and the
@@ -97,11 +97,12 @@ def score(candidate, solve, mean, spread, *, bounds=None, starts=6, evaluations=
                                fit_candidate, physical_from_unit)
   from scipy.special import logsumexp
 
+  noise = dict(correlation_time_s=correlation_time_s, times=times)
   fit = fit_candidate(candidate, solve, mean, spread, bounds=bounds, starts=starts,
-                      max_evaluations=evaluations, seeds=seeds)
+                      max_evaluations=evaluations, seeds=seeds, **noise)
   scored = []
   for point in fit.modes:
-    try: scored.append(candidate_log_evidence(candidate, solve, mean, spread, point, bounds=bounds))
+    try: scored.append(candidate_log_evidence(candidate, solve, mean, spread, point, bounds=bounds, **noise))
     except ValueError: continue
 
   values = physical_from_unit(candidate.axes, fit.unit, bounds)

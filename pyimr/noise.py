@@ -37,7 +37,9 @@ __all__ = [
   "marginalize_evaluation",
   "predicted_spread",
   "strain_rate_weights",
+  "Discrepancy",
   "correlation_time_from",
+  "discrepancy",
   "weighted_deviation",
   "whitening",
 ]
@@ -412,3 +414,77 @@ def lack_of_fit(observed, predicted, spread, trials, parameters):
   return LackOfFit(pure_error=pure, lack_of_fit=lack, ratio=ratio, pure_df=pure_df,
                    lack_df=lack_df, trials=trials,
                    summary=f"lack of fit {ratio:.2f} on {lack_df} and {pure_df} df: {verdict}")
+
+
+@dataclass(frozen=True, slots=True)
+class Discrepancy:
+  """The part of the model error the data can see, and what the invisible part could cost."""
+
+  identifiable: np.ndarray
+  size: float
+  absorbed: float
+  at_optimum: bool
+  bias_sigmas: float
+  summary: str
+
+  def __str__(self) -> str: return self.summary
+
+
+def discrepancy(residual, jacobian, *, absorbed_ratio=1.0, tolerance=1e-2):
+  """Split model error into the part a design can see and a bound on the part it cannot.
+
+  `lack_of_fit` says a model is inadequate; it does not say by how much the parameters suffer.
+  Write the truth as `y = m(theta) + delta + noise`. Projecting the residual onto the model's
+  own span,
+
+      delta_hat = (I - P) d,     P = J (J^T J)^-1 J^T,
+
+  is the identifiable discrepancy: what no choice of parameters reproduces. The complement is
+  the problem. At a converged interior fit the normal equations make `d` orthogonal to every
+  column of `J`, so `P d = 0` EXACTLY -- the absorbed part of `delta` has already been taken up
+  into `theta_hat` and left no trace at all. That is the Kennedy--O'Hagan unidentifiability, and
+  it means the bias cannot be measured from the fit. It can only be bounded.
+
+  The bound is unusually clean. Over all absorbed discrepancies with `||delta_par|| <= B`, the
+  worst bias in coordinate `k` is `B * sqrt([(J^T J)^-1]_kk)` -- exactly `B` times that
+  parameter's own standard deviation, the same multiple for every coordinate. So one number
+  answers it, and `absorbed_ratio` is the only assumption: `B = absorbed_ratio * ||delta_hat||`,
+  taking the unseen part to be at most `absorbed_ratio` times the seen part. One is the
+  defensible default and is not conservative -- nothing forbids the invisible component being
+  larger.
+
+  `residual` must be whitened by the standard error of the MEAN, `spread / sqrt(trials)`, when
+  `y` is an average over repeats. Dividing by `spread` instead understates the misfit by
+  `sqrt(trials)` and is the same omission `lack_of_fit` exists to correct.
+
+  `at_optimum` reports whether `||P d|| / ||d||` is below `tolerance`. When it is not, the fit
+  has not converged or is against a bound, `delta_hat` is contaminated by the distance to the
+  optimum, and the bias bound does not apply -- a stored grid argmax fails this outright (#235).
+  """
+  misfit = finite_array("residual", residual).ravel()
+  matrix = np.atleast_2d(finite_array("jacobian", jacobian))
+  if matrix.shape[0] != misfit.size:
+    raise ValueError(f"jacobian has {matrix.shape[0]} rows for {misfit.size} residuals")
+  ratio = positive_scalar("absorbed_ratio", absorbed_ratio, allow_zero=True)
+  tolerance = positive_scalar("tolerance", tolerance)
+
+  # lstsq, not a normal-equation solve: the sloppy directions make `J^T J` badly conditioned,
+  # and the projection is what is wanted, not the coefficients
+  coefficients, *_ = np.linalg.lstsq(matrix, misfit, rcond=None)
+  absorbed = matrix @ coefficients
+  left = misfit - absorbed
+  total = float(np.linalg.norm(misfit))
+  taken = float(np.linalg.norm(absorbed))
+  size = float(np.linalg.norm(left))
+  settled = bool(total <= 0.0 or taken / total <= tolerance)
+
+  bias = ratio * size
+  where = ("at the optimum" if settled else
+           f"NOT at an optimum -- {taken / total:.1%} of the residual is still absorbable, so "
+           "this is contaminated by the distance to it and the bound does not apply")
+  return Discrepancy(
+    identifiable=left, size=size, absorbed=taken, at_optimum=settled, bias_sigmas=bias,
+    summary=(f"identifiable discrepancy {size:.1f} against {total:.1f} total, {where}; "
+             f"every parameter could be biased by up to {bias:.0f} of its own standard "
+             f"deviations if the unseen part is {ratio:g}x the seen one"),
+  )

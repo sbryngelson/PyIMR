@@ -358,3 +358,89 @@ def test_an_uncorrelated_residual_asks_for_no_correction():
   # either sign of "no correlation to correct for": no positive lag-one at all, or a
   # correlation length shorter than the sampling can resolve
   assert tau == float("inf") or tau < spacing
+
+
+# --- model-form error: what is visible, and what the invisible part could cost ---------------
+
+def test_at_an_optimum_the_whole_residual_is_the_identifiable_discrepancy():
+  """The normal equations, and the reason the bias cannot be measured.
+
+  A converged fit leaves the residual orthogonal to every Jacobian column, so the absorbed
+  part is EXACTLY zero -- it went into the parameters and left no trace. That is the whole
+  identifiability problem in one assertion.
+  """
+  import numpy as np
+  from pyimr.noise import discrepancy
+
+  rng = np.random.default_rng(0)
+  jacobian = rng.standard_normal((60, 3)) @ np.diag([1.0, 0.2, 0.01])
+  basis, _ = np.linalg.qr(jacobian)
+  residual = rng.standard_normal(60)
+  residual -= basis @ (basis.T @ residual)             # put it at the optimum
+
+  got = discrepancy(residual, jacobian)
+  assert got.at_optimum and got.absorbed == pytest.approx(0.0, abs=1e-9)
+  assert got.size == pytest.approx(float(np.linalg.norm(residual)), rel=1e-12)
+  assert np.allclose(got.identifiable, residual)
+
+
+def test_the_bias_bound_is_the_worst_case_it_claims_to_be():
+  """`B * sigma_k` must actually bound the bias, for every coordinate, over every direction.
+
+  Checked by search rather than by rederiving the algebra: if a random absorbed discrepancy of
+  the stated size moves a parameter further than the bound, the bound is wrong.
+  """
+  import numpy as np
+  from pyimr.noise import discrepancy
+
+  rng = np.random.default_rng(1)
+  jacobian = rng.standard_normal((80, 4)) @ np.diag([1.0, 0.3, 0.05, 0.002])
+  basis, _ = np.linalg.qr(jacobian)
+  residual = rng.standard_normal(80)
+  residual -= basis @ (basis.T @ residual)
+
+  got = discrepancy(residual, jacobian)
+  covariance = np.linalg.inv(jacobian.T @ jacobian)
+  sigma = np.sqrt(np.diag(covariance))
+
+  worst = np.zeros(4)
+  for _ in range(4000):
+    direction = basis @ rng.standard_normal(4)
+    direction *= got.size / np.linalg.norm(direction)          # absorbed part of the stated size
+    worst = np.maximum(worst, np.abs(covariance @ jacobian.T @ direction))
+  # the bound is `bias_sigmas` multiples of each parameter's own sigma, and it is tight
+  assert np.all(worst <= got.bias_sigmas * sigma * (1 + 1e-9))
+  assert np.max(worst / (got.bias_sigmas * sigma)) > 0.9, "the bound should be attainable"
+
+
+def test_a_point_that_is_not_an_optimum_says_so():
+  """A stored grid argmax is not a fit (#235), and reporting a bias bound there would be false."""
+  import numpy as np
+  from pyimr.noise import discrepancy
+
+  rng = np.random.default_rng(2)
+  jacobian = rng.standard_normal((40, 3))
+  basis, _ = np.linalg.qr(jacobian)
+  residual = rng.standard_normal(40)
+  residual -= basis @ (basis.T @ residual)
+  displaced = residual + jacobian @ np.array([0.4, 0.0, 0.0])
+
+  got = discrepancy(displaced, jacobian)
+  assert not got.at_optimum and "does not apply" in got.summary
+  # the identifiable part is unchanged: it is a projection, and the displacement is in the span
+  assert np.allclose(got.identifiable, residual)
+
+
+def test_the_ratio_scales_the_bound_and_nothing_else():
+  import numpy as np
+  from pyimr.noise import discrepancy
+
+  rng = np.random.default_rng(3)
+  jacobian = rng.standard_normal((30, 2))
+  basis, _ = np.linalg.qr(jacobian)
+  residual = rng.standard_normal(30)
+  residual -= basis @ (basis.T @ residual)
+  one, half = (discrepancy(residual, jacobian, absorbed_ratio=r) for r in (1.0, 0.5))
+  assert half.bias_sigmas == pytest.approx(0.5 * one.bias_sigmas)
+  assert half.size == pytest.approx(one.size)
+  assert discrepancy(residual, jacobian, absorbed_ratio=0.0).bias_sigmas == 0.0

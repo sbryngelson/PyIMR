@@ -15,9 +15,10 @@ weight, which is what makes it affordable when one design costs a hundred solves
 from __future__ import annotations
 
 from dataclasses import dataclass
-from numbers import Integral
 
 import numpy as np
+
+from ._validate import positive_integer
 from scipy.optimize import minimize
 
 from .optimize import _fit, _expected_improvement, _physical, _posterior
@@ -121,7 +122,7 @@ def explore_tradeoff(objective, bounds, *, evaluations=32, initial=8, seed=0, re
   box = np.asarray(bounds, dtype=float)
   if box.ndim != 2 or box.shape[1] != 2: raise ValueError(f"bounds must be (dimension, 2); got shape {box.shape}")
   if not np.all(box[:, 1] > box[:, 0]): raise ValueError("every upper bound must exceed its lower bound")
-  if not isinstance(initial, Integral) or int(initial) < 2: raise ValueError("need at least two initial evaluations to fit a surrogate")
+  positive_integer("initial evaluations (a surrogate needs at least two)", initial, minimum=2)
   if int(evaluations) < int(initial): raise ValueError("evaluations must cover the initial design")
 
   dimension = box.shape[0]

@@ -29,26 +29,17 @@ def trace(**kw):
 
 
 def test_the_table_is_the_product_of_its_axes():
-  """Six dynamics, four of which take an equation of state, is exactly fourteen operators.
+  """Six dynamics, four of which take an equation of state, is exactly fourteen operators,
+  numbered without a gap or a repeat.
 
   Stated as a product rather than a count, so adding a dynamics or an EOS without extending
-  the code table fails here rather than silently dropping a combination.
+  the code table fails here rather than silently dropping a combination. That the operators
+  then SOLVE is `test_radial_family.test_every_operator_integrates_a_violent_collapse`.
   """
   expected = {(d, None) for d in pyimr.DYNAMICS if d not in pyimr.NEEDS_EOS}
   expected |= {(d, e) for d in pyimr.NEEDS_EOS for e in pyimr.LIQUID_EOS}
   assert set(pyimr.OPERATORS) == expected
   assert len(pyimr.OPERATORS) == len(set(pyimr.OPERATORS)) == 14
-
-
-@pytest.mark.parametrize(("dynamics", "liquid_eos"), pyimr.OPERATORS)
-def test_every_operator_resolves_to_a_distinct_code_and_solves(dynamics, liquid_eos):
-  built = config(dynamics=dynamics, liquid_eos=liquid_eos)
-  assert built.dynamics == dynamics and built.liquid_eos == liquid_eos
-  assert built.radial in range(1, 15)
-  assert np.all(np.isfinite(trace(dynamics=dynamics, liquid_eos=liquid_eos)))
-
-
-def test_the_codes_are_distinct_across_the_whole_table():
   codes = [config(dynamics=d, liquid_eos=e).radial for d, e in pyimr.OPERATORS]
   assert sorted(codes) == list(range(1, 15)), "the pairs must cover the codes exactly"
 

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from itertools import repeat
-from numbers import Integral
 
 import numpy as np
 from scipy.linalg import solve_triangular
 from scipy.optimize import least_squares
 from scipy.stats import qmc
 
+from ._validate import positive_integer
 from .parallel import map_work, worker_pool
 from ._config import SimulationConfig, SolverStats
 from ._solver import prepare
@@ -374,7 +374,7 @@ class PreparedInference:
 
   def evaluate_batch(self, unit_parameters, workers=1):
     points = self._validate_batch(unit_parameters)
-    if not isinstance(workers, Integral) or workers < 1: raise ValueError("workers must be a positive integer")
+    positive_integer("workers", workers)
     # One traced program over the stack, not one per point. Every point is a distinct
     # configuration, so the per-point route missed the compile cache every time and
     # retraced: 1053 ms against 6.9 ms batched (#129).
@@ -401,10 +401,9 @@ class PreparedInference:
     )
 
   def fit_multistart(self, starts, *, seed=0, max_evaluations=200, workers=None):
-    if not isinstance(starts, Integral) or starts < 1: raise ValueError("starts must be a positive integer")
-    if not isinstance(max_evaluations, Integral) or max_evaluations < 1: raise ValueError("max_evaluations must be a positive integer")
-    if workers is not None and (not isinstance(workers, Integral) or workers < 1):
-      raise ValueError("workers must be a positive integer or None")
+    positive_integer("starts", starts)
+    positive_integer("max_evaluations", max_evaluations)
+    if workers is not None: positive_integer("workers", workers)
     # `rng=`, not the legacy `seed=`: scipy keeps `seed` only as an alias and will drop it.
     # They are NOT equivalent -- `rng=n` seeds `default_rng(n)`, so the start points moved.
     sampler = qmc.LatinHypercube(d=self.size, rng=seed)

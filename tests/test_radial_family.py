@@ -165,7 +165,8 @@ def test_herring_is_not_keller():
 
 @pytest.mark.parametrize(("dynamics", "liquid_eos"),
                          [("herring", "tait"), ("herring", "nasg"), ("gilmore", "nasg"),
-                          ("keller-enthalpy", "nasg")])
+                          ("keller-enthalpy", "nasg"), ("lezzi-prosperetti-2", "tait"),
+                          ("lezzi-prosperetti-2", "nasg")])
 def test_the_new_operators_are_differentiable(dynamics, liquid_eos):
   """A new branch that breaks the tangent reports zero sensitivity rather than an error."""
   times = np.linspace(0.0, 3e-5, 30)

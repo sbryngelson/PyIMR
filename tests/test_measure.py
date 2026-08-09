@@ -132,5 +132,5 @@ def test_sensitivity_validates_its_weights():
   _, matrices = polynomial(1)
   with pytest.raises(ValueError, match="sum to one"):
     sensitivity(matrices, np.full(matrices.shape[0], 1.0))
-  with pytest.raises(ValueError, match="entries"):
+  with pytest.raises(ValueError, match="must have shape"):
     sensitivity(matrices, np.array([0.5, 0.5]))

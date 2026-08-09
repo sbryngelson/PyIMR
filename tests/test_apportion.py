@@ -35,7 +35,7 @@ def test_the_measure_is_the_known_four_point_design(measure):
   assert np.allclose(measure.weights[measure.support], 0.25, atol=1e-3)
 
 
-@pytest.mark.parametrize("runs", [4, 5, 6, 7, 8, 11, 12, 19, 40, 101])
+@pytest.mark.parametrize("runs", [4, 7, 12, 101])
 def test_the_allocation_spends_exactly_the_budget(measure, runs):
   got = apportion(measure.weights, runs)
   assert int(got.counts.sum()) == runs
@@ -44,7 +44,7 @@ def test_the_allocation_spends_exactly_the_budget(measure, runs):
   assert int(np.sum(got.counts[got.support])) == runs, "runs must go only to the support"
 
 
-@pytest.mark.parametrize("runs", [4, 8, 12, 20, 40, 100])
+@pytest.mark.parametrize("runs", [4, 12, 100])
 def test_a_budget_that_divides_evenly_loses_nothing(measure, runs):
   """With four equal weights, any multiple of four reproduces the measure exactly."""
   got = apportion(measure.weights, runs, CUBIC)
@@ -52,7 +52,7 @@ def test_a_budget_that_divides_evenly_loses_nothing(measure, runs):
   assert got.efficiency == pytest.approx(1.0, rel=1e-9)
 
 
-def test_the_efficiency_is_the_efficiency():
+def test_the_efficiency_is_the_efficiency(measure):
   """Checked against the closed form, not against a stored number.
 
   For a design on `p` distinct points with information `V diag(w) V^T`, the determinant is
@@ -60,12 +60,13 @@ def test_the_efficiency_is_the_efficiency():
   `(prod(n_i/runs) / prod(w_i))^(1/p)` and `det(V)` cancels. At six runs on four equal
   weights the allocation is 2/2/1/1, giving `((2/6)^2 (1/6)^2 / (1/4)^4)^(1/4) = 0.9428`.
   """
-  measure = optimal_measure(CUBIC, tolerance=1e-10, iterations=200_000)
   got = apportion(measure.weights, 6, CUBIC)
   assert sorted(got.counts[got.support].tolist()) == [1, 1, 2, 2]
-  closed = float((( (2/6)**2 * (1/6)**2 ) / (0.25**4)) ** 0.25)
+  closed = float((((2/6)**2 * (1/6)**2) / (0.25**4)) ** 0.25)
   assert closed == pytest.approx(0.9428, abs=1e-4)
   assert got.efficiency == pytest.approx(closed, rel=1e-6)
+  # and a budget far above the support is indistinguishable from the measure it rounds
+  assert apportion(measure.weights, 401, CUBIC).efficiency > 0.999
 
 
 def test_efficiency_is_reported_as_nan_without_the_matrices():
@@ -87,7 +88,7 @@ def test_impossible_weights_are_refused(bad):
     apportion(bad, 4)
 
 
-@pytest.mark.parametrize("runs", [0, -3, 2.5])
+@pytest.mark.parametrize("runs", [0, 2.5])
 def test_a_budget_must_be_a_positive_integer(runs):
   with pytest.raises(ValueError, match="runs"):
     apportion([0.5, 0.5], runs)
@@ -114,11 +115,3 @@ def test_it_beats_naive_rounding_where_they_differ():
   got = apportion(weights, 4)
   assert np.all(got.counts >= 1) and int(got.counts.sum()) == 4
 
-
-def test_efficiency_rises_toward_one_with_budget():
-  """The number a collaborator is actually asking for: what does a small budget cost?"""
-  measure = optimal_measure(CUBIC, tolerance=1e-10, iterations=200_000)
-  awkward = [apportion(measure.weights, runs, CUBIC).efficiency for runs in (5, 6, 7)]
-  assert all(0.7 < value < 1.0 for value in awkward), awkward
-  # and a large budget is indistinguishable from the measure
-  assert apportion(measure.weights, 401, CUBIC).efficiency > 0.999

@@ -163,8 +163,7 @@ from ._materials import (  # noqa: F401
   Yeoh,
   LinearMaxwell,
   Zener,
-  _finite_nonnegative,
-  _finite_positive,
+  _non_negative,
 )
 
 from ._stress import (  # noqa: F401

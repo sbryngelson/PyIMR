@@ -97,10 +97,15 @@ PARAMETER_BOUNDS = {
   # crossover out of reach the thinning factor is 1 whatever the index -- which is the
   # redundancy prior's to report, not the bound's, exactly as for `tau_ratio` above.
   "thin_time": (1e-7, 1e-3),
-  # Ogden's second term. The first reuses `g` and `ab_n`; the second needs its own pair.
-  # Exponents are bounded away from zero because the strain-energy form divides by them,
-  # and the constructor refuses zero outright.
-  "ogden_g2": (1e0, 1e5), "ogden_a2": (1e-1, 2e1),
+  # Ogden's two terms. Both exponents need EXPONENT bounds. The first used to reuse `ab_n`,
+  # whose (1.1, 1e3) is right for an Arruda-Boyce chain count and absurd for an Ogden
+  # exponent: at the middle of that box the collapse asks for `lam**33`, which overflows, so
+  # `ogden` never integrated anywhere in its own prior and was silently unscreenable.
+  #
+  # The second exponent is a MULTIPLE of the first, above one, for the reason `tau_ratio` is:
+  # the two terms are exchangeable, so a symmetric pair splits every posterior into two
+  # identical modes and charges the Occam factor for bookkeeping.
+  "ogden_g2": (1e0, 1e5), "ogden_a1": (1e-1, 2e1), "ogden_a2": (1.1, 1e2),
   # `tau_ratio` is the SECOND relaxation time as a multiple of the first. It is bounded
   # BELOW because the arms are exchangeable: swapping `(lambda1, 1-w)` with `(tau2, w)` is
   # the same trajectory, so a symmetric axis would split every posterior into two identical
@@ -302,8 +307,9 @@ EXTENDED_MODELS: dict[str, CandidateModel] = {
     # the objection disappears, which is what makes it registrable at all.
     CandidateModel(
       "ogden", lambda t: InstantaneousMaterial(
-        elastic=Ogden((t["g"], t["ogden_g2"]), (t["ab_n"], t["ogden_a2"])),
-      ), ("g", "ab_n", "ogden_g2", "ogden_a2"), ("NH",),
+        elastic=Ogden((t["g"], t["ogden_g2"]),
+                      (t["ogden_a1"], t["ogden_a1"] * t["ogden_a2"])),
+      ), ("g", "ogden_a1", "ogden_g2", "ogden_a2"), ("NH",),
     ),
     # The full five-parameter Carreau-Yasuda: `carreau` above with the infinite-shear
     # viscosity and the transition exponent set free rather than pinned.

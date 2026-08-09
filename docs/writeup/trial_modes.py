@@ -43,8 +43,16 @@ _RES = _json.load(open("results.json"))
 
 
 def fitted(name):
-  """Each record's OWN qSLS fit. Using one record's material for all three would evaluate the
-  sensitivities in the wrong place and understate how well they explain the scatter."""
+  """Each record's OWN qSLS point. Using one record's material for all three would evaluate
+  the sensitivities in the wrong place and understate how well they explain the scatter.
+
+  This is the stored GRID ARGMAX, not a fitted optimum: ten points per axis, adjacent nodes a
+  factor of two to three apart, and on the bounds for `g` and `lambda1` on two of the three
+  records (#235). Sensitivities evaluated there point in roughly, not exactly, the right
+  direction. Substituting the published continuous fit moves the joint $R^2$ of the dominant
+  mode by $0.02$, so the conclusion here does not turn on it -- but the caveat is real and the
+  right fix is #235's, which is to store an optimiser's answer beside the grid's.
+  """
   best = _RES[name]["models"]["qSLS"]["best_theta"]
   return (best["g"], best["mu"], best["lambda1"], best["alpha"])
 

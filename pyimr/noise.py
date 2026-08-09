@@ -505,8 +505,12 @@ class Enrichment:
 
   @property
   def best(self):
-    """The single candidate that removes most of the discrepancy."""
-    return max(self.removable.items(), key=lambda pair: pair[1]) if self.removable else None
+    """The single candidate that removes most of the discrepancy.
+
+    Never empty: `enrichment_overlap` refuses a screen with no candidates, so the guard that
+    would return `None` here is unreachable and only makes every caller check for it.
+    """
+    return max(self.removable.items(), key=lambda pair: pair[1])
 
 
 def enrichment_overlap(identifiable, jacobian, directions):

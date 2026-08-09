@@ -11,11 +11,20 @@ noise. Measured here, the dominant mode does not: regressed on timing, `Req` and
 material axes it reaches $R^2$ of only $0.12$ to $0.43$. The SECOND mode largely does, at
 $0.50$ to $0.72$, and reads as timing jitter and viscosity.
 
-So the spread is neither independent noise nor latent variation in the fitted parameters, and
-what its dominant mode is remains open (#222). Two caveats travel with that. The sensitivities
-are evaluated at each record's own fit, and a wrong fit points them the wrong way. And the
-replicate deviations sum to zero across trials, which biases a seven-trial record more than an
-eighteen-trial one.
+`R_max` is included because each trace is divided by its OWN maximum, so bubble-size variation
+does not simply scale the curve away: what survives normalisation enters through the Reynolds,
+Weber and Deborah groups, all of which carry `R_max`. It does not explain the dominant mode
+either, correlating $0.30$, $0.09$ and $0.28$ -- indistinguishable from the other axes.
+
+So the spread is neither independent noise nor latent variation in any parameter this model
+has, and what its dominant mode is remains open (#222).
+
+Read the joint $R^2$ and not the single correlations. The sensitivities here are near
+collinear -- the sloppiness of the identifiability section -- so at \SI{23}{\celsius} the
+second mode correlates above $0.7$ with four different axes at once, which singles out none of
+them. Two further caveats: the sensitivities are evaluated at each record's own fit, and a
+wrong fit points them the wrong way; and the replicate deviations sum to zero across trials,
+which biases a seven-trial record more than an eighteen-trial one.
 """
 import sys; sys.path.insert(0, ".")
 
@@ -46,27 +55,39 @@ def sensitivities(name):
   times, mean, spread, maximum, stretch = records.load(name)
 
   point = fitted(name)
+  from pyimr.noise import characteristic_time
+  # the trial grid is nondimensional, so R_max variation is compared at fixed t/t_c
+  grid = times / characteristic_time(maximum)
 
-  def trace(req=1.0, shift=0.0, **scale):
+  def trace(req=1.0, shift=0.0, rmax=1.0, **scale):
     values = [point[0] * scale.get("g", 1.0), point[1] * scale.get("mu", 1.0),
               point[2] * scale.get("lam", 1.0), 0.0, point[3] * scale.get("alpha", 1.0)]
     material = pyimr.QuadraticZener(*values)
-    config = pyimr.SimulationConfig(maximum, maximum / stretch * req, material,
+    # Each trace is divided by its OWN R_max, so a bigger bubble does not simply scale the
+    # curve. What survives normalisation is the nondimensional groups -- Reynolds, Weber,
+    # Deborah -- every one of which carries R_max, so the residual signature is real and is
+    # the one axis none of the others reaches.
+    scaled = maximum * rmax
+    when = grid * characteristic_time(scaled) + shift
+    config = pyimr.SimulationConfig(scaled, scaled / stretch * req, material,
                                     dynamics="keller-miksis", rtol=1e-9, atol=1e-11,
                                     max_steps=400_000)
-    return np.asarray(pyimr.simulate(times + shift, config).radius_ratio, dtype=float)
+    return np.asarray(pyimr.simulate(when, config).radius_ratio, dtype=float)
 
   h = 1e-4
   base = trace()
   columns = {"timing": np.gradient(base, times),
-             "Req": (trace(req=1 + h) - trace(req=1 - h)) / (2 * h)}
+             "Req": (trace(req=1 + h) - trace(req=1 - h)) / (2 * h),
+             "Rmax": (trace(rmax=1 + h) - trace(rmax=1 - h)) / (2 * h)}
   for key in ("g", "mu", "lam", "alpha"):
     columns[key] = (trace(**{key: 1 + h}) - trace(**{key: 1 - h})) / (2 * h)
   return times, columns
 
 
 def main():
-  print(f"  {'record':13s} {'mode':>5s} {'share':>7s}  {'R^2 on all sensitivities':>24s}  best single")
+  labels = ("timing", "Req", "Rmax", "g", "mu", "lam", "alpha")
+  print(f"  {'record':13s} {'mode':>5s} {'share':>6s} {'R^2':>6s}  "
+        + " ".join(f"{k:>7s}" for k in labels))
   for name, (filename, offset) in FILES.items():
     raw = np.loadtxt(DATA / filename, delimiter=",")
     times, columns = sensitivities(name)
@@ -82,8 +103,8 @@ def main():
       residual = mode - design @ fitted
       r2 = 1.0 - float(residual @ residual) / float(mode @ mode)
       singles = {k: abs(float(np.corrcoef(mode, v)[0, 1])) for k, v in columns.items()}
-      best = max(singles.items(), key=lambda kv: kv[1])
-      print(f"  {name:13s} {index + 1:5d} {share[index]:7.3f}  {r2:24.3f}  {best[0]} {best[1]:.3f}")
+      print(f"  {name:13s} {index + 1:5d} {share[index]:6.3f} {r2:6.3f}  "
+            + " ".join(f"{singles[k]:7.3f}" for k in labels))
     print()
 
 

@@ -32,6 +32,7 @@ from ._materials import (
   OldroydB,
   QuadraticKelvinVoigt,
   QuadraticZener,
+  CubicZener,
   TwoModeQuadraticZener,
   CarreauZener,
   Zener,
@@ -54,25 +55,27 @@ __all__ = [
 ]
 
 def _material_scales(material):
-  if isinstance(material, NoStress): return (0.0,) * 8 + (0.0, 1.0)
-  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, TwoModeQuadraticZener, CarreauZener)):
+  if isinstance(material, NoStress): return (0.0,) * 8 + (0.0, 1.0, 0.0)
+  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, CubicZener, TwoModeQuadraticZener, CarreauZener)):
     modulus = material.shear_modulus_pa
   else:
     modulus = 0.0
-  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT, LinearMaxwell, TwoModeQuadraticZener, CarreauZener)):
+  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, CubicZener, OldroydB, Giesekus, LinearPTT, LinearMaxwell, TwoModeQuadraticZener, CarreauZener)):
     viscosity = material.viscosity_pa_s
   else:
     viscosity = 0.0
   if isinstance(material, LinearMaxwell):
     # no parallel spring and no retardation: the memory relaxes toward zero
     relaxation, retardation = material.relaxation_time_s, 0.0
-  elif isinstance(material, (Zener, QuadraticZener, OldroydB, Giesekus, LinearPTT, TwoModeQuadraticZener, CarreauZener)):
+  elif isinstance(material, (Zener, QuadraticZener, CubicZener, OldroydB, Giesekus, LinearPTT, TwoModeQuadraticZener, CarreauZener)):
     relaxation = material.relaxation_time_s
     retardation = material.retardation_time_s
   else:
     relaxation = 0.0
     retardation = 0.0
-  stiffening = material.stiffening if isinstance(material, (QuadraticKelvinVoigt, QuadraticZener, TwoModeQuadraticZener, CarreauZener)) else 0.0
+  stiffening = material.stiffening if isinstance(material, (QuadraticKelvinVoigt, QuadraticZener, CubicZener, TwoModeQuadraticZener, CarreauZener)) else 0.0
+  # the cubic strain-energy term, in its own slot for the reason the second arm has one
+  cubic = getattr(material, "cubic", 0.0)
   # the one own-field the distributed models read in the hot path; through `p` it stops
   # keying the compiled program, so a sweep over it compiles once rather than per point
   nonlinear = getattr(material, "mobility", None)
@@ -88,7 +91,8 @@ def _material_scales(material):
   thinning_time = getattr(material, "thinning_time_s", 0.0)
   power_index = getattr(material, "power_index", 1.0)
   return (modulus, viscosity, relaxation, retardation, stiffening, float(nonlinear),
-          float(second_time), float(second_share), float(thinning_time), float(power_index))
+          float(second_time), float(second_share), float(thinning_time), float(power_index),
+          float(cubic))
 
 def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=0.0, mn=0.0, wave_type=0, bubtherm=0, masstrans=0, physics=None, *, xp=np, scales=None):
   physics = PhysicalParameters() if physics is None else physics
@@ -99,7 +103,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
   Uc = xp.sqrt(P8_value / density)
   t0 = R0 / Uc
   concrete = _material_scales(material)
-  G, mu, lam1, lam2, alphax, nlx, lam1b, shareb, lamc, nc = concrete if scales is None else scales
+  G, mu, lam1, lam2, alphax, nlx, lam1b, shareb, lamc, nc, cubicx = concrete if scales is None else scales
   elastic_values = law_values(getattr(material, "elastic", None)) or (0.0,) * LAW_WIDTH
   viscous_values = law_values(getattr(material, "viscous", None)) or (0.0,) * LAW_WIDTH
   relaxing = concrete[2] > 0.0
@@ -159,6 +163,7 @@ def params(R0, Req, material, vapor=0, T8=298.15, pA=0.0, omega=0.0, TW=0.0, DT=
     De=(lam1 * Uc / R0 if relaxing else 0.0),
     De2=(lam1b * Uc / R0),
     share=shareb,
+    cubicx=cubicx,
     # the thinning crossover, nondimensionalised exactly as `De` is: both are times
     # against `R0 / Uc`, so `lambda_c * gammadot` is `Cu` times a nondimensional rate
     Cu=(lamc * Uc / R0),

@@ -188,9 +188,10 @@ def test_params_branches_only_on_concrete_configuration():
       0,
       pyimr.PhysicalParameters(),
       xp=jnp,
-      # ten wide, and the last slot is 1.0: `power_index` is neutral at one, not at zero,
-      # so a lazily-padded tuple of zeros would silently thin the memory equation
-      scales=(2500.0, traced[1], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0),
+      # eleven wide, and the neutral value differs per slot: `power_index` is neutral at
+      # one, not at zero, so a lazily-padded tuple of zeros would silently thin the memory
+      # equation. `cubic`, the last, is neutral at zero -- no cubic term at all.
+      scales=(2500.0, traced[1], 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0),
     )
     return jnp.asarray([p["kv0"], p["De"], p["LAM"], p["Pv"], p["chi"]])
 

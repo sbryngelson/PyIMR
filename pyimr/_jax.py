@@ -260,6 +260,7 @@ SCALE_PATHS = {
   "material.second_share": 7,
   "material.thinning_time_s": 8,
   "material.power_index": 9,
+  "material.cubic": 10,
 }
 
 CONFIG_PATHS = ("R0", "Req", "T8", "pA", "omega", "TW", "DT", "mn")

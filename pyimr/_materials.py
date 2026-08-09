@@ -39,6 +39,7 @@ __all__ = [
   "PowellEyring",
   "PowerLaw",
   "QuadraticKelvinVoigt",
+  "CubicZener",
   "QuadraticZener",
   "ViscousModel",
   "Yeoh",
@@ -127,6 +128,38 @@ class QuadraticZener:
     positive_scalar("shear_modulus_pa", self.shear_modulus_pa)
     _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False)
     _non_negative("stiffening", self.stiffening)
+
+@dataclass(frozen=True, slots=True)
+class CubicZener:
+  """Quadratic Zener with the next term of the strain-energy expansion.
+
+  `QuadraticZener` stiffens as `alpha (I1 - 3)^2`, which is Yeoh truncated after `c2`. On
+  these records the collapse reaches `I1 - 3` of 24 to 119, where the next term is not a
+  small correction: screened against the identifiable discrepancy, a cubic elastic term
+  reaches 30% to 52% of it, and its direction is nearly orthogonal to what an extra
+  relaxation arm reaches, so the two are not competing descriptions of one effect.
+
+  `cubic = 0` reduces to `QuadraticZener` exactly -- the added term carries the coefficient
+  linearly -- and that identity is the test the branch is gated on. The closed form of its
+  elastic integral carries a `log`, which no other `Ze` in this package does, so it is also
+  checked against the quadrature of `_elastic_integrand` at finite `cubic`.
+  """
+
+  shear_modulus_pa: float
+  viscosity_pa_s: float
+  relaxation_time_s: float
+  retardation_time_s: float = 0.0
+  stiffening: float = 0.25
+  cubic: float = 0.0
+
+  def __post_init__(self):
+    positive_scalar("shear_modulus_pa", self.shear_modulus_pa)
+    positive_scalar("viscosity_pa_s", self.viscosity_pa_s)
+    positive_scalar("relaxation_time_s", self.relaxation_time_s)
+    _non_negative("retardation_time_s", self.retardation_time_s)
+    _non_negative("stiffening", self.stiffening)
+    _non_negative("cubic", self.cubic)
+
 
 @dataclass(frozen=True, slots=True)
 class TwoModeQuadraticZener:
@@ -395,7 +428,7 @@ class LinearPTT:
     _validate_distributed_model("extensibility", self.extensibility, self.points, self.extent)
     if self.quadrature not in ("trapezoid", "gauss"): raise ValueError("quadrature must be 'trapezoid' or 'gauss'")
 
-MaterialModel = TwoModeQuadraticZener | CarreauZener | (
+MaterialModel = CubicZener | TwoModeQuadraticZener | CarreauZener | (
   NoStress | NeoHookeanKelvinVoigt | QuadraticKelvinVoigt | Zener | QuadraticZener | OldroydB | InstantaneousMaterial | Giesekus | LinearPTT | LinearMaxwell
 )
 
@@ -433,6 +466,6 @@ def _is_distributed_stress(material) -> bool: return isinstance(material, (Giese
 
 def _stress_state_count(material) -> int:
   if _is_distributed_stress(material): return 2 * material.points
-  if isinstance(material, (Zener, QuadraticZener, LinearMaxwell, CarreauZener)): return 1
+  if isinstance(material, (Zener, QuadraticZener, CubicZener, LinearMaxwell, CarreauZener)): return 1
   if isinstance(material, (OldroydB, TwoModeQuadraticZener)): return 2
   return 0

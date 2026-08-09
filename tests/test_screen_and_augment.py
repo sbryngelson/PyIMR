@@ -72,16 +72,16 @@ def test_the_floor_keeps_a_live_model_from_vanishing():
 
 
 @pytest.mark.parametrize(("bad", "message"), [
-  ({"log_evidence": []}, "at least one"),
-  ({"log_evidence": [1.0, np.nan]}, "finite"),
+  ({"evidence": []}, "at least one"),
+  ({"evidence": [1.0, np.nan]}, "finite"),
   ({"decisive": 0.0}, "decisive"),
   ({"floor": 1.0}, "floor"),
 ])
 def test_impossible_screens_are_refused(bad, message):
-  call = {"log_evidence": [1.0, 2.0], "decisive": 5.0, "floor": 1e-3}
+  call = {"evidence": [1.0, 2.0], "decisive": 5.0, "floor": 1e-3}
   call.update(bad)
   with pytest.raises(ValueError, match=message):
-    screen_models(call.pop("log_evidence"), **call)
+    screen_models(call.pop("evidence"), **call)
 
 
 # --- the augmented information ------------------------------------------------------------

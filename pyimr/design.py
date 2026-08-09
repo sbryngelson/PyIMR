@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import warnings
-from numbers import Integral
 
 import numpy as np
 
+from ._validate import positive_integer
 from .parallel import map_work
 from .inference import PreparedInference, RadiusObservation
 
@@ -93,9 +93,8 @@ def design_information(inference, *, draws=128, seed=0, workers=None, max_failur
 
 def _validate(inference, draws, workers, max_failure_fraction):
   if not isinstance(inference, PreparedInference): raise TypeError("inference must be a PreparedInference")
-  if not isinstance(draws, Integral) or draws < 1: raise ValueError("draws must be a positive integer")
-  if workers is not None and (not isinstance(workers, Integral) or workers < 1):
-    raise ValueError("workers must be a positive integer or None")
+  positive_integer("draws", draws)
+  if workers is not None: positive_integer("workers", workers)
   if not 0.0 <= max_failure_fraction < 1.0: raise ValueError("max_failure_fraction must be in [0, 1)")
 
 def expected_information_gain(inference, *, draws=128, seed=0, prior_variance=None, workers=None, max_failure_fraction=0.0, information=None, batched=False):
@@ -124,7 +123,7 @@ def _time_gradient(inference, unit, variance):
 def information_time_gradient(inference, *, draws=128, seed=0, prior_variance=None):
   """Prior-averaged `d(EIG)/d(observation time)`, one entry per observed value."""
   if not isinstance(inference, PreparedInference): raise TypeError("inference must be a PreparedInference")
-  if not isinstance(draws, Integral) or draws < 1: raise ValueError("draws must be a positive integer")
+  positive_integer("draws", draws)
   if prior_variance is None:
     variance = np.full(inference.size, UNIFORM_VARIANCE)
   else:

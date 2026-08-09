@@ -15,12 +15,12 @@ inflating its own error bars is penalized rather than rewarded.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from numbers import Integral
 
 import numpy as np
 from scipy.special import expit
 
 from ._config import SimulationError
+from ._validate import finite_array, positive_integer, positive_scalar
 
 __all__ = [
   "ATMOSPHERIC_PRESSURE",
@@ -48,8 +48,7 @@ def characteristic_time(maximum_radius, *, density=WATER_DENSITY, ambient_pressu
   Multiply `STRAIN_RATE_THRESHOLD_PER_S` by this to get the threshold `strain_rate_weights`
   expects, since the weighting works in nondimensional rate.
   """
-  maximum_radius = float(maximum_radius)
-  if not np.isfinite(maximum_radius) or maximum_radius <= 0.0: raise ValueError("maximum_radius must be finite and positive")
+  maximum_radius = positive_scalar("maximum_radius", maximum_radius)
   if float(density) <= 0.0 or float(ambient_pressure) <= 0.0: raise ValueError("density and ambient_pressure must be positive")
   return maximum_radius * np.sqrt(float(density) / float(ambient_pressure))
 
@@ -84,17 +83,14 @@ def strain_rate_weights(strain_rate, threshold, *, steepness=_DEFAULT_STEEPNESS,
   `|rate| >= 0` caps the logistic argument at `steepness`. Only the ratio between weights
   matters here, since a constant factor on every variance is exactly what `beta` absorbs.
   """
-  rate = np.asarray(strain_rate, dtype=float)
-  threshold = float(threshold)
-  if not np.isfinite(threshold) or threshold <= 0.0: raise ValueError("threshold must be finite and positive")
+  rate = finite_array("strain_rate", strain_rate)
+  threshold = positive_scalar("threshold", threshold)
+  steepness = positive_scalar("steepness", steepness)
   if not 0.0 < float(floor) <= 1.0: raise ValueError("floor must lie in (0, 1]")
-  if not np.isfinite(steepness) or float(steepness) <= 0.0: raise ValueError("steepness must be finite and positive")
-  if not np.all(np.isfinite(rate)): raise ValueError("strain_rate must be finite")
 
   # expit, not 1/(1+exp(-x)): the argument runs to -inf as the rate grows, and the naive
   # form overflows there rather than saturating at the floor
-  logistic = expit(float(steepness) * (threshold - np.abs(rate)) / threshold)
-  return float(floor) + (1.0 - float(floor)) * logistic
+  return float(floor) + (1.0 - float(floor)) * expit(steepness * (threshold - np.abs(rate)) / threshold)
 
 def weighted_deviation(deviation, weights):
   """Turn weights into standard deviations (eqn 12 at `beta = 1`): `sigma^2 = sigma0^2 / w`.
@@ -114,9 +110,9 @@ def elliptical_gate(strain, strain_rate, strain_threshold, strain_rate_threshold
   """
   strain = np.asarray(strain, dtype=float)
   rate = np.asarray(strain_rate, dtype=float)
-  for name, value in (("strain_threshold", strain_threshold), ("strain_rate_threshold", strain_rate_threshold)):
-    if not np.isfinite(value) or float(value) <= 0.0: raise ValueError(f"{name} must be finite and positive")
-  return (strain / float(strain_threshold)) ** 2 + (rate / float(strain_rate_threshold)) ** 2 >= 1.0
+  strain_threshold = positive_scalar("strain_threshold", strain_threshold)
+  strain_rate_threshold = positive_scalar("strain_rate_threshold", strain_rate_threshold)
+  return (strain / strain_threshold) ** 2 + (rate / strain_rate_threshold) ** 2 >= 1.0
 
 def beta_quadrature(*, minimum=0.05, maximum=10.0, count=200):
   """Nodes and normalized prior weights for the half-Cauchy noise scale (eqns 16-18).
@@ -124,12 +120,11 @@ def beta_quadrature(*, minimum=0.05, maximum=10.0, count=200):
   `P(beta) = (2/pi) / (1 + beta^2)` on a uniform grid, integrated by the trapezoidal rule
   and renormalized so the weights sum to one.
 
-  The default range is the paper's [0.05, 10]. It describes that range as holding over
-  99.9% of the prior mass; for the scale-1 half-Cauchy of eqn 16 the exact mass is
-  `(2/pi)(atan(10) - atan(0.05)) = 0.9047`, so the figure does not follow. Nothing here
-  depends on it: renormalizing makes this the prior *conditioned* on the range, which is a
-  proper prior either way. The consequence is only that `beta > 10` is excluded rather
-  than negligible, and a fit driven to that boundary should be read as a warning.
+  The default range is the paper's [0.05, 10], which it describes as over 99.9% of the prior
+  mass; the exact mass for the scale-1 half-Cauchy of eqn 16 is `(2/pi)(atan(10) -
+  atan(0.05)) = 0.9047`, so the figure does not follow. Renormalizing makes this the prior
+  CONDITIONED on the range, proper either way -- but `beta > 10` is then excluded rather than
+  negligible, so a fit driven to that boundary is a warning.
   """
   if not 0.0 < minimum < maximum: raise ValueError("require 0 < minimum < maximum")
   if int(count) < 2: raise ValueError("count must be at least 2")
@@ -176,15 +171,11 @@ def predicted_spread(config, times, *, relative=0.01, samples=5, field="radius_r
   chi-squared cannot make: it uses the scatter as a prediction target rather than only as
   a noise scale.
 
-  It matters where the forward map is ill-conditioned. A quadratic Zener at strong
-  stiffening amplifies a 1e-9 change in `R0` into 1e-3 of the trajectory, and predicts a
-  spread far beyond what the gelatin records show, so the data exclude those parameters
-  whatever their chi-squared.
-
-  That region is now excluded for a stronger and simpler reason: after its collapse the
-  trajectory expands to R/R0 = 2132, identically at rtol 1e-3, 1e-4 and 1e-5, so
-  `max_radius_ratio` refuses it before it reaches this function at all. The spread argument
-  stands on its own for models that are sensitive but physical (#203).
+  It matters where the forward map is ill-conditioned: a quadratic Zener at strong stiffening
+  turns a 1e-9 change in `R0` into 1e-3 of the trajectory and predicts a spread far beyond
+  what the gelatin records show, so the data exclude those parameters whatever their
+  chi-squared. That particular region is now refused earlier by `max_radius_ratio`; the
+  argument stands on its own for models that are sensitive but physical (#203).
 
   Returns the median over time of the across-sample standard deviation, in the same units
   as `field`. `None` if any sample cannot be integrated, since a spread over a subset of
@@ -235,26 +226,20 @@ class ResidualCheck:
 def check_residuals(residual, *, threshold=None):
   """Are these residuals white, and if not, by how much is the fit over-confident?
 
-  `chi_squared/N` near 1 is the usual evidence that a model fits. It is not evidence that
-  the LIKELIHOOD is right, and the two fail independently. A Gaussian likelihood with
-  independent samples treats every point as fresh information; if the residuals are
-  correlated -- because the model is missing structure, or the measurement carries a
-  systematic every trial shares -- then most of that information is double counted, the
-  posterior is too narrow, and nothing about the chi-squared says so.
-
-  Measured on a gelatin record against its best-fitting model: `chi2/N = 0.974`, which
-  reads as an excellent fit, with lag-one autocorrelation `0.90` and 16 sign changes where
-  independent noise would give about 102. The effective sample size was near 10 of 201, so
-  the error bars were roughly four times too small (#216).
+  `chi_squared/N` near 1 is evidence that a model fits, not that the LIKELIHOOD is right, and
+  the two fail independently: correlated residuals mean most of the information a Gaussian
+  independent likelihood counts is double counted, so the posterior is too narrow and the
+  chi-squared does not say so. On a gelatin record `chi2/N = 0.974` read as an excellent fit
+  alongside lag-one 0.90 and an effective sample size near 10 of 201 -- error bars four times
+  too small (#216).
 
   `residual` is the whitened residual, as `LikelihoodEvaluation.residual` carries it.
   Returns a `ResidualCheck`; `inflation` is the factor by which parameter uncertainties are
   understated, `sqrt(N / N_eff)`.
   """
-  values = np.asarray(residual, dtype=float).ravel()
+  values = finite_array("residuals", residual).ravel()
   count = values.size
   if count < 8: raise ValueError("at least 8 residuals are needed to estimate autocorrelation")
-  if not np.all(np.isfinite(values)): raise ValueError("residuals must be finite")
 
   centred = values - values.mean()
   variance = float(centred @ centred)
@@ -308,11 +293,9 @@ class LackOfFit:
 def lack_of_fit(observed, predicted, spread, trials, parameters):
   """Split a residual into what the apparatus cannot repeat and what the model cannot follow.
 
-  `chi_squared/N` is routinely read as "the model fits to within the noise" and cannot answer
-  that, for a reason `check_residuals` gives from one side and this gives from another. With
-  replicates the question has a classical answer that costs no model at all: the spread
-  BETWEEN repeated runs at one setting is pure error, and whatever the model misses beyond it
-  is lack of fit.
+  With replicates, the question `chi_squared/N` is routinely misread as answering has a
+  classical answer that costs no model at all: the spread BETWEEN repeated runs at one
+  setting is pure error, and whatever the model misses beyond it is lack of fit.
 
       SS_pure = (J-1) sum_i s_i^2                  df = k(J-1)
       SS_lack = J sum_i (ybar_i - yhat_i)^2        df = k - p
@@ -324,32 +307,26 @@ def lack_of_fit(observed, predicted, spread, trials, parameters):
   `chi^2` formed against `spread` is quietly too forgiving by that factor. Here it is part of
   the statistic rather than a correction anyone has to remember.
 
-  Measured on the gelatin records against their best-fitting qSLS: `ratio` of 14.2, 2.9 and
-  3.3 against a five-percent critical value near 1.2 -- every record rejects, and the coldest
-  rejects by an order of magnitude because its apparatus repeats three times more tightly, not
-  because its fit is worse. Lag-one cannot see that difference; it reads 0.919, 0.968, 0.911.
+  On the gelatin records against their best-fitting qSLS the ratio is 14.2, 2.9 and 3.3
+  against a five-percent critical value near 1.2 -- every record rejects, the coldest by an
+  order of magnitude because its apparatus repeats three times more tightly, not because its
+  fit is worse. Lag-one cannot see that difference; it reads 0.919, 0.968, 0.911.
 
-  TWO THINGS THE RATIO IS NOT. It is not a p-value: the F distribution assumes the errors are
-  independent across settings, and on these records they are correlated at 0.918. Read it as
-  an effect size, which needs no such assumption. And it is a LOWER bound on model inadequacy
-  wherever the replicates differ by more than measurement -- if the repeats carry real
-  parameter variation, as bubble-to-bubble spread does here, pure error is inflated and the
-  denominator is too large.
+  TWO THINGS THE RATIO IS NOT. Not a p-value: the F distribution wants errors independent
+  across settings and these are correlated at 0.918, so read it as an effect size. And it is
+  a LOWER bound on model inadequacy wherever the replicates differ by more than measurement,
+  since real bubble-to-bubble variation inflates pure error and the denominator with it.
   """
   mean = np.asarray(observed, dtype=float).ravel()
   model = np.asarray(predicted, dtype=float).ravel()
-  scale = np.asarray(spread, dtype=float).ravel()
+  scale = finite_array("spread", spread, non_negative=True).ravel()
   if not (mean.size == model.size == scale.size):
     raise ValueError(f"observed, predicted and spread must agree in length; "
                      f"got {mean.size}, {model.size}, {scale.size}")
   if mean.size == 0: raise ValueError("at least one setting is required")
-  if not isinstance(trials, Integral) or int(trials) < 2:
-    raise ValueError("trials must be an integer of at least 2; pure error needs repeats")
-  if not isinstance(parameters, Integral) or int(parameters) < 0:
-    raise ValueError("parameters must be a non-negative integer")
-  if np.any(scale < 0.0) or not np.all(np.isfinite(scale)):
-    raise ValueError("spread must be finite and non-negative")
-  settings, trials, parameters = mean.size, int(trials), int(parameters)
+  trials = positive_integer("trials (pure error needs repeats)", trials, minimum=2)
+  parameters = positive_integer("parameters", parameters, minimum=0)
+  settings = mean.size
   if settings <= parameters:
     raise ValueError(f"{settings} settings cannot support {parameters} parameters plus a "
                      "lack-of-fit test; the numerator has no degrees of freedom")

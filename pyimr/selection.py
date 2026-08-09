@@ -15,6 +15,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ._config import OPERATORS
+from ._validate import deviation_for, finite_array, positive_integer
 from ._materials import (
   ArrudaBoyce,
   Bingham,
@@ -381,19 +382,6 @@ def parameter_grid(axes, count, bounds=None):
   )
   return points, normalized
 
-def _deviation_for(deviation, samples):
-  """A noise scale as an array broadcastable over the samples, scalar or one per sample.
-
-  Real records carry the second: the trial spread varies across the trace, and collapsing
-  it to a single number silently reweights which parts of the curve the fit is asked to
-  match. `fit_quality.py` has always used the per-sample form.
-  """
-  scale = np.asarray(deviation, dtype=float)
-  if not np.all(np.isfinite(scale)) or np.any(scale <= 0.0): raise ValueError("deviation must be finite and positive")
-  if scale.ndim > 1 or (scale.ndim == 1 and scale.size not in (1, samples)):
-    raise ValueError(f"deviation must be scalar or one per sample; got {scale.size} for {samples} observations")
-  return scale
-
 def evaluate_at(candidate, solve, fields):
   """Build the candidate at `fields` and solve it, splitting off the configuration axes.
 
@@ -545,10 +533,10 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
   from scipy.optimize import least_squares
 
   bounds = PARAMETER_BOUNDS if bounds is None else bounds
-  if int(starts) < 1: raise ValueError("starts must be a positive integer")
+  positive_integer("starts", starts)
   if not 0.0 < float(separation) < 1.0: raise ValueError("separation must lie in (0, 1)")
   measured = np.asarray(observed, dtype=float).ravel()
-  scale = _deviation_for(deviation, measured.size)
+  scale = deviation_for(deviation, measured.size)
 
   # An optimiser walking a six-dimensional box WILL step somewhere the material does not
   # integrate -- Gent locks up, a collapse outruns the step budget, a constructor refuses
@@ -594,11 +582,11 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
   # forward model that differs only by added physics -- its optimum is a far better starting
   # point than any random one, and it costs one extra descent to try.
   if seeds is not None:
-    warm = np.atleast_2d(np.asarray(seeds, dtype=float))
+    warm = np.atleast_2d(finite_array("seeds", seeds))
     if warm.ndim != 2 or warm.shape[1] != dimension:
       raise ValueError(f"seeds must be points in the {dimension}-dimensional unit cube; "
                        f"got shape {warm.shape}")
-    if not np.all(np.isfinite(warm)) or np.any(warm < 0.0) or np.any(warm > 1.0):
+    if np.any(warm < 0.0) or np.any(warm > 1.0):
       raise ValueError("seeds must be finite and lie in the unit cube the prior is defined on")
     points = np.vstack([warm, points])
 
@@ -648,7 +636,7 @@ def candidate_log_evidence(candidate, solve, observed, deviation, unit_point, *,
   if np.any(unit < 0.0) or np.any(unit > 1.0):
     raise ValueError("the fitted point must lie in the unit cube the prior is defined on")
   measured = np.asarray(observed, dtype=float).ravel()
-  scale = _deviation_for(deviation, measured.size)
+  scale = deviation_for(deviation, measured.size)
   width = float(step)
   if not 0.0 < width < 0.5: raise ValueError("step must lie in (0, 0.5)")
 

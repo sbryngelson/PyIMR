@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
+from functools import partial
 from numbers import Integral
 
 import numpy as np
+
+from ._validate import positive_scalar
 
 __all__ = [
   "_is_distributed_stress",
@@ -42,7 +45,8 @@ __all__ = [
   "Zener",
 ]
 
-def _checked(**rules):
+def _validated_fields(**rules):
+  """Give a dataclass a `__post_init__` that runs one check per named field."""
   def decorate(cls):
     def __post_init__(self):
       for name, check in rules.items(): check(name, getattr(self, name))
@@ -50,18 +54,14 @@ def _checked(**rules):
     return cls
   return decorate
 
-def _finite_positive(name, value) -> None:
-  if not np.isfinite(value) or value <= 0.0: raise ValueError(f"{name} must be finite and positive")
-
-def _finite_nonnegative(name, value) -> None:
-  if not np.isfinite(value) or value < 0.0: raise ValueError(f"{name} must be finite and non-negative")
+_non_negative = partial(positive_scalar, allow_zero=True)
 
 @dataclass(frozen=True, slots=True)
 class NoStress:
   """No constitutive stress."""
 
 @dataclass(frozen=True, slots=True)
-@_checked(shear_modulus_pa=_finite_positive, viscosity_pa_s=_finite_positive)
+@_validated_fields(shear_modulus_pa=positive_scalar, viscosity_pa_s=positive_scalar)
 class NeoHookeanKelvinVoigt:
   """Closed-form neo-Hookean Kelvin-Voigt solid."""
 
@@ -69,7 +69,7 @@ class NeoHookeanKelvinVoigt:
   viscosity_pa_s: float
 
 @dataclass(frozen=True, slots=True)
-@_checked(shear_modulus_pa=_finite_positive, viscosity_pa_s=_finite_positive, stiffening=_finite_nonnegative)
+@_validated_fields(shear_modulus_pa=positive_scalar, viscosity_pa_s=positive_scalar, stiffening=_non_negative)
 class QuadraticKelvinVoigt:
   """Closed-form quadratic Kelvin-Voigt solid."""
 
@@ -78,9 +78,9 @@ class QuadraticKelvinVoigt:
   stiffening: float = 0.25
 
 def _validate_memory_parameters(viscosity_pa_s, relaxation_time_s, retardation_time_s, *, polymer_required) -> None:
-  _finite_positive("viscosity_pa_s", viscosity_pa_s)
-  _finite_positive("relaxation_time_s", relaxation_time_s)
-  _finite_nonnegative("retardation_time_s", retardation_time_s)
+  positive_scalar("viscosity_pa_s", viscosity_pa_s)
+  positive_scalar("relaxation_time_s", relaxation_time_s)
+  _non_negative("retardation_time_s", retardation_time_s)
   limit_ok = retardation_time_s < relaxation_time_s if polymer_required else retardation_time_s <= relaxation_time_s
   if not limit_ok:
     relation = "less than" if polymer_required else "no greater than"
@@ -96,7 +96,7 @@ class Zener:
   retardation_time_s: float = 0.0
 
   def __post_init__(self) -> None:
-    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+    positive_scalar("shear_modulus_pa", self.shear_modulus_pa)
     _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False)
 
 @dataclass(frozen=True, slots=True)
@@ -124,9 +124,9 @@ class QuadraticZener:
   stiffening: float = 0.25
 
   def __post_init__(self) -> None:
-    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+    positive_scalar("shear_modulus_pa", self.shear_modulus_pa)
     _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False)
-    _finite_nonnegative("stiffening", self.stiffening)
+    _non_negative("stiffening", self.stiffening)
 
 @dataclass(frozen=True, slots=True)
 class TwoModeQuadraticZener:
@@ -153,10 +153,10 @@ class TwoModeQuadraticZener:
   second_share: float = 0.0
 
   def __post_init__(self) -> None:
-    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+    positive_scalar("shear_modulus_pa", self.shear_modulus_pa)
     _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False)
-    _finite_nonnegative("stiffening", self.stiffening)
-    _finite_positive("second_relaxation_time_s", self.second_relaxation_time_s)
+    _non_negative("stiffening", self.stiffening)
+    positive_scalar("second_relaxation_time_s", self.second_relaxation_time_s)
     if not (0.0 <= self.second_share < 1.0):
       raise ValueError("second_share must lie in [0, 1): it is the fraction of the memory carried by the second arm")
 
@@ -189,11 +189,11 @@ class CarreauZener:
   power_index: float = 1.0
 
   def __post_init__(self) -> None:
-    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+    positive_scalar("shear_modulus_pa", self.shear_modulus_pa)
     _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False)
-    _finite_nonnegative("stiffening", self.stiffening)
-    _finite_positive("thinning_time_s", self.thinning_time_s)
-    _finite_positive("power_index", self.power_index)
+    _non_negative("stiffening", self.stiffening)
+    positive_scalar("thinning_time_s", self.thinning_time_s)
+    positive_scalar("power_index", self.power_index)
 
 @dataclass(frozen=True, slots=True)
 class OldroydB:
@@ -207,7 +207,7 @@ class OldroydB:
     _validate_memory_parameters(self.viscosity_pa_s, self.relaxation_time_s, self.retardation_time_s, polymer_required=False)
 
 @dataclass(frozen=True, slots=True)
-@_checked(shear_modulus_pa=_finite_positive)
+@_validated_fields(shear_modulus_pa=positive_scalar)
 class NeoHookean:
   shear_modulus_pa: float
 
@@ -217,8 +217,8 @@ class MooneyRivlin:
   c01_pa: float
 
   def __post_init__(self) -> None:
-    _finite_nonnegative("c10_pa", self.c10_pa)
-    _finite_nonnegative("c01_pa", self.c01_pa)
+    _non_negative("c10_pa", self.c10_pa)
+    _non_negative("c01_pa", self.c01_pa)
     if self.c10_pa == 0.0 and self.c01_pa == 0.0: raise ValueError("at least one Mooney-Rivlin coefficient must be positive")
 
 @dataclass(frozen=True, slots=True)
@@ -228,18 +228,18 @@ class Yeoh:
   c3_pa: float = 0.0
 
   def __post_init__(self) -> None:
-    _finite_positive("c1_pa", self.c1_pa)
+    positive_scalar("c1_pa", self.c1_pa)
     for name in ("c2_pa", "c3_pa"):
       if not np.isfinite(getattr(self, name)): raise ValueError(f"{name} must be finite")
 
 @dataclass(frozen=True, slots=True)
-@_checked(shear_modulus_pa=_finite_positive, stiffening=_finite_nonnegative)
+@_validated_fields(shear_modulus_pa=positive_scalar, stiffening=_non_negative)
 class Fung:
   shear_modulus_pa: float
   stiffening: float
 
 @dataclass(frozen=True, slots=True)
-@_checked(shear_modulus_pa=_finite_positive, extensibility=_finite_positive)
+@_validated_fields(shear_modulus_pa=positive_scalar, extensibility=positive_scalar)
 class Gent:
   shear_modulus_pa: float
   extensibility: float
@@ -250,7 +250,7 @@ class ArrudaBoyce:
   chain_segments: float
 
   def __post_init__(self) -> None:
-    _finite_positive("shear_modulus_pa", self.shear_modulus_pa)
+    positive_scalar("shear_modulus_pa", self.shear_modulus_pa)
     if not np.isfinite(self.chain_segments) or self.chain_segments <= 1.0: raise ValueError("chain_segments must be finite and greater than 1")
 
 @dataclass(frozen=True, slots=True)
@@ -274,19 +274,19 @@ class Ogden:
 ElasticModel = NeoHookean | MooneyRivlin | Yeoh | Fung | Gent | ArrudaBoyce | Ogden
 
 @dataclass(frozen=True, slots=True)
-@_checked(viscosity_pa_s=_finite_positive)
+@_validated_fields(viscosity_pa_s=positive_scalar)
 class Newtonian:
   viscosity_pa_s: float
 
 @dataclass(frozen=True, slots=True)
-@_checked(consistency_pa_s_n=_finite_positive, exponent=_finite_positive, regularization_rate_per_s=_finite_positive)
+@_validated_fields(consistency_pa_s_n=positive_scalar, exponent=positive_scalar, regularization_rate_per_s=positive_scalar)
 class PowerLaw:
   consistency_pa_s_n: float
   exponent: float
   regularization_rate_per_s: float = 1e-3
 
 @dataclass(frozen=True, slots=True)
-@_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative, transition_exponent=_finite_positive, power_index=_finite_positive)
+@_validated_fields(zero_shear_viscosity_pa_s=positive_scalar, infinite_shear_viscosity_pa_s=_non_negative, time_constant_s=_non_negative, transition_exponent=positive_scalar, power_index=positive_scalar)
 class CarreauYasuda:
   zero_shear_viscosity_pa_s: float
   infinite_shear_viscosity_pa_s: float
@@ -295,7 +295,7 @@ class CarreauYasuda:
   power_index: float
 
 @dataclass(frozen=True, slots=True)
-@_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative)
+@_validated_fields(zero_shear_viscosity_pa_s=positive_scalar, infinite_shear_viscosity_pa_s=_non_negative, time_constant_s=_non_negative)
 class PowellEyring:
   """eta_inf + (eta_0 - eta_inf) * asinh(lambda*gdot)/(lambda*gdot)."""
 
@@ -304,7 +304,7 @@ class PowellEyring:
   time_constant_s: float
 
 @dataclass(frozen=True, slots=True)
-@_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative)
+@_validated_fields(zero_shear_viscosity_pa_s=positive_scalar, infinite_shear_viscosity_pa_s=_non_negative, time_constant_s=_non_negative)
 class ModifiedPowellEyring:
   """eta_inf + (eta_0 - eta_inf) * log1p(lambda*gdot)/(lambda*gdot)."""
 
@@ -313,7 +313,7 @@ class ModifiedPowellEyring:
   time_constant_s: float
 
 @dataclass(frozen=True, slots=True)
-@_checked(zero_shear_viscosity_pa_s=_finite_positive, infinite_shear_viscosity_pa_s=_finite_nonnegative, time_constant_s=_finite_nonnegative, transition_exponent=_finite_positive)
+@_validated_fields(zero_shear_viscosity_pa_s=positive_scalar, infinite_shear_viscosity_pa_s=_non_negative, time_constant_s=_non_negative, transition_exponent=positive_scalar)
 class Cross:
   zero_shear_viscosity_pa_s: float
   infinite_shear_viscosity_pa_s: float
@@ -321,7 +321,7 @@ class Cross:
   transition_exponent: float
 
 @dataclass(frozen=True, slots=True)
-@_checked(yield_stress_pa=_finite_nonnegative, consistency_pa_s_n=_finite_positive, exponent=_finite_positive, regularization_rate_per_s=_finite_positive)
+@_validated_fields(yield_stress_pa=_non_negative, consistency_pa_s_n=positive_scalar, exponent=positive_scalar, regularization_rate_per_s=positive_scalar)
 class HerschelBulkley:
   yield_stress_pa: float
   consistency_pa_s_n: float
@@ -329,7 +329,7 @@ class HerschelBulkley:
   regularization_rate_per_s: float = 1e-3
 
 @dataclass(frozen=True, slots=True)
-@_checked(yield_stress_pa=_finite_nonnegative, plastic_viscosity_pa_s=_finite_positive, regularization_rate_per_s=_finite_positive)
+@_validated_fields(yield_stress_pa=_non_negative, plastic_viscosity_pa_s=positive_scalar, regularization_rate_per_s=positive_scalar)
 class Bingham:
   yield_stress_pa: float
   plastic_viscosity_pa_s: float

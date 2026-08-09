@@ -9,6 +9,7 @@ import numpy as np
 
 from typing import get_args
 
+from ._validate import positive_scalar
 from ._materials import (
   Giesekus,
   LinearPTT,
@@ -16,7 +17,6 @@ from ._materials import (
   OldroydB,
   QuadraticZener,
   Zener,
-  _finite_positive,
   _stress_state_count,
 )
 from ._thermal import _GAM_TAIT, _HUGONIOT_S, _NSTATE_TAIT
@@ -180,9 +180,9 @@ class CollapseInitialization:
   maximum_bracket_expansions: int = 24
 
   def __post_init__(self) -> None:
-    _finite_positive("collapse.maximum_time_nondimensional", self.maximum_time_nondimensional)
-    _finite_positive("collapse.radius_tolerance", self.radius_tolerance)
-    _finite_positive("collapse.initial_velocity_guess", self.initial_velocity_guess)
+    positive_scalar("collapse.maximum_time_nondimensional", self.maximum_time_nondimensional)
+    positive_scalar("collapse.radius_tolerance", self.radius_tolerance)
+    positive_scalar("collapse.initial_velocity_guess", self.initial_velocity_guess)
     if not isinstance(self.maximum_bracket_expansions, Integral) or self.maximum_bracket_expansions < 1:
       raise ValueError("collapse.maximum_bracket_expansions must be a positive integer")
 
@@ -238,7 +238,7 @@ class SimulationConfig:
       if self.initial.stress_state is not None: raise ValueError("collapse initialization cannot be combined with initial.stress_state")
       if self.initial.wall_velocity_m_s != 0.0: raise ValueError("collapse initialization requires zero observed wall velocity")
     _validate_config(self)
-    if self.max_step_s is not None: _finite_positive("max_step_s", self.max_step_s)
+    if self.max_step_s is not None: positive_scalar("max_step_s", self.max_step_s)
     if self.thermal not in ("fd", "spectral"): raise ValueError("thermal must be 'fd' or 'spectral'")
     if self.sampled_forcing is not None and (
       self.pA != 0.0 or self.omega != 0.0 or self.TW != 0.0 or self.DT != 0.0 or self.mn != 0.0 or self.wave_type != 0

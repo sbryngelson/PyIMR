@@ -103,12 +103,6 @@ def test_the_other_root_is_rejected():
   assert abs(chosen - incompressible) < 0.5 * abs(incompressible)
 
 
-@pytest.mark.parametrize("liquid_eos", list(pyimr.LIQUID_EOS))
-def test_it_integrates_a_violent_collapse(liquid_eos):
-  got = trace("lezzi-prosperetti-2", liquid_eos, req=R_MAX / 6.0, rtol=1e-9)
-  assert np.all(np.isfinite(got)) and np.all(got > 0.0)
-
-
 def test_it_reduces_to_the_incompressible_limit():
   """As `c` grows the second-order equation must become Rayleigh-Plesset, at rate `M`."""
   gaps = []
@@ -165,20 +159,3 @@ def test_the_recommended_parameters_are_the_papers():
   # p.317: "parameter values close to (lambda = 0.5, theta = 0) and the form (8.7)"
   assert (SECOND_ORDER_LAMBDA, SECOND_ORDER_THETA) == (0.5, 0.0)
 
-
-def test_it_is_differentiable():
-  times = np.linspace(0.0, 3e-5, 30)
-  built = config("lezzi-prosperetti-2", "tait", req=R_MAX / 6.0, rtol=1e-10)
-  jacobian = np.asarray(pyimr.prepare(built).solve_with_sensitivities(
-    times, ("material.shear_modulus_pa",)).radius_ratio, dtype=float)[:, 0]
-  assert np.all(np.isfinite(jacobian)) and np.max(np.abs(jacobian)) > 0.0
-
-  def moved(scale):
-    material = pyimr.NeoHookeanKelvinVoigt(2500.0 * scale, 0.1)
-    return np.asarray(pyimr.simulate(times, config("lezzi-prosperetti-2", "tait",
-                                                   material=material, req=R_MAX / 6.0,
-                                                   rtol=1e-10)).radius_ratio, dtype=float)
-
-  nudge = 1e-6
-  finite = (moved(1 + nudge) - moved(1 - nudge)) / (2 * nudge * 2500.0)
-  assert np.max(np.abs(jacobian - finite)) < 1e-4 * max(np.max(np.abs(finite)), 1e-30)

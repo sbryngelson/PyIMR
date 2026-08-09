@@ -27,6 +27,7 @@ from ._materials import (
   PowellEyring,
   PowerLaw,
   QuadraticKelvinVoigt,
+  CubicZener,
   QuadraticZener,
   TwoModeQuadraticZener,
   CarreauZener,
@@ -251,6 +252,32 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
     S = Z1 / R**3 - 4 * LAM / Re8 * Rd / R
     strainhard = (3 * ax - 1) / (2 * Ca)
     Ze = R**3 * (strainhard * (5 - Rst**4 - 4 * Rst) + (2 * ax / Ca) * (0.675 + 0.125 * Rst**8 + 0.2 * Rst**5 + Rst**2 - 2 / Rst))
+    Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
+    Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
+    return S, Sdot, xp.array([Z1d]), 4.0 * LAM / Re8
+  if isinstance(material, CubicZener):
+    # QuadraticZener plus the next term of the strain-energy expansion. The kernel is the
+    # integral of `3 c3 (I1-3)^2` against the same shell measure the other terms use,
+    # derived symbolically and checked against the quadrature of `_elastic_integrand` to
+    # 1e-14 over wall stretches 1.5 to 12. It is the only `Ze` here carrying a `log`, which
+    # is a property of the cubic term rather than an approximation: the lower-order kernels
+    # are Laurent polynomials and this one is not.
+    #
+    # The 3 is dW/dI1 = c1 + 2 c2 (I1-3) + 3 c3 (I1-3)^2, and  is c3 as a multiple of
+    # the modulus, so the term is 3 cubic / Ca. Sign and factor are pinned against the
+    # quadrature rather than argued: without them the ratio to the oracle was exactly -1/3.
+    Z1 = Z[0]
+    cubic = p["cubicx"]
+    S = Z1 / R**3 - 4 * LAM / Re8 * Rd / R
+    strainhard = (3 * ax - 1) / (2 * Ca)
+    quadratic = (2 * ax / Ca) * (0.675 + 0.125 * Rst**8 + 0.2 * Rst**5 + Rst**2 - 2 / Rst)
+    log_term = xp.log(xp.maximum(Rst, 1e-300))
+    cubic_kernel = (
+      (1.0 / 3.0) * Rst**12 + (4.0 / 9.0) * Rst**9 - 3.0 * Rst**8 + (8.0 / 3.0) * Rst**6
+      - 4.8 * Rst**5 + 9.0 * Rst**4 + (16.0 / 3.0) * Rst**3 - 24.0 * Rst**2 + 36.0 * Rst
+      + 16.0 * log_term - 2909.0 / 45.0 + 48.0 / Rst - (16.0 / 3.0) / Rst**3
+    )
+    Ze = R**3 * (strainhard * (5 - Rst**4 - 4 * Rst) + quadratic + 3.0 * (cubic / Ca) * cubic_kernel)
     Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
     return S, Sdot, xp.array([Z1d]), 4.0 * LAM / Re8

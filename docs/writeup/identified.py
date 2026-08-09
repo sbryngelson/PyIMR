@@ -24,7 +24,7 @@ BOX = {"mu": (1e-5, 1e1), "galpha": (1e0, 1e7), "lambda1": (1e-9, 1e-2)}
 DECISIVE = 1.0
 
 
-def _candidate(ratio):
+def candidate_at_ratio(ratio):
   import pyimr
   from pyimr.selection import CandidateModel
 
@@ -44,7 +44,7 @@ def _job(argument):
     # starts=10, not the default 6. At 6 the 33 C fits sat at chi2/N = 1.151 while a fit at
     # 0.439 exists, so all six operators were stuck in the same poor basin -- which looks
     # exactly like six operators that cannot be told apart, and was read that way.
-    got = records.score(_candidate(ratio), solve, mean, spread, bounds=BOX, starts=10,
+    got = records.score(candidate_at_ratio(ratio), solve, mean, spread, bounds=BOX, starts=10,
                         evaluations=260, trials=records.trial_count(dataset))
   except ValueError as error:
     got = {"failed": str(error)}

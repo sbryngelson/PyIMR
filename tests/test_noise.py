@@ -358,3 +358,176 @@ def test_an_uncorrelated_residual_asks_for_no_correction():
   # either sign of "no correlation to correct for": no positive lag-one at all, or a
   # correlation length shorter than the sampling can resolve
   assert tau == float("inf") or tau < spacing
+
+
+# --- model-form error: what is visible, and what the invisible part could cost ---------------
+
+def test_at_an_optimum_the_whole_residual_is_the_identifiable_discrepancy():
+  """The normal equations, and the reason the bias cannot be measured.
+
+  A converged fit leaves the residual orthogonal to every Jacobian column, so the absorbed
+  part is EXACTLY zero -- it went into the parameters and left no trace. That is the whole
+  identifiability problem in one assertion.
+  """
+  import numpy as np
+  from pyimr.noise import discrepancy
+
+  rng = np.random.default_rng(0)
+  jacobian = rng.standard_normal((60, 3)) @ np.diag([1.0, 0.2, 0.01])
+  basis, _ = np.linalg.qr(jacobian)
+  residual = rng.standard_normal(60)
+  residual -= basis @ (basis.T @ residual)             # put it at the optimum
+
+  got = discrepancy(residual, jacobian)
+  assert got.at_optimum and got.absorbed == pytest.approx(0.0, abs=1e-9)
+  assert got.size == pytest.approx(float(np.linalg.norm(residual)), rel=1e-12)
+  assert np.allclose(got.identifiable, residual)
+
+
+def test_the_bias_bound_is_the_worst_case_it_claims_to_be():
+  """`B * sigma_k` must actually bound the bias, for every coordinate, over every direction.
+
+  Checked by search rather than by rederiving the algebra: if a random absorbed discrepancy of
+  the stated size moves a parameter further than the bound, the bound is wrong.
+  """
+  import numpy as np
+  from pyimr.noise import discrepancy
+
+  rng = np.random.default_rng(1)
+  jacobian = rng.standard_normal((80, 4)) @ np.diag([1.0, 0.3, 0.05, 0.002])
+  basis, _ = np.linalg.qr(jacobian)
+  residual = rng.standard_normal(80)
+  residual -= basis @ (basis.T @ residual)
+
+  got = discrepancy(residual, jacobian)
+  covariance = np.linalg.inv(jacobian.T @ jacobian)
+  sigma = np.sqrt(np.diag(covariance))
+
+  worst = np.zeros(4)
+  for _ in range(4000):
+    direction = basis @ rng.standard_normal(4)
+    direction *= got.size / np.linalg.norm(direction)          # absorbed part of the stated size
+    worst = np.maximum(worst, np.abs(covariance @ jacobian.T @ direction))
+  # the bound is `bias_sigmas` multiples of each parameter's own sigma, and it is tight
+  assert np.all(worst <= got.bias_sigmas * sigma * (1 + 1e-9))
+  assert np.max(worst / (got.bias_sigmas * sigma)) > 0.9, "the bound should be attainable"
+
+
+def test_a_point_that_is_not_an_optimum_says_so():
+  """A stored grid argmax is not a fit (#235), and reporting a bias bound there would be false."""
+  import numpy as np
+  from pyimr.noise import discrepancy
+
+  rng = np.random.default_rng(2)
+  jacobian = rng.standard_normal((40, 3))
+  basis, _ = np.linalg.qr(jacobian)
+  residual = rng.standard_normal(40)
+  residual -= basis @ (basis.T @ residual)
+  displaced = residual + jacobian @ np.array([0.4, 0.0, 0.0])
+
+  got = discrepancy(displaced, jacobian)
+  assert not got.at_optimum and "does not apply" in got.summary
+  # the identifiable part is unchanged: it is a projection, and the displacement is in the span
+  assert np.allclose(got.identifiable, residual)
+
+
+def test_the_ratio_scales_the_bound_and_nothing_else():
+  import numpy as np
+  from pyimr.noise import discrepancy
+
+  rng = np.random.default_rng(3)
+  jacobian = rng.standard_normal((30, 2))
+  basis, _ = np.linalg.qr(jacobian)
+  residual = rng.standard_normal(30)
+  residual -= basis @ (basis.T @ residual)
+  one, half = (discrepancy(residual, jacobian, absorbed_ratio=r) for r in (1.0, 0.5))
+  assert half.bias_sigmas == pytest.approx(0.5 * one.bias_sigmas)
+  assert half.size == pytest.approx(one.size)
+  assert discrepancy(residual, jacobian, absorbed_ratio=0.0).bias_sigmas == 0.0
+
+
+# --- screening candidate physics against the discrepancy it must explain ---------------------
+
+def _orthonormal_setup(rng, samples=80, parameters=3):
+  """A model span, a discrepancy orthogonal to it, and a spare direction orthogonal to both."""
+  import numpy as np
+
+  jacobian = rng.standard_normal((samples, parameters))
+  basis, _ = np.linalg.qr(jacobian)
+  def free(vector):
+    vector = vector - basis @ (basis.T @ vector)
+    return vector / np.linalg.norm(vector)
+  delta = free(rng.standard_normal(samples))
+  spare = rng.standard_normal(samples)
+  spare = free(spare - (spare @ delta) * delta)
+  return jacobian, delta, spare
+
+
+def test_a_candidate_is_scored_by_the_share_of_the_discrepancy_it_removes():
+  """The cosine, at geometry chosen so the answer is known in closed form."""
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  jacobian, unit, spare = _orthonormal_setup(np.random.default_rng(0))
+  # deliberately NOT unit length, and candidates deliberately not unit either: a cosine has a
+  # denominator, and a fixture where every norm is one cannot tell it from any other formula
+  delta = 3.7 * unit
+  mixed = 5.0 * (0.6 * unit + 0.8 * spare)              # cos = 0.6 by construction
+  # a real candidate has a component the existing parameters already reproduce; only what is
+  # left after projecting that out can remove any of the discrepancy
+  partly_absorbed = jacobian @ np.array([90.0, -40.0, 6.0]) + 2.0 * unit
+
+  got = enrichment_overlap(delta, jacobian, {
+    "exact": 0.25 * unit, "mixed": mixed, "orthogonal": 8.0 * spare,
+    "partly_absorbed": partly_absorbed})
+  assert got.overlap["exact"] == pytest.approx(1.0)
+  assert got.overlap["mixed"] == pytest.approx(0.6)
+  assert got.overlap["orthogonal"] == pytest.approx(0.0, abs=1e-12)
+  # the absorbed part is projected away, so what remains lies entirely along the discrepancy
+  assert got.overlap["partly_absorbed"] == pytest.approx(1.0)
+  assert got.removable["mixed"] == pytest.approx(0.36)
+  assert got.best[0] in {"exact", "partly_absorbed"}
+
+
+def test_a_candidate_the_existing_parameters_reproduce_explains_nothing():
+  """The whole point: refitting absorbs it, chi-squared improves, and the misfit is untouched.
+
+  Scored on magnitude it would look enormous. Scored on what it can remove, it is zero.
+  """
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  rng = np.random.default_rng(1)
+  jacobian, delta, _ = _orthonormal_setup(rng)
+  inside = jacobian @ np.array([300.0, -50.0, 7.0])        # entirely within the model's span
+  got = enrichment_overlap(delta, jacobian, {"absorbed": inside})
+  assert got.overlap["absorbed"] == pytest.approx(0.0, abs=1e-9)
+  assert got.joint == pytest.approx(0.0, abs=1e-9)
+
+
+def test_candidates_proposing_the_same_curve_do_not_count_twice():
+  """`joint` is the span, not the sum: two names for one direction remove it once."""
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  jacobian, delta, spare = _orthonormal_setup(np.random.default_rng(2))
+  mixed = 0.6 * delta + 0.8 * spare
+  twice = enrichment_overlap(delta, jacobian, {"a": mixed, "b": 2.0 * mixed})
+  assert twice.joint == pytest.approx(0.36)                 # not 0.72
+  # and two independent directions that between them span the discrepancy remove all of it
+  both = enrichment_overlap(delta, jacobian, {"a": mixed, "c": spare})
+  assert both.joint == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize(("bad", "message"), [
+  ({"directions": {}}, "at least one candidate"),
+  ({"directions": {"x": [1.0, 2.0]}}, "expected"),
+])
+def test_impossible_screens_are_refused(bad, message):
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  jacobian, delta, _ = _orthonormal_setup(np.random.default_rng(3))
+  call = {"identifiable": delta, "jacobian": jacobian, "directions": {"x": delta}} | bad
+  with pytest.raises(ValueError, match=message):
+    enrichment_overlap(**call)

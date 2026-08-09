@@ -37,7 +37,11 @@ __all__ = [
   "marginalize_evaluation",
   "predicted_spread",
   "strain_rate_weights",
+  "Discrepancy",
+  "Enrichment",
   "correlation_time_from",
+  "discrepancy",
+  "enrichment_overlap",
   "weighted_deviation",
   "whitening",
 ]
@@ -412,3 +416,173 @@ def lack_of_fit(observed, predicted, spread, trials, parameters):
   return LackOfFit(pure_error=pure, lack_of_fit=lack, ratio=ratio, pure_df=pure_df,
                    lack_df=lack_df, trials=trials,
                    summary=f"lack of fit {ratio:.2f} on {lack_df} and {pure_df} df: {verdict}")
+
+
+@dataclass(frozen=True, slots=True)
+class Discrepancy:
+  """The part of the model error the data can see, and what the invisible part could cost."""
+
+  identifiable: np.ndarray
+  size: float
+  absorbed: float
+  at_optimum: bool
+  bias_sigmas: float
+  summary: str
+
+  def __str__(self) -> str: return self.summary
+
+
+def discrepancy(residual, jacobian, *, absorbed_ratio=1.0, tolerance=1e-2):
+  """Split model error into the part a design can see and a bound on the part it cannot.
+
+  `lack_of_fit` says a model is inadequate; it does not say by how much the parameters suffer.
+  Write the truth as `y = m(theta) + delta + noise`. Projecting the residual onto the model's
+  own span,
+
+      delta_hat = (I - P) d,     P = J (J^T J)^-1 J^T,
+
+  is the identifiable discrepancy: what no choice of parameters reproduces. The complement is
+  the problem. At a converged interior fit the normal equations make `d` orthogonal to every
+  column of `J`, so `P d = 0` EXACTLY -- the absorbed part of `delta` has already been taken up
+  into `theta_hat` and left no trace at all. That is the Kennedy--O'Hagan unidentifiability, and
+  it means the bias cannot be measured from the fit. It can only be bounded.
+
+  The bound is unusually clean. Over all absorbed discrepancies with `||delta_par|| <= B`, the
+  worst bias in coordinate `k` is `B * sqrt([(J^T J)^-1]_kk)` -- exactly `B` times that
+  parameter's own standard deviation, the same multiple for every coordinate. So one number
+  answers it, and `absorbed_ratio` is the only assumption: `B = absorbed_ratio * ||delta_hat||`,
+  taking the unseen part to be at most `absorbed_ratio` times the seen part. One is the
+  defensible default and is not conservative -- nothing forbids the invisible component being
+  larger.
+
+  `residual` must be whitened by the standard error of the MEAN, `spread / sqrt(trials)`, when
+  `y` is an average over repeats. Dividing by `spread` instead understates the misfit by
+  `sqrt(trials)` and is the same omission `lack_of_fit` exists to correct.
+
+  `at_optimum` reports whether `||P d|| / ||d||` is below `tolerance`. When it is not, the fit
+  has not converged or is against a bound, `delta_hat` is contaminated by the distance to the
+  optimum, and the bias bound does not apply -- a stored grid argmax fails this outright (#235).
+  """
+  misfit = finite_array("residual", residual).ravel()
+  matrix = np.atleast_2d(finite_array("jacobian", jacobian))
+  if matrix.shape[0] != misfit.size:
+    raise ValueError(f"jacobian has {matrix.shape[0]} rows for {misfit.size} residuals")
+  ratio = positive_scalar("absorbed_ratio", absorbed_ratio, allow_zero=True)
+  tolerance = positive_scalar("tolerance", tolerance)
+
+  # lstsq, not a normal-equation solve: the sloppy directions make `J^T J` badly conditioned,
+  # and the projection is what is wanted, not the coefficients
+  coefficients, *_ = np.linalg.lstsq(matrix, misfit, rcond=None)
+  absorbed = matrix @ coefficients
+  left = misfit - absorbed
+  total = float(np.linalg.norm(misfit))
+  taken = float(np.linalg.norm(absorbed))
+  size = float(np.linalg.norm(left))
+  settled = bool(total <= 0.0 or taken / total <= tolerance)
+
+  bias = ratio * size
+  where = ("at the optimum" if settled else
+           f"NOT at an optimum -- {taken / total:.1%} of the residual is still absorbable, so "
+           "this is contaminated by the distance to it and the bound does not apply")
+  return Discrepancy(
+    identifiable=left, size=size, absorbed=taken, at_optimum=settled, bias_sigmas=bias,
+    summary=(f"identifiable discrepancy {size:.1f} against {total:.1f} total, {where}; "
+             f"every parameter could be biased by up to {bias:.0f} of its own standard "
+             f"deviations if the unseen part is {ratio:g}x the seen one"),
+  )
+
+
+@dataclass(frozen=True, slots=True)
+class Enrichment:
+  """Which candidate physics could account for the discrepancy, and how much of it."""
+
+  overlap: dict[str, float]
+  removable: dict[str, float]
+  joint: float
+  summary: str
+
+  def __str__(self) -> str: return self.summary
+
+  @property
+  def best(self):
+    """The single candidate that removes most of the discrepancy.
+
+    Never empty: `enrichment_overlap` refuses a screen with no candidates, so the guard that
+    would return `None` here is unreachable and only makes every caller check for it.
+    """
+    return max(self.removable.items(), key=lambda pair: pair[1])
+
+
+def enrichment_overlap(identifiable, jacobian, directions):
+  """Screen candidate physics against the discrepancy it would have to explain.
+
+  `discrepancy` leaves a curve the current model cannot produce. Any enrichment proposes a new
+  sensitivity direction, and only the part of it ORTHOGONAL to the existing model's span can
+  reduce that curve -- the rest is absorbed by refitting the parameters already present, which
+  improves `chi^2` while explaining nothing. So the question is a cosine,
+
+      overlap = |<(I - P) v, delta_hat>| / (||(I - P) v|| ||delta_hat||),
+
+  and the fraction of the discrepancy's variance a candidate removes is `overlap^2`.
+
+  This inverts the usual order and is much cheaper for it. Fitting each candidate and comparing
+  evidence costs a multistart per candidate and answers "which fits best", which among rejected
+  models is not the question. This costs ONE solve per candidate and answers "could this
+  possibly be the missing physics" -- a candidate with overlap near zero cannot help however
+  many parameters it brings, and its Bayes factor will improve anyway by re-absorbing what was
+  already absorbed. Screen first, fit what survives.
+
+  `directions` maps a name to that candidate's whitened `dR/d(new parameter)`, on the same
+  samples and whitening as `identifiable` and `jacobian`. `joint` is the fraction all of them
+  remove together, which is smaller than the sum when candidates propose the same curve twice.
+
+  For the design side of the same question -- what experiment would tell these candidates
+  apart, or separate the discrepancy from a parameter shift -- pass `delta_hat` to
+  `pyimr.measure.augmented_information` as a difference direction. Its amplitude then enters
+  the Fisher matrix as one more coordinate, exactly as a rival model does, and
+  `pyimr.gain` designs against it with no further machinery.
+  """
+  left = finite_array("identifiable", identifiable).ravel()
+  matrix = np.atleast_2d(finite_array("jacobian", jacobian))
+  if matrix.shape[0] != left.size:
+    raise ValueError(f"jacobian has {matrix.shape[0]} rows for {left.size} residuals")
+  if not directions: raise ValueError("at least one candidate direction is required")
+  size = float(np.linalg.norm(left))
+  if size <= 0.0: raise ValueError("the identifiable discrepancy is zero; nothing to explain")
+
+  basis, _ = np.linalg.qr(matrix)                 # an orthonormal basis for what refitting absorbs
+  overlap, surviving = {}, []
+  for name, direction in directions.items():
+    column = finite_array(f"direction {name!r}", direction).ravel()
+    if column.size != left.size:
+      raise ValueError(f"direction {name!r} has {column.size} samples, expected {left.size}")
+    free = column - basis @ (basis.T @ column)
+    scale = float(np.linalg.norm(free))
+    # A direction the existing parameters reproduce entirely explains nothing, however large.
+    # The test is RELATIVE: what is left of it is round-off, and normalising by a round-off
+    # norm turns that noise into a cosine -- it read 0.023 for a direction lying exactly in
+    # the span.
+    if scale <= 1e-8 * float(np.linalg.norm(column)):
+      overlap[name] = 0.0
+      continue
+    overlap[name] = abs(float(free @ left)) / (scale * size)
+    surviving.append(free / scale)
+
+  joint = 0.0
+  if surviving:
+    # SVD rather than QR: two candidates proposing the same curve make a rank-deficient
+    # stack, and QR hands back an arbitrary second column spanning the null space, which
+    # then collects projection that no candidate offered.
+    stack = np.column_stack(surviving)
+    left_vectors, values, _ = np.linalg.svd(stack, full_matrices=False)
+    keep = values > max(stack.shape) * np.finfo(float).eps * values[0]
+    joint = float(np.linalg.norm(left_vectors[:, keep].T @ left) ** 2) / size**2
+
+  removable = {name: value**2 for name, value in overlap.items()}
+  ranked = sorted(removable.items(), key=lambda pair: -pair[1])
+  return Enrichment(
+    overlap=overlap, removable=removable, joint=min(joint, 1.0),
+    summary=("candidates by the share of the discrepancy they could remove: "
+             + ", ".join(f"{name} {value:.1%}" for name, value in ranked)
+             + f"; together {min(joint, 1.0):.1%}"),
+  )

@@ -1503,51 +1503,87 @@ $0.44$ to $0.38$ at \SI{33}{\celsius}. That the offset shrinks as the gel warms 
 we can measure but not yet explain, and it is larger than the \SI{1.68}{\percent} that makes
 $R_{\mathrm{eq}}$ worth as much as the operator choice.
 
-\section{Scoring the thermal treatment, and failing to}
+\section{Scoring the thermal treatment}
 \label{sec:thermal}
 
 \Cref{sec:axes} finds the thermal treatment the largest of the three model axes: it moves the
-trace by $16$ noise units and keeps $8.5$ after the material absorbs what it can. It is also
-the only one never scored. The one number in circulation is a $\chi^2/N$ that got slightly
-worse when heat transfer was switched on, which is a fit statistic and not evidence.
+trace by $16$ noise units and keeps $8.5$ after the material absorbs what it can. Scoring it
+means running the comparison of \cref{sec:operator} with the thermal treatment varied and the
+material axes held identical, so the Occam terms cancel and the difference is a Bayes factor
+between physics rather than between parameter counts.
 
-Scoring it means running the same comparison as \cref{sec:operator} with the thermal
-treatment varied and the material axes held identical, so the Occam terms cancel and the
-difference is a Bayes factor between physics. We report the attempt because it did not work,
-and because how it failed is worth knowing.
+The first attempt failed, and how it failed was diagnostic. At ten multistart restarts and
+again at twenty-four -- a $2.4\times$ change of budget -- the \SI{23}{\celsius} rows moved by
+at most $0.01$ nats while the others moved by $15$, $153$, $19$ and $68$. Decisively,
+\emph{more restarts fitted worse}: at \SI{33}{\celsius} bubble\,+\,medium went from
+$\chi^2/N = 0.428$ to $1.073$. Best-of-$24$ cannot be worse than best-of-$10$ at a converged
+optimum, so the search was landing in different basins rather than refining one, and a third
+increase of the budget was not the remedy.
+
+The remedy was a better start. Each thermal fit is now seeded from its own record's converged
+cold optimum instead of sampling a four-dimensional box afresh (\texttt{docs/writeup/thermal.py}), at
+twenty-four restarts. That run takes \SI{2.7}{\hour} on six workers and recovers what the
+cold-started search had lost: \SI{33}{\celsius} bubble\,+\,medium returns to $0.428$, and
+\SI{15}{\celsius} bubble\,+\,medium improves by $15.8$ nats.
+
+It also loses a basin the earlier run had found. At \SI{15}{\celsius} the \emph{bubble}
+treatment lands $15.0$ nats worse warm-started than cold-started, because seeding from the
+cold optimum is a good start for a treatment close to cold and a bad one for a treatment that
+is not. So this is not a converged search either; it is a search whose failures have moved.
+Both runs are minimisations of the same objective, so the table below reads best-of-both,
+which is valid and is what a third run would be compared against.
 
 \begin{center}
 \begin{tabular}{lccc}
 \toprule
 record & cold & bubble & bubble\,+\,medium \\
 \midrule
-\SI{15}{\celsius} & $0$ & $-6.4$ & $+21.6$ \\
-\SI{23}{\celsius} & $0$ & $\mathbf{+2.6}$ & $\mathbf{+8.0}$ \\
-\SI{33}{\celsius} & $0$ & $-5.7$ & $-66.0$ \\
+\SI{15}{\celsius} & $0$ & $+8.6$ & $\mathbf{+21.6}$ \\
+\SI{23}{\celsius} & $0$ & $+2.7$ & $\mathbf{+8.0}$ \\
+\SI{33}{\celsius} & $0$ & $-5.0$ & $\mathbf{+1.7}$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent nats against the cold model, at $24$ multistart restarts. Only the middle row may
-be read. Repeating the study at ten restarts and again at $24$ -- a $2.4\times$ change of
-budget -- moves the \SI{23}{\celsius} rows by $0.00$, $0.00$ and $0.01$ nats, and the others
-by $15$, $153$, $19$ and $68$. The cold baselines are stable everywhere, so the record and
-the material are not at fault; the thermal likelihood surface is.
+\noindent nats against the cold model. The bubble\,+\,medium column is positive on every
+record and is the same number in both runs at \SI{23}{\celsius} and \SI{33}{\celsius}, so it
+is a property of the data rather than of the optimiser. The bubble column changes sign across
+records and moved by $15$ nats between runs at \SI{15}{\celsius}; it is search noise and we
+decline to read it.
 
-The decisive detail is that \emph{more restarts fitted worse}. At \SI{15}{\celsius} the bubble
-treatment reached $\chi^2/N = 0.895$ from ten starts and $1.039$ from twenty-four; at
-\SI{33}{\celsius} bubble\,+\,medium went from $0.428$ to $1.073$. Best-of-$24$ cannot be worse
-than best-of-$10$ at a converged optimum, so the search is landing in different basins rather
-than refining one. A third increase of the budget is therefore not the remedy, and this is the
-third budget tried.
+\subsection*{What the score is worth}
 
-What this does and does not say. It does not say the thermal treatment is unsupported: on the
-one record where the fit converges, both treatments are favored, bubble\,+\,medium by $8$
-nats. It says that scoring thermal physics by multistart least squares does not work on these
-records, and that the fix is a better search -- warm-starting each thermal fit from the
-converged cold optimum, rather than sampling a four-dimensional box afresh. Until then the
-\SI{15}{\celsius} and \SI{33}{\celsius} rows above are search noise, and we decline to read
-the sign of either.
+Read raw, $+31.2$ nats combined is overwhelming. It is not, and \cref{sec:screening} says why:
+these margins come from a likelihood that treats $201$ samples as $201$ independent
+observations, and the residuals of these very fits have lag-one autocorrelation between
+$0.907$ and $0.962$. Deflating each record by its own AR(1) effective sample size,
+$N_{\rm eff} = N(1-\rho)/(1+\rho)$:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+record & raw & lag-one & $N_{\rm eff}$ of $201$ & deflated \\
+\midrule
+\SI{15}{\celsius} & $+21.57$ & $0.915$ & $8.9$ & $+0.96$ \\
+\SI{23}{\celsius} & $+8.01$ & $0.962$ & $3.9$ & $+0.16$ \\
+\SI{33}{\celsius} & $+1.66$ & $0.907$ & $9.8$ & $+0.08$ \\
+\midrule
+combined & $+31.24$ & & & $\mathbf{+1.19}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The records are independent, so the deflated margins add. A Bayes factor of $3.3$ is
+substantial on Jeffreys' scale and an order of magnitude short of the five nats
+\cref{sec:screening} requires before calling a question closed. The \SI{23}{\celsius} record,
+whose fit was the most stable of the three, is inflated $52$-fold and contributes least.
+
+The conclusion is therefore the same as the first attempt's and rests on nothing the first
+attempt could see. The thermal treatment is favored -- consistently, on every record, by the
+one column that is stable under both a change of optimiser and a change of budget -- and it is
+not established. What separates those two statements is not more restarts. It is $1.19$ nats
+against a threshold of five, which is a statement about how much data of this kind is worth,
+and it is the quantity \cref{sec:batch} designs against.
 
 \section{Experimental design}
 \label{sec:design}

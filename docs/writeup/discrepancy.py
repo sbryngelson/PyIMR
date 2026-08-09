@@ -14,18 +14,21 @@ residual, and the invisible one is bounded rather than estimated.
 The bound is a single number per record. Over all absorbed discrepancies of norm `B`, the
 worst bias in coordinate `k` is `B` times that coordinate's own standard deviation -- the same
 multiple for every parameter. Taking `B` equal to the visible part, which assumes the unseen
-component is no larger than the seen one and is not conservative, gives the figure reported
-here.
+component is no larger than the seen one and is not conservative, gives the figure here.
 
-The fits are done here rather than read from `results.json`, whose `best_theta` is a grid
-argmax on the bounds and fails the orthogonality precondition outright (#235).
+WHICH COORDINATES, AND WHY THAT DECIDES EVERYTHING. In the natural axes the precondition
+cannot be met, ever. The likelihood depends on the product `g*alpha` alone, which the
+identifiability section derives and this measures independently: `g` and `alpha` come out
+anticorrelated at `-1.00000`, the Fisher matrix conditioned near `1e8`, and the null direction
+`(-0.707, 0, 0, +0.708)` in log coordinates. A fit slides along that valley until it meets a
+box wall, and at a constrained optimum the gradient along the wall does not vanish, so the
+residual keeps a component an interior optimum would not have. Widening the wall does not
+help: released from `g >= 100 Pa` the pair slid on until `alpha` reached its own upper bound,
+so the pin moved rather than lifted.
 
-AND THE PRECONDITION FAILS HERE TOO, which is the finding. A continuous refit of all three
-records puts the shear modulus exactly on its lower bound of 100 Pa. At a
-CONSTRAINED optimum the gradient along the pinned direction need not vanish, so the residual
-keeps a component the model could still absorb -- between $40%$ and $59%$ of it -- and the
-bound above does not apply. The number this script exists to report cannot be computed until
-the fits are free, which makes the shear-modulus bound a blocker rather than a detail (#216).
+Both parametrisations are therefore run. The natural one shows the precondition failing and
+why; the identified one, `(mu, g*alpha, lambda1)` taken from `identified.py` so there is one
+definition of it, has no null direction and is where the bound can actually be computed.
 """
 
 import json
@@ -33,13 +36,16 @@ import json
 import numpy as np
 
 import records
+from identified import BOX, candidate_at_ratio
 
-AXES = ("g", "mu", "lambda1", "alpha")
+NATURAL = ("mu", "g", "lambda1", "alpha")
+IDENTIFIED = ("mu", "galpha", "lambda1")
+RATIO = 38.5                      # the published fit's g/alpha; identified.py brackets it
 STARTS, EVALUATIONS = 16, 600
 
 
-def fit_and_split(dataset):
-  """Refit the record, then split its residual into the seen and unseen halves."""
+def one(dataset):
+  """Both parametrisations on one record, each fitted in its own coordinates."""
   import pyimr
   from pyimr.noise import discrepancy, lack_of_fit
   from pyimr.selection import (PARAMETER_BOUNDS, STANDARD_MODELS, fit_candidate,
@@ -47,77 +53,76 @@ def fit_and_split(dataset):
 
   times, mean, spread, maximum, stretch = records.load(dataset)
   trials = records.trial_count(dataset)
-  candidate = STANDARD_MODELS["qSLS"]
-  solve = records.solver(times, maximum, stretch)
-  fit = fit_candidate(candidate, solve, mean, spread, starts=STARTS, max_evaluations=EVALUATIONS)
-  values = physical_from_unit(candidate.axes, fit.unit, None)
-  point = np.array([dict(zip(candidate.axes, (float(v) for v in values), strict=True))[k]
-                    for k in AXES])
-
-  def trace(scale):
-    scaled = point * scale
-    material = pyimr.QuadraticZener(scaled[0], scaled[1], scaled[2], 0.0, scaled[3])
-    config = pyimr.SimulationConfig(maximum, maximum / stretch, material,
-                                    dynamics="keller-miksis", rtol=1e-9, atol=1e-11,
-                                    max_steps=400_000)
-    return np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
-
-  # the standard error of the MEAN: y is an average over `trials` repeats, and the sqrt(trials)
-  # is exactly what a chi-squared against `spread` forgets
   error = spread / np.sqrt(trials)
-  model = trace(np.ones(len(AXES)))
-  residual = (mean - model) / error
+  out = {}
 
-  step = 1e-4
-  jacobian = np.column_stack([
-    (trace(np.where(np.arange(len(AXES)) == k, 1 + step, 1.0)) -
-     trace(np.where(np.arange(len(AXES)) == k, 1 - step, 1.0))) / (2 * step * error)
-    for k in range(len(AXES))])
+  for label, candidate, box in (("natural", STANDARD_MODELS["qSLS"], None),
+                                ("identified", candidate_at_ratio(RATIO), BOX)):
+    solve = records.solver(times, maximum, stretch)
+    fit = fit_candidate(candidate, solve, mean, spread, bounds=box, starts=STARTS,
+                        max_evaluations=EVALUATIONS)
+    values = physical_from_unit(candidate.axes, fit.unit, box)
+    fitted = dict(zip(candidate.axes, (float(v) for v in values), strict=True))
+    axes = tuple(candidate.axes)
+    point = np.array([fitted[k] for k in axes])
 
-  split = discrepancy(residual, jacobian)
-  misfit = lack_of_fit(mean, model, spread, trials, candidate.dimension)
-  sigma = np.sqrt(np.diag(np.linalg.pinv(jacobian.T @ jacobian)))
-  # which axes the optimiser could not move: a pinned axis is why the residual is not
-  # orthogonal to the model's span, and so why the bound does not apply
-  box = PARAMETER_BOUNDS
-  pinned = {k: float(v) for k, v in zip(AXES, point, strict=True)
-            if min(abs(np.log(v / box[k][0])), abs(np.log(v / box[k][1]))) < 1e-6}
-  return {
-    "chi2_per_n": float(fit.chi_squared), "lack_of_fit": float(misfit.ratio),
-    "identifiable": split.size, "absorbed": split.absorbed,
-    "at_optimum": split.at_optimum, "bias_sigmas": split.bias_sigmas,
-    "sigma": {k: float(v) for k, v in zip(AXES, sigma, strict=True)},
-    "pinned": pinned,
-    "fitted": {k: float(v) for k, v in zip(AXES, point, strict=True)},
-  }
+    def build(scale, point=point, axes=axes, candidate=candidate):
+      moved = dict(zip(axes, (float(v) for v in point * scale), strict=True))
+      config = pyimr.SimulationConfig(maximum, maximum / stretch, candidate.build(moved),
+                                      dynamics="keller-miksis", rtol=1e-9, atol=1e-11,
+                                      max_steps=400_000)
+      return np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
+
+    model = build(np.ones(len(axes)))
+    step = 1e-4
+    jacobian = np.column_stack([
+      (build(np.where(np.arange(len(axes)) == k, 1 + step, 1.0)) -
+       build(np.where(np.arange(len(axes)) == k, 1 - step, 1.0))) / (2 * step * error)
+      for k in range(len(axes))])
+
+    split = discrepancy((mean - model) / error, jacobian)
+    fisher = jacobian.T @ jacobian
+    eigenvalues = np.linalg.eigvalsh(fisher)
+    deviation = np.sqrt(np.diag(np.linalg.pinv(fisher)))
+    walls = box or PARAMETER_BOUNDS
+    out[label] = {
+      "axes": list(axes), "chi2_per_n": float(fit.chi_squared),
+      "lack_of_fit": float(lack_of_fit(mean, model, spread, trials, candidate.dimension).ratio),
+      "identifiable": split.size, "absorbable": split.absorbed,
+      "at_optimum": split.at_optimum, "bias_sigmas": split.bias_sigmas,
+      "condition": float(eigenvalues[-1] / max(eigenvalues[0], 1e-300)),
+      "sigma": {k: float(v) for k, v in zip(axes, deviation, strict=True)},
+      "fitted": fitted,
+      "pinned": {k: float(v) for k, v in fitted.items()
+                 if min(abs(np.log(v / walls[k][0])), abs(np.log(v / walls[k][1]))) < 1e-6},
+    }
+  return dataset, out
 
 
 def main():
   with records.pool(len(records.DATASETS)) as pool:
-    table = dict(zip(records.DATASETS, pool.map(fit_and_split, list(records.DATASETS)),
-                     strict=True))
+    table = dict(pool.map(one, list(records.DATASETS)))
 
-  print(f"  {'record':13s} {'chi2/N':>7s} {'lack-of-fit':>12s} {'|delta|':>9s} "
-        f"{'still absorbable':>17s} {'at optimum':>11s}")
-  for name, got in table.items():
-    total = np.hypot(got["identifiable"], got["absorbed"])
-    print(f"  {name:13s} {got['chi2_per_n']:7.3f} {got['lack_of_fit']:12.1f} "
-          f"{got['identifiable']:9.1f} {got['absorbed'] / total:16.1%} "
-          f"{str(got['at_optimum']):>11s}")
+  for label in ("natural", "identified"):
+    print(f"\n  {label} coordinates {tuple(next(iter(table.values()))[label]['axes'])}")
+    print(f"    {'record':13s} {'chi2/N':>7s} {'lack-of-fit':>11s} {'cond':>9s} "
+          f"{'absorbable':>11s} {'at opt':>7s} {'bias (sigmas)':>14s}  pinned")
+    for name, got in table.items():
+      here = got[label]
+      total = float(np.hypot(here["absorbable"], here["identifiable"]))
+      bias = (f"{here['bias_sigmas']:14.1f}" if here["at_optimum"]
+              else f"{'not applicable':>14s}")
+      print(f"    {name:13s} {here['chi2_per_n']:7.3f} {here['lack_of_fit']:11.2f} "
+            f"{here['condition']:9.1e} {here['absorbable'] / total:10.1%} "
+            f"{str(here['at_optimum']):>7s} {bias}  {','.join(here['pinned']) or '-'}")
 
-  blocked = [name for name, got in table.items() if not got["at_optimum"]]
-  if blocked:
-    print(f"\n  the bias bound is NOT reported for {len(blocked)} of {len(table)} records, "
-          "because it does not hold away from an\n  interior optimum. What pins them:")
-    for name in blocked:
-      pinned = ", ".join(f"{k} at {v:g}" for k, v in table[name]["pinned"].items())
-      print(f"    {name:13s} {pinned or 'no bound active -- the fit has not converged'}")
-    print("\n  a constrained optimum leaves a gradient along the pinned axis, so part of the"
-          "\n  residual is still absorbable and delta_hat is contaminated by it (#216).")
+  print("\n  where the bound applies, what it allows each parameter")
   for name, got in table.items():
-    if got["at_optimum"]:
-      print(f"\n  {name}: every parameter could be biased by up to "
-            f"{got['bias_sigmas']:.0f} of its own standard deviations.")
+    here = got["identified"]
+    if not here["at_optimum"]: continue
+    inside = "  ".join(f"{k} x{np.exp(here['bias_sigmas'] * v):.3g}"
+                       for k, v in here["sigma"].items())
+    print(f"    {name:13s} up to {here['bias_sigmas']:.1f} sigmas -- {inside}")
 
   json.dump(table, open(records.HERE / "discrepancy.json", "w"), indent=1)
 

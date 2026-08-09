@@ -25,6 +25,24 @@ from pyimr.selection import compare, log_evidence, parameter_grid  # noqa: E402
 OUT = Path(__file__).resolve().parent / "results.json"
 
 
+def _refit(candidate, solve, observed, deviations, bounds):
+  """A continuous optimum to sit beside the grid argmax, seeded from nothing but the box.
+
+  The grid answers the evidence integral. An estimate has to come from an optimiser, and the
+  two are different objects -- which is the whole of #235.
+  """
+  from pyimr.selection import fit_candidate, physical_from_unit
+
+  try:
+    fit = fit_candidate(candidate, solve, observed, deviations, bounds=bounds, starts=8,
+                        max_evaluations=240)
+  except ValueError:
+    return None
+  values = physical_from_unit(candidate.axes, fit.unit, bounds)
+  return {"theta": dict(zip(candidate.axes, (float(v) for v in values), strict=True)),
+          "chi2_per_n": float(fit.chi_squared)}
+
+
 def one(dataset, workers):
   trials, times, weights, solve, _, (rmax, req), bounds = study.setup(dataset, 0)
   payloads = [
@@ -60,7 +78,15 @@ def one(dataset, workers):
       "dropped": dropped,
       "points": int(len(radii)),
       "axes": list(candidate.axes),
-      "best_theta": dict(zip(candidate.axes, parameter_grid(candidate.axes, study.GRID_COUNT, bounds)[0][best].tolist())),
+      # NOT an estimate, and named so. This is the argmax over a grid of `GRID_COUNT` points
+      # per axis, whose adjacent nodes are a factor of two to three apart over these boxes and
+      # which lands exactly on a bound for `g` and `lambda1` on most records. It is the right
+      # thing for the evidence integral, which is a quadrature over the whole grid, and the
+      # wrong thing for anything that wants a fitted value -- at a grid node the residual is
+      # not orthogonal to the model's span, so every residual decomposition performed there
+      # attributes grid spacing to physics (#235). Use `fit`.
+      "best_grid_point": dict(zip(candidate.axes, parameter_grid(candidate.axes, study.GRID_COUNT, bounds)[0][best].tolist())),
+      "fit": _refit(candidate, solve, trials.mean(axis=0), deviations, bounds),
       "best_trace": radii[best].tolist(),
     }
   posterior = compare({k: v["evidence"] for k, v in record["models"].items()})

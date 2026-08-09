@@ -885,7 +885,10 @@ record.
 
 The honest summary: qSLS is the best available description of these records by a wide
 margin, it is measurably incomplete, and the size of what is missing is better read from the
-residual's correlation than from its magnitude.
+residual's correlation than from its magnitude. What that incompleteness costs the parameters
+is a separate question from whether it exists, and \cref{sec:discrepancy} answers it: on these
+records the model-form budget is larger than the posterior width by one to two orders of
+magnitude.
 
 \subsection{What the trial spread actually is}
 \label{sec:latent}
@@ -1584,6 +1587,114 @@ one column that is stable under both a change of optimiser and a change of budge
 not established. What separates those two statements is not more restarts. It is $1.19$ nats
 against a threshold of five, which is a statement about how much data of this kind is worth,
 and it is the quantity \cref{sec:batch} designs against.
+
+\section{What the model error costs}
+\label{sec:discrepancy}
+
+Every comparison to this point --- constitutive, operator, initial radius, thermal --- has been
+made between models that \cref{eq:lackoffit} rejects. That does not make the comparisons
+worthless, since a ranking among wrong models is still a ranking, but it leaves a question no
+$\chi^2$ answers: how much of a reported parameter is physics, and how much is the model being
+the wrong shape? The question has an answer, and it is not the one an error bar gives.
+
+\subsection*{Half of it is invisible, and that is a theorem}
+
+Write the truth as $y = m(\theta) + \delta + \varepsilon$. Whitening by the standard error of
+the mean --- the $\sqrt{J}$ of \cref{eq:lackoffit}, not the trial spread --- and letting $J$
+hold the parameter sensitivities, the residual splits along the model's own span,
+%
+\begin{equation}
+d \;=\; \underbrace{P d}_{\text{absorbable}} \;+\; \underbrace{(I-P)\,d}_{\hat\delta},
+\qquad P = J (J^{\mathsf T}J)^{-1}J^{\mathsf T}.
+\label{eq:deltasplit}
+\end{equation}
+%
+At a converged interior fit the normal equations give $J^{\mathsf T}d = 0$ exactly, so $Pd = 0$
+and $\hat\delta = d$: the whole residual is identifiable discrepancy, and the component of
+$\delta$ lying in the span of $J$ has left \emph{no trace whatsoever}. It was absorbed into
+$\hat\theta$ while fitting. Two worlds --- a biased $\theta$ with no discrepancy, and the true
+$\theta$ with a discrepancy in the span --- predict the same data exactly. This is the
+unidentifiability of \citet{kennedy2001bayesian}, and it is why the bias cannot be estimated
+from these data at any budget.
+
+\subsection*{So bound it}
+
+Suppose only that the invisible part is no larger than the visible one,
+$\lVert\delta_\parallel\rVert \le B$. The induced bias is
+$\Delta\theta = (J^{\mathsf T}J)^{-1}J^{\mathsf T}\delta_\parallel$, and maximising each
+component over that ball gives
+%
+\begin{equation}
+\max_{\lVert\delta_\parallel\rVert \le B}\lvert\Delta\theta_k\rvert
+\;=\; B\sqrt{\big[(J^{\mathsf T}J)^{-1}\big]_{kk}} \;=\; B\,\sigma_k ,
+\label{eq:biasbound}
+\end{equation}
+%
+since $\lVert J(J^{\mathsf T}J)^{-1}e_k\rVert^2 = [(J^{\mathsf T}J)^{-1}]_{kk}$. The worst bias
+is $B$ multiples of each parameter's \emph{own} standard deviation, the same multiple for every
+coordinate, so a single number covers the whole vector. Taking $B = \lVert\hat\delta\rVert$ is
+the natural choice and is not conservative: nothing in the data forbids the unseen component
+being larger than the seen one.
+
+\subsection*{The bound exists only in the identified coordinates}
+
+\Cref{eq:deltasplit} means something only where $Pd = 0$, and in the natural axes that can
+never hold. \Cref{sec:identifiability} shows the likelihood depends on $g\alpha$ alone;
+measured at the fitted point, $g$ and $\alpha$ are anticorrelated at $-1.00000$ with
+$J^{\mathsf T}J$ conditioned near $10^{8}$ and a null direction of $(-0.707,0,0,+0.708)$ in log
+coordinates. A fit slides along that valley until it meets a wall of the prior box, and at a
+\emph{constrained} optimum the gradient along the active bound does not vanish, so part of the
+residual stays absorbable.
+
+Widening the box does not help, which is worth stating because it is the obvious thing to try.
+Released from $g \ge \SI{100}{\pascal}$, the pair slid until $\alpha$ reached its own upper
+bound instead: the pin moved rather than lifted, and $g\alpha$ was preserved to
+\SI{1.6}{\percent} across a hundredfold change in $g$. A box has walls, and a fit on a flat
+valley finds one.
+
+Refitting in the identified coordinates $(\mu, g\alpha, \lambda_1)$ removes the valley, and
+with it the obstruction:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+coordinates & $\operatorname{cond} J^{\mathsf T}J$ & absorbable & at optimum & bound \\
+\midrule
+$(\mu, g, \lambda_1, \alpha)$ & $9\times10^{5}$ & \SIrange{39}{59}{\percent} & no & unavailable at any box \\
+$(\mu, g\alpha, \lambda_1)$ & $3\times10^{1}$ & $0.0\%$ & yes & \eqref{eq:biasbound} applies \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{The budget}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+record & bound & $\mu$ & $g\alpha$ & $\lambda_1$ \\
+\midrule
+\SI{15}{\celsius} & $59.3\,\sigma$ & $\times 1.58$ & $\times 1.30$ & $\times 3.11$ \\
+\SI{23}{\celsius} & $52.6\,\sigma$ & $\times 2.00$ & $\times 1.55$ & $\times 3.90$ \\
+\SI{33}{\celsius} & $24.7\,\sigma$ & $\times 1.54$ & $\times 1.57$ & $\times 2.98$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Read as a model-form error budget: the identified modulus could be wrong by
+\SIrange{30}{57}{\percent}, the viscosity by \SIrange{54}{100}{\percent}, and the relaxation
+time by a factor of three to four, from model-form error alone, with no amount of data of this
+kind able to distinguish that from the truth. The large multiples of $\sigma$ and the modest
+factors are consistent, and their ratio is the point: $\sigma$ is small in these coordinates
+precisely because they are the identified ones, which is what makes the budget readable rather
+than infinite.
+
+Three consequences run through the rest of this paper. A parameter interval that omits
+\eqref{eq:biasbound} understates its own uncertainty by one to two orders of magnitude, so the
+posterior widths of \cref{sec:fitquality} are not the error bars a rheologist wants. A model
+comparison is a comparison of the identifiable parts, since the absorbed parts of two models'
+discrepancies are invisible in both. And a design criterion computed under a rejected model
+optimises a quantity whose parameters carry this budget --- which is the gap
+\cref{sec:survives} names and \eqref{eq:biasbound} finally sizes.
 
 \section{Experimental design}
 \label{sec:design}
@@ -2743,7 +2854,10 @@ and, for a collaborator, worse: \emph{which design is safe depends on which phys
 and we do not know which is missing}. \Cref{eq:lackoffit} says the model is inadequate on every
 record; it does not say in what direction. A design cannot be certified robust without naming
 the model error it is robust to, and no criterion in \cref{sec:design} takes model error as an
-argument at all.
+argument at all. Its \emph{magnitude} is now available even though its direction is not:
+\cref{eq:biasbound} bounds what the unseen half can do to the parameters a design is
+optimising, which is the difference between an unquantified worry and a term one could
+eventually carry.
 
 The mechanism is visible in the model-error columns. A criterion computed under the
 correct-model assumption sends the experiment where the model is most \emph{sensitive}, which is
@@ -2777,7 +2891,8 @@ study rather than a step toward a parameter value. Ranking by evidence in coordi
 records can answer, three findings hold.
 
 The shear modulus is not identified separately from the stiffening exponent, so a reported
-modulus is a statement about the prior box. The bubble-dynamics operator assumed throughout
+modulus is a statement about the prior box -- and \cref{sec:discrepancy} shows this is not a
+bound that can be widened away, since releasing one wall merely slides the fit onto another. The bubble-dynamics operator assumed throughout
 this literature is beaten on every record. And a correlated residual that has been read as
 constitutive model error survives every constitutive, observational and operator change tested
 here.

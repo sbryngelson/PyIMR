@@ -292,3 +292,69 @@ def test_check_residuals_refuses_what_it_cannot_answer(values, message):
 
   with pytest.raises(ValueError, match=message):
     check_residuals(values)
+
+
+# --- the noise model itself, independent or correlated --------------------------------------
+
+def test_whitening_recovers_unit_residuals_from_correlated_noise():
+  """The gate for the correlated likelihood: whitened AR(1) noise must look standard normal.
+
+  Generated with STATIONARY variance one, so the marginal deviation really is the one the
+  whitening is told about -- otherwise this passes for the wrong reason.
+  """
+  import numpy as np
+  from pyimr.noise import correlation_time_from, whitening
+
+  rng = np.random.default_rng(0)
+  times, deviation, rho = np.linspace(0.0, 1e-4, 401), 0.018, 0.9
+  walk = np.zeros(401)
+  walk[0] = rng.standard_normal()
+  for index in range(1, 401):
+    walk[index] = rho * walk[index - 1] + np.sqrt(1 - rho**2) * rng.standard_normal()
+  observed = walk * deviation
+
+  tau, estimated = correlation_time_from(observed, times)
+  assert estimated == pytest.approx(rho, abs=0.05)
+  spread = np.full(401, deviation)
+  assert np.std(whitening(times, spread, tau).apply(observed)) == pytest.approx(1.0, abs=0.1)
+
+
+def test_correlation_deflates_smooth_differences_and_amplifies_rough_ones():
+  """Why every margin in the study falls: it is the SHAPE of the difference that decides.
+
+  A model difference is smooth, so it loses roughly `(1-rho)/(1+rho)` of its weight. The same
+  whitening treats point-to-point jitter as strong evidence, so this is not a blanket
+  discount and must not be applied as one.
+  """
+  import numpy as np
+  from pyimr.noise import whitening
+
+  times, spread = np.linspace(0.0, 1e-4, 201), np.full(201, 0.018)
+  rho = 0.9
+  tau = -float(np.median(np.diff(times))) / np.log(rho)
+  independent, correlated = whitening(times, spread), whitening(times, spread, tau)
+
+  def weight(shape):
+    unit = shape / np.linalg.norm(shape)
+    return float(correlated.apply(unit) @ correlated.apply(unit)) / \
+           float(independent.apply(unit) @ independent.apply(unit))
+
+  smooth = weight(np.ones(201))
+  rough = weight((-1.0) ** np.arange(201))
+  assert smooth == pytest.approx((1 - rho) / (1 + rho), rel=0.25), smooth
+  assert rough > 10.0, rough
+
+
+def test_an_uncorrelated_residual_asks_for_no_correction():
+  import numpy as np
+  from pyimr.noise import correlation_time_from
+
+  rng = np.random.default_rng(1)
+  times = np.linspace(0.0, 1e-4, 401)
+  spacing = float(np.median(np.diff(times)))
+  tau, rho = correlation_time_from(rng.standard_normal(401), times)
+  # four standard errors of zero at 401 samples, against the 0.9 a real record shows
+  assert abs(rho) < 4.0 / np.sqrt(401) + 0.05, rho
+  # either sign of "no correlation to correct for": no positive lag-one at all, or a
+  # correlation length shorter than the sampling can resolve
+  assert tau == float("inf") or tau < spacing

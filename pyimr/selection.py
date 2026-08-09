@@ -46,7 +46,7 @@ from ._materials import (
   Zener,
 )
 from .discriminate import laplace_log_evidence
-from .noise import marginal_log_likelihood
+from .noise import marginal_log_likelihood, whitening
 from .prior import (
   harmonic_bottleneck,
   model_posterior,
@@ -497,9 +497,15 @@ class CandidateFit:
     """Whether a second basin came within one nat of the best."""
     return len(self.costs) > 1 and (self.costs[1] - self.costs[0]) < 1.0
 
-def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=8, seed=0,
-                  max_evaluations=200, separation=1e-2, seeds=None):
+def fit_candidate(candidate, solve, observed, deviation, *, correlation_time_s=None, times=None,
+                  bounds=None, starts=8, seed=0, max_evaluations=200, separation=1e-2, seeds=None):
   """Fit a candidate by multistart least squares in the prior's unit coordinates.
+
+  `correlation_time_s`, with the sample `times`, fits against an exponentially correlated
+  covariance instead of independent samples. These records need it: the residuals of the fits
+  it produces are correlated at $0.90$ to $0.97$, so the independent form counts $201$ samples
+  where between $4$ and $10$ are informative, and every evidence built on it is overconfident
+  by that factor.
 
   `candidate_log_evidence` expands about a fitted point and nothing produced one: a
   candidate's axes need not be material fields -- `tau_ratio` is a ratio of two of them,
@@ -537,6 +543,8 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
   if not 0.0 < float(separation) < 1.0: raise ValueError("separation must lie in (0, 1)")
   measured = np.asarray(observed, dtype=float).ravel()
   scale = deviation_for(deviation, measured.size)
+  noise = whitening(np.arange(measured.size) if times is None else times,
+                    np.broadcast_to(scale, measured.shape), correlation_time_s)
 
   # An optimiser walking a six-dimensional box WILL step somewhere the material does not
   # integrate -- Gent locks up, a collapse outruns the step budget, a constructor refuses
@@ -566,7 +574,7 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
     if not np.all(np.isfinite(radius)):
       failed += 1
       return np.full(measured.size, _UNREACHABLE)
-    return (radius - measured) / scale
+    return noise.apply(radius - measured)
 
   rng = np.random.default_rng(int(seed))
   count, dimension = int(starts), candidate.dimension
@@ -610,7 +618,8 @@ def fit_candidate(candidate, solve, observed, deviation, *, bounds=None, starts=
                       modes=tuple(modes), costs=tuple(costs), converged=len(endpoints), starts=count,
                       evaluations=attempted, failures=failed)
 
-def candidate_log_evidence(candidate, solve, observed, deviation, unit_point, *, bounds=None, step=1e-4):
+def candidate_log_evidence(candidate, solve, observed, deviation, unit_point, *,
+                           correlation_time_s=None, times=None, bounds=None, step=1e-4):
   """`log p(Y | M)` for a candidate at a fitted point, by Laplace expansion.
 
   This is what makes a model comparable without a grid. `log_evidence` above quadratures
@@ -656,17 +665,20 @@ def candidate_log_evidence(candidate, solve, observed, deviation, unit_point, *,
       raise ValueError(f"solve returned {radius.size} samples against {measured.size} observations")
     return radius
 
-  residual = (trace(unit) - measured) / scale
+  noise = whitening(np.arange(measured.size) if times is None else times,
+                    np.broadcast_to(scale, measured.shape), correlation_time_s)
+  residual = noise.apply(trace(unit) - measured)
   jacobian = np.empty((residual.size, unit.size))
   for index in range(unit.size):
     # one-sided at a bound rather than stepping outside it: a fit sitting exactly on a
     # boundary is common, and the material may not even exist on the other side
     low, high = unit.copy(), unit.copy()
     low[index], high[index] = max(unit[index] - width, 0.0), min(unit[index] + width, 1.0)
-    jacobian[:, index] = (trace(high) - trace(low)) / (scale * (high[index] - low[index]))
+    jacobian[:, index] = noise.apply(trace(high) - trace(low)) / (high[index] - low[index])
   # capped, because candidates are compared ACROSS dimensions and the uncapped Occam factor
   # pays a model for parameters its data cannot see -- see `laplace_log_evidence`
-  return laplace_log_evidence(residual, jacobian, scale, cap_at_prior=True)
+  return laplace_log_evidence(residual, jacobian, scale, cap_at_prior=True,
+                              log_determinant=noise.log_determinant)
 
 def compare(log_evidences):
   """Normalized posterior over a model set, keyed as given."""

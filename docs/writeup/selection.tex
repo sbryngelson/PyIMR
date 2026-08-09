@@ -2272,6 +2272,195 @@ so fragile; the constitutive and thermal axes leave $8.1$ and $8.5$.}
 \label{fig:absorption}
 \end{figure}
 
+\section{One criterion, and what a budget buys}
+\label{sec:gain}
+
+\cref{sec:batch} gives a recipe and \cref{sec:criteria} shows the criteria in it disagree.
+Both leave a question unanswered: the material is scored by $\log\det M$, the model label by a
+Schur complement, the initial radius by a separate study, and none of the three share a scale,
+so \emph{which} question a batch should serve cannot be asked. They are one quantity.
+
+\subsection*{The value of an experiment}
+
+What an experiment is worth is how much it moves your beliefs, and about \emph{what} is an
+argument rather than a fixed choice. Write $A$ for the quantity of interest --- parameters,
+a model label, the initial radius, the noise scale, any subset --- and the value of a design
+is the mutual information between the data and $A$,
+%
+\begin{equation}
+U_A(\xi) \;=\; \mathbb{E}_y\!\left[\operatorname{KL}\!\big(p(A \mid y,\xi)\,\|\,p(A)\big)\right]
+\;=\; I(A;Y \mid \xi) .
+\label{eq:gain}
+\end{equation}
+%
+For a Gaussian likelihood in prior-standardized coordinates --- the unit-cube scaling
+\cref{sec:prior} already uses, in which the prior covariance is the identity --- the posterior
+precision is $N = I + M(\xi)$ and \eqref{eq:gain} is available in closed form. Partitioning
+into the coordinates $A$ and the nuisance coordinates $B$,
+%
+\begin{equation}
+U_A(\xi) \;=\; \tfrac12 \log\det\Big[\,N_{AA} - N_{AB}N_{BB}^{-1}N_{BA}\,\Big],
+\label{eq:gainschur}
+\end{equation}
+%
+the Schur complement of everything you are not asking about. Every criterion in this document
+is \eqref{eq:gainschur} at a different $A$: all coordinates gives Bayesian D-optimality, the
+material block gives \cref{sec:criteria}'s $\log\det$, the mixing coordinates of
+\cref{sec:batch} give $D_s$-optimality, and \texttt{req\_scale} alone asks whether the initial
+radius is driving the conclusion. Answers in nats are comparable across those, and with
+weights $\pi_A$ they add, $\Phi(\xi) = \sum_A \pi_A U_A(\xi)$.
+
+\subsection*{The choice that was hiding in \texorpdfstring{$\log\det M$}{log det M}}
+
+That the criteria are one family also exposes a decision nobody made. For any partition,
+%
+\begin{equation}
+\log\det M \;=\; \log\det M_{\theta\theta} \;+\; \log\det S ,
+\qquad S = M_{\varepsilon\varepsilon} - M_{\varepsilon\theta}M_{\theta\theta}^{-1}M_{\theta\varepsilon},
+\label{eq:split}
+\end{equation}
+%
+so maximizing $\log\det M$ over the augmented set, as \cref{sec:batch} does, is maximizing
+material log-volume \emph{plus} discrimination log-volume with equal weight. That is a defensible
+compromise and it is not neutral, which is what it had been taken to be.
+
+\subsection*{Three properties, and one that removes a failure}
+
+\eqref{eq:gainschur} is concave in $\xi$ for every $A$. The Schur complement has the variational
+form $u^{\mathsf T}Su = \min_v (v,u)^{\mathsf T}N(v,u)$, a pointwise minimum of functions linear
+in $N$, hence matrix-concave; $\log\det$ is concave and matrix-monotone, so the composition is
+concave, and $M(\xi)$ is linear in $\xi$. The equivalence theorem of \cref{sec:measure}
+therefore still applies. With $P = \big(\begin{smallmatrix} I_A \\ -N_{BB}^{-1}N_{BA}\end{smallmatrix}\big)$
+the envelope theorem gives the directional derivative, and $\xi^\star$ is optimal exactly when
+%
+\begin{equation}
+d(x,\xi^\star) = \tfrac12\operatorname{tr}\!\left[S^{-1}P^{\mathsf T}M(x)P\right]
+\;\le\; \tfrac12\Big(|A| - \operatorname{tr}\big[S^{-1}P^{\mathsf T}P\big]\Big)
+\quad \text{for all } x ,
+\label{eq:gaincert}
+\end{equation}
+%
+with equality on the support. The bound is computed rather than looked up --- it is $p$ for
+$\log\det$ and depends on $\xi$ here --- but it is still a proof and not a convergence report.
+
+The prior term $I$ in $N$ is what makes \eqref{eq:gainschur} finite when $M$ is singular. Under
+$\log\det M$ a design that cannot determine every parameter scores $-\infty$ and cannot be
+ranked at all, which is how $22$ of $48$ candidate geometries became unscorable in
+\cref{sec:integral}. Here such a design scores low, which is the truth about it.
+
+One caution follows from \eqref{eq:split} being nonlinear: $S$ is not linear in $M$, so
+$\log\det S\big(\sum_i \xi_i M_i\big) \ne \sum_i \xi_i \log\det S(M_i)$. Scoring candidates one
+at a time and taking the best $N$ is therefore wrong --- a design that discriminates well alone
+but leaves $\theta$ loose has its advantage eaten when the material is refitted from the same
+batch, and only the Schur complement of the \emph{summed} information sees that.
+
+\subsection*{Will it settle? A budget in bubbles}
+
+Nats say how much a batch teaches. They do not say whether it decides anything, which is what a
+collaborator with a fixed budget is asking. That has a closed form, and it is exact in the
+Gaussian-linear limit rather than asymptotic.
+
+Let $s$ be the per-run information about the coordinate separating two models, after everything
+else is fitted out. Information adds over independent runs, so $N$ runs give $S = Ns$. Writing
+$d$ for the component of the whitened model difference orthogonal to the material span, so that
+$S = \lVert d \rVert^2$ as in \cref{fig:absorption}, data generated under one model give a
+profiled log Bayes factor
+%
+\begin{equation}
+\Lambda \;=\; \tfrac12\big(\lVert d + n_\perp\rVert^2 - \lVert n_\perp\rVert^2\big)
+\;=\; \tfrac{S}{2} + d\cdot n_\perp ,
+\qquad\text{so}\qquad
+\Lambda \sim \mathcal{N}\!\left(\tfrac{S}{2},\, S\right) ,
+\label{eq:lambdalaw}
+\end{equation}
+%
+since $d \cdot n_\perp$ has variance $\lVert d\rVert^2 = S$. The experiment has not been run and
+its Bayes factor is unknown, but its \emph{distribution} is known before anyone books the
+laser. The chance of clearing $\delta$ nats in favour of the truth is
+$\Phi\big((S/2-\delta)/\sqrt{S}\big)$, and inverting for confidence $1-\alpha$ gives the budget
+%
+\begin{equation}
+N \;\ge\; \frac{\big(z_{1-\alpha} + \sqrt{z_{1-\alpha}^2 + 2\delta}\big)^2}{s} .
+\label{eq:runs}
+\end{equation}
+%
+At $\delta = 5$ nats and $95\%$ confidence the numerator is $27.14$. An $s$ of zero --- the
+difference wholly absorbed, the infinite variance of \cref{sec:axes} --- sends \eqref{eq:runs}
+to infinity, which is the statement that no experiment of this shape ever settles the question.
+
+The same unit serves the parameter question. After $N$ runs the posterior standard deviation of
+coordinate $k$ is $\big[(I + NM)^{-1}\big]_{kk}^{1/2}$ in prior-standardized coordinates, so
+``pin $g$ to a tenth of its prior width'' is also a number of bubbles. That shared denominator
+is what makes the two comparable; nats alone are not, because they measure different things
+about different objects.
+
+\subsection*{What the criterion cannot reach}
+
+Every $A$ above is a \emph{coordinate}. ``Is every model in the catalogue wrong?'' is not one,
+and \cref{sec:fitquality} answers it \emph{yes} on all three records. No column of the Jacobian
+reaches model inadequacy, and worse, \eqref{eq:gain} maximized freely walks away from the batch
+that could detect it: a criterion linear in $\xi$ is optimized by a single setting repeated $N$
+times, which has no pure error and no lack-of-fit numerator.
+
+Testability is therefore a \emph{constraint} on the batch, not a term in the objective:
+%
+\begin{equation}
+\max_\xi \;\sum_A \pi_A U_A(\xi)
+\quad\text{subject to}\quad
+\lvert\operatorname{supp}\xi\rvert \ge k > p, \qquad n_i \ge J \ge 2 .
+\label{eq:constrained}
+\end{equation}
+%
+The replication half is cheap. The support half is a cardinality constraint and is not convex,
+so it cannot join the objective without forfeiting \eqref{eq:gaincert}; measured on the operator
+design, forcing three replicates leaves the batch at two settings and $\mathrm{df} = -2$ still.
+What rescues it in practice is asking more than one question: the portfolio optimum below
+spreads over six geometries on its own, and \eqref{eq:constrained} never binds.
+
+\subsection*{The answer for these records}
+
+Over the $227$ candidate geometries of \cref{sec:batch} at a budget of twelve, with the material
+held at the \SI{15}{\celsius} fit:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+batch optimized for & material (nats) & operator (nats) & settings & lack-of-fit df \\
+\midrule
+material & $\mathbf{19.51}$ & $3.78$ & $7$ & $+3$ \\
+operator & $17.03$ & $\mathbf{4.39}$ & $2$ & $-2$ \\
+portfolio, $1\!:\!4$ & $18.92$ & $4.24$ & $6$ & $+2$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent all three certified at gaps below $10^{-9}$. The geometry does move with the question
+--- the operator question wants \SI{785}{\micro\metre} at stretch $6.9$, which the
+material-optimal batch never visits --- but the portfolio buys $97\%$ of each for $3\%$, and is
+the only aggressive option that stays testable.
+
+A note on the search. The multiplicative algorithm of \cref{sec:measure} relies on
+$\operatorname{tr}[GM(\xi)]$ being the constant $p$, which holds for $\log\det$ and for nothing
+else; on the operator design it stalls at a gap of $0.155$. It reports itself uncertified, which
+is the certificate working, but mirror descent on the simplex is what converges here, to
+$1.8\times10^{-10}$ and a higher value.
+
+\subsection*{What all of this is worth against correlated noise}
+
+Every number above is information, and \cref{sec:latent} shows this likelihood counts more of it
+than it has. The correction belongs here rather than as a caveat, because it enters
+\eqref{eq:runs} directly: $s$ falls, and the required budget rises by the same factor.
+
+Replacing independent samples with the exponential covariance
+$\Sigma_{ij} = \sigma_i\sigma_j e^{-\lvert t_i-t_j\rvert/\tau}$ makes the whitened information
+$J^{\mathsf T}\Sigma^{-1}J$, and everything above inherits it unchanged --- the criterion, the
+certificate and \eqref{eq:runs} are all statements about $M$, whatever $M$ was computed from.
+The effect is not a single deflation. Measured at $\rho = 0.908$: a constant offset loses a
+factor of $0.053$, a smooth half-cycle $0.049$, a five-cycle oscillation $0.176$, while
+point-to-point jitter is \emph{amplified} $20.7$-fold. Model differences are smooth, so the
+deflation is what applies to every margin in this document, but it is a fact about the shape of
+those differences rather than a property of the likelihood.
+
 \section{Choosing the next \texorpdfstring{$N$}{N} experiments}
 \label{sec:batch}
 

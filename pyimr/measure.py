@@ -67,12 +67,24 @@ def sensitivity(matrices, weights, *, utility=None, blend=0.0):
   except np.linalg.LinAlgError as error:
     raise ValueError("the averaged information matrix is singular; spread the starting weights") from error
 
-def _sensitivity(stack, share, vector, blend):
+def _sensitivity(stack, share, vector, blend, criterion=None):
   """The derivative without revalidation: the iteration calls this once per step."""
+  if criterion is not None: return _growth(stack, share, criterion)[1]
   if blend >= 1.0: return vector - float(share @ vector)
   direction = np.einsum("jk,ikj->i", np.linalg.inv(_averaged(stack, share)), stack) - stack.shape[1]
   if vector is None: return direction
   return (1.0 - blend) * direction + blend * (vector - float(share @ vector))
+
+def _growth(stack, share, criterion):
+  """`(growth, sensitivity)` for a general criterion, from its gradient `G = dPhi/dM`.
+
+  The directional derivative toward candidate `i` is `tr[G M_i] - tr[G M(xi)]`, and the
+  subtracted term is the same for every candidate -- so `tr[G M_i]` is the multiplicative
+  update's growth factor, non-negative because `G` and `M_i` are both positive semidefinite.
+  """
+  _, gradient = criterion(_averaged(stack, share))
+  growth = np.einsum("jk,ikj->i", gradient, stack)
+  return growth, growth - float(share @ growth)
 
 @dataclass(frozen=True, slots=True)
 class MeasureResult:
@@ -89,7 +101,7 @@ class MeasureResult:
     """Whether the equivalence theorem confirms global optimality, not merely convergence."""
     return bool(self.gap <= 1e-6 * max(1.0, abs(self.value)))
 
-def optimal_measure(matrices, *, utility=None, blend=0.0, iterations=100_000, tolerance=1e-9, prune=1e-7):
+def optimal_measure(matrices, *, criterion=None, utility=None, blend=0.0, iterations=100_000, tolerance=1e-9, prune=1e-7):
   """Maximise a concave design criterion over measures on the candidates.
 
   `matrices[i]` is the information one run at candidate `i` provides. `utility[i]`, if given,
@@ -102,6 +114,18 @@ def optimal_measure(matrices, *, utility=None, blend=0.0, iterations=100_000, to
   `w_i <- w_i F_i / sum_j w_j F_j` with `F_i` the derivative toward candidate `i`. Every
   update stays on the simplex and increases a concave criterion.
 
+  `criterion` replaces `log det` with any concave function of the averaged information,
+  supplied as `M -> (value, dvalue/dM)`; `pyimr.gain.gain_criterion` builds the one that asks
+  what an experiment would change your mind about. Concavity is the caller's to guarantee and
+  is what the certificate rests on -- the equivalence theorem holds for any concave criterion,
+  and the reported gap is a proof only if it does.
+
+  A general criterion also gets a different search. The multiplicative update relies on
+  `tr[G M(xi)]` being the constant `p`, which is true for `log det` and false otherwise, and
+  measured on the operator design it stalls at a gap of `0.16` -- correctly reported as
+  uncertified, but not an answer. Mirror descent on the simplex converges there instead, to a
+  gap of `0` and a slightly higher value.
+
   Convergence slows as candidates crowd together -- a design just off the support is nearly
   as good as one on it, so its weight decays in proportion, and certifying a parabola on
   `[-1, 1]` took 6400 iterations over 51 candidates but 329000 over 401. The criterion value
@@ -112,10 +136,15 @@ def optimal_measure(matrices, *, utility=None, blend=0.0, iterations=100_000, to
   count = stack.shape[0]
   blend = unit_interval("blend", blend)
   if utility is None and blend > 0.0: raise ValueError("blend is positive but no utility was given")
+  if criterion is not None and (utility is not None or blend > 0.0):
+    raise ValueError("criterion replaces the utility/blend compound; pass one or the other")
   iterations = positive_integer("iterations", iterations)
 
   share = np.full(count, 1.0 / count)
-  if blend < 1.0 and not np.isfinite(_value(stack, share, None, 0.0)):
+  # A general criterion is not required to be finite only where the information is invertible
+  # -- that is the point of the gain criteria, which score a rank-deficient design rather than
+  # refusing it -- so this premise belongs to `log det` alone.
+  if criterion is None and blend < 1.0 and not np.isfinite(_value(stack, share, None, 0.0)):
     raise ValueError("the candidates cannot jointly determine every parameter: their averaged information is singular")
 
   vector = None if utility is None else finite_array("utility", utility, shape=(count,))
@@ -125,9 +154,17 @@ def optimal_measure(matrices, *, utility=None, blend=0.0, iterations=100_000, to
 
   gap, step = np.inf, 0
   for step in range(1, iterations + 1):
-    gap = float(np.max(_sensitivity(stack, share, vector, blend)))
+    gap = float(np.max(_sensitivity(stack, share, vector, blend, criterion)))
     if gap <= tolerance: break
-    if blend >= 1.0:
+    if criterion is not None:
+      # mirror descent: multiplicative in form, but stepping along the derivative rather than
+      # rescaling by it, which is what removes the `tr[G M] = p` assumption. The step decays
+      # so late iterations refine rather than oscillate, and the gradient scale is divided out
+      # so the same schedule works whatever units the criterion is in.
+      derivative = _growth(stack, share, criterion)[1]
+      pace = 2.0 / (1.0 + step / 2000.0) / max(float(np.abs(derivative).max()), 1e-300)
+      growth = np.exp(np.clip(pace * derivative, -500.0, 500.0))
+    elif blend >= 1.0:
       growth = shifted
     else:
       variance = np.einsum("jk,ikj->i", np.linalg.inv(_averaged(stack, share)), stack)
@@ -151,8 +188,9 @@ def optimal_measure(matrices, *, utility=None, blend=0.0, iterations=100_000, to
   cleaned = np.where(keep, share, 0.0)
   cleaned = cleaned / cleaned.sum()
   # pruning perturbs the measure, so the reported gap must be the one the answer actually has
-  final = float(np.max(_sensitivity(stack, cleaned, vector, blend)))
-  return MeasureResult(weights=cleaned, support=np.flatnonzero(keep), value=_value(stack, cleaned, utility, blend),
+  final = float(np.max(_sensitivity(stack, cleaned, vector, blend, criterion)))
+  value = criterion(_averaged(stack, cleaned))[0] if criterion is not None else _value(stack, cleaned, utility, blend)
+  return MeasureResult(weights=cleaned, support=np.flatnonzero(keep), value=value,
                        gap=final, iterations=step)
 
 
@@ -172,7 +210,7 @@ class ExactDesign:
     return [(int(self.support[i]), int(self.counts[self.support[i]])) for i in order]
 
 
-def apportion(weights, runs, matrices=None, *, utility=None, blend=0.0):
+def apportion(weights, runs, matrices=None, *, criterion=None, utility=None, blend=0.0, replicates=1):
   """Turn a design measure into a whole number of runs per candidate.
 
   The certificate says nothing about rounding -- it certifies optimality over MEASURES, and
@@ -188,15 +226,37 @@ def apportion(weights, runs, matrices=None, *, utility=None, blend=0.0):
   `log det` and a utility in nats have different units and either sign, so the ratio can
   exceed one for a design that is worse -- it read 1.017. `identification_front` reports the
   utility achieved separately, in nats, because the two halves do not share a scale.
+
+  `criterion` must be the one the measure was optimised under, if it was not `log det`. The
+  efficiency is then measured in that criterion's own currency -- `exp` of the nats lost to
+  rounding -- because a D-efficiency computed against a measure that was maximising something
+  else is not an efficiency at all: on the operator design it read `1.21` and `1.40`, which is
+  arithmetic about two different objectives and not a loss.
+
+  `replicates` forces every setting that gets used to get at least that many runs, which is
+  what `pyimr.noise.lack_of_fit` needs to have any pure error to compare against. It is a
+  constraint, not a criterion: no design criterion here can see model inadequacy, so the batch
+  has to be told to stay testable, and the D-efficiency reports what that cost. When the budget
+  cannot give `replicates` runs to every support point, the lowest-weight points are dropped
+  first -- the measure's own ordering, not a new decision.
   """
   share = finite_array("weights", weights, non_negative=True, shape=("candidates",))
   if share.sum() <= 0.0: raise ValueError("weights must not be all zero")
   share = share / share.sum()
   runs = positive_integer("runs", runs)
+  replicates = positive_integer("replicates", replicates)
   support = np.flatnonzero(share > _FLOOR)
   if runs < support.size:
     raise ValueError(f"{runs} runs cannot cover {support.size} support points; "
                      "drop candidates or raise the budget")
+  if replicates > 1:
+    keepable = runs // replicates
+    if keepable < 1:
+      raise ValueError(f"{runs} runs cannot give {replicates} replicates to even one setting")
+    if keepable < support.size:
+      support = support[np.argsort(-share[support])[:keepable]]
+      share = np.where(np.isin(np.arange(share.size), support), share, 0.0)
+      share = share / share.sum()
 
   # how far each candidate sits above (>1) or below (<1) the share it was promised: the
   # apportionment rule moves a run from the largest of these to the smallest
@@ -207,11 +267,11 @@ def apportion(weights, runs, matrices=None, *, utility=None, blend=0.0):
   # the rule keeps the one whose smallest ratio is largest.
   for multiplier in range(support.size, 2 * runs + 1):
     counts = np.zeros(share.size, dtype=int)
-    counts[support] = np.maximum(np.ceil(multiplier * share[support]).astype(int), 1)
+    counts[support] = np.maximum(np.ceil(multiplier * share[support]).astype(int), replicates)
     excess = int(counts.sum()) - runs
     while excess != 0:
       if excess > 0:
-        movable = support[counts[support] > 1]
+        movable = support[counts[support] > replicates]
         if movable.size == 0: break
         counts[movable[np.argmax(ratio(counts, movable))]] -= 1
         excess -= 1
@@ -228,12 +288,16 @@ def apportion(weights, runs, matrices=None, *, utility=None, blend=0.0):
   if matrices is not None:
     stack = _checked_matrices(matrices)
     if stack.shape[0] != share.size: raise ValueError("matrices and weights disagree in length")
-    # `log det` differences exponentiate to a determinant ratio and the p-th root makes it per
-    # parameter. This is the ESTIMATION half only, whatever `utility` and `blend` were.
-    exact = _value(stack, counts / runs, None, 0.0)
-    ideal = _value(stack, share, None, 0.0)
-    if np.isfinite(exact) and np.isfinite(ideal):
-      efficiency = float(np.exp((exact - ideal) / stack.shape[1]))
+    if criterion is not None:
+      exact, ideal = criterion(_averaged(stack, counts / runs))[0], criterion(_averaged(stack, share))[0]
+      if np.isfinite(exact) and np.isfinite(ideal): efficiency = float(np.exp(exact - ideal))
+    else:
+      # `log det` differences exponentiate to a determinant ratio and the p-th root makes it
+      # per parameter. This is the ESTIMATION half only, whatever `utility` and `blend` were.
+      exact = _value(stack, counts / runs, None, 0.0)
+      ideal = _value(stack, share, None, 0.0)
+      if np.isfinite(exact) and np.isfinite(ideal):
+        efficiency = float(np.exp((exact - ideal) / stack.shape[1]))
   return ExactDesign(counts=counts, support=support, efficiency=efficiency, runs=runs)
 
 

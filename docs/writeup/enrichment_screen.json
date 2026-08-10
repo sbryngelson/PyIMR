@@ -1,0 +1,41 @@
+{
+ "gelatin_15C": {
+  "removable": {
+   "thermal (bubble)": 0.018929712198615372,
+   "thermal (bubble+medium)": 0.026055603941417517,
+   "mass transfer": 0.0017135573481500545,
+   "operator: gilmore/tait": 0.01909117357450582,
+   "operator: keller-enth/MG": 0.07707608029804483,
+   "second relaxation arm": 0.011337392953566294,
+   "initial radius": 0.23662668369783074
+  },
+  "joint": 0.2589608900212283,
+  "identifiable": 59.271666939759946
+ },
+ "gelatin_23C": {
+  "removable": {
+   "thermal (bubble)": 0.02415148591702883,
+   "thermal (bubble+medium)": 0.02486278732536615,
+   "mass transfer": 0.001872397766003733,
+   "operator: gilmore/tait": 0.0040397870579048905,
+   "operator: keller-enth/MG": 0.017570548350371404,
+   "second relaxation arm": 0.5813765042250736,
+   "initial radius": 0.13034797863213332
+  },
+  "joint": 0.7154143572033301,
+  "identifiable": 52.585307630914386
+ },
+ "gelatin_33C": {
+  "removable": {
+   "thermal (bubble)": 0.03550526139924982,
+   "thermal (bubble+medium)": 0.0654451480136033,
+   "mass transfer": 0.02436719220898478,
+   "operator: gilmore/tait": 0.047611659838832074,
+   "operator: keller-enth/MG": 0.03929918961334088,
+   "second relaxation arm": 0.038379022712192824,
+   "initial radius": 0.13883359638086526
+  },
+  "joint": 0.21675847488546604,
+  "identifiable": 24.672538184296474
+ }
+}

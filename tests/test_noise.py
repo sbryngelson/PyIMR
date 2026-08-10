@@ -486,7 +486,8 @@ def test_a_candidate_is_scored_by_the_share_of_the_discrepancy_it_removes():
   # the absorbed part is projected away, so what remains lies entirely along the discrepancy
   assert got.overlap["partly_absorbed"] == pytest.approx(1.0)
   assert got.removable["mixed"] == pytest.approx(0.36)
-  assert got.best[0] in {"exact", "partly_absorbed"}
+  best = got.best
+  assert best is not None and best[0] in {"exact", "partly_absorbed"}
 
 
 def test_a_candidate_the_existing_parameters_reproduce_explains_nothing():
@@ -514,9 +515,16 @@ def test_candidates_proposing_the_same_curve_do_not_count_twice():
   mixed = 0.6 * delta + 0.8 * spare
   twice = enrichment_overlap(delta, jacobian, {"a": mixed, "b": 2.0 * mixed})
   assert twice.joint == pytest.approx(0.36)                 # not 0.72
-  # and two independent directions that between them span the discrepancy remove all of it
+
+  # Two directions SPAN the discrepancy here -- but reaching it needs `spare` with a negative
+  # coefficient, and a one-sided amplitude cannot supply one. The reachable set is a cone, not
+  # a subspace, so the joint stays at what the cone actually contains.
   both = enrichment_overlap(delta, jacobian, {"a": mixed, "c": spare})
-  assert both.joint == pytest.approx(1.0)
+  assert both.joint == pytest.approx(0.36)
+  assert enrichment_overlap(delta, jacobian, {"a": mixed, "c": spare},
+                            one_sided=False).joint == pytest.approx(1.0)
+  # and with the sign free the other way round, the cone does contain it
+  assert enrichment_overlap(delta, jacobian, {"a": mixed, "c": -spare}).joint == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize(("bad", "message"), [
@@ -531,3 +539,48 @@ def test_impossible_screens_are_refused(bad, message):
   call = {"identifiable": delta, "jacobian": jacobian, "directions": {"x": delta}} | bad
   with pytest.raises(ValueError, match=message):
     enrichment_overlap(**call)
+
+
+def test_a_wrong_signed_candidate_cannot_help_however_large_its_overlap():
+  """A one-sided amplitude pointing away from the discrepancy can only make it worse.
+
+  Scoring `|cos|` called such a candidate the most promising in the catalogue: a second
+  relaxation arm read 58% at 23 C from a cosine of -0.762, and `share` cannot go negative.
+  """
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  jacobian, delta, spare = _orthonormal_setup(np.random.default_rng(4))
+  helps, hurts = 0.8 * delta + 0.6 * spare, -0.8 * delta + 0.6 * spare
+  got = enrichment_overlap(delta, jacobian, {"helps": helps, "hurts": hurts})
+
+  assert got.overlap["helps"] == pytest.approx(got.overlap["hurts"]), "same magnitude either way"
+  assert got.reachable["helps"] and not got.reachable["hurts"]
+  best = got.best
+  assert best is not None and best[0] == "helps", "the unreachable one must not win"
+  assert "unreachable: hurts" in got.summary
+  # and the joint reach counts only what a fit could actually take
+  assert got.joint == pytest.approx(0.64)
+
+
+def test_a_two_sided_amplitude_may_use_either_direction():
+  """`one_sided=False` is for an amplitude that genuinely can take either sign."""
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  jacobian, delta, spare = _orthonormal_setup(np.random.default_rng(5))
+  got = enrichment_overlap(delta, jacobian, {"hurts": -0.8 * delta + 0.6 * spare},
+                           one_sided=False)
+  best = got.best
+  assert got.reachable["hurts"] and best is not None and best[0] == "hurts"
+  assert got.joint == pytest.approx(0.64)
+
+
+def test_a_screen_where_nothing_is_reachable_says_so():
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  jacobian, delta, spare = _orthonormal_setup(np.random.default_rng(6))
+  got = enrichment_overlap(delta, jacobian, {"hurts": -delta})
+  assert got.best is None and got.joint == pytest.approx(0.0)
+  assert "nothing reachable" in got.summary

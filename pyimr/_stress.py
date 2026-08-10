@@ -29,6 +29,7 @@ from ._materials import (
   QuadraticKelvinVoigt,
   CubicZener,
   QuadraticZener,
+  RelaxingMaterial,
   TwoModeQuadraticZener,
   CarreauZener,
   Yeoh,
@@ -278,6 +279,35 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
       + 16.0 * log_term - 2909.0 / 45.0 + 48.0 / Rst - (16.0 / 3.0) / Rst**3
     )
     Ze = R**3 * (strainhard * (5 - Rst**4 - 4 * Rst) + quadratic + 3.0 * (cubic / Ca) * cubic_kernel)
+    Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
+    Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
+    return S, Sdot, xp.array([Z1d]), 4.0 * LAM / Re8
+  if isinstance(material, RelaxingMaterial):
+    # `Ze` by the quadrature `_instantaneous_stress` uses, so any elastic law relaxes without
+    # a closed form of its own; the memory equation below is `QuadraticZener`'s unchanged.
+    if instantaneous is None:
+      raise TypeError('RelaxingMaterial reached the stress without its quadrature; '
+                      'the material was not prepared')
+    elastic = material.elastic
+    if law_values(elastic) is not None:
+      elastic = law_with_values(elastic, [p[f"el{i}"] for i in range(LAW_WIDTH)])
+    wall_stretch = R / p["req"]
+    half_interval = 0.5 * (wall_stretch - 1.0)
+    nodes, quad_weights = instantaneous.interval_nodes, instantaneous.interval_weights
+    # `R` is a scalar inside the flow and a whole trace when the saved outputs are formed, and
+    # this is the first material to be both quadrature-based and stateful, so it is the first
+    # to meet the vectorised call. The node axis is added last in either case.
+    if xp.ndim(half_interval) == 0:
+      stretch = 1.0 + half_interval * (nodes + 1.0)
+      equilibrium = half_interval * xp.dot(quad_weights,
+                                           _elastic_integrand(elastic, stretch, p["P8"], xp=xp))
+    else:
+      stretch = 1.0 + half_interval[..., None] * (nodes + 1.0)
+      integrand = _elastic_integrand(elastic, stretch, p["P8"], xp=xp)
+      equilibrium = half_interval * (integrand @ quad_weights)
+    Z1 = Z[0]
+    Ze = R**3 * equilibrium
+    S = Z1 / R**3 - 4 * LAM / Re8 * Rd / R
     Z1d = -(Z1 - Ze) / De + 4 * (LAM - 1) / (Re8 * De) * R**2 * Rd
     Sdot = Z1d / R**3 - 3 * Rd / R**4 * Z1 + 4 * LAM / Re8 * Rd**2 / R**2
     return S, Sdot, xp.array([Z1d]), 4.0 * LAM / Re8

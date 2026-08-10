@@ -296,3 +296,81 @@ def test_linear_maxwell_is_zener_without_the_parallel_spring(dynamics, measured)
 def test_linear_maxwell_refuses_a_missing_relaxation_time():
   with pytest.raises(ValueError):
     pyimr.LinearMaxwell(_MAXWELL_VISCOSITY, 0.0)
+
+
+# --- one Zener construction for every elastic law ------------------------------------------
+
+def test_a_relaxing_neo_hookean_is_the_closed_form_zener(measured):
+  """The gate on taking the equilibrium by quadrature instead of by a derived formula.
+
+  `RelaxingMaterial` exists so Gent, Fung, Yeoh, Ogden and the rest can carry a Maxwell arm
+  without a hand-derived `Ze` each. It is only trustworthy if, where a closed form does
+  exist, it reproduces it.
+  """
+  import numpy as np
+  import pyimr
+
+  times = np.linspace(0.0, 3e-5, 60)
+  modulus, viscosity, relaxation = 2500.0, 0.1, 2e-7
+
+  def trace(material):
+    config = pyimr.SimulationConfig(50e-6, 50e-6 / 6, material, dynamics="keller-miksis",
+                                    rtol=1e-7, atol=1e-9, max_steps=200_000)
+    return np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
+
+  closed = trace(pyimr.Zener(modulus, viscosity, relaxation, 0.0))
+  general = trace(pyimr.RelaxingMaterial(pyimr.NeoHookean(modulus), viscosity, relaxation, 0.0,
+                                         quadrature_points=64))
+  measured("relaxing vs closed-form Zener", f"max|diff| {float(np.max(np.abs(closed - general))):.2e}")
+  assert np.allclose(closed, general, atol=1e-10)
+
+
+def test_every_elastic_law_can_carry_a_maxwell_arm():
+  """The point of the class: six laws that previously had no relaxing form at all."""
+  import numpy as np
+  import pyimr
+
+  times = np.linspace(0.0, 3e-5, 60)
+  laws = {
+    "gent": pyimr.Gent(2500.0, 5e3), "fung": pyimr.Fung(2500.0, 1e-3),
+    "yeoh": pyimr.Yeoh(2500.0 / 6, 2500.0 / 60, 2500.0 / 600),
+    "ogden": pyimr.Ogden((2500.0, 250.0), (2.0, 6.0)),
+    "arruda": pyimr.ArrudaBoyce(2500.0, 50.0), "mooney": pyimr.MooneyRivlin(1250.0, 250.0),
+  }
+  traces = {}
+  for name, law in laws.items():
+    config = pyimr.SimulationConfig(50e-6, 50e-6 / 6, pyimr.RelaxingMaterial(law, 0.1, 2e-7, 0.0),
+                                    dynamics="keller-miksis", rtol=1e-7, atol=1e-9, max_steps=200_000)
+    traces[name] = np.asarray(pyimr.simulate(times, config).radius_ratio, dtype=float)
+    assert np.all(np.isfinite(traces[name])), name
+  # distinct laws, distinct trajectories: otherwise the elastic model is not reaching the solve
+  assert not np.allclose(traces["yeoh"], traces["gent"], atol=1e-6)
+
+
+def test_a_relaxing_law_still_differentiates(measured):
+  """`R` is a scalar in the flow and a whole trace when the outputs are formed.
+
+  This is the first material to be both quadrature-based and stateful, so it is the first to
+  meet the vectorised stress call -- which broadcast 32 nodes against the time grid until the
+  node axis was added last.
+  """
+  import numpy as np
+  import pyimr
+
+  times = np.linspace(0.0, 3e-5, 40)
+  material = pyimr.RelaxingMaterial(pyimr.Yeoh(2500.0 / 6, 2500.0 / 60, 2500.0 / 600), 0.1, 2e-7, 0.0)
+  config = pyimr.SimulationConfig(50e-6, 50e-6 / 6, material, dynamics="keller-miksis",
+                                  rtol=1e-8, atol=1e-10, max_steps=200_000)
+  traced = np.asarray(pyimr.prepare(config).solve_with_sensitivities(
+    times, ("material.viscosity_pa_s",)).radius_ratio, dtype=float)[:, 0]
+
+  def moved(scale):
+    shifted = pyimr.RelaxingMaterial(material.elastic, 0.1 * scale, 2e-7, 0.0)
+    tight = pyimr.SimulationConfig(50e-6, 50e-6 / 6, shifted, dynamics="keller-miksis",
+                                   rtol=1e-10, atol=1e-12, max_steps=400_000)
+    return np.asarray(pyimr.simulate(times, tight).radius_ratio, dtype=float)
+
+  step = 1e-6
+  finite = (moved(1 + step) - moved(1 - step)) / (2 * step * 0.1)
+  measured("relaxing tangent vs difference", f"max|diff| {float(np.max(np.abs(traced - finite))):.2e}")
+  assert np.max(np.abs(traced - finite)) < 1e-4 * max(float(np.max(np.abs(finite))), 1e-30)

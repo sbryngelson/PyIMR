@@ -33,6 +33,7 @@ from ._materials import (
   QuadraticKelvinVoigt,
   QuadraticZener,
   CubicZener,
+  RelaxingMaterial,
   TwoModeQuadraticZener,
   CarreauZener,
   Zener,
@@ -60,14 +61,14 @@ def _material_scales(material):
     modulus = material.shear_modulus_pa
   else:
     modulus = 0.0
-  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, CubicZener, OldroydB, Giesekus, LinearPTT, LinearMaxwell, TwoModeQuadraticZener, CarreauZener)):
+  if isinstance(material, (NeoHookeanKelvinVoigt, QuadraticKelvinVoigt, Zener, QuadraticZener, CubicZener, OldroydB, Giesekus, LinearPTT, LinearMaxwell, TwoModeQuadraticZener, CarreauZener, RelaxingMaterial)):
     viscosity = material.viscosity_pa_s
   else:
     viscosity = 0.0
   if isinstance(material, LinearMaxwell):
     # no parallel spring and no retardation: the memory relaxes toward zero
     relaxation, retardation = material.relaxation_time_s, 0.0
-  elif isinstance(material, (Zener, QuadraticZener, CubicZener, OldroydB, Giesekus, LinearPTT, TwoModeQuadraticZener, CarreauZener)):
+  elif isinstance(material, (Zener, QuadraticZener, CubicZener, OldroydB, Giesekus, LinearPTT, TwoModeQuadraticZener, CarreauZener, RelaxingMaterial)):
     relaxation = material.relaxation_time_s
     retardation = material.retardation_time_s
   else:
@@ -219,7 +220,9 @@ def _prepare_forcing(config, parameters):
   return PreparedForcing(knots=_freeze_array(knots), coefficients=_freeze_array(interpolant.c))
 
 def _prepare_instantaneous_material(material):
-  if not isinstance(material, InstantaneousMaterial): return None
+  # keyed off carrying a quadrature rather than off being one class, so `RelaxingMaterial`
+  # reuses the nodes instead of preparing a second set of its own
+  if not isinstance(material, (InstantaneousMaterial, RelaxingMaterial)): return None
   nodes, weights = np.polynomial.legendre.leggauss(material.quadrature_points)
   return PreparedInstantaneousMaterial(interval_nodes=_freeze_array(nodes), interval_weights=_freeze_array(weights))
 

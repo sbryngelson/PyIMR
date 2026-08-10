@@ -40,6 +40,7 @@ __all__ = [
   "PowerLaw",
   "QuadraticKelvinVoigt",
   "CubicZener",
+  "RelaxingMaterial",
   "QuadraticZener",
   "ViscousModel",
   "Yeoh",
@@ -159,6 +160,41 @@ class CubicZener:
     _non_negative("retardation_time_s", self.retardation_time_s)
     _non_negative("stiffening", self.stiffening)
     _non_negative("cubic", self.cubic)
+
+
+@dataclass(frozen=True, slots=True)
+class RelaxingMaterial:
+  """Any elastic law, with a Maxwell arm: the Zener construction freed from one potential.
+
+  Every Zener here carries its own hand-derived `Ze`, so relaxation has been available to the
+  neo-Hookean family and to nothing else. Gent, Fung, Arruda-Boyce, Mooney-Rivlin, Yeoh and
+  Ogden exist only as `InstantaneousMaterial` -- elastic, with no memory at all -- which is
+  the wrong comparison to make against a relaxing model and the reason a purely elastic Yeoh
+  scored so much higher in screening than the same term added to qSLS.
+
+  The equilibrium target is taken by the quadrature `InstantaneousMaterial` already uses,
+  rather than by a closed form derived per law, so one class covers every elastic model in
+  the package and any added later. That costs the quadrature at each step and buys the
+  comparison being a controlled one.
+
+  `elastic` reaches the compiled program through `p["el*"]` exactly as it does for
+  `InstantaneousMaterial`, so its parameters are traced, differentiable and shared across a
+  sweep rather than keying a new compile per value.
+  """
+
+  elastic: ElasticModel
+  viscosity_pa_s: float
+  relaxation_time_s: float
+  retardation_time_s: float = 0.0
+  quadrature_points: int = 32
+
+  def __post_init__(self):
+    if self.elastic is None: raise ValueError("RelaxingMaterial needs an elastic law")
+    positive_scalar("viscosity_pa_s", self.viscosity_pa_s)
+    positive_scalar("relaxation_time_s", self.relaxation_time_s)
+    _non_negative("retardation_time_s", self.retardation_time_s)
+    if not isinstance(self.quadrature_points, Integral) or self.quadrature_points < 8:
+      raise ValueError("quadrature_points must be an integer >= 8")
 
 
 @dataclass(frozen=True, slots=True)
@@ -428,7 +464,7 @@ class LinearPTT:
     _validate_distributed_model("extensibility", self.extensibility, self.points, self.extent)
     if self.quadrature not in ("trapezoid", "gauss"): raise ValueError("quadrature must be 'trapezoid' or 'gauss'")
 
-MaterialModel = CubicZener | TwoModeQuadraticZener | CarreauZener | (
+MaterialModel = RelaxingMaterial | CubicZener | TwoModeQuadraticZener | CarreauZener | (
   NoStress | NeoHookeanKelvinVoigt | QuadraticKelvinVoigt | Zener | QuadraticZener | OldroydB | InstantaneousMaterial | Giesekus | LinearPTT | LinearMaxwell
 )
 
@@ -466,6 +502,7 @@ def _is_distributed_stress(material) -> bool: return isinstance(material, (Giese
 
 def _stress_state_count(material) -> int:
   if _is_distributed_stress(material): return 2 * material.points
-  if isinstance(material, (Zener, QuadraticZener, CubicZener, LinearMaxwell, CarreauZener)): return 1
+  if isinstance(material, (Zener, QuadraticZener, CubicZener, LinearMaxwell, CarreauZener,
+                           RelaxingMaterial)): return 1
   if isinstance(material, (OldroydB, TwoModeQuadraticZener)): return 2
   return 0

@@ -548,11 +548,12 @@ def enrichment_overlap(identifiable, jacobian, directions, *, one_sided=True):
   amplitude that really can take either sign.
 
   AND THE MAGNITUDE IS AN UPPER BOUND, not a forecast. It is what a candidate could remove if
-  its amplitude were free and the base parameters moved only linearly. A fit obeys neither:
-  fitting the two-mode model reduced the discrepancy by 1%, 11% and 10% where this
-  screen projected 39%, 58% and 24%. Use it to RULE OUT -- near zero, or wrong
-  signed, means a candidate cannot help -- and fit whatever survives rather than ranking by
-  the number.
+  its amplitude were free and the base parameters moved only linearly, and a fit obeys neither,
+  so the delivered reduction is smaller. The sign convention carries the same warning with a
+  measured price: on these records the candidates jointly remove 71.5% of the 23 C discrepancy
+  read as a subspace and 15.1% on the cone, because the subspace reading counts an arm that
+  points the wrong way. Use this to RULE OUT -- near zero, or wrong signed, means a candidate
+  cannot help -- and fit whatever survives rather than ranking by the number.
 
   For the design side of the same question -- what experiment would tell these candidates
   apart, or separate the discrepancy from a parameter shift -- pass `delta_hat` to

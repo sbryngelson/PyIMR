@@ -9,7 +9,26 @@
    "second relaxation arm": 0.011337392953566294,
    "initial radius": 0.23662668369783074
   },
-  "joint": 0.2589608900212283,
+  "reachable": {
+   "thermal (bubble)": true,
+   "thermal (bubble+medium)": true,
+   "mass transfer": true,
+   "operator: gilmore/tait": true,
+   "operator: keller-enth/MG": true,
+   "second relaxation arm": false,
+   "initial radius": true
+  },
+  "overlap": {
+   "thermal (bubble)": 0.1375852906331755,
+   "thermal (bubble+medium)": 0.16141748338212164,
+   "mass transfer": 0.0413951367693121,
+   "operator: gilmore/tait": 0.1381708130341058,
+   "operator: keller-enth/MG": 0.2776257918458673,
+   "second relaxation arm": 0.10647719452336399,
+   "initial radius": 0.486442888423534
+  },
+  "joint": 0.25201961233884923,
+  "joint_span": 0.2589608900212284,
   "identifiable": 59.271666939759946
  },
  "gelatin_23C": {
@@ -22,7 +41,26 @@
    "second relaxation arm": 0.5813765042250736,
    "initial radius": 0.13034797863213332
   },
-  "joint": 0.7154143572033301,
+  "reachable": {
+   "thermal (bubble)": true,
+   "thermal (bubble+medium)": true,
+   "mass transfer": true,
+   "operator: gilmore/tait": true,
+   "operator: keller-enth/MG": true,
+   "second relaxation arm": false,
+   "initial radius": true
+  },
+  "overlap": {
+   "thermal (bubble)": 0.15540748346533648,
+   "thermal (bubble+medium)": 0.1576793814211806,
+   "mass transfer": 0.043271211746422504,
+   "operator: gilmore/tait": 0.0635593192058009,
+   "operator: keller-enth/MG": 0.13255394505774395,
+   "second relaxation arm": 0.7624804943243293,
+   "initial radius": 0.3610373645928262
+  },
+  "joint": 0.1507662017164941,
+  "joint_span": 0.7154143572033296,
   "identifiable": 52.585307630914386
  },
  "gelatin_33C": {
@@ -35,7 +73,26 @@
    "second relaxation arm": 0.038379022712192824,
    "initial radius": 0.13883359638086526
   },
-  "joint": 0.21675847488546604,
+  "reachable": {
+   "thermal (bubble)": true,
+   "thermal (bubble+medium)": true,
+   "mass transfer": true,
+   "operator: gilmore/tait": true,
+   "operator: keller-enth/MG": true,
+   "second relaxation arm": true,
+   "initial radius": true
+  },
+  "overlap": {
+   "thermal (bubble)": 0.18842839860076777,
+   "thermal (bubble+medium)": 0.2558224931736912,
+   "mass transfer": 0.15609994301403438,
+   "operator: gilmore/tait": 0.21820096204836512,
+   "operator: keller-enth/MG": 0.1982402320754818,
+   "second relaxation arm": 0.1959056474739634,
+   "initial radius": 0.3726038061813986
+  },
+  "joint": 0.20950090915924421,
+  "joint_span": 0.21675847488546604,
   "identifiable": 24.672538184296474
  }
 }

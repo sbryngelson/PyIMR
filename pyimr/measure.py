@@ -26,7 +26,7 @@ import numpy as np
 
 from ._validate import finite_array, positive_integer, unit_interval
 
-__all__ = ["BatchDesign", "ExactDesign", "MeasureResult", "apportion", "augmented_information", "identification_front", "optimal_measure", "sensitivity", "separability"]
+__all__ = ["BatchDesign", "ConstrainedMeasure", "ExactDesign", "MeasureResult", "apportion", "augmented_information", "constrained_measure", "identification_front", "optimal_measure", "sensitivity", "separability"]
 
 _FLOOR = 1e-12
 
@@ -66,6 +66,8 @@ def sensitivity(matrices, weights, *, utility=None, blend=0.0):
     return _sensitivity(stack, share, vector, float(blend))
   except np.linalg.LinAlgError as error:
     raise ValueError("the averaged information matrix is singular; spread the starting weights") from error
+
+_UNDERFLOW = 1e-30      # negligible in the information matrix, recoverable by the update
 
 def _sensitivity(stack, share, vector, blend, criterion=None):
   """The derivative without revalidation: the iteration calls this once per step."""
@@ -154,7 +156,8 @@ def optimal_measure(matrices, *, criterion=None, utility=None, blend=0.0, iterat
 
   gap, step = np.inf, 0
   for step in range(1, iterations + 1):
-    gap = float(np.max(_sensitivity(stack, share, vector, blend, criterion)))
+    slope = _sensitivity(stack, share, vector, blend, criterion)
+    gap = float(np.max(slope))
     if gap <= tolerance: break
     if criterion is not None:
       # mirror descent: multiplicative in form, but stepping along the derivative rather than
@@ -172,18 +175,27 @@ def optimal_measure(matrices, *, criterion=None, utility=None, blend=0.0, iterat
     updated = share * growth
     total = updated.sum()
     if not np.isfinite(total) or total <= 0.0: break
-    share = updated / total
+    # Zero is ABSORBING for a multiplicative update, and a weight falling by up to e^-2 a step
+    # reaches it in a few hundred. That turns a transient dip into a permanent exclusion: a
+    # candidate the optimum needs is annihilated by arithmetic and the search ends short, with
+    # a gap it cannot close. Holding live weights at a level that is negligible in `M` but
+    # still reachable by the update keeps the floor a rounding decision, not a modelling one.
+    share = np.maximum(updated / total, _UNDERFLOW)
     # A candidate just off the support decays like (d_i/p)^k with d_i/p barely below one, so
     # the tail costs more iterations than the answer does. Dropping it periodically costs
-    # nothing -- the update keeps zeros at zero -- and the certificate is still computed
-    # against every candidate afterwards, so a wrong drop cannot hide.
+    # nothing and the certificate is still computed against every candidate afterwards, so a
+    # wrong drop cannot hide -- but only a candidate the criterion is not currently asking for
+    # may go. A positive sensitivity means this step wants MORE mass there, and demoting it
+    # anyway is self-defeating twice over: the update cannot climb 23 decades back above the
+    # threshold before the next prune re-demotes it, so an early transient dip becomes
+    # permanent exile, and the search ends short with a gap it has forbidden itself to close.
     if step % 200 == 0:
-      surviving = share > prune
+      surviving = (share > prune) | (slope > 0.0)
       if surviving.any() and not surviving.all():
-        share = np.where(surviving, share, 0.0)
+        share = np.where(surviving, share, _UNDERFLOW)
         share = share / share.sum()
 
-  keep = share > prune
+  keep = share > max(prune, _UNDERFLOW)
   if not keep.any(): keep = share >= share.max()
   cleaned = np.where(keep, share, 0.0)
   cleaned = cleaned / cleaned.sum()
@@ -445,3 +457,99 @@ def separability(jacobian, differences, *, weights=None):
     left = np.linalg.norm(row - basis @ (basis.T @ row))
     absorbed[index] = 1.0 - left / size if size > 0.0 else 1.0
   return variance, absorbed
+
+
+@dataclass(frozen=True, slots=True)
+class ConstrainedMeasure:
+  """A measure guaranteed to spread over enough settings to be testable, and what that cost."""
+
+  measure: MeasureResult
+  settings: int
+  nats_lost: float
+  certified_under_floor: bool
+  summary: str
+
+  def __str__(self) -> str: return self.summary
+
+
+def constrained_measure(matrices, settings, *, floor=None, criterion=None, iterations=100_000,
+                        tolerance=1e-9, prune=1e-7):
+  """`optimal_measure`, forced to spend real weight on at least `settings` distinct candidates.
+
+  An information criterion is happiest concentrating, and a batch on too few settings cannot
+  detect that every model is wrong: `pyimr.noise.lack_of_fit` needs pure error, which needs
+  repeats, and a lack-of-fit numerator, which needs more distinct settings than parameters.
+  `apportion(..., replicates=J)` cannot supply this -- the number of settings is a property of
+  the MEASURE, and apportionment only allocates runs within the one it is handed (#232).
+
+  Bounding the support size is a cardinality constraint, which is not convex, so it cannot join
+  the criterion without forfeiting the equivalence-theorem certificate that makes
+  `optimal_measure` worth using. Two steps buy back most of it. First choose WHICH settings to
+  guarantee: those the free solution already funds, then, if that is too few, the candidates of
+  largest sensitivity -- the ones the free problem came closest to wanting, nominated by the
+  certificate itself rather than by taste. Then guarantee them with a floor.
+
+  Naming the settings is not enough on its own: an optimiser merely restricted to them
+  reproduces the free optimum by leaving the new ones at zero weight, and a setting that gets
+  no runs is not a setting. The floor is imposed by the substitution
+  `xi = floor * 1_chosen + (1 - k*floor) * eta`, which maps the constrained set onto a whole
+  simplex in `eta` -- so the search is exactly the one `optimal_measure` already certifies, the
+  floor holds by construction rather than by projection, and every candidate, guaranteed or
+  not, still competes for the remaining mass. `floor` defaults to half an equal share, which is
+  enough for `apportion` to give each guaranteed setting a run at any realistic budget. Note
+  that this default makes the demands non-nested -- asking for more settings also asks less of
+  each -- so `nats_lost` need not rise with `settings`. Pass a fixed `floor` to compare.
+
+  The problem in `eta` is concave, so the result is certified optimal AMONG measures meeting
+  the floor -- weaker than global optimality, and reported as `certified_under_floor` rather
+  than as `certified`. `nats_lost` is the price, in the criterion's own units, of insisting on
+  a batch that can be tested.
+  """
+  stack = _checked_matrices(matrices)
+  settings = positive_integer("settings", settings)
+  if settings > stack.shape[0]:
+    raise ValueError(f"{settings} settings asked of {stack.shape[0]} candidates")
+  share = 0.5 / settings if floor is None else unit_interval("floor", floor)
+  # a floor of zero is not a weak constraint but no constraint: the substitution collapses to
+  # the identity, the guaranteed settings are free to sit at zero weight, and the result comes
+  # back with FEWER settings than were asked for and a certificate saying it is optimal
+  if share <= 0.0:
+    raise ValueError("floor must be positive; a floor of zero guarantees no settings at all")
+  if share * settings >= 1.0:
+    raise ValueError(f"a floor of {share:g} on each of {settings} settings exceeds all the mass")
+
+  free = optimal_measure(stack, criterion=criterion, iterations=iterations,
+                         tolerance=tolerance, prune=prune)
+  ranked = sorted(free.support, key=lambda i: -free.weights[i])[:settings]
+  if len(ranked) < settings:
+    slopes = _sensitivity(stack, free.weights, None, 0.0, criterion)
+    ranked += [int(i) for i in np.argsort(-slopes) if int(i) not in ranked][:settings - len(ranked)]
+  chosen = np.array(sorted(ranked), dtype=int)
+
+  base = share * np.sum(stack[chosen], axis=0)     # the information the floor buys up front
+  spare = 1.0 - share * settings
+
+  def shifted(information):
+    """The criterion seen through the substitution, so `eta` roams a full simplex."""
+    total = base + spare * information
+    if criterion is not None:
+      value, gradient = criterion(total)
+      return value, spare * gradient
+    sign, magnitude = np.linalg.slogdet(total)
+    return (magnitude if sign > 0 else -np.inf), spare * np.linalg.inv(total)
+
+  held = optimal_measure(stack, criterion=shifted, iterations=iterations,
+                         tolerance=tolerance, prune=prune)
+  weights = spare * held.weights
+  weights[chosen] += share
+  measure = MeasureResult(weights=weights, support=np.flatnonzero(weights > 0.0),
+                          value=held.value, gap=held.gap, iterations=held.iterations)
+  lost = float(free.value - held.value)
+  return ConstrainedMeasure(
+    measure=measure, settings=int(measure.support.size), nats_lost=lost,
+    certified_under_floor=bool(held.certified),
+    summary=(f"{measure.support.size} settings, each at least {share:.3g} of the batch; "
+             f"{lost:.3f} of the criterion given up to get there, "
+             + (f"certified under the floor at gap {held.gap:.1e}" if held.certified else
+                f"NOT certified -- the search stopped at gap {held.gap:.1e}")),
+  )

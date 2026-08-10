@@ -2522,11 +2522,39 @@ Testability is therefore a \emph{constraint} on the batch, not a term in the obj
 \label{eq:constrained}
 \end{equation}
 %
-The replication half is cheap. The support half is a cardinality constraint and is not convex,
-so it cannot join the objective without forfeiting \eqref{eq:gaincert}; measured on the operator
-design, forcing three replicates leaves the batch at two settings and $\mathrm{df} = -2$ still.
-What rescues it in practice is asking more than one question: the portfolio optimum below
-spreads over six geometries on its own, and \eqref{eq:constrained} never binds.
+The replication half is cheap and does nothing here: the number of settings is a property of
+the \emph{measure}, and apportionment only allocates runs within the support it is handed, so
+forcing three replicates on the operator design leaves the batch at two settings and
+$\mathrm{df} = -2$ still.
+
+The support half is a cardinality constraint and is not convex, so it cannot join the objective
+without forfeiting \eqref{eq:gaincert}. \texttt{pyimr.measure.constrained\_measure} buys most of
+the certificate back in two steps. Which settings to guarantee --- the set $\mathcal{K}$,
+of size $k$ --- is decided by the certificate itself: those the free solution already funds,
+then the candidates of largest sensitivity, the ones \eqref{eq:equivalence} shows the free
+problem came closest to wanting. Naming them is
+not enough, since an optimizer merely restricted to a larger candidate set reproduces the free
+optimum by leaving the new settings at zero and reports no cost at all; they are guaranteed
+instead by the substitution
+%
+\begin{equation}
+\xi = c\,\mathbf{1}_{\mathcal{K}} + (1 - kc)\,\eta ,
+\qquad c > 0, \quad kc < 1 ,
+\label{eq:floorsub}
+\end{equation}
+%
+which maps $\{\xi : \xi_i \ge c \ \forall i \in \mathcal{K}\}$ onto the whole simplex in $\eta$.
+The search is then exactly the one \eqref{eq:gaincert} already certifies, the floor holds by
+construction rather than by projection, and every candidate --- guaranteed or not --- still
+competes for the remaining mass $1 - kc$. What is certified is optimality \emph{among measures
+meeting the floor}, which is weaker than \eqref{eq:gaincert} and is reported as such.
+
+On the operator design the constraint is worth paying. The free batch takes two settings for
+$4.39$ nats; held to five it spreads over six geometries and $\mathrm{df} = +2$ for $0.10$ nats,
+and held to seven it reaches $\mathrm{df} = +3$ for $0.04$ --- both certified below $10^{-9}$.
+That seven costs less than five is not a paradox: the default floor is half an equal share, so
+asking for more settings also asks less of each, and the two demands are not nested. At a fixed
+$c$ they are, and the price rises with $k$ as it must.
 
 \subsection*{The answer for these records}
 

@@ -486,7 +486,8 @@ def test_a_candidate_is_scored_by_the_share_of_the_discrepancy_it_removes():
   # the absorbed part is projected away, so what remains lies entirely along the discrepancy
   assert got.overlap["partly_absorbed"] == pytest.approx(1.0)
   assert got.removable["mixed"] == pytest.approx(0.36)
-  assert got.best[0] in {"exact", "partly_absorbed"}
+  best = got.best
+  assert best is not None and best[0] in {"exact", "partly_absorbed"}
 
 
 def test_a_candidate_the_existing_parameters_reproduce_explains_nothing():
@@ -548,7 +549,8 @@ def test_a_wrong_signed_candidate_cannot_help_however_large_its_overlap():
 
   assert got.overlap["helps"] == pytest.approx(got.overlap["hurts"]), "same magnitude either way"
   assert got.reachable["helps"] and not got.reachable["hurts"]
-  assert got.best[0] == "helps", "the unreachable one must not win"
+  best = got.best
+  assert best is not None and best[0] == "helps", "the unreachable one must not win"
   assert "unreachable: hurts" in got.summary
   # and the joint reach counts only what a fit could actually take
   assert got.joint == pytest.approx(0.64)
@@ -562,7 +564,8 @@ def test_a_two_sided_amplitude_may_use_either_direction():
   jacobian, delta, spare = _orthonormal_setup(np.random.default_rng(5))
   got = enrichment_overlap(delta, jacobian, {"hurts": -0.8 * delta + 0.6 * spare},
                            one_sided=False)
-  assert got.reachable["hurts"] and got.best[0] == "hurts"
+  best = got.best
+  assert got.reachable["hurts"] and best is not None and best[0] == "hurts"
   assert got.joint == pytest.approx(0.64)
 
 

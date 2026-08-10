@@ -285,6 +285,9 @@ def _stress(material, p, R, Rd, Z, instantaneous=None, need_rate=True, *, xp=np)
   if isinstance(material, RelaxingMaterial):
     # `Ze` by the quadrature `_instantaneous_stress` uses, so any elastic law relaxes without
     # a closed form of its own; the memory equation below is `QuadraticZener`'s unchanged.
+    if instantaneous is None:
+      raise TypeError('RelaxingMaterial reached the stress without its quadrature; '
+                      'the material was not prepared')
     elastic = material.elastic
     if law_values(elastic) is not None:
       elastic = law_with_values(elastic, [p[f"el{i}"] for i in range(LAW_WIDTH)])

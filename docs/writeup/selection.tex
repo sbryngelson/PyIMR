@@ -2529,9 +2529,10 @@ $\mathrm{df} = -2$ still.
 
 The support half is a cardinality constraint and is not convex, so it cannot join the objective
 without forfeiting \eqref{eq:gaincert}. \texttt{pyimr.measure.constrained\_measure} buys most of
-the certificate back in two steps. Which settings to guarantee is decided by the certificate
-itself --- those the free solution already funds, then the candidates of largest sensitivity,
-the ones \eqref{eq:equivalence} shows the free problem came closest to wanting. Naming them is
+the certificate back in two steps. Which settings to guarantee --- the set $\mathcal{K}$,
+of size $k$ --- is decided by the certificate itself: those the free solution already funds,
+then the candidates of largest sensitivity, the ones \eqref{eq:equivalence} shows the free
+problem came closest to wanting. Naming them is
 not enough, since an optimizer merely restricted to a larger candidate set reproduces the free
 optimum by leaving the new settings at zero and reports no cost at all; they are guaranteed
 instead by the substitution

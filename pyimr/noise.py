@@ -500,20 +500,22 @@ class Enrichment:
   removable: dict[str, float]
   joint: float
   summary: str
+  reachable: dict[str, bool]
 
   def __str__(self) -> str: return self.summary
 
   @property
   def best(self):
-    """The single candidate that removes most of the discrepancy.
+    """The most promising candidate that can actually be reached, or `None` if none can.
 
-    Never empty: `enrichment_overlap` refuses a screen with no candidates, so the guard that
-    would return `None` here is unreachable and only makes every caller check for it.
+    A one-sided candidate pointing the wrong way is excluded however large its overlap: it
+    cannot reduce the discrepancy at any admissible amplitude.
     """
-    return max(self.removable.items(), key=lambda pair: pair[1])
+    live = {k: v for k, v in self.removable.items() if self.reachable[k]}
+    return max(live.items(), key=lambda pair: pair[1]) if live else None
 
 
-def enrichment_overlap(identifiable, jacobian, directions):
+def enrichment_overlap(identifiable, jacobian, directions, *, one_sided=True):
   """Screen candidate physics against the discrepancy it would have to explain.
 
   `discrepancy` leaves a curve the current model cannot produce. Any enrichment proposes a new
@@ -536,6 +538,22 @@ def enrichment_overlap(identifiable, jacobian, directions):
   samples and whitening as `identifiable` and `jacobian`. `joint` is the fraction all of them
   remove together, which is smaller than the sum when candidates propose the same curve twice.
 
+  SIGN, WHICH IS NOT A DETAIL. Most enrichment amplitudes are one-sided -- a Maxwell arm's
+  share, a stiffening coefficient and a switched-on transport term are all non-negative -- so
+  a candidate whose direction ANTI-aligns with the discrepancy cannot reduce it at any
+  admissible amplitude. Scoring `|cos|` treats such a candidate as promising: measured on
+  these records, a second relaxation arm scored 58% at 23 C from a cosine of
+  -0.762, and it can only ever make the residual worse. `reachable` marks the sign, `best`
+  skips what is unreachable, and `one_sided=False` restores the symmetric reading for an
+  amplitude that really can take either sign.
+
+  AND THE MAGNITUDE IS AN UPPER BOUND, not a forecast. It is what a candidate could remove if
+  its amplitude were free and the base parameters moved only linearly. A fit obeys neither:
+  fitting the two-mode model reduced the discrepancy by 1%, 11% and 10% where this
+  screen projected 39%, 58% and 24%. Use it to RULE OUT -- near zero, or wrong
+  signed, means a candidate cannot help -- and fit whatever survives rather than ranking by
+  the number.
+
   For the design side of the same question -- what experiment would tell these candidates
   apart, or separate the discrepancy from a parameter shift -- pass `delta_hat` to
   `pyimr.measure.augmented_information` as a difference direction. Its amplitude then enters
@@ -551,7 +569,7 @@ def enrichment_overlap(identifiable, jacobian, directions):
   if size <= 0.0: raise ValueError("the identifiable discrepancy is zero; nothing to explain")
 
   basis, _ = np.linalg.qr(matrix)                 # an orthonormal basis for what refitting absorbs
-  overlap, surviving = {}, []
+  overlap, reachable, surviving = {}, {}, []
   for name, direction in directions.items():
     column = finite_array(f"direction {name!r}", direction).ravel()
     if column.size != left.size:
@@ -564,9 +582,12 @@ def enrichment_overlap(identifiable, jacobian, directions):
     # the span.
     if scale <= 1e-8 * float(np.linalg.norm(column)):
       overlap[name] = 0.0
+      reachable[name] = False
       continue
-    overlap[name] = abs(float(free @ left)) / (scale * size)
-    surviving.append(free / scale)
+    aligned = float(free @ left) / (scale * size)
+    overlap[name] = abs(aligned)
+    reachable[name] = bool(aligned > 0.0 or not one_sided)
+    if reachable[name]: surviving.append(free / scale)
 
   joint = 0.0
   if surviving:
@@ -579,10 +600,12 @@ def enrichment_overlap(identifiable, jacobian, directions):
     joint = float(np.linalg.norm(left_vectors[:, keep].T @ left) ** 2) / size**2
 
   removable = {name: value**2 for name, value in overlap.items()}
-  ranked = sorted(removable.items(), key=lambda pair: -pair[1])
+  ranked = sorted(((k, v) for k, v in removable.items() if reachable[k]), key=lambda pair: -pair[1])
+  blocked = [k for k in removable if not reachable[k]]
   return Enrichment(
-    overlap=overlap, removable=removable, joint=min(joint, 1.0),
-    summary=("candidates by the share of the discrepancy they could remove: "
-             + ", ".join(f"{name} {value:.1%}" for name, value in ranked)
-             + f"; together {min(joint, 1.0):.1%}"),
+    overlap=overlap, removable=removable, joint=min(joint, 1.0), reachable=reachable,
+    summary=("at most, and only if a fit could reach it: "
+             + (", ".join(f"{name} {value:.1%}" for name, value in ranked) or "nothing reachable")
+             + f"; together {min(joint, 1.0):.1%}"
+             + (f"; wrong-signed and unreachable: {', '.join(blocked)}" if blocked else "")),
   )

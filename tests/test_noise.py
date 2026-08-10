@@ -531,3 +531,46 @@ def test_impossible_screens_are_refused(bad, message):
   call = {"identifiable": delta, "jacobian": jacobian, "directions": {"x": delta}} | bad
   with pytest.raises(ValueError, match=message):
     enrichment_overlap(**call)
+
+
+def test_a_wrong_signed_candidate_cannot_help_however_large_its_overlap():
+  """A one-sided amplitude pointing away from the discrepancy can only make it worse.
+
+  Scoring `|cos|` called such a candidate the most promising in the catalogue: a second
+  relaxation arm read 58% at 23 C from a cosine of -0.762, and `share` cannot go negative.
+  """
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  jacobian, delta, spare = _orthonormal_setup(np.random.default_rng(4))
+  helps, hurts = 0.8 * delta + 0.6 * spare, -0.8 * delta + 0.6 * spare
+  got = enrichment_overlap(delta, jacobian, {"helps": helps, "hurts": hurts})
+
+  assert got.overlap["helps"] == pytest.approx(got.overlap["hurts"]), "same magnitude either way"
+  assert got.reachable["helps"] and not got.reachable["hurts"]
+  assert got.best[0] == "helps", "the unreachable one must not win"
+  assert "unreachable: hurts" in got.summary
+  # and the joint reach counts only what a fit could actually take
+  assert got.joint == pytest.approx(0.64)
+
+
+def test_a_two_sided_amplitude_may_use_either_direction():
+  """`one_sided=False` is for an amplitude that genuinely can take either sign."""
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  jacobian, delta, spare = _orthonormal_setup(np.random.default_rng(5))
+  got = enrichment_overlap(delta, jacobian, {"hurts": -0.8 * delta + 0.6 * spare},
+                           one_sided=False)
+  assert got.reachable["hurts"] and got.best[0] == "hurts"
+  assert got.joint == pytest.approx(0.64)
+
+
+def test_a_screen_where_nothing_is_reachable_says_so():
+  import numpy as np
+  from pyimr.noise import enrichment_overlap
+
+  jacobian, delta, spare = _orthonormal_setup(np.random.default_rng(6))
+  got = enrichment_overlap(delta, jacobian, {"hurts": -delta})
+  assert got.best is None and got.joint == pytest.approx(0.0)
+  assert "nothing reachable" in got.summary

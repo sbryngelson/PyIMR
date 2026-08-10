@@ -36,15 +36,21 @@ def _all():
   return [Question("material", MATERIAL), Question("operator", OPERATOR)]
 
 
-def batch(stack, points, questions, *, replicates=1):
-  """The apportioned batch a question recommends, and what it is worth in nats."""
+def batch(stack, points, questions, *, replicates=1, settings=None):
+  """The apportioned batch a question recommends, and what it is worth in nats.
+
+  `settings` holds the measure to at least that many distinct geometries, which `replicates`
+  cannot do: replication allocates runs within a support and the support is what is too small.
+  """
   from pyimr.gain import expected_gain, gain_criterion, lack_of_fit_degrees
-  from pyimr.measure import apportion, optimal_measure
+  from pyimr.measure import apportion, constrained_measure, optimal_measure
 
   ALL = _all()                       # every batch is scored on every question, not just its own
 
   criterion = gain_criterion(questions)
-  measure = optimal_measure(stack, criterion=criterion, iterations=400_000)
+  measure = (optimal_measure(stack, criterion=criterion, iterations=400_000) if settings is None
+             else constrained_measure(stack, settings, criterion=criterion,
+                                      iterations=400_000).measure)
   exact = apportion(measure.weights, BUDGET, stack, criterion=criterion, replicates=replicates)
   averaged = np.tensordot(exact.counts / BUDGET, stack, axes=(0, 0)) * BUDGET
   return {
@@ -92,12 +98,22 @@ def main():
   answers["operator_replicated"] = held
 
   free, bound = answers["operator"]["nats"]["operator"], held["nats"]["operator"]
-  settings, reps, lack_df, _ = held["degrees"]
+  count, reps, lack_df, _ = held["degrees"]
   print(f"\n  replication costs {free - bound:.2f} of {free:.2f} nats about the operator and "
         f"buys {reps} repeats per setting, so pure error is now estimable.")
-  print(f"  it does NOT make the batch testable: {settings} settings against {PARAMETERS} "
+  print(f"  it does NOT make the batch testable: {count} settings against {PARAMETERS} "
         f"parameters leaves lack-of-fit df {lack_df}. The binding constraint is the NUMBER of")
   print("  settings, which is a property of the measure and not of the rounding (#232).")
+
+  print(f"\n  constraining the measure itself to spread over {PARAMETERS + 1} settings, which "
+        "is what a lack-of-fit numerator needs:")
+  for wanted in (PARAMETERS + 1, PARAMETERS + 3):
+    spread = batch(stack, points, asked["operator"], settings=wanted)
+    show(f"operator/{wanted}", spread)
+    answers[f"operator_settings_{wanted}"] = spread
+    got = spread["nats"]["operator"]
+    print(f"    {free - got:+.2f} nats against the free batch's {free:.2f}, for "
+          f"lack-of-fit df {spread['degrees'][2]:+d} -- the price of a batch that can be tested.")
 
   json.dump({k: {**v, "degrees": list(v["degrees"])} for k, v in answers.items()},
             open(records.HERE / "gain_design.json", "w"), indent=1)

@@ -9,7 +9,8 @@ regression on [-1, 1] the D-optimal measure is equal mass at the roots of
 import numpy as np
 import pytest
 
-from pyimr.measure import MeasureResult, optimal_measure, sensitivity
+from pyimr.measure import (MeasureResult, apportion, constrained_measure, optimal_measure,
+                           sensitivity)
 
 
 def polynomial(degree, points=51):
@@ -134,3 +135,124 @@ def test_sensitivity_validates_its_weights():
     sensitivity(matrices, np.full(matrices.shape[0], 1.0))
   with pytest.raises(ValueError, match="must have shape"):
     sensitivity(matrices, np.array([0.5, 0.5]))
+
+
+def test_a_free_optimum_can_be_too_concentrated_to_test():
+  # The premise of `constrained_measure`: a criterion is happiest concentrating, and no number
+  # of replicates fixes it, because apportionment only allocates within the support it is given.
+  _, matrices = polynomial(1)
+  free = optimal_measure(matrices)
+  assert free.support.size < 3, "a line's D-optimum takes two settings; three parameters need more"
+  assert apportion(free.weights, 30, replicates=10).support.size == free.support.size
+
+
+def test_the_floor_is_met_and_the_extra_settings_actually_get_runs():
+  _, matrices = polynomial(1)
+  held = constrained_measure(matrices, 5)
+  assert held.settings >= 5
+  assert held.measure.weights[held.measure.support].min() >= 0.5 / 5 - 1e-9
+  # the point of the floor: at a realistic budget every guaranteed setting is visited
+  assert np.count_nonzero(apportion(held.measure.weights, 20).counts) >= 5
+
+
+def test_naming_the_settings_without_a_floor_would_not_have_bound():
+  # The failure this was written against: an optimiser merely RESTRICTED to a larger candidate
+  # set reproduces the free optimum by leaving the new settings at zero, and reports no cost.
+  _, matrices = polynomial(1)
+  free = optimal_measure(matrices)
+  held = constrained_measure(matrices, 4)
+  assert held.nats_lost > 1e-3, "a binding constraint costs something"
+  assert held.measure.value < free.value
+  assert held.measure.value == pytest.approx(
+    float(np.linalg.slogdet(np.tensordot(held.measure.weights, matrices, axes=(0, 0)))[1])), \
+    "the reported value must be the criterion at the returned weights, not at eta"
+
+
+def test_the_price_of_a_testable_batch_rises_with_what_is_demanded():
+  # At a FIXED floor the guaranteed sets are nested, so each demand is strictly harder than the
+  # last. Under the DEFAULT floor they are not: it is half an equal share, so asking for more
+  # settings also asks less of each, and on the operator design seven settings cost less than
+  # five. Only the fixed-floor statement is a property of the method.
+  _, matrices = polynomial(2)
+  costs = [constrained_measure(matrices, k, floor=0.05).nats_lost for k in (3, 5, 9, 15)]
+  assert costs == sorted(costs)
+  assert all(c >= -1e-9 for c in costs), "the free optimum is optimal; nothing can beat it"
+
+
+def test_it_stays_certified_under_the_floor():
+  # The substitution maps onto a whole simplex, so the equivalence theorem still applies --
+  # to the shifted problem. Losing that is the difference between an answer and a proof.
+  _, matrices = polynomial(2)
+  held = constrained_measure(matrices, 6)
+  assert held.certified_under_floor
+  assert held.measure.gap <= 1e-6 * max(1.0, abs(held.measure.value))
+
+
+def test_asking_for_no_more_than_the_free_optimum_costs_nothing():
+  _, matrices = polynomial(2)
+  held = constrained_measure(matrices, 3)
+  assert held.nats_lost == pytest.approx(0.0, abs=1e-6)
+  assert sorted(held.measure.support) == sorted(optimal_measure(matrices).support)
+
+
+def test_the_floor_is_reported_and_can_be_set():
+  _, matrices = polynomial(1)
+  held = constrained_measure(matrices, 4, floor=0.2)
+  assert held.measure.weights[held.measure.support].min() >= 0.2 - 1e-9
+  assert "0.2" in str(held)
+
+
+def test_a_criterion_is_carried_through_the_substitution():
+  # The shift is inside the criterion, so a custom one must see the FULL information matrix.
+  _, matrices = polynomial(1)
+  seen = []
+
+  def a_optimality(information):
+    inverse = np.linalg.inv(information)
+    seen.append(float(np.trace(information)))
+    return -float(np.trace(inverse)), inverse @ inverse
+
+  held = constrained_measure(matrices, 4, criterion=a_optimality)
+  assert held.settings >= 4
+  information = np.tensordot(held.measure.weights, matrices, axes=(0, 0))
+  assert seen[-1] == pytest.approx(float(np.trace(information)), rel=1e-6), \
+    "the criterion saw eta's matrix rather than the design's"
+
+
+def test_it_refuses_what_it_cannot_deliver():
+  _, matrices = polynomial(1)
+  with pytest.raises(ValueError, match="asked of"):
+    constrained_measure(matrices, matrices.shape[0] + 1)
+  with pytest.raises(ValueError, match="exceeds all the mass"):
+    constrained_measure(matrices, 4, floor=0.25)
+  with pytest.raises(ValueError, match="positive"):
+    constrained_measure(matrices, 0)
+
+
+def test_an_early_transient_does_not_exile_a_candidate_the_optimum_needs():
+  # Found via `constrained_measure`: the periodic prune fired at step 200 on a still-moving
+  # iterate, dropped a candidate to zero, and a multiplicative update can never resurrect one --
+  # so the search ended 1e-5 short of the optimum with a gap of 8e-3 it had forbidden itself to
+  # close. More iterations did not help; it was stuck, not slow. The guard is that a positive
+  # sensitivity means this step wants MORE mass there, which is never a candidate to drop.
+  grid = np.linspace(-1.0, 1.0, 51)
+  basis = np.stack([grid**power for power in range(3)], axis=1)
+  matrices = np.einsum("ij,ik->ijk", basis, basis)
+
+  def logdet(information):
+    return float(np.linalg.slogdet(information)[1]), np.linalg.inv(information)
+
+  # the shape that exposed it: a criterion whose early steps are aggressive enough to push the
+  # centre point 20 decades down before the measure has settled at all
+  held = constrained_measure(matrices, 6, criterion=logdet)
+  assert held.certified_under_floor, "the search stopped short at a gap it could have closed"
+  assert held.measure.value > -1.91334, "the exiled candidate was worth 1e-5 of the criterion"
+
+
+def test_the_summary_does_not_claim_a_certificate_it_does_not_have():
+  # A result that reports its own gap honestly and then prints "certified" regardless is worse
+  # than one that never mentions it.
+  _, matrices = polynomial(2)
+  held = constrained_measure(matrices, 5, iterations=3)
+  assert not held.certified_under_floor
+  assert "NOT certified" in str(held)

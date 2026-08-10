@@ -1688,6 +1688,89 @@ factors are consistent, and their ratio is the point: $\sigma$ is small in these
 precisely because they are the identified ones, which is what makes the budget readable rather
 than infinite.
 
+\subsection*{What could remove it}
+
+The bound says how much of a parameter the discrepancy could be eating. It does not say what
+the discrepancy \emph{is}, and $\hat\delta$ is not a shapeless residual: the three records'
+$\hat\delta$ correlate at $0.49$ to $0.84$, where unrelated curves of this length would sit
+near $0.08$, and between $65$ and $69$ percent of each sits in the first collapse. One curve,
+measured rather than guessed, is a thing a candidate physics can be screened against.
+
+The screen is a projection, not a fit. Any enrichment supplies a direction $v$ --- the trace it
+would add, differenced against the current model --- and only the part of it orthogonal to the
+existing sensitivities can remove any of $\hat\delta$. The rest is absorbed by refitting the
+parameters already present, which improves $\chi^2$ and explains nothing. So the question is a
+cosine,
+%
+\begin{equation}
+\text{removable} \;=\; \cos^2\!\big(\,(I-P)v,\ \hat\delta\,\big),
+\qquad
+\cos = \frac{\langle (I-P)v,\ \hat\delta\rangle}{\lVert (I-P)v\rVert\,\lVert\hat\delta\rVert} ,
+\label{eq:enrich}
+\end{equation}
+%
+at one solve per candidate rather than a multistart and an evidence integral each. That
+inversion is the point. Fitting every candidate answers ``which of these fits best'', which
+among models \cref{eq:lackoffit} rejects is the wrong question; \eqref{eq:enrich} answers
+``could this be the missing physics at all'', and a candidate near zero cannot be, whatever its
+Bayes factor does. Screen first, fit what survives.
+
+\paragraph{The sign is not a detail.} Most enrichment amplitudes are one-sided: a Maxwell arm's
+share, a stiffening coefficient and a switched-on transport term are all non-negative. A
+candidate whose direction \emph{anti}-aligns with $\hat\delta$ therefore cannot reduce it at any
+admissible amplitude, and scoring $\lvert\cos\rvert$ reads such a candidate as the most
+promising one on the table. That is not hypothetical --- it happened here, and it is why the
+second relaxation arm carries a dagger below. The reachable set is the \emph{cone} of
+non-negative combinations rather than the span, so the joint figure is a non-negative least
+squares onto that cone and not a projection onto a subspace.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+candidate & \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
+\midrule
+initial radius                & $\mathbf{23.7\%}$ & $\mathbf{13.0\%}$ & $\mathbf{13.9\%}$ \\
+operator: keller-enthalpy/MG  & $7.7\%$ & $1.8\%$ & $3.9\%$ \\
+operator: gilmore/Tait        & $1.9\%$ & $0.4\%$ & $4.8\%$ \\
+thermal (bubble $+$ medium)   & $2.6\%$ & $2.5\%$ & $6.5\%$ \\
+thermal (bubble)              & $1.9\%$ & $2.4\%$ & $3.6\%$ \\
+mass transfer                 & $0.2\%$ & $0.2\%$ & $2.4\%$ \\
+second relaxation arm         & $1.1\%^\dagger$ & $58.1\%^\dagger$ & $3.8\%$ \\
+\midrule
+all together, on the cone     & $25.2\%$ & $\mathbf{15.1\%}$ & $21.0\%$ \\
+the same, read as a subspace  & $25.9\%$ & $\mathbf{71.5\%}$ & $21.7\%$ \\
+$\lVert\hat\delta\rVert$      & $59.3$ & $52.6$ & $24.7$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent $^\dagger$ anti-aligned: the cosine is negative, so no admissible amplitude removes
+anything. At \SI{23}{\celsius} the cosine is $-0.762$, and read as $\lvert\cos\rvert^2$ that
+candidate is the best on any record in the table at $58.1\%$ --- while in fact it can only make
+the residual worse. The last two rows are the cost of getting this wrong, measured: read as a
+subspace the \SI{23}{\celsius} candidates jointly remove $71.5\%$ of the discrepancy, and on
+the cone they remove $15.1\%$. The other two records move by less than a point, because there
+the anti-aligned candidate was small anyway --- the error is not uniform, and it is largest
+exactly where it would have mattered most.
+
+\paragraph{What this says.} Nothing on the list accounts for the discrepancy. Every genuine
+physics candidate is small --- thermal transport between $1.9$ and $6.5$ percent, mass transfer
+below $2.4$, the operator below $7.7$ --- and taken \emph{all together} on the reachable cone
+they leave between $75$ and $85$ percent of $\hat\delta$ unexplained on every record. The
+largest single entry is not physics at all but the initial radius, a configuration quantity
+that \cref{sec:reqprior} shows moves the trace as much as the operator does, and even it
+removes at most a quarter.
+
+Two cautions travel with the table. The figures are \emph{upper bounds}, not forecasts: each is
+what a candidate could remove with its amplitude free and the base parameters responding
+linearly, and a fit obeys neither, so the delivered reduction is smaller. And a screen cannot
+propose what it was not given --- these are the enrichments this package implements, and the
+$75$ to $85$ percent that survives is a statement about them rather than a proof that no
+mechanism exists. What it does establish is that the discrepancy \cref{eq:lackoffit} detects is
+not the thermal, mass-transfer or operator physics already on the shelf, and that
+\eqref{eq:biasbound} is therefore the honest way to carry it rather than a placeholder awaiting
+the obvious fix.
+
 Three consequences run through the rest of this paper. A parameter interval that omits
 \eqref{eq:biasbound} understates its own uncertainty by one to two orders of magnitude, so the
 posterior widths of \cref{sec:fitquality} are not the error bars a rheologist wants. A model

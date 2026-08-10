@@ -117,6 +117,10 @@ def main():
   with records.pool(len(records.DATASETS)) as pool:
     got = list(pool.map(directions, list(records.DATASETS)))
   screens = {d: enrichment_overlap(s.identifiable, j, c) for d, s, j, c in got}
+  # the same joint read as a SUBSPACE, which is what scoring |cos| amounts to. Reported so the
+  # cost of the sign convention is a measured number rather than an assertion about it.
+  spans = {d: enrichment_overlap(s.identifiable, j, c, one_sided=False)
+           for d, s, j, c in got}
   names = sorted({k for _, _, _, c in got for k in c})
 
   print("\n  share of the discrepancy each candidate could remove, at its own fit\n")
@@ -125,16 +129,25 @@ def main():
     cells = []
     for dataset, *_ in got:
       value = screens[dataset].removable.get(name)
-      cells.append("        -" if value is None else f"{value:9.1%}")
+      if value is None: cells.append("        -")
+      else: cells.append(f"{value:8.1%}" + ("" if screens[dataset].reachable[name] else "*"))
     print(f"  {name:28s} " + " ".join(cells))
-  print(f"  {'ALL TOGETHER':28s} " + " ".join(f"{screens[d].joint:9.1%}" for d, *_ in got))
+  print(f"  {'ALL TOGETHER (cone)':28s} " + " ".join(f"{screens[d].joint:9.1%}" for d, *_ in got))
+  print(f"  {'ALL TOGETHER (span)':28s} " + " ".join(f"{spans[d].joint:9.1%}" for d, *_ in got))
+  print("\n  * anti-aligned: the amplitude is one-sided, so no admissible size of it removes")
+  print("    anything -- the magnitude is what it would remove if the sign could be flipped")
 
   print("\n  a candidate near zero cannot be the missing physics, whatever its evidence does")
   for dataset, split, _, _ in got:
     name, value = screens[dataset].best
     print(f"    {dataset:13s} |delta| {split.size:6.1f}   best single: {name} at {value:.1%}")
 
-  json.dump({d: {"removable": screens[d].removable, "joint": screens[d].joint,
+  # `reachable` MUST be persisted beside `removable`. The magnitude alone is what made the
+  # 23 C second arm read as the best candidate on any record at 58%, when its cosine is
+  # -0.762 and no admissible amplitude of it reduces anything (#242).
+  json.dump({d: {"removable": screens[d].removable, "reachable": screens[d].reachable,
+                 "overlap": screens[d].overlap, "joint": screens[d].joint,
+                 "joint_span": spans[d].joint,
                  "identifiable": s.size} for d, s, _, _ in got},
             open(records.HERE / "enrichment_screen.json", "w"), indent=1)
 

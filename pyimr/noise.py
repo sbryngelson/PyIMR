@@ -586,18 +586,31 @@ def enrichment_overlap(identifiable, jacobian, directions, *, one_sided=True):
       continue
     aligned = float(free @ left) / (scale * size)
     overlap[name] = abs(aligned)
-    reachable[name] = bool(aligned > 0.0 or not one_sided)
-    if reachable[name]: surviving.append(free / scale)
+    # a cosine of exactly zero lands either side of zero depending on the BLAS, so the test
+    # is against a tolerance: such a candidate removes nothing ALONE either way
+    reachable[name] = bool(aligned > 1e-12 or not one_sided)
+    surviving.append(free / scale)
 
   joint = 0.0
   if surviving:
-    # SVD rather than QR: two candidates proposing the same curve make a rank-deficient
-    # stack, and QR hands back an arbitrary second column spanning the null space, which
-    # then collects projection that no candidate offered.
+    # With one-sided amplitudes the reachable set is a CONE, not a subspace, so the joint
+    # reach is a non-negative least squares rather than a projection. Restricting the span to
+    # the positively-aligned candidates would be wrong in the other direction: a candidate
+    # orthogonal to the discrepancy removes nothing alone and can still be needed to reach it
+    # in combination, which is exactly what two directions spanning it do.
     stack = np.column_stack(surviving)
-    left_vectors, values, _ = np.linalg.svd(stack, full_matrices=False)
-    keep = values > max(stack.shape) * np.finfo(float).eps * values[0]
-    joint = float(np.linalg.norm(left_vectors[:, keep].T @ left) ** 2) / size**2
+    if one_sided:
+      from scipy.optimize import nnls
+      coefficients, _ = nnls(stack, left)
+      reached = stack @ coefficients
+    else:
+      # SVD rather than QR: two candidates proposing the same curve make a rank-deficient
+      # stack, and QR hands back an arbitrary column spanning the null space, which then
+      # collects projection that no candidate offered.
+      left_vectors, values, _ = np.linalg.svd(stack, full_matrices=False)
+      keep = values > max(stack.shape) * np.finfo(float).eps * values[0]
+      reached = left_vectors[:, keep] @ (left_vectors[:, keep].T @ left)
+    joint = float(reached @ reached) / size**2
 
   removable = {name: value**2 for name, value in overlap.items()}
   ranked = sorted(((k, v) for k, v in removable.items() if reachable[k]), key=lambda pair: -pair[1])

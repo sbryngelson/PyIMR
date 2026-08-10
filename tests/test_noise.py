@@ -515,9 +515,16 @@ def test_candidates_proposing_the_same_curve_do_not_count_twice():
   mixed = 0.6 * delta + 0.8 * spare
   twice = enrichment_overlap(delta, jacobian, {"a": mixed, "b": 2.0 * mixed})
   assert twice.joint == pytest.approx(0.36)                 # not 0.72
-  # and two independent directions that between them span the discrepancy remove all of it
+
+  # Two directions SPAN the discrepancy here -- but reaching it needs `spare` with a negative
+  # coefficient, and a one-sided amplitude cannot supply one. The reachable set is a cone, not
+  # a subspace, so the joint stays at what the cone actually contains.
   both = enrichment_overlap(delta, jacobian, {"a": mixed, "c": spare})
-  assert both.joint == pytest.approx(1.0)
+  assert both.joint == pytest.approx(0.36)
+  assert enrichment_overlap(delta, jacobian, {"a": mixed, "c": spare},
+                            one_sided=False).joint == pytest.approx(1.0)
+  # and with the sign free the other way round, the cone does contain it
+  assert enrichment_overlap(delta, jacobian, {"a": mixed, "c": -spare}).joint == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize(("bad", "message"), [

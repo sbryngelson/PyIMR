@@ -225,6 +225,9 @@ def test_it_refuses_what_it_cannot_deliver():
     constrained_measure(matrices, matrices.shape[0] + 1)
   with pytest.raises(ValueError, match="exceeds all the mass"):
     constrained_measure(matrices, 4, floor=0.25)
+  # it passed `unit_interval` and returned two settings of the six asked for, certified
+  with pytest.raises(ValueError, match="floor must be positive"):
+    constrained_measure(matrices, 6, floor=0.0)
   with pytest.raises(ValueError, match="positive"):
     constrained_measure(matrices, 0)
 

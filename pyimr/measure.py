@@ -510,6 +510,11 @@ def constrained_measure(matrices, settings, *, floor=None, criterion=None, itera
   if settings > stack.shape[0]:
     raise ValueError(f"{settings} settings asked of {stack.shape[0]} candidates")
   share = 0.5 / settings if floor is None else unit_interval("floor", floor)
+  # a floor of zero is not a weak constraint but no constraint: the substitution collapses to
+  # the identity, the guaranteed settings are free to sit at zero weight, and the result comes
+  # back with FEWER settings than were asked for and a certificate saying it is optimal
+  if share <= 0.0:
+    raise ValueError("floor must be positive; a floor of zero guarantees no settings at all")
   if share * settings >= 1.0:
     raise ValueError(f"a floor of {share:g} on each of {settings} settings exceeds all the mass")
 

@@ -74,7 +74,10 @@ def integrate(rhs, times, initial, *, args, rtol, atol, failure, label="", max_s
   key = (
     tuple(sorted(groups)), groups["wave_type"], material_key, _content_key(args._replace(p=None, material=None)),
     len(times), float(times[0]), float(times[-1]), np.shape(initial), rtol, atol, label, max_step,
-    None if config is None else config.max_steps,  # static to the compiled program, so it keys it
+    # static to the compiled program, so they key it: `min_radius_ratio` is baked in as an
+    # event, and a run that changed it in-process silently reused the program without one
+    None if config is None else config.max_steps,
+    None if config is None else config.min_radius_ratio,
   )
   return integrate_jax(
     rhs, times, initial, args=args, rtol=rtol, atol=atol, failure=failure, label=label, max_step=max_step,

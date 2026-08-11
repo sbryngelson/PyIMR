@@ -94,6 +94,7 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
 
   solver, solver_name = (diffrax.Tsit5(), "tsit5") if config is None else _solver_for(config, diffrax, differentiating=False)
   budget = 1_000_000 if config is None else int(config.max_steps)
+  floor = None if config is None else config.min_radius_ratio
 
   # The nondimensional groups are traced ARGUMENTS, not constants closed over. Baking them
   # in made the cache key depend on their values, so every distinct parameter set was a
@@ -114,11 +115,15 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
       # traced values rather than reused from preparation.
       rebuilt = None if medium is None else medium_with_parameters(medium, merged, xp=jnp)
       inner = args._replace(p=merged, mt=rebuilt)
+      # A floor on the radius has to STOP the solve, not be checked afterwards: the runs it
+      # exists to catch never reach afterwards, they exhaust the step budget instead. The
+      # condition is boolean and reads one slot, so it costs a comparison per step.
+      event = None if floor is None else diffrax.Event(lambda t, y, a, **kw: y[0] < floor)
       return diffrax.diffeqsolve(
         diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *inner, xp=jnp))), chosen,
         t0=grid[0], t1=grid[-1], dt0=None, y0=start,
         stepsize_controller=diffrax.PIDController(rtol=rtol, atol=atol, dtmax=max_step),
-        saveat=diffrax.SaveAt(ts=grid), max_steps=budget, throw=False,
+        saveat=diffrax.SaveAt(ts=grid), max_steps=budget, throw=False, event=event,
       )
 
     return jax.jit(solve)
@@ -141,6 +146,11 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
     ok = bool(solution.result == diffrax.RESULTS.successful)
     finite = bool(np.all(np.isfinite(states)))
     message = "The solver successfully reached the end of the integration interval." if ok else str(solution.result)
+    # the guard's whole point is to say what happened, and diffrax's own wording for a
+    # terminated solve names the mechanism rather than the cause
+    if not ok and solution.result == diffrax.RESULTS.event_occurred and floor is not None:
+      message = (f"the bubble collapsed below min_radius_ratio {floor:g}, where the model is "
+                 f"not physical; raise or disable it to integrate through")
     if ok and not finite: message = f"{message}; solution contains non-finite states"
     stats = SolverStats(
       backend=f"jax-{name}{label}", success=ok and finite, message=message,

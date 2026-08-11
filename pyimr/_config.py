@@ -214,6 +214,13 @@ class SimulationConfig:
   max_step_s: float | None = None
   max_steps: int = 1_000_000
   max_radius_ratio: float | None = 50.0
+  # The collapse mirror of `max_radius_ratio`, and off by default because where a model stops
+  # being trustworthy is the caller's judgement, not this package's. What it buys is measured:
+  # a stiffening law driven deep enough spends its whole step budget on rejected steps -- 144
+  # accepted against 399,856 rejected -- and reports "maximum number of solver steps", which
+  # reads as "integrate harder" when the truth is that the model has left its domain (#245).
+  # Below `R/R0 = 0.01` a cubic Yeoh with `c3 = 10` asks for 2e15 Pa from a 3 kPa gel.
+  min_radius_ratio: float | None = None
   thermal: str = "spectral"
   physics: PhysicalParameters = field(default_factory=PhysicalParameters)
   sampled_forcing: SampledForcing | None = None
@@ -504,6 +511,8 @@ def _validate_config(config) -> None:
   if not isinstance(c.max_steps, Integral) or c.max_steps < 1: raise ValueError("max_steps must be an integer >= 1")
   if c.max_radius_ratio is not None and not (np.isfinite(c.max_radius_ratio) and c.max_radius_ratio > 1.0):
     raise ValueError("max_radius_ratio must be finite and greater than 1, or None to disable")
+  if c.min_radius_ratio is not None and not (np.isfinite(c.min_radius_ratio) and 0.0 < c.min_radius_ratio < 1.0):
+    raise ValueError("min_radius_ratio must be finite and in (0, 1), or None to disable")
   if c.medtherm and not c.bubtherm: raise ValueError("medtherm=1 requires bubtherm=1")
   if c.masstrans and not c.bubtherm: raise ValueError("masstrans=1 requires bubtherm=1")
   if c.masstrans and not c.vapor: raise ValueError("masstrans=1 requires vapor=1")

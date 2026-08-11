@@ -272,3 +272,66 @@ def test_the_guard_can_be_disabled_and_reconfigured():
   assert np.asarray(loose.radius_ratio).max() > 100.0, "disabling the guard must return the runaway"
   with pytest.raises(ValueError, match="max_radius_ratio"):
     pyimr.prepare(_runaway_config(material, max_radius_ratio=0.5))
+
+
+def test_a_collapse_floor_stops_the_solve_instead_of_burning_the_budget(measured):
+  """The collapse mirror of the runaway guard, and the reason it must be an EVENT.
+
+  A stiffening law driven deep enough does not fail by returning something wrong; it fails by
+  spending its whole step budget on rejected steps -- measured at 144 accepted against 399,856
+  rejected -- and then reporting that it ran out of steps. That message invites raising the
+  budget, which cannot help: the model is asking for 2e15 Pa from a 3 kPa gel. A check applied
+  after the solve would never run, because the solve never finishes.
+  """
+  import time
+  material = pyimr.RelaxingMaterial(
+    elastic=pyimr.Yeoh(3e3, 1e2, 1e1), viscosity_pa_s=1.5e-1,
+    relaxation_time_s=3.162e-5, retardation_time_s=0.0)
+  times = np.linspace(0.0, 1.4e-4, 401)
+  options = dict(dynamics="keller-miksis", rtol=1e-8, atol=1e-10, max_steps=200_000)
+  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, **options)
+
+  started = time.perf_counter()
+  with pytest.raises(pyimr.SimulationError, match="maximum number of solver steps"):
+    pyimr.simulate(times, config)
+  unguarded = time.perf_counter() - started
+
+  guarded_config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material,
+                                          min_radius_ratio=0.05, **options)
+  started = time.perf_counter()
+  with pytest.raises(pyimr.SimulationError, match="collapsed below min_radius_ratio") as caught:
+    pyimr.simulate(times, guarded_config)
+  guarded = time.perf_counter() - started
+  measured("collapse floor", f"{unguarded:.1f}s unguarded -> {guarded:.1f}s guarded")
+  assert guarded < unguarded, "the floor exists to stop early, not to relabel the same grind"
+  assert "not physical" in str(caught.value)
+
+
+_FLOOR_MATERIAL = pyimr.QuadraticZener(2.2e3, 0.1, 1e-6, 0.0, 0.3)
+_FLOOR_TIMES = np.linspace(0.0, 3e-5, 201)
+_FLOOR_OPTIONS = dict(dynamics="keller-miksis", rtol=1e-8, atol=1e-10, max_steps=400_000)
+
+
+def _floor_config(**overrides):
+  return pyimr.SimulationConfig(3e-4, 3e-4 / 7.0, _FLOOR_MATERIAL, **(_FLOOR_OPTIONS | overrides))
+
+
+def test_the_collapse_floor_leaves_a_healthy_collapse_alone():
+  # a guard that also refused the deep-but-fine collapses these records contain would be worse
+  # than no guard, since every real fit passes through one
+  free = pyimr.simulate(_FLOOR_TIMES, _floor_config())
+  deepest = float(np.asarray(free.radius_ratio).min())
+  guarded = pyimr.simulate(_FLOOR_TIMES, _floor_config(min_radius_ratio=deepest / 2.0))
+  assert np.allclose(np.asarray(free.radius_ratio), np.asarray(guarded.radius_ratio))
+
+
+def test_the_collapse_floor_is_validated_and_keys_the_compiled_program():
+  for bad in (0.0, 1.0, 1.5, -0.1):
+    with pytest.raises(ValueError, match="min_radius_ratio"):
+      _floor_config(min_radius_ratio=bad)
+  # the floor is baked into the traced program as an event, so it has to key the compile
+  # cache. Without that, this second solve reused the first's program and returned a result
+  # rather than refusing -- which is how the bug was found.
+  deepest = float(np.asarray(pyimr.simulate(_FLOOR_TIMES, _floor_config()).radius_ratio).min())
+  with pytest.raises(pyimr.SimulationError, match="collapsed below min_radius_ratio"):
+    pyimr.simulate(_FLOOR_TIMES, _floor_config(min_radius_ratio=deepest * 2.0))

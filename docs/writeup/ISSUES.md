@@ -66,7 +66,10 @@ Scripts: `noise_portfolio.py`, `noise_testable.py`.
 
 ### 1.3 The recommended geometry itself moves
 
-**Severity: medium.** Depends on §3.2's transfer assumption.
+**Severity: medium.** Depended on §3.2's transfer assumption, which has since been tested and
+holds — under the smoothed transfer all three records agree on 416 µm @ 10.85 and none agrees
+with the constant, so the "two of three" caveat below is an artifact of interpolating a raw
+estimate.
 
 | noise model | best U | R_max | stretch | regret of the constant's pick |
 |---|---|---|---|---|
@@ -251,35 +254,90 @@ touches it.
 
 ## Part 3 — Open, and the weakest links
 
-### 3.1 The dominant trial mode is still unexplained
+### 3.1 The dominant trial mode is still unexplained — but it is now definitively not parameters
 
-#222's central question. Nine candidate directions have failed: timing, normalisation, `Req`,
-`R_max` through the nondimensional groups, and the four material axes. What is known is
-negative or descriptive — it carries 54–72% of the trial scatter, lives in the rebound, is
-record-specific, and its autocorrelation decays faster than any exponential and turns negative
-by lag 8.
+**Updated.** #222's title hypothesis is refuted by the nonlinear test. Nine *linearised*
+projections had failed; the objection was that a linearisation about one point can miss
+variation large enough to turn the Jacobian. So every trial was fitted separately — 39 fits,
+in the identified coordinates.
 
-Worth noting the structural consequence, which holds regardless: **the trial scatter and the
-model discrepancy occupy different parts of the record** — scatter in the rebound, δ̂ 65–69% in
-the first collapse. Anything that whitens one using the other is mixing things that do not
-overlap in time.
+Giving each trial its own parameters does **not** absorb the mode. At 23 °C and 33 °C it keeps
+its shape (|cos| between the mode before and after of **0.987** and **0.943**) and takes a
+*larger* share of the reduced residual (0.681 → 0.772, 0.720 → 0.835). An absorbed mode
+collapses; these do not. Only 15 °C partially absorbs (0.539 → 0.412 at |cos| 0.699).
 
-### 3.2 The profile transfer is the load-bearing assumption in Part 1
+**What was gained.** `Σθ` is now measured rather than inferred: 15–34% on `mu`, ~20% on `g·α`,
+59–117% on `lambda1` (log coordinates). It is an overestimate — a single trial's noise is not
+separable from the trial spread with this data — but it is the first direct estimate, and it is
+what §3.4 below runs on.
 
-Everything in §1.2 and §1.3 depends on transferring a measured σ(t) to an unrun geometry by
-phase (`t/t_c`). That is one modelling choice, defended by §2.3's finding that the profile is
-dynamical rather than instrumental — but it is not tested.
+**Still open.** What the mode *is*. Known: 54–72% of the scatter, concentrated in the rebound,
+record-specific, autocorrelation decaying faster than any exponential and turning negative by
+lag 8, and not absorbed by a full nonlinear refit.
 
-Two ways to attack it, neither done:
+The structural consequence holds regardless: **the trial scatter and the model discrepancy
+occupy different parts of the record** — scatter in the rebound, δ̂ 65–69% in the first
+collapse. Anything that whitens one using the other is mixing things that do not overlap in
+time.
 
-- transfer by absolute time instead of phase, and see whether the conclusion survives;
-- fit a smoothed two-component form (a flat floor plus a dynamical term) and transfer that,
-  rather than interpolating a raw estimate that carries 17–29% relative error per sample.
+Scripts: `per_trial_fits.py`.
 
-A related warning: a raw per-sample participation ratio of 2.3–4.7 samples looked like a
-property of the apparatus and is a property of the estimator — it moves to 7–21 under a median
-filter and 45–111 under a percentile floor. Nothing weighted by raw `1/σ²` should be reported
-without that sensitivity beside it.
+### 3.2 The profile transfer — tested, and it strengthens Part 1
+
+**Closed.** Three coordinates were compared against the same measured spreads.
+
+| record | raw phase | absolute time | smoothed phase |
+|---|---|---|---|
+| 15 °C | 514.2 @ 6.92 | 50.0 @ 20.00 | **416.0 @ 10.85** |
+| 23 °C | 416.0 @ 10.85 | 50.0 @ 20.00 | **416.0 @ 10.85** |
+| 33 °C | 416.0 @ 10.85 | 50.0 @ 20.00 | **416.0 @ 10.85** |
+
+Median-filtering the spread before transferring makes **all three records agree**, and none
+agrees with the constant. So the 15 °C outlier under the raw transfer was estimator noise — an
+18-trial standard deviation carries 17% relative error and should not be interpolated raw — and
+the disagreement that remains is with the flat scale rather than among the records, which is
+the opposite of what a transfer artifact looks like.
+
+Absolute time picks a different geometry entirely and is wrong for a statable reason: `t_c`
+spans a factor of 24 across the candidates, so the same clock time lands at a different point
+of the collapse. It is reported because it is what a reader would do by default.
+
+The estimator warning stands and is now load-bearing rather than incidental: a raw per-sample
+participation ratio of 2.3–4.7 looked like a property of the apparatus and is a property of the
+estimator — 7–21 under a median filter, 45–111 under a percentile floor. **Smooth before
+transferring.**
+
+Scripts: `noise_transfer.py`.
+
+### 3.4 The allocation nobody optimised is worth more than the geometry
+
+**New.** With `Σθ` measured (§3.1), the split between bubbles and frames can be priced.
+Averaging `J` trials of `N` samples gives `F = J(Σθ + F_N⁻¹)⁻¹`: trials enter linearly and never
+saturate, samples only through `F_N`, which stops mattering once `F_N⁻¹` is small against `Σθ`.
+
+| record | current | best at the same frame budget | gain |
+|---|---|---|---|
+| 15 °C | J=18, N=201 | **J=72, N=50** | +3.93 nats |
+| 23 °C | J=14, N=192 | **J=56, N=48** | +3.96 nats |
+| 33 °C | J=7, N=198 | **J=28, N=49** | +3.40 nats |
+
+Doubling the samples buys 0.035–0.188 nats. For comparison: choosing the geometry under the
+wrong noise model costs at most 1.34, and restoring testability costs 0.01–0.24. **The
+allocation is worth three to ten times either.**
+
+Two readings the table does not survive without. The "+2.079 nats" for doubling trials is
+`p·log 2` *by construction* — `F` is linear in `J` — so that column is arithmetic; the
+measurement is the sample column. And `F_N` is scaled linearly in `N` as though samples within
+a trace were independent, which they are not (lag-one above 0.9, `N_eff` ≈ 10 of 201), so the
+true `F_N` is flatter and cutting `N` costs *less* than stated — conservative in direction, but
+not to be pushed past `N ≈ N_eff`. `N` is also not a free dial: frame rate and record length
+set it.
+
+**Not folded into the geometry optimisation, deliberately.** Doing so needs `Σθ` at an unrun
+geometry, and we have three measurements of it against a 24× span in `t_c`. That is a weaker
+transfer than the σ(t) one in §3.2 and has not been attempted.
+
+Scripts: `trials_versus_samples.py`, `per_trial_fits.py`.
 
 ### 3.3 The regret bound does not cover our case as stated
 
@@ -328,4 +386,12 @@ further:
 | Already fixed and merged | 3 |
 | Approaches tried and refuted | 6 |
 | Refutations with a stated path to working | 3 (§2.1, §2.2, §2.5) |
-| Central questions still open | 2 (§3.1, §3.2) |
+| Load-bearing assumptions tested and held | 1 (§3.2) |
+| Hypotheses refuted by a definitive test | 1 (§3.1 — #222's title) |
+| New findings larger than the issue that prompted them | 1 (§3.4) |
+| Central questions still open | 1 (what the dominant mode IS) |
+
+The ledger has shifted since the first version. §3.2 was the weakest link and now supports the
+conclusions it threatened; §3.1's hypothesis is refuted rather than merely unconfirmed; and
+§3.4 — an allocation question raised in passing — turns out to be worth more than every
+geometry effect in Part 1 combined.

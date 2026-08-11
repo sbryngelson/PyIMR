@@ -288,16 +288,20 @@ def test_a_collapse_floor_stops_the_solve_instead_of_burning_the_budget(measured
     elastic=pyimr.Yeoh(3e3, 1e2, 1e1), viscosity_pa_s=1.5e-1,
     relaxation_time_s=3.162e-5, retardation_time_s=0.0)
   times = np.linspace(0.0, 1.4e-4, 401)
-  options = dict(dynamics="keller-miksis", rtol=1e-8, atol=1e-10, max_steps=200_000)
-  config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, **options)
+
+  def build(floor):
+    # explicit keywords rather than a splatted dict: pyright widens a mixed-value dict to
+    # `str | float` and then rejects every argument built from it
+    return pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
+                                  rtol=1e-8, atol=1e-10, max_steps=200_000,
+                                  min_radius_ratio=floor)
 
   started = time.perf_counter()
   with pytest.raises(pyimr.SimulationError, match="maximum number of solver steps"):
-    pyimr.simulate(times, config)
+    pyimr.simulate(times, build(None))
   unguarded = time.perf_counter() - started
 
-  guarded_config = pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material,
-                                          min_radius_ratio=0.05, **options)
+  guarded_config = build(0.05)
   started = time.perf_counter()
   with pytest.raises(pyimr.SimulationError, match="collapsed below min_radius_ratio") as caught:
     pyimr.simulate(times, guarded_config)
@@ -309,11 +313,12 @@ def test_a_collapse_floor_stops_the_solve_instead_of_burning_the_budget(measured
 
 _FLOOR_MATERIAL = pyimr.QuadraticZener(2.2e3, 0.1, 1e-6, 0.0, 0.3)
 _FLOOR_TIMES = np.linspace(0.0, 3e-5, 201)
-_FLOOR_OPTIONS = dict(dynamics="keller-miksis", rtol=1e-8, atol=1e-10, max_steps=400_000)
 
 
-def _floor_config(**overrides):
-  return pyimr.SimulationConfig(3e-4, 3e-4 / 7.0, _FLOOR_MATERIAL, **(_FLOOR_OPTIONS | overrides))
+def _floor_config(min_radius_ratio=None):
+  return pyimr.SimulationConfig(3e-4, 3e-4 / 7.0, _FLOOR_MATERIAL, dynamics="keller-miksis",
+                                rtol=1e-8, atol=1e-10, max_steps=400_000,
+                                min_radius_ratio=min_radius_ratio)
 
 
 def test_the_collapse_floor_leaves_a_healthy_collapse_alone():

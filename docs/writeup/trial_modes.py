@@ -1,4 +1,4 @@
-"""What shape does the trial-to-trial scatter have, and can the model account for it?
+r"""What shape does the trial-to-trial scatter have, and can the model account for it?
 
 The likelihood treats the trial spread as independent noise. Two things say otherwise. The
 scatter is LOW RANK -- one mode carries between $54\%$ and $72\%$ of it -- and its
@@ -46,14 +46,12 @@ def fitted(name):
   """Each record's OWN qSLS point. Using one record's material for all three would evaluate
   the sensitivities in the wrong place and understate how well they explain the scatter.
 
-  This is the stored GRID ARGMAX, not a fitted optimum: ten points per axis, adjacent nodes a
-  factor of two to three apart, and on the bounds for `g` and `lambda1` on two of the three
-  records (#235). Sensitivities evaluated there point in roughly, not exactly, the right
-  direction. Substituting the published continuous fit moves the joint $R^2$ of the dominant
-  mode by $0.02$, so the conclusion here does not turn on it -- but the caveat is real and the
-  right fix is #235's, which is to store an optimiser's answer beside the grid's.
+  The continuous optimum, not the grid argmax it used to be. #235 stored an optimiser's
+  answer beside the grid's, and this reads the former: ten grid points per axis leaves
+  adjacent nodes a factor of two to three apart, which pointed these sensitivities in roughly
+  rather than exactly the right direction.
   """
-  best = _RES[name]["models"]["qSLS"]["best_theta"]
+  best = _RES[name]["models"]["qSLS"]["fit"]["theta"]
   return (best["g"], best["mu"], best["lambda1"], best["alpha"])
 
 
@@ -84,7 +82,15 @@ def sensitivities(name):
 
   h = 1e-4
   base = trace()
+  # `norm` is the one direction the `Rmax` column CANNOT reach, and the reason is that the
+  # column divides it out: `trace(rmax=...)` returns `radius_ratio`, already normalised by the
+  # rescaled maximum, so it carries only what survives normalisation -- the Reynolds, Weber
+  # and Deborah groups. A wrong DIVISOR is different. If a trial's own `R_max` is off by a
+  # factor `1 + eps`, every sample of that trace is scaled by `1 - eps`, so the deviation runs
+  # along the trace itself. Each trace is divided by its own measured maximum, and that
+  # measurement has error like any other (#222).
   columns = {"timing": np.gradient(base, times),
+             "norm": base,
              "Req": (trace(req=1 + h) - trace(req=1 - h)) / (2 * h),
              "Rmax": (trace(rmax=1 + h) - trace(rmax=1 - h)) / (2 * h)}
   for key in ("g", "mu", "lam", "alpha"):
@@ -93,7 +99,7 @@ def sensitivities(name):
 
 
 def main():
-  labels = ("timing", "Req", "Rmax", "g", "mu", "lam", "alpha")
+  labels = ("timing", "norm", "Req", "Rmax", "g", "mu", "lam", "alpha")
   print(f"  {'record':13s} {'mode':>5s} {'share':>6s} {'R^2':>6s}  "
         + " ".join(f"{k:>7s}" for k in labels))
   for name, (filename, offset) in FILES.items():

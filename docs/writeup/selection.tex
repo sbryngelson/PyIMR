@@ -908,19 +908,115 @@ $(R_0, R_{\rm eq}, g, \mu, \lambda_1, \alpha)$ captures $39.3\%$ of the variance
 chance level of $6/201 = 3.0\%$. Noise does not align with a six-dimensional subspace of a
 $201$-dimensional space by accident.
 
-The physical reading is that each bubble has its own parameters, drawn from a population:
-$\theta_j \sim \mathcal{N}(\theta_{\rm pop}, \Sigma)$. The mean trace then has covariance
+The natural physical reading is that each bubble has its own parameters, drawn from a
+population: $\theta_j \sim \mathcal{N}(\theta_{\rm pop}, \Sigma)$. The mean trace then has
+covariance
 %
 \begin{equation}
 C \;=\; \frac{1}{J}\Big(G\,\Sigma\,G^{\mathsf T} \;+\; \sigma^2_{\rm meas} I\Big),
 \label{eq:hierarchical}
 \end{equation}
 %
-low rank plus diagonal rather than diagonal. Note that $\Sigma$ itself is not estimable here.
-Regressing the deviations onto $G$ inherits the $g$--$\alpha$ degeneracy of
-\cref{sec:identifiability} and returns $\mathrm{sd}(\log g) = 159$. But only the prediction
-covariance $G\Sigma G^{\mathsf T}$ enters~\eqref{eq:hierarchical}, and that is the sample
-covariance of the projected deviations, which needs no inversion.
+low rank plus diagonal rather than diagonal.
+
+\paragraph{But the dominant mode is not parameter variation, and a refit proves it.}
+The projection above is a statement about a \emph{linearization}: it asks whether the deviations
+lie in the span of $G$ evaluated at one point. That test cannot exclude variation large enough
+to turn the Jacobian between trials, and it is the only test this argument had. So each trial
+was fitted on its own --- $39$ fits across the three records, in the identified coordinates of
+\cref{sec:discrepancy}.
+
+Giving every trial its own parameters does not absorb the leading mode. It keeps its shape and
+takes a \emph{larger} share of the reduced residual:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+record & mode 1 before & mode 1 after & $\lvert\cos\rvert$ between them \\
+\midrule
+\SI{15}{\celsius} & $0.539$ & $0.412$ & $0.699$ \\
+\SI{23}{\celsius} & $0.681$ & $\mathbf{0.772}$ & $\mathbf{0.987}$ \\
+\SI{33}{\celsius} & $0.720$ & $\mathbf{0.835}$ & $\mathbf{0.943}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent An absorbed mode collapses; these do not. Only \SI{15}{\celsius} shows partial
+absorption.
+
+Those three axes are the MATERIAL ones, though, and the equilibrium radius was held at
+$R_{\max}/\text{stretch}$ --- one value for every trial in a record --- so that refit could not
+have absorbed variation in the initial condition however large it was. That is not a pedantic
+gap. The mode is $97$ to $98\%$ post-collapse, and the afterbounce period is set by the gas the
+bubble is left with, so $R_{\rm eq}$ is both the quantity nucleation is least repeatable in and
+the one whose variation appears after the first collapse rather than during it.
+
+Refitting with $R_{\rm eq}$ free over the $\pm 11\%$ its prior allows:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+record & raw & material only & $+\,R_{\rm eq}$ & $\lvert\cos\rvert$ to raw \\
+\midrule
+\SI{15}{\celsius} & $0.539$ & $0.412$ & $0.338$ & $0.683$ \\
+\SI{23}{\celsius} & $0.681$ & $0.772$ & $\mathbf{0.791}$ & $\mathbf{0.988}$ \\
+\SI{33}{\celsius} & $0.720$ & $0.835$ & $\mathbf{0.717}$ & $\mathbf{0.955}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent At \SI{33}{\celsius} the answer is clean: no fit rests on a bound, $R_{\rm eq}$ moves
+by $3.0\%$ between trials, and the mode keeps its shape at $\lvert\cos\rvert = 0.955$. Freeing
+the initial condition does not absorb it.
+
+At the other two records the test is \emph{inconclusive rather than negative}, and the reason is
+worth stating instead of burying. Seven of eighteen fits at \SI{15}{\celsius} and four of
+fourteen at \SI{23}{\celsius} rest against the upper bound of $1.111$: those trials wanted a
+larger equilibrium radius than the prior permits, and were cut off. The pinning is also one-
+sided, which reads as a systematic offset in the record's stretch rather than as scatter between
+bubbles --- a calibration question, and a different one from this section's.
+
+So the claim this document makes is the narrower one. Whatever carries half to three-quarters of
+the trial scatter is not the material parameters, at each trial's own optimum; and at the one
+record where the initial condition could move freely, it is not that either. Whether a wider
+prior on $R_{\rm eq}$ would absorb it at \SI{15}{} and \SI{23}{\celsius} is untested.
+
+Two further facts locate it without naming it. It lives in the \emph{rebound}: $98.0\%$ and
+$97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and
+\SI{33}{\celsius}, while the identifiable discrepancy of \cref{sec:discrepancy} sits $65$ to
+$69\%$ in the \emph{first collapse}. And it is not one curve: on a common $t/t_c$ grid the three
+records' leading modes overlap at $\lvert\cos\rvert$ of $0.075$, $0.252$ and $0.082$, against
+$0.050$ for unrelated curves of that length. A shared curve would have been the apparatus, which
+no constitutive law could absorb. This is not shared either.
+
+\paragraph{What the refit does give is $\Sigma$.}
+Regressing deviations onto $G$ inherits the $g$--$\alpha$ degeneracy of
+\cref{sec:identifiability} and returns $\mathrm{sd}(\log g) = 159$, which is why this document
+previously reported $\Sigma$ as not estimable. The per-trial fits estimate it directly, in the
+identified coordinates where no such degeneracy exists:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+record & $\mu$ & $g\alpha$ & $\lambda_1$ \\
+\midrule
+\SI{15}{\celsius} & $14.7\%$ & $22.8\%$ & $60.2\%$ \\
+\SI{23}{\celsius} & $33.9\%$ & $20.2\%$ & $58.9\%$ \\
+\SI{33}{\celsius} & $19.2\%$ & $20.3\%$ & $117.1\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent as coefficients of variation in log coordinates. These are overestimates --- a single
+trial's measurement noise is not separable from the trial spread with this data, so each fit is
+weighted by a scale that already contains what is being estimated. They are nonetheless the
+first direct measurement of $\Sigma$ here, and \cref{sec:allocation} is what they buy.
+
+One entry has to be read with \cref{sec:reqprior}. Fitting $R_{\rm eq}$ per trial over a box
+wide enough that nothing is cut off gives spreads of $1.9$, $6.7$ and $3.1$ percent about
+medians of $1.099$, $1.063$ and $1.032$ --- so most of what a narrow box would have called
+scatter in the initial condition is a common offset in the stored stretch, and only the
+remainder belongs in $\Sigma$.
 
 \paragraph{It is not what makes the residuals correlated.}
 The natural hypothesis is that the lag-one correlation of the fit residual is this same
@@ -1505,6 +1601,57 @@ falls from $0.97$ to $0.62$ at \SI{15}{\celsius}, $1.03$ to $0.90$ at \SI{23}{\c
 $0.44$ to $0.38$ at \SI{33}{\celsius}. That the offset shrinks as the gel warms is a pattern
 we can measure but not yet explain, and it is larger than the \SI{1.68}{\percent} that makes
 $R_{\mathrm{eq}}$ worth as much as the operator choice.
+
+\subsection*{Where it actually wants to sit}
+
+The sweep above asks whether a conclusion survives letting $R_{\rm eq}$ float. It never asks
+where $R_{\rm eq}$ goes, and the answer is not the stored value. Fitting it on the mean trace of
+each record over a box wide enough that nothing is cut off:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+record & stored stretch & implied & offset & $\chi^2/N$ & lack of fit \\
+\midrule
+\SI{15}{\celsius} & $7.09$ & $6.40$ & $\mathbf{+10.8\%}$ & $0.971 \to 0.632$ & $16.79 \to 8.80$ \\
+\SI{23}{\celsius} & $7.37$ & $6.80$ & $+8.3\%$ & $1.029 \to 0.901$ & $2.95 \to 2.15$ \\
+\SI{33}{\celsius} & $6.83$ & $6.59$ & $+3.6\%$ & $0.439 \to 0.379$ & $1.80 \to 1.49$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Every record prefers a larger equilibrium radius, by three to eleven percent against
+the \SI{1.68}{\percent} this section opens by calling worth an operator change.
+
+\paragraph{Read against the source, most of that is not an offset.} The stretch is not a single
+measurement. \citet{abeid2024experimental} tabulate it as a mean over the experiments in each
+bin, with a spread: $7.09 \pm 0.36$ over $18$ events, $7.37 \pm 1.28$ over $14$, and
+$6.83 \pm 0.49$ over $7$. Against those the preferred values sit at $1.9$, $0.45$ and $0.49$
+standard deviations. Only \SI{15}{\celsius} is outside the tabulated uncertainty at all, and it
+is marginal.
+
+The definition matches too, which was the other thing worth checking. That source defines
+$R_\infty$ as the equilibrium bubble-wall radius --- the quantity the solver wants --- so the
+ratio is not a different measurement pressed into service, and there is no unit or convention
+error to correct.
+
+So the honest reading is not that the stretch is wrong. It is that a \emph{population mean is
+being applied to every trial}, and the population is wide: the same table reports $R_{\max}$ at
+$277\pm48$, $298\pm59$ and $312\pm32$ \si{\micro\metre}, so individual bubbles differ by ten to
+twenty percent in the absolute scale that sets the Reynolds, Weber and Deborah groups. Every fit
+in this document uses one value for all of them.
+
+Two consequences follow. The per-trial spreads of \cref{sec:latent} --- $1.9$, $6.7$ and $3.1$
+percent in $R_{\rm eq}$ --- are \emph{smaller} than the scatter the source reports for the same
+quantity, so they are consistent with it rather than evidence of anything new. And the absolute
+$R_{\max}$ of each event, which varies by more than the ratio does, is not fitted anywhere here
+and is not recoverable from the traces, since each is normalized by its own maximum before it
+reaches us.
+
+What must be said plainly is what the reported parameters rest on. Freeing $R_{\rm eq}$ moves
+$\mu$ by $11$ to $23$ percent and $g\alpha$ by $9$ to $41$, and it moves $\lambda_1$ by a factor
+of \emph{five and a half} at \SI{15}{\celsius}. Those are the numbers this document reports, and
+they are conditional on a stretch known only to $\pm 5$ to $\pm 17$ percent.
 
 \section{Scoring the thermal treatment}
 \label{sec:thermal}
@@ -2511,7 +2658,7 @@ That the criteria are one family also exposes a decision nobody made. For any pa
 \begin{equation}
 \log\det M \;=\; \log\det M_{\theta\theta} \;+\; \log\det S ,
 \qquad S = M_{\varepsilon\varepsilon} - M_{\varepsilon\theta}M_{\theta\theta}^{-1}M_{\theta\varepsilon},
-\label{eq:split}
+\label{eq:schursplit}
 \end{equation}
 %
 so maximizing $\log\det M$ over the augmented set, as \cref{sec:batch} does, is maximizing
@@ -2542,7 +2689,7 @@ $\log\det M$ a design that cannot determine every parameter scores $-\infty$ and
 ranked at all, which is how $22$ of $48$ candidate geometries became unscorable in
 \cref{sec:integral}. Here such a design scores low, which is the truth about it.
 
-One caution follows from \eqref{eq:split} being nonlinear: $S$ is not linear in $M$, so
+One caution follows from \eqref{eq:schursplit} being nonlinear: $S$ is not linear in $M$, so
 $\log\det S\big(\sum_i \xi_i M_i\big) \ne \sum_i \xi_i \log\det S(M_i)$. Scoring candidates one
 at a time and taking the best $N$ is therefore wrong --- a design that discriminates well alone
 but leaves $\theta$ loose has its advantage eaten when the material is refitted from the same
@@ -2659,7 +2806,15 @@ portfolio, $1\!:\!4$ & $18.92$ & $4.24$ & $6$ & $+2$ \\
 \noindent all three certified at gaps below $10^{-9}$. The geometry does move with the question
 --- the operator question wants \SI{785}{\micro\metre} at stretch $6.9$, which the
 material-optimal batch never visits --- but the portfolio buys $97\%$ of each for $3\%$, and is
-the only aggressive option that stays testable.
+the only aggressive option that stays testable \emph{at this noise model}.
+
+That qualification is not decoration. Every number in the table takes
+$\sigma = 0.018\,R_{\max}$ at every sample, and \cref{sec:noisedesign} shows the records
+contradict it by two to three orders of magnitude within a single trace. Recomputed under the
+measured profiles the portfolio's six settings become four and its $\mathrm{df}$ becomes zero on
+two of the three, so the last clause of the paragraph above holds only under the flat scale that
+motivated it. The repair costs two tenths of a percent and is given there, along with the batch
+this document actually recommends.
 
 A note on the search. The multiplicative algorithm of \cref{sec:measure} relies on
 $\operatorname{tr}[GM(\xi)]$ being the constant $p$, which holds for $\log\det$ and for nothing
@@ -2919,6 +3074,137 @@ degrees of freedom to notice the model is wrong, and the lack-of-fit test above 
 those degrees of freedom buy. The honest reading is that frames are cheap relative to their
 information, so the camera should be traded for something scarce --- bubbles, or window, or
 the replication that makes \eqref{eq:lackoffit} possible.
+
+\subsection*{Bubbles against frames, priced}
+\label{sec:allocation}
+
+That trade can now be made quantitative, because \cref{sec:latent} measures $\Sigma$. Every
+batch in this document is chosen over \emph{geometries}, with the number of trials $J$ and the
+samples per trial $N$ fixed at whatever the records happened to use. Under independent noise
+that omission is harmless --- information is proportional to $JN$ and only the product matters.
+Under trial-to-trial variation it is not, and the asymmetry is exact. Averaging $J$ trials of an
+$N$-sample trace and applying the Woodbury identity to \eqref{eq:hierarchical},
+%
+\begin{equation}
+F(J, N) \;=\; J\left(\Sigma + F_N^{-1}\right)^{-1},
+\qquad F_N \;=\; G^{\mathsf T}\Sigma_\varepsilon(N)^{-1}G ,
+\label{eq:allocation}
+\end{equation}
+%
+with $F_N$ the information a single $N$-sample trace supplies. Trials enter linearly and never
+saturate. Samples enter only through $F_N$, and as $N \to \infty$ the bracket tends to $\Sigma$,
+so $F \to J\Sigma^{-1}$ and further frames buy \emph{nothing}. Past a point, more samples measure
+one bubble ever more precisely rather than the population.
+
+At a fixed frame budget $S = JN$ this bites: $F = (S/N)(\Sigma + F_N^{-1})^{-1}$, and once
+$F_N^{-1}$ is small against $\Sigma$ the prefactor $S/N$ is all that survives, and it \emph{falls}
+with $N$. Measured on the records, at each one's own total:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+record & as run & best split at the same frames & gain \\
+\midrule
+\SI{15}{\celsius} & $J=18$, $N=201$ & $J=72$, $N=50$ & $+3.93$ nats \\
+\SI{23}{\celsius} & $J=14$, $N=192$ & $J=56$, $N=48$ & $+3.96$ nats \\
+\SI{33}{\celsius} & $J=7$, $N=198$ & $J=28$, $N=49$ & $+3.40$ nats \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Doubling the samples buys $0.035$ to $0.188$ nats. Four times the bubbles at a quarter
+the frames each, for the same total, buys three and a half to four.
+
+That number should be read against every other design effect in this document. Choosing the
+geometry under the wrong noise model costs at most $1.34$ nats (\cref{sec:noisedesign});
+restoring testability costs $0.01$ to $0.24$; the spread across robust and per-record batches is
+$0.21$. \textbf{The allocation nobody has been optimizing is worth three to ten times any of
+them}, and it is the one variable the batch optimization of \cref{sec:batch} has never been
+allowed to move.
+
+Three caveats, and they do not cancel. The trials column of \eqref{eq:allocation} gains exactly
+$p\log 2$ per doubling because $F$ is linear in $J$ --- that is arithmetic, and the measurement
+is the sample column beside it. $F_N$ is scaled linearly in $N$ here, as though samples within a
+trace were independent; \cref{sec:limitations} measures $N_{\rm eff}$ near ten of $201$, so the
+true $F_N$ is flatter still and cutting $N$ costs \emph{less} than this says --- conservative in
+direction, but not to be pushed past $N \approx N_{\rm eff}$, where the collapse stops being
+resolved. And $N$ is not a free dial: frame rate and window length set it, so a smaller $N$ means
+a slower camera or a shorter record.
+
+This is deliberately not folded into the geometry optimization. Doing so needs $\Sigma$ at a
+geometry nobody has run, and three measurements of it against a twenty-four-fold span in $t_c$
+is a weaker extrapolation than the noise-profile transfer of \cref{sec:noisedesign}, which was
+at least tested.
+
+\subsection*{Nor do they survive the noise model}
+\label{sec:noisedesign}
+
+Every Fisher matrix, expected gain and batch in this chapter is built on a single number:
+$\sigma = 0.018\,R_{\max}$ at every sample. Fitting has never used it --- the likelihood of
+\cref{sec:beta} takes the per-sample spread --- so this is a gap between the two halves of this
+document rather than an error inside either. The records disagree with the constant by two to
+three orders of magnitude \emph{within one trace}: $124\times$, $882\times$ and $1316\times$
+between the smallest and largest $\sigma_i$, around medians of $0.018$ to $0.023$.
+
+At the same Jacobian, the constant overstates $\log\det F$ by $1.3$ to $2.2$ nats and understates
+each parameter's standard deviation by up to a factor of two. What matters more is that it
+changes the answer. Transferring each record's measured profile to a candidate geometry by phase
+--- reading $\sigma$ as a function of $t/t_c$, which \cref{sec:latent} justifies by showing the
+profile is dynamical rather than instrumental --- the single best geometry moves from
+\SI{514}{\micro\metre} at stretch $6.9$ to \SI{416}{\micro\metre} at $10.9$, and the constant's
+choice gives up as much as $1.34$ nats of $8.89$, fifteen percent.
+
+The transfer is the assumption here, so it was tested rather than asserted. Under a raw
+per-sample profile the records split, \SI{15}{\celsius} keeping the constant's geometry. Median-
+filtering the spread before transferring --- a standard deviation from seven to eighteen trials
+carries $17$ to $29\%$ relative error and should not be interpolated raw --- makes all three
+records agree on \SI{416}{\micro\metre} at $10.9$, and none agrees with the constant. The
+disagreement that survives is with the flat scale, not among the records, which is the opposite
+of what a transfer artifact looks like. Transferring by absolute time instead picks a different
+geometry again and is wrong for a statable reason: $t_c$ spans a factor of twenty-four across
+the candidates, so the same clock time lands at a different point of the collapse.
+
+\paragraph{Testability is what it really costs.}
+The portfolio of \cref{sec:gain} spends twelve runs over six geometries and carries
+$\mathrm{df} = +2$. Under two of the three measured profiles it spreads over \emph{four} and
+$\mathrm{df} = 0$: the lack-of-fit test has no power at all. So \eqref{eq:constrained} is not a
+formality the portfolio satisfies unaided, and the floor has to be imposed. Holding the measure
+to five settings with \texttt{constrained\_measure} restores $\mathrm{df} = +1$ for $0.010$ and
+$0.084$ nats of $36.5$ --- two tenths of one percent --- and every constrained measure is
+certified under its floor.
+
+\paragraph{One batch, chosen against the hardest case.}
+Three profiles give three batches, and a recommendation has to be one. Averaging the gain across
+profiles is the move \cref{sec:gain} already makes across questions, and it fails here: the
+weighted batch has the \emph{worst} worst case of the five compared, $0.211$ nats behind, below
+the flat-scale batch it was meant to improve on. Maximizing an average does not maximize a
+minimum. What works needs no machinery --- one profile binds for every batch, so the worst case
+is always that column and the maximin answer is the argmax under it. When one member of a family
+is uniformly hardest, robust design is design against the hardest member.
+
+The batches differ by $0.211$ nats of $33.4$, six tenths of a percent, so information barely
+separates them; settings run from five to eight and $\mathrm{df}$ from $+1$ to $+4$, so
+testability does. The batch recommended here wins on both:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+$R_{\max}$ (\si{\micro\metre}) & stretch & runs \\
+\midrule
+$50$ & $20.0$ & $1$ \\
+$272$ & $17.4$ & $1$ \\
+$416$ & $10.9$ & $2$ \\
+$514$ & $5.6$ & $2$ \\
+$514$ & $6.9$ & $1$ \\
+$636$ & $5.6$ & $1$ \\
+$786$ & $6.9$ & $1$ \\
+$1200$ & $6.9$ & $3$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent eight settings, $\mathrm{df} = +4$. Read it with \cref{sec:allocation}: how the twelve
+runs are split between bubbles and frames is worth more than which geometries they visit.
 
 \subsection*{The recommended geometries do not survive model error}
 

@@ -1,0 +1,53 @@
+{
+ "picks": {
+  "gelatin_15C|phase": {
+   "radius_m": 0.0005141915258060796,
+   "stretch": 6.923076923076923,
+   "agrees_with_constant": true
+  },
+  "gelatin_15C|absolute": {
+   "radius_m": 5e-05,
+   "stretch": 20.0,
+   "agrees_with_constant": false
+  },
+  "gelatin_15C|smoothed": {
+   "radius_m": 0.0004160167646103808,
+   "stretch": 10.846153846153847,
+   "agrees_with_constant": false
+  },
+  "gelatin_23C|phase": {
+   "radius_m": 0.0004160167646103808,
+   "stretch": 10.846153846153847,
+   "agrees_with_constant": false
+  },
+  "gelatin_23C|absolute": {
+   "radius_m": 5e-05,
+   "stretch": 20.0,
+   "agrees_with_constant": false
+  },
+  "gelatin_23C|smoothed": {
+   "radius_m": 0.0004160167646103808,
+   "stretch": 10.846153846153847,
+   "agrees_with_constant": false
+  },
+  "gelatin_33C|phase": {
+   "radius_m": 0.0004160167646103808,
+   "stretch": 10.846153846153847,
+   "agrees_with_constant": false
+  },
+  "gelatin_33C|absolute": {
+   "radius_m": 5e-05,
+   "stretch": 20.0,
+   "agrees_with_constant": false
+  },
+  "gelatin_33C|smoothed": {
+   "radius_m": 0.0004160167646103808,
+   "stretch": 10.846153846153847,
+   "agrees_with_constant": false
+  }
+ },
+ "constant_pick": {
+  "radius_m": 0.0005141915258060796,
+  "stretch": 6.923076923076923
+ }
+}

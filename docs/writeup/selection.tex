@@ -51,6 +51,15 @@ and the Kiefer--Wolfowitz equivalence theorem then certifies the answer. Over $4
 the optimum splits the runs three ways and beats the best single design by a D-efficiency
 factor of $5.74$ -- certified globally optimal at a gap of $9\times10^{-10}$, not merely the
 best found.
+
+That formulation optimizes the wrong variable. Pricing the candidates -- a trace of $N$ samples
+costs $N$ frames -- puts the split between bubbles and frames inside the certified problem, and
+it is worth $0.9$ to $10$ nats against at most $1.3$ for the geometry everything else optimizes.
+Two questions the design chapter left open close on the same terms: the screening threshold,
+which a maximin over the correlated-likelihood deflation removes, and the value of staging a
+budget, which is nil because one bubble at a geometry chosen for it settles every live operator
+rival. The temperature dependence closes nothing -- with temperature held it is structurally
+unidentifiable, at any budget and any geometry.
 \end{abstract}
 
 \noindent\textbf{Keywords:} inertial microcavitation rheometry; model selection; Bayesian evidence; identifiability; optimal experimental design
@@ -3273,8 +3282,9 @@ with equality on the support: a candidate earns runs when its information \emph{
 clears the bar. \texttt{pyimr.measure.budgeted\_measure} is this, and it composes with the
 cardinality floor of \eqref{eq:floorsub} because both are substitutions in the same $\eta$.
 
-Measured on the \SI{15}{\celsius} record at its own $3618$ frames, against the geometry-only
-formulation with $N$ pinned at $201$:
+Measured under \eqref{eq:pairedinformation} and certified by \eqref{eq:costcert}, on the
+\SI{15}{\celsius} record at its own $3618$ frames, against the geometry-only formulation with
+$N$ pinned at $201$:
 
 \begin{center}
 \begin{tabular}{lcccc}
@@ -3422,10 +3432,12 @@ and, for a collaborator, worse: \emph{which design is safe depends on which phys
 and we do not know which is missing}. \Cref{eq:lackoffit} says the model is inadequate on every
 record; it does not say in what direction. A design cannot be certified robust without naming
 the model error it is robust to, and no criterion in \cref{sec:design} takes model error as an
-argument at all. Its \emph{magnitude} is now available even though its direction is not:
+argument. Its \emph{magnitude} is available even though its direction is not:
 \cref{eq:biasbound} bounds what the unseen half can do to the parameters a design is
 optimising, which is the difference between an unquantified worry and a term one could
-eventually carry.
+eventually carry. \Cref{sec:deltadesign} carries it, by making the measured $\hat\delta$ a
+coordinate rather than a bound --- which is as far as one direction gets you, and is why the
+qualification in that subsection is about calibration rather than about existence.
 
 The mechanism is visible in the model-error columns. A criterion computed under the
 correct-model assumption sends the experiment where the model is most \emph{sensitive}, which is
@@ -3460,7 +3472,8 @@ checkable rather than assumed. Resampled onto a common $t/t_c$ grid, the three r
 $\hat\delta$ overlap at $0.44$, $0.42$ and $0.81$ against $0.05$ for unrelated curves of that
 length --- the same test, and the same verdict, that justified transferring $\sigma$ by phase.
 
-Scored against the four geometries \cref{sec:survives} put through two synthetic mismatches:
+Scoring \eqref{eq:deltacoordinate} at the four geometries \cref{sec:survives} put through two
+synthetic mismatches:
 
 \begin{center}
 \begin{tabular}{lccccc}
@@ -3525,6 +3538,23 @@ nats. Gilmore still beats the pressure form at \SI{15}{\celsius}. But at \SI{23}
 discriminated operators at all -- pinning $R_{\mathrm{eq}}$ is what made it appear they did.
 The fit wants $R_{\mathrm{eq}}$ \SIrange{3}{11}{\percent} larger than inferred, consistently
 across six operators and three records, and we cannot yet explain the trend with temperature.
+
+On the design side the useful conclusion is about what to optimize rather than what the optimum
+is. The certified formulation was applied to the geometry, which its own numbers rank last:
+pricing the candidates so the bubbles-against-frames split enters the same convex problem buys
+$0.9$ to $10$ nats against at most $1.3$ for the geometry, and the certificate survives the
+change intact because normalizing by cost is the same simplex in different coordinates. Three
+further questions the chapter raised are now answered, and two of the answers are negative. The
+screening cliff \cref{sec:screening} calls a precondition is removed by a maximin over the
+deflation, at no worst-case cost. Staging a budget is worth nothing, because one bubble at a
+geometry chosen for the operator question settles every live rival --- which says the operator
+margins reported here are small for want of a geometry, not for want of runs. And the
+temperature dependence cannot be identified at all without varying temperature, which no design
+in this literature does.
+
+What remains genuinely open is the one thing a criterion still cannot take as an argument: which
+physics is missing. \Cref{sec:deltadesign} gets as far as the measured $\hat\delta$ allows, and
+the transfer it rests on is supported rather than established.
 
 \subsection{Limitations of this work}
 \label{sec:limitations}
@@ -4052,8 +4082,15 @@ contains it: \texttt{figures.py}, \texttt{figures\_geometry.py},
 \texttt{figures\_trial.py} draw the figures, \texttt{fit\_quality.py} the fit table and
 \texttt{trial\_variation.py} the trial-spread analysis, each from the tracked
 \texttt{results.json}. The design measures use \texttt{pyimr.measure}, the discrimination
-criteria \texttt{pyimr.discriminate}, and the trade-off front \texttt{pyimr.pareto}. The
-measured records themselves are not redistributed here.
+criteria \texttt{pyimr.discriminate}, and the trade-off front \texttt{pyimr.pareto}.
+
+The design results added in \cref{sec:allocation,sec:deltadesign,sec:screening,sec:batch} come
+from \texttt{allocation\_measure.py} (the priced joint measure),
+\texttt{discrepancy\_design.py} ($\hat\delta$ as a coordinate),
+\texttt{correlated\_design.py} (the correlated likelihood),
+\texttt{screen\_maximin.py} (the deflation maximin), \texttt{two\_stage.py} (staging) and
+\texttt{temperature\_design.py} (the Arrhenius axis). The measured records themselves are not
+redistributed here.
 
 \bibliographystyle{unsrtnat}
 \bibliography{selection}

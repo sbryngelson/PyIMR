@@ -426,6 +426,83 @@ further:
 
 ---
 
+## Part 5 — six changes to how the experiments are optimised
+
+Prompted by the observation that the design chapter's own numbers rank the geometry
+optimisation *last*: the bubbles-against-frames split is worth +3.4 to +4.0 nats, geometry ≤1.34,
+testability 0.01–0.24, robustness 0.21. Four of the six below worked; two refuted the prediction
+that motivated them, and those are the more useful entries.
+
+### 5.1 Price the candidates, and the allocation joins the certified problem ✓
+
+`budgeted_measure`. Making a candidate a pair `(geometry, N)` and letting ξ allocate **trials**
+keeps `F = J Σ ξ_i M_i` linear, so Kiefer–Wolfowitz survives; the only breakage is that an
+N-sample trace costs N frames. Normalising by cost instead of count is the same simplex seen
+through `η_i = ξ_i c_i`, so the certificate is inherited and reads `tr[M⁻¹M(x)]/c_x ≤ p`.
+
+**+9.99, +5.41, +2.67, +0.90 nats** over the geometry-only formulation as one bubble is priced at
+0, 25, 100, 400 frames. Testability floor costs 0.008–0.034. Σ swept ×½–×2 moves the recommended
+N once. **The Σ objection was overstated**: Σ is a covariance of *material* parameters and the
+three records measuring it differ in temperature, not geometry (277/298/312 µm).
+
+### 5.2 Make the discrepancy a coordinate ✓
+
+`m(θ) + η·δ̂`, with δ̂ transferred by phase. Transfer premise holds: the three δ̂ overlap at
+0.44/0.42/0.81 against 0.05 for unrelated curves. Visible share predicts the parameter error in
+the right direction under **both** synthetic mismatches (rank −0.40, −0.60) — weak, four points,
+and reported as not-refuted rather than calibrated. Material `log det` wants 89 µm; discrepancy
+visibility wants 1200 µm.
+
+### 5.3 Design under the correlated likelihood — prediction refuted ✗
+
+**Predicted:** the correlated likelihood would reorder the geometries.
+**Measured:** it does not move the recommendation under any of the three noise profiles.
+
+Two further corrections in the same direction. The operator discrimination is **amplified**
+(median ×3.23/×2.85/×2.51, range ×0.52 to ×10.4), not deflated — the document's ×0.05 figures are
+for a constant offset and a smooth half-cycle, and these differences are not smooth enough to sit
+there. But the *mechanism* holds: amplification ranks at +0.66/+0.64/+0.65 against the share of
+each difference's energy above eight cycles. A correlated likelihood pays for fast differences
+and charges for smooth ones, even where the ranking is unchanged.
+
+### 5.4 Maximin over the deflation, instead of guessing where the cliff is ✓
+
+Worst-case share of live questions funded, over both readings of the truth:
+
+| axis | designed at face value | designed at full deflation |
+|---|---|---|
+| constitutive | 0.978 | **1.000** |
+| bubble dynamics | 0.595 | **1.000** |
+| thermal | 0.410 | **1.000** |
+
+The asymmetry is the argument: wasted effort on a decided rival is recoverable, a question never
+funded is not. §screening's "precondition for the design work" dissolves.
+
+### 5.5 Two-stage budgets — prediction refuted ✗
+
+**Predicted:** staging would beat one-shot, because the rival list is uncertain.
+**Measured:** +0.000 rivals at every split of every budget from 2 to 12.
+
+The one-shot arm already decides all four live operator rivals at a budget of **two**, at 971 µm
+and stretch 5.62. The useful part is what that says about the records rather than about staging:
+the operator margins are small because the records sit at 277 µm and stretch 7.09, not because
+the question is hard.
+
+Two things had to be fixed before the number meant anything, and both looked like results.
+Without Step 0 the rival list carries Rayleigh–Plesset, whose separation spans eleven decades and
+saturates everything — compressibility is not in doubt. And a substring test matched `SLS` inside
+`qSLS`, scoring the incumbent against itself on an axis that has no live rival at 15 °C at all.
+
+### 5.6 Temperature as a design axis ✓ (and near-tautological)
+
+Under an Arrhenius sharing model, **the six-parameter information is singular with temperature
+held** — the design is refused outright. A slope cannot be measured at one point, so no geometry
+optimisation at any budget identifies the temperature dependence. Freeing it certifies at
+8e-10 on six settings spanning 12–36 °C. The most conditional result here: three temperatures
+fitting six coefficients leaves one residual df per axis, so the Arrhenius form is assumed.
+
+---
+
 ## Ledger
 
 | | count |

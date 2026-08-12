@@ -503,6 +503,85 @@ fitting six coefficients leaves one residual df per axis, so the Arrhenius form 
 
 ---
 
+## Part 6 — what a referee's report changed
+
+Five items from a critical read of the document. Three were bookkeeping; two were real.
+
+### 6.1 The compressibility conclusion contradicted the paper's own deflation ✗→fixed
+
+The conclusions called compressibility "the most robust statement in this work" at 74–179 nats.
+§screening deflates every margin by `N/N_eff ≈ 20`, which puts Rayleigh–Plesset at −4.04 and
+−3.79 on two records — **live** under the document's own 5-nat screen. Both statements could not
+stand.
+
+Recomputed properly, with Σ in the likelihood rather than a scalar divisor:
+
+| record | independent | ρ=0.8 | ρ=0.9 | ρ=0.95 | fitted |
+|---|---|---|---|---|---|
+| 15 °C | −185.7 | **−4.3** | −5.6 | −8.5 | −5.1 |
+| 23 °C | −81.3 | −16.8 | **−3.3** | −6.0 | −9.2 |
+
+It does not rescue the ranking; it **dissolves** it. The compressible operators span 0.31 nats at
+15 °C and 0.33 at 23 °C against the 17.1 and 4.2 the independent likelihood reports — they are
+not ordered by these data at all. Compressibility itself straddles the threshold.
+
+**One bug caught on the way, and it produced a plausible wrong answer first.** Letting each
+operator estimate τ from its own residual gave RP *winning* by 62 nats at 23 °C and losing by
+10887 at 33 °C. Evidences under different covariances differ by `log|Σ|` and are not a Bayes
+factor: a model allowed to pick its own noise model picks a flattering one, uncharged. One τ per
+record, shared, fixes it. **33 °C is excluded** — it lands three orders of magnitude out of
+family, the signature of an ill-conditioned Σ on the record with seven trials.
+
+### 6.2 "A ranking among wrong models is still a ranking" — tested, and it holds ✓
+
+Generated from two truths outside the catalogue, ranked by evidence, and separately measured
+which candidate is genuinely closest (residual of its own best fit against the noiseless truth):
+
+| truth | evidence winner | closest | rank correlation |
+|---|---|---|---|
+| thermal | qSLS | qSLS | **+1.000** |
+| two-mode | qSLS | qSLS | **+1.000** |
+
+Identical orderings, including the bottom pair whose distances differ by 1.3%. Two limits: both
+truths are physics already screened, and the catalogue's tiers are thousands of nats apart, so
+the test is not stressed in the few-nat regime §screening says the operator axis is in.
+
+### 6.3 Three sections reported log evidence on three scales ✗→documented
+
+−2289.86 (grid), +529.26 (capped Laplace), +2173.55 (SMC), same model, same record. Decomposed:
+the σ convention alone moves `log Z` by **1373 nats** on one residual. The capped Laplace
+reproduces to 2.15 nats; the grid is a different object (marginalised β, redundancy, BIC); the
+SMC sits +1646 away and is **not** reconciled. What saves the conclusions is that every
+comparison is drawn *within* one pipeline. New appendix §What a nat means here.
+
+### 6.4 The geometry extrapolation was never stated as one assumption ✗→fixed
+
+Three transfers (σ, τ, δ̂) carry the design chapter across a 24× span in `R_max`, and each is
+validated by cross-record agreement — across records that differ in **temperature**, not size.
+Now a standing subsection at the head of §design, referenced from all three users.
+
+### 6.5 The discrepancy had never been screened against first-collapse physics ✓ (new finding)
+
+65–69% of δ̂ is in the first collapse; every candidate on the old screen was a bulk effect.
+§enrich even named sphericity as least secure there and never screened it.
+
+| candidate | 15 °C | 23 °C | 33 °C |
+|---|---|---|---|
+| asphericity n=2 (silhouette) | 0.4% | 0.6%† | 0.0% |
+| asphericity n=2 (volume equiv.) | 0.2%† | 2.5%† | 5.0%† |
+| **initial wall velocity** | **22.6%** | **37.6%** | **11.7%** |
+
+† anti-aligned. Shape modes from Plesset (1954), integrated along the fitted trajectory, screened
+under both imaging conventions.
+
+**Asphericity is not it** — at most 5%, below thermal transport, and it was the obvious suspect.
+**The initial condition is the largest candidate ever screened here** at 37.6%, against 23.7% for
+the initial radius and 6.5% for the best genuine physics on the old list. Read with §reqprior the
+two point the same way: the discrepancy is better aimed at *how the records begin* than at the
+constitutive law.
+
+---
+
 ## Ledger
 
 | | count |

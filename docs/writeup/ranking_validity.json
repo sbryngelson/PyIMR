@@ -1,0 +1,74 @@
+{
+ "thermal": {
+  "rows": {
+   "qSLS": {
+    "margin": 0.0,
+    "distance": 0.5448515212285372,
+    "evidence_rank": 1,
+    "closeness_rank": 1,
+    "chi2_per_n": 1.142399478106972
+   },
+   "SLS": {
+    "margin": -73.0417021228456,
+    "distance": 1.0770455436348583,
+    "evidence_rank": 2,
+    "closeness_rank": 2,
+    "chi2_per_n": 1.8663471322833423
+   },
+   "NHKV": {
+    "margin": -2549.080363801428,
+    "distance": 4.974443682954431,
+    "evidence_rank": 3,
+    "closeness_rank": 3,
+    "chi2_per_n": 26.574673536289193
+   },
+   "qKV": {
+    "margin": -2598.189182888099,
+    "distance": 5.039420212954858,
+    "evidence_rank": 4,
+    "closeness_rank": 4,
+    "chi2_per_n": 27.05122480360505
+   }
+  },
+  "winner_agrees": true,
+  "evidence_winner": "qSLS",
+  "closest": "qSLS",
+  "rank_correlation": 1.0
+ },
+ "two-mode": {
+  "rows": {
+   "qSLS": {
+    "margin": 0.0,
+    "distance": 0.1911238026428233,
+    "evidence_rank": 1,
+    "closeness_rank": 1,
+    "chi2_per_n": 0.8867664204307025
+   },
+   "SLS": {
+    "margin": -44.090827237892256,
+    "distance": 0.802667376091418,
+    "evidence_rank": 2,
+    "closeness_rank": 2,
+    "chi2_per_n": 1.3258564048272512
+   },
+   "NHKV": {
+    "margin": -2313.649825987248,
+    "distance": 4.698233095600793,
+    "evidence_rank": 3,
+    "closeness_rank": 3,
+    "chi2_per_n": 23.98075112735587
+   },
+   "qKV": {
+    "margin": -2405.24838086365,
+    "distance": 4.80937618914371,
+    "evidence_rank": 4,
+    "closeness_rank": 4,
+    "chi2_per_n": 24.880599139489014
+   }
+  },
+  "winner_agrees": true,
+  "evidence_winner": "qSLS",
+  "closest": "qSLS",
+  "rank_correlation": 1.0
+ }
+}

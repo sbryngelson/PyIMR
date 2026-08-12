@@ -13,6 +13,7 @@ site/
 .coverage
 .coverage.*
 coverage.xml
+junit.xml
 
 # Explicit XLA compilation cache location used by CI
 .xla-cache/

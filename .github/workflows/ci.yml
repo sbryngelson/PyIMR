@@ -54,6 +54,15 @@ jobs:
       # here than per-review coverage -- the numerical claims are the suite's, not a
       # percentage's. Coverage still lands once a day.
       COVERAGE: ${{ matrix.python-version == '3.12' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+      # Test results upload on EVERY run, unlike coverage: flaky detection is a statistic
+      # over many runs, and a failure report is most useful on the pull request that caused
+      # it. The JUnit file is written by the test run already happening, so the cost is the
+      # action download and a POST rather than the ~160 s coverage tracing adds.
+      #
+      # Secrets are not passed to a pull request from a fork, so a fork must neither upload
+      # nor be failed by the token check below. Without this the first external contributor
+      # would meet a red build for a configuration they cannot see.
+      UPLOAD_TESTS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
     steps:
       - uses: actions/checkout@v4
@@ -126,13 +135,18 @@ jobs:
       # Coverage costs about 160 s under tracing -- measured 405 s against 244 s on
       # the same cache state -- so it runs on the nightly rather than per push. It is
       # informational and never blocks, so the delay costs nothing a push depends on.
+      #
+      # `--junitxml` on both branches, and `junit_family=legacy` because that is the schema
+      # Codecov's test-results parser reads. Verified locally under `-n auto --dist
+      # loadfile`: xdist writes one merged file carrying classname, name, file, line and
+      # per-test time.
       - name: Tests and numerical validation
         if: env.COVERAGE != 'true'
-        run: python -m pytest -rA -n auto --dist loadfile -m "$PYTEST_MARKERS"
+        run: python -m pytest -rA -n auto --dist loadfile -m "$PYTEST_MARKERS" --junitxml=junit.xml -o junit_family=legacy
 
       - name: Tests and numerical validation (with coverage)
         if: env.COVERAGE == 'true'
-        run: python -m pytest -rA -n auto --dist loadfile -m "$PYTEST_MARKERS" --cov --cov-report=xml
+        run: python -m pytest -rA -n auto --dist loadfile -m "$PYTEST_MARKERS" --cov --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
 
       # `fail_ci_if_error: false` below means the upload step goes green whether or not the
       # report lands, and that hid a total failure: the only upload this repo has ever
@@ -143,7 +157,7 @@ jobs:
       # A missing token is a configuration defect, not the service outage that flag exists
       # to tolerate. So it is checked separately, and loudly.
       - name: Check the Codecov token is set
-        if: env.COVERAGE == 'true'
+        if: env.COVERAGE == 'true' || env.UPLOAD_TESTS == 'true'
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
@@ -165,6 +179,21 @@ jobs:
           # only, but the conditional stays: if per-push coverage is ever re-enabled, a
           # `not slow` report compared against a `slow or not slow` base would read as a
           # coverage drop that is really a marker difference.
+          flags: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'fast' }}
+
+      # `!cancelled()` rather than `always()`: a FAILING suite is exactly what this is for,
+      # so the upload has to survive the failed step above it, but a cancelled run has
+      # nothing to say. Like the coverage upload it must not fail the build -- a reporting
+      # service being down is not a defect in the code under test.
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() && env.UPLOAD_TESTS == 'true' }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: junit.xml
+          fail_ci_if_error: false
+          # Which marker set ran, so a nightly's extra convergence tests are not read as
+          # tests that appeared and vanished on the next push.
           flags: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'fast' }}
 
       # Bound the archive before `actions/cache` saves it. The cap MUST stay above the

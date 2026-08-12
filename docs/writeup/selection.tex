@@ -942,8 +942,44 @@ record & mode 1 before & mode 1 after & $\lvert\cos\rvert$ between them \\
 \end{center}
 
 \noindent An absorbed mode collapses; these do not. Only \SI{15}{\celsius} shows partial
-absorption. Whatever carries half to three-quarters of the trial scatter, it is not the
-parameters of this model --- not linearly, and not at each trial's own optimum either.
+absorption.
+
+Those three axes are the MATERIAL ones, though, and the equilibrium radius was held at
+$R_{\max}/\text{stretch}$ --- one value for every trial in a record --- so that refit could not
+have absorbed variation in the initial condition however large it was. That is not a pedantic
+gap. The mode is $97$ to $98\%$ post-collapse, and the afterbounce period is set by the gas the
+bubble is left with, so $R_{\rm eq}$ is both the quantity nucleation is least repeatable in and
+the one whose variation appears after the first collapse rather than during it.
+
+Refitting with $R_{\rm eq}$ free over the $\pm 11\%$ its prior allows:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+record & raw & material only & $+\,R_{\rm eq}$ & $\lvert\cos\rvert$ to raw \\
+\midrule
+\SI{15}{\celsius} & $0.539$ & $0.412$ & $0.338$ & $0.683$ \\
+\SI{23}{\celsius} & $0.681$ & $0.772$ & $\mathbf{0.791}$ & $\mathbf{0.988}$ \\
+\SI{33}{\celsius} & $0.720$ & $0.835$ & $\mathbf{0.717}$ & $\mathbf{0.955}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent At \SI{33}{\celsius} the answer is clean: no fit rests on a bound, $R_{\rm eq}$ moves
+by $3.0\%$ between trials, and the mode keeps its shape at $\lvert\cos\rvert = 0.955$. Freeing
+the initial condition does not absorb it.
+
+At the other two records the test is \emph{inconclusive rather than negative}, and the reason is
+worth stating instead of burying. Seven of eighteen fits at \SI{15}{\celsius} and four of
+fourteen at \SI{23}{\celsius} rest against the upper bound of $1.111$: those trials wanted a
+larger equilibrium radius than the prior permits, and were cut off. The pinning is also one-
+sided, which reads as a systematic offset in the record's stretch rather than as scatter between
+bubbles --- a calibration question, and a different one from this section's.
+
+So the claim this document makes is the narrower one. Whatever carries half to three-quarters of
+the trial scatter is not the material parameters, at each trial's own optimum; and at the one
+record where the initial condition could move freely, it is not that either. Whether a wider
+prior on $R_{\rm eq}$ would absorb it at \SI{15}{} and \SI{23}{\celsius} is untested.
 
 Two further facts locate it without naming it. It lives in the \emph{rebound}: $98.0\%$ and
 $97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and

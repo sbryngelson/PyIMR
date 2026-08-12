@@ -266,6 +266,28 @@ its shape (|cos| between the mode before and after of **0.987** and **0.943**) a
 *larger* share of the reduced residual (0.681 → 0.772, 0.720 → 0.835). An absorbed mode
 collapses; these do not. Only 15 °C partially absorbs (0.539 → 0.412 at |cos| 0.699).
 
+**But the first version of that test had a gap, and the claim was too strong.** It fitted
+`(mu, galpha, lambda1)` — material axes — with `Req` pinned at `maximum/stretch` for every
+trial, so it could not have absorbed variation in the initial condition. That matters here
+specifically: the mode is 97–98% post-collapse and the afterbounce period is set by `Req`, which
+is the quantity nucleation is least repeatable in.
+
+Refitting with `Req` free over its ±11% prior:
+
+| record | raw | material only | + Req | \|cos\| to raw | fits on a bound |
+|---|---|---|---|---|---|
+| 15 °C | 0.539 | 0.412 | 0.338 | 0.683 | **7 of 18** |
+| 23 °C | 0.681 | 0.772 | **0.791** | **0.988** | **4 of 14** |
+| 33 °C | 0.720 | 0.835 | **0.717** | **0.955** | 0 of 7 |
+
+At 33 °C the answer is clean — nothing rests on a bound, `Req` moves 3.0% between trials, and
+the mode keeps its shape. At the other two the test is **inconclusive rather than negative**:
+those fits wanted a larger `Req` than the prior allows and were cut off, one-sidedly, which
+reads as a systematic offset in the record's stretch rather than as trial-to-trial scatter.
+
+So the licensed claim is narrower than what was first written: not the *material* parameters
+anywhere, and not the initial condition either at the one record where it could move freely.
+
 **What was gained.** `Σθ` is now measured rather than inferred: 15–34% on `mu`, ~20% on `g·α`,
 59–117% on `lambda1` (log coordinates). It is an overestimate — a single trial's noise is not
 separable from the trial spread with this data — but it is the first direct estimate, and it is

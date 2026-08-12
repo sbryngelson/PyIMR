@@ -32,10 +32,15 @@ Swept one axis at a time, the obstruction is a strain and rate limit, not a coor
 `mu` BELOW $0.1$ -- too little damping, not too much. `lambda1` is the one that decides what
 this test can mean: it is admissible fast and admissible slow and dead in between, over
 $6.8\times10^{-6}$ to $1.5\times10^{-4}$, which in units of the collapse time is $0.1$ to $2.3$.
-The model diverges when its relaxation time is comparable to the collapse -- the one regime in
-which a relaxation time is observable at all. That band survives twenty times the steps,
-tolerances two decades either way, an implicit solver, and quadrature from $8$ to $512$ points,
-so it is the model and not the integrator.
+That is the one regime in which a relaxation time is observable at all. The band survives
+twenty times the steps, tolerances two decades either way, an implicit solver, and quadrature
+from $8$ to $512$ points, so it is not the integrator.
+
+It is also NOT, as this originally read, the constitutive law diverging. #245 settles it: the
+collapse arrests, the wall rebounds, and $\dot R$ climbs to the sound speed, where the
+Keller-Miksis denominator $(1 - \dot R/c)R + 4\mu/(\rho c)$ vanishes. The band is a coordinate
+singularity of the first-order-in-Mach DYNAMICS, reached from below and never crossed --
+which is exactly why none of those four knobs touched it. `max_wall_mach` names it now.
 
 What remains fittable is therefore the QUASI-ELASTIC branch, where the arm relaxes far faster
 than the bubble collapses. A recovery run there is still worth doing -- it is the branch any

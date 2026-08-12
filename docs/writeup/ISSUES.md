@@ -250,6 +250,30 @@ event because the runs it catches never *reach* a post-hoc check. Turns a 6–9 
 **How the region could be made reachable.** A time reparametrisation (§2.1). Nothing else tried
 touches it.
 
+**Superseded — the cause was elsewhere.** Everything above is measured and stands, but the
+attribution was wrong, and so was the remedy it implied. Instrumenting the terminal state
+settles it: every failure ends with `Rd = Cstar` to six digits, the radius frozen, and the step
+size at machine epsilon. That is the Keller–Miksis denominator `(1 − Rd/c)R + 4μ/(ρc)` going to
+zero — a coordinate singularity of the first-order-in-Mach **dynamics**, not of the memory
+integral and not a blow-up of the constitutive law. It is approached from below and never
+crossed, which is exactly why the budget scaled linearly and why none of the seven knobs above
+moved it: they were all aimed at the material.
+
+The elastic law is still absurd there — 2×10¹⁵ Pa from a 3 kPa gel is unchanged — but that is a
+second problem, and `min_radius_ratio` already covers it. `max_wall_mach` covers this one, and
+the two are not interchangeable: on this band `λ₁ = 10⁻³` survives `R/R₀ = 0.010186` while
+`6.81×10⁻⁶` stalls at `0.010447`, so no radius floor separates them, while peak Mach separates
+them 0.312 against 0.99999.
+
+**And one hypothesis of mine that its own test refuted.** I proposed the band was a *resonance*:
+an arm relaxing on the collapse timescale stores elastic energy through the collapse and
+releases it into the rebound, so peak rebound speed should occur near `De = λ₁/t₀ ~ 1` and grow
+with stiffness. Swept below the sonic line where the answer is not clipped, it does neither —
+peak Mach across four stiffnesses lands at `De` = 1.11, 11.1, 0.198, 11.1, with heights 0.136,
+0.063, 0.241, 0.068. No peak near `De ~ 1`, no monotone rise with stiffness. The transition is
+bimodal instead: runs either stay under Mach 0.25 or sit on exactly 1.000. Why the band has
+edges where it does remains unexplained; what stops the solve inside it does not.
+
 ---
 
 ## Part 3 — Open, and the weakest links

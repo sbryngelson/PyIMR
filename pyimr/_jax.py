@@ -95,6 +95,10 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
   solver, solver_name = (diffrax.Tsit5(), "tsit5") if config is None else _solver_for(config, diffrax, differentiating=False)
   budget = 1_000_000 if config is None else int(config.max_steps)
   floor = None if config is None else config.min_radius_ratio
+  ceiling = None if config is None else config.max_wall_mach
+  # read here rather than in the message: `ceiling is not None` implies `config is not None`,
+  # and nothing in the types says so
+  form = "" if config is None else config.dynamics
 
   # The nondimensional groups are traced ARGUMENTS, not constants closed over. Baking them
   # in made the cache key depend on their values, so every distinct parameter set was a
@@ -115,10 +119,18 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
       # traced values rather than reused from preparation.
       rebuilt = None if medium is None else medium_with_parameters(medium, merged, xp=jnp)
       inner = args._replace(p=merged, mt=rebuilt)
-      # A floor on the radius has to STOP the solve, not be checked afterwards: the runs it
-      # exists to catch never reach afterwards, they exhaust the step budget instead. The
+      # A guard on the state has to STOP the solve, not be checked afterwards: the runs these
+      # exist to catch never reach afterwards, they exhaust the step budget instead. Each
       # condition is boolean and reads one slot, so it costs a comparison per step.
-      event = None if floor is None else diffrax.Event(lambda t, y, a, **kw: y[0] < floor)
+      #
+      # `active` fixes the order the conditions are passed in, and `run` reads `event_mask`
+      # back against the same order to say WHICH one fired -- otherwise two guards share one
+      # message and the caller learns only that something tripped.
+      sonic = None if ceiling is None else ceiling * merged["Cstar"]
+      conditions = [fn for fn, on in ((lambda t, y, a, **kw: y[0] < floor, floor is not None),
+                                      (lambda t, y, a, **kw: y[1] >= sonic, ceiling is not None))
+                    if on]
+      event = diffrax.Event(conditions) if conditions else None
       return diffrax.diffeqsolve(
         diffrax.ODETerm(lambda t, y, _a: jnp.asarray(rhs(t, y, *inner, xp=jnp))), chosen,
         t0=grid[0], t1=grid[-1], dt0=None, y0=start,
@@ -148,9 +160,17 @@ def integrate_jax(rhs, times, initial, *, args, rtol, atol, failure, label="", m
     message = "The solver successfully reached the end of the integration interval." if ok else str(solution.result)
     # the guard's whole point is to say what happened, and diffrax's own wording for a
     # terminated solve names the mechanism rather than the cause
-    if not ok and solution.result == diffrax.RESULTS.event_occurred and floor is not None:
-      message = (f"the bubble collapsed below min_radius_ratio {floor:g}, where the model is "
-                 f"not physical; raise or disable it to integrate through")
+    if not ok and solution.result == diffrax.RESULTS.event_occurred:
+      reasons = []
+      if floor is not None:
+        reasons.append(f"the bubble collapsed below min_radius_ratio {floor:g}, where the "
+                       f"model is not physical; raise or disable it to integrate through")
+      if ceiling is not None:
+        reasons.append(f"the rebounding wall reached max_wall_mach {ceiling:g}, where the "
+                       f"{form} form is singular; raise or disable it to "
+                       f"integrate through")
+      fired = [bool(flag) for flag in solution.event_mask]
+      message = next((text for text, hit in zip(reasons, fired, strict=True) if hit), message)
     if ok and not finite: message = f"{message}; solution contains non-finite states"
     stats = SolverStats(
       backend=f"jax-{name}{label}", success=ok and finite, message=message,

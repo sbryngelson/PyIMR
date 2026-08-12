@@ -26,7 +26,7 @@ import numpy as np
 
 from ._validate import finite_array, positive_integer, unit_interval
 
-__all__ = ["BatchDesign", "ConstrainedMeasure", "ExactDesign", "MeasureResult", "apportion", "augmented_information", "constrained_measure", "identification_front", "optimal_measure", "sensitivity", "separability"]
+__all__ = ["BatchDesign", "BudgetedMeasure", "ConstrainedMeasure", "ExactDesign", "MeasureResult", "apportion", "augmented_information", "budgeted_measure", "constrained_measure", "identification_front", "optimal_measure", "sensitivity", "separability"]
 
 _FLOOR = 1e-12
 
@@ -552,4 +552,80 @@ def constrained_measure(matrices, settings, *, floor=None, criterion=None, itera
              f"{lost:.3f} of the criterion given up to get there, "
              + (f"certified under the floor at gap {held.gap:.1e}" if held.certified else
                 f"NOT certified -- the search stopped at gap {held.gap:.1e}")),
+  )
+
+
+@dataclass(frozen=True, slots=True)
+class BudgetedMeasure:
+  """A design over candidates that cost different amounts, and what one unit of budget buys.
+
+  `floor` records whether a cardinality floor was imposed, because it changes what `certified`
+  claims: without one it is global optimality, with one it is optimality among measures meeting
+  the floor.
+  """
+
+  weights: np.ndarray
+  budget_share: np.ndarray
+  runs_per_unit_cost: float
+  value: float
+  gap: float
+  certified: bool
+  iterations: int
+  floor: int | None = None
+
+  @property
+  def support(self): return np.flatnonzero(self.weights > 0.0)
+
+
+def budgeted_measure(matrices, costs, *, settings=None, criterion=None, iterations=100_000,
+                     tolerance=1e-9, prune=1e-7):
+  """`optimal_measure` when the candidates are not equally expensive to run.
+
+  Every measure elsewhere here counts RUNS, which silently asserts that every candidate costs
+  the same. It does not once the candidate set carries anything but geometry: a trace of `N`
+  samples costs `N` frames, so a batch trading bubbles against frames is choosing between
+  candidates whose prices differ by the factor being optimised. Counting runs would answer a
+  question nobody has -- how to spend a fixed number of traces -- rather than how to spend a
+  camera.
+
+  The repair needs no new algorithm, only the right simplex. Normalise by cost rather than by
+  count, `sum_i xi_i c_i = 1`, so `xi` ranges over the set with vertices `e_i / c_i`; that set
+  is still convex and `M(xi)` is still linear, so the criterion is still concave on it. The
+  substitution `eta_i = xi_i c_i` maps it onto the standard simplex with
+
+      M(xi) = sum_i eta_i (M_i / c_i) ,
+
+  which is exactly the problem `optimal_measure` already solves, on the matrices divided by
+  their prices. So the certificate is inherited rather than re-derived, and reads in its
+  cost-normalised form: `xi*` is optimal iff `tr[M(xi*)^-1 M(x)] / c_x <= p` everywhere, with
+  equality on the support. A candidate is worth running when its information per unit price,
+  not its information, clears the bar.
+
+  `value` is the criterion at one unit of budget, so two budgets are compared by the same
+  number of nats their ratio would suggest. `weights` are run fractions, for `apportion`;
+  `budget_share` is where the money goes, and the two differ by exactly the price vector.
+
+  `settings` composes the cardinality floor of `constrained_measure` with the price, which is
+  sound because both are substitutions in the SAME `eta`: the floor maps the constrained set
+  onto a simplex and the price maps that simplex onto the cost-normalised one. A priced batch
+  needs it at least as much as an unpriced one -- pricing rewards concentrating on the cheapest
+  informative candidate, so the free answer here reaches one setting and `df` below zero.
+  """
+  stack = _checked_matrices(matrices)
+  price = finite_array("costs", costs, shape=(stack.shape[0],))
+  if np.any(price <= 0.0): raise ValueError("costs must be positive")
+
+  scaled = stack / price[:, None, None]
+  if settings is None:
+    held = optimal_measure(scaled, criterion=criterion, iterations=iterations,
+                           tolerance=tolerance, prune=prune)
+  else:
+    held = constrained_measure(scaled, settings, criterion=criterion, iterations=iterations,
+                               tolerance=tolerance, prune=prune).measure
+  runs = held.weights / price
+  total = float(runs.sum())
+  return BudgetedMeasure(
+    weights=runs / total, budget_share=held.weights, runs_per_unit_cost=total,
+    value=held.value, gap=held.gap, certified=held.certified, iterations=held.iterations,
+    floor=None if settings is None else int(settings),
   )

@@ -9,8 +9,8 @@ regression on [-1, 1] the D-optimal measure is equal mass at the roots of
 import numpy as np
 import pytest
 
-from pyimr.measure import (MeasureResult, apportion, constrained_measure, optimal_measure,
-                           sensitivity)
+from pyimr.measure import (MeasureResult, apportion, budgeted_measure, constrained_measure,
+                           optimal_measure, sensitivity)
 
 
 def polynomial(degree, points=51):
@@ -259,3 +259,97 @@ def test_the_summary_does_not_claim_a_certificate_it_does_not_have():
   held = constrained_measure(matrices, 5, iterations=3)
   assert not held.certified_under_floor
   assert "NOT certified" in str(held)
+
+
+def _two_ends():
+  """The line on {-1, +1}: `det M(xi) = 4 xi_1 xi_2`, so every quantity below is closed form."""
+  basis = np.array([[1.0, -1.0], [1.0, 1.0]])
+  return np.einsum("ij,ik->ijk", basis, basis)
+
+
+def test_a_budget_buys_equal_shares_of_money_not_equal_numbers_of_runs():
+  """The closed form, which is the whole content of the cost-normalised theorem.
+
+  Maximising `log(4 xi_1 xi_2)` subject to `sum_i c_i xi_i = 1` gives `xi_i = 1/(2 c_i)`, so
+  each candidate takes half the BUDGET whatever it costs, and the run fractions come out
+  inversely proportional to price. The criterion at one unit of budget is `-log(c_1 c_2)`.
+  """
+  costs = np.array([1.0, 3.0])
+  held = budgeted_measure(_two_ends(), costs)
+  assert held.certified, f"gap {held.gap:.2e}"
+  assert np.allclose(held.budget_share, [0.5, 0.5], atol=1e-6)
+  assert np.allclose(held.weights, [0.75, 0.25], atol=1e-6)
+  assert np.isclose(held.value, -np.log(3.0), atol=1e-6)
+  # runs per unit budget: xi_1 + xi_2 = 1/2 + 1/6
+  assert np.isclose(held.runs_per_unit_cost, 1.0 / 2.0 + 1.0 / 6.0, rtol=1e-6)
+
+
+def test_pricing_changes_the_answer_rather_than_relabelling_it():
+  # the equal-cost optimum splits evenly; if it also came back for unequal costs, the argument
+  # would be run through and have done nothing
+  free = optimal_measure(_two_ends())
+  assert np.allclose(free.weights, [0.5, 0.5], atol=1e-6)
+  priced = budgeted_measure(_two_ends(), [1.0, 3.0])
+  assert abs(priced.weights[0] - 0.5) > 0.2
+
+
+def test_equal_costs_reproduce_the_unpriced_measure():
+  _, matrices = polynomial(2)
+  free = optimal_measure(matrices)
+  priced = budgeted_measure(matrices, np.full(matrices.shape[0], 2.0))
+  assert np.allclose(priced.weights, free.weights, atol=1e-6)
+  # a uniform price is a change of budget units, so it shifts log det by -p log c and no more
+  assert np.isclose(priced.value, free.value - 3.0 * np.log(2.0), atol=1e-6)
+
+
+def _four_points():
+  """The line on four points, priced so the cheap inner pair beats the informative outer one.
+
+  Every closed form above is SATURATED -- support size equal to the parameter count -- and a
+  saturated D-optimal design puts equal weight on its points whatever they are, so pricing can
+  only rescale the answer and never move it. Those cases cannot tell the cost-normalised
+  optimum from dividing the free one by price, and both tests below passed a mutation that did
+  exactly that. Here the free optimum takes the ends and the priced one takes the middle pair,
+  so the two answers have different SUPPORT and no rescaling connects them.
+  """
+  points = np.array([-1.0, -0.9, 0.9, 1.0])
+  basis = np.stack([np.ones_like(points), points], axis=1)
+  return np.einsum("ij,ik->ijk", basis, basis), np.array([4.0, 1.0, 1.0, 4.0])
+
+
+def test_price_moves_the_support_and_not_merely_the_weights():
+  matrices, costs = _four_points()
+  free = optimal_measure(matrices)
+  held = budgeted_measure(matrices, costs)
+  assert held.certified, f"gap {held.gap:.2e}"
+  assert list(free.support) == [0, 3], "the free optimum should want the ends"
+  assert list(held.support) == [1, 2], "paying four times for the ends should move it inward"
+  # dividing the free weights by price -- the thing this is not -- keeps the ends
+  naive = free.weights / costs
+  assert np.argmax(naive) in (0, 3), "the naive rescaling must differ, or nothing is being tested"
+  assert np.isclose(held.value, np.log(0.81), atol=1e-6)
+
+
+def test_the_certificate_is_the_cost_normalised_one():
+  """`tr[M^-1 M(x)] / c_x <= p` everywhere, with equality on the support.
+
+  Checked against the matrices themselves rather than against the scaled ones the search ran
+  on, since the scaling is the step the caller has to trust.
+  """
+  matrices, costs = _four_points()
+  held = budgeted_measure(matrices, costs)
+  assert held.certified, f"gap {held.gap:.2e}"
+  averaged = np.tensordot(held.weights / (held.weights @ costs), matrices, axes=(0, 0))
+  ratio = np.einsum("jk,ikj->i", np.linalg.inv(averaged), matrices) / costs
+  assert np.max(ratio) <= 2.0 + 1e-6, f"a candidate beats the bound: {np.max(ratio):.6f}"
+  assert np.allclose(ratio[held.support], 2.0, atol=1e-5), "the support must attain it"
+  assert np.max(ratio[[0, 3]]) < 1.0, "the priced-out candidates must be strictly under it"
+
+
+def test_costs_are_validated():
+  matrices = _two_ends()
+  for bad in ([0.0, 1.0], [-1.0, 1.0], [np.inf, 1.0]):
+    with pytest.raises(ValueError, match="costs"):
+      budgeted_measure(matrices, bad)
+  with pytest.raises(ValueError, match="costs"):
+    budgeted_measure(matrices, [1.0, 1.0, 1.0])

@@ -6,7 +6,7 @@ $\lambda_{\min}$ both improve while $\kappa = \lambda_{\max}/\lambda_{\min}$ is 
 Degeneracy is a property of the eigen\emph{vectors}. Only a design that rotates them removes it.
 
 Every candidate in this document is $(R_{\max}, \text{stretch})$, and both are drive settings.
-Temperature is not: it changes the material's own $g\alpha$ --- \cref{sec:trend} measures the
+Temperature is not: it changes the material's own $g\alpha$ --- the temperature trend of the closing section measures the
 stiffening advantage shrinking monotonically as the gel warms, the most robust physical result
 here --- and it costs nothing but a water bath. It has never been a design variable.
 

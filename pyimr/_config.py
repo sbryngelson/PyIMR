@@ -221,6 +221,17 @@ class SimulationConfig:
   # reads as "integrate harder" when the truth is that the model has left its domain (#245).
   # Below `R/R0 = 0.01` a cubic Yeoh with `c3 = 10` asks for 2e15 Pa from a 3 kPa gel.
   min_radius_ratio: float | None = None
+  # The sonic line, and the reason it is a separate knob rather than a tighter floor: the
+  # first-order-in-Mach forms divide by `(1 - (lam+1) Rd/c) R + ...`, which vanishes as the
+  # REBOUNDING wall reaches `c/(lam+1)`. Measured on the #245 band, every failure ends at
+  # `Rd = Cstar` to six digits with the step size at machine epsilon, and no radius floor
+  # separates those failures from the successes -- one stalls at `R/R0 = 0.010447` while
+  # another survives `0.010186`. Peak Mach does separate them, 0.312 against 0.99999.
+  #
+  # Signed, not `|Rd|`: the singularity is one-sided. A healthy collapse here reaches Mach
+  # -3.2 inward with the denominator only growing, so guarding the magnitude would refuse
+  # runs that are fine.
+  max_wall_mach: float | None = None
   thermal: str = "spectral"
   physics: PhysicalParameters = field(default_factory=PhysicalParameters)
   sampled_forcing: SampledForcing | None = None
@@ -513,6 +524,10 @@ def _validate_config(config) -> None:
     raise ValueError("max_radius_ratio must be finite and greater than 1, or None to disable")
   if c.min_radius_ratio is not None and not (np.isfinite(c.min_radius_ratio) and 0.0 < c.min_radius_ratio < 1.0):
     raise ValueError("min_radius_ratio must be finite and in (0, 1), or None to disable")
+  # no upper bound: `rayleigh-plesset` is incompressible and has no sonic denominator at all,
+  # so a wall Mach above one is meaningful there rather than a typo
+  if c.max_wall_mach is not None and not (np.isfinite(c.max_wall_mach) and c.max_wall_mach > 0.0):
+    raise ValueError("max_wall_mach must be finite and positive, or None to disable")
   if c.medtherm and not c.bubtherm: raise ValueError("medtherm=1 requires bubtherm=1")
   if c.masstrans and not c.bubtherm: raise ValueError("masstrans=1 requires bubtherm=1")
   if c.masstrans and not c.vapor: raise ValueError("masstrans=1 requires vapor=1")

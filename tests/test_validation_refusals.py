@@ -340,3 +340,102 @@ def test_the_collapse_floor_is_validated_and_keys_the_compiled_program():
   deepest = float(np.asarray(pyimr.simulate(_FLOOR_TIMES, _floor_config()).radius_ratio).min())
   with pytest.raises(pyimr.SimulationError, match="collapsed below min_radius_ratio"):
     pyimr.simulate(_FLOOR_TIMES, _floor_config(min_radius_ratio=deepest * 2.0))
+
+
+_SONIC_TIMES = np.linspace(0.0, 1.4e-4, 401)
+
+
+def _sonic_config(relaxation_time_s, **guards):
+  """The #245 band case, whose relaxation time decides which side of the sonic line it lands."""
+  material = pyimr.RelaxingMaterial(
+    elastic=pyimr.Yeoh(3e3, 1e2, 1e1), viscosity_pa_s=1.5e-1,
+    relaxation_time_s=relaxation_time_s, retardation_time_s=0.0)
+  return pyimr.SimulationConfig(277e-6, 277e-6 / 7.09, material, dynamics="keller-miksis",
+                                rtol=1e-8, atol=1e-10, max_steps=30_000, **guards)
+
+
+def test_the_sonic_guard_names_the_singularity_rather_than_the_step_budget(measured):
+  """What actually stops the #245 band, and why "maximum number of solver steps" misleads.
+
+  Every failure on that band ends the same way: the collapse arrests, the wall rebounds, and
+  `Rd` climbs to `Cstar` to six digits while the radius sits still and the step size falls to
+  machine epsilon. That is the Keller-Miksis denominator `(1 - Rd/c) R + 4 mu / (rho c)`
+  going to zero -- a coordinate singularity of the first-order-in-Mach form, reached from
+  below, so no step budget arrives and raising one only buys a longer grind.
+  """
+  import time
+  started = time.perf_counter()
+  with pytest.raises(pyimr.SimulationError, match="maximum number of solver steps"):
+    pyimr.simulate(_SONIC_TIMES, _sonic_config(6.81e-6))
+  unguarded = time.perf_counter() - started
+
+  started = time.perf_counter()
+  with pytest.raises(pyimr.SimulationError, match="reached max_wall_mach") as caught:
+    pyimr.simulate(_SONIC_TIMES, _sonic_config(6.81e-6, max_wall_mach=0.99))
+  guarded = time.perf_counter() - started
+  measured("sonic guard", f"{unguarded:.1f}s unguarded -> {guarded:.1f}s guarded")
+  assert guarded < unguarded, "the guard exists to stop early, not to relabel the same grind"
+  assert "keller-miksis form is singular" in str(caught.value)
+
+
+def test_no_collapse_floor_separates_what_the_sonic_guard_separates():
+  """Why this is a second knob and not a tighter `min_radius_ratio`.
+
+  The two guards do not order the same runs. A relaxation time of 1e-3 integrates cleanly
+  while 6.81e-6 dies, and the one that dies STALLS ABOVE the depth the healthy one passes
+  through -- so every floor is on the wrong side of one of them. The wall Mach number
+  separates the pair that the radius cannot.
+  """
+  shallow = {"min_radius_ratio": 0.0100}
+  # low enough to spare the healthy run, and therefore too low to fire on the failing one:
+  # asking for BOTH guards and getting the sonic message back is the proof it never fired,
+  # and costs a fifth of what letting it grind to the step limit would
+  with pytest.raises(pyimr.SimulationError, match="reached max_wall_mach"):
+    pyimr.simulate(_SONIC_TIMES, _sonic_config(6.81e-6, max_wall_mach=0.99, **shallow))
+  pyimr.simulate(_SONIC_TIMES, _sonic_config(1e-3, **shallow))
+
+  # raise it far enough to catch the failing run and it takes the healthy one with it
+  with pytest.raises(pyimr.SimulationError, match="collapsed below min_radius_ratio"):
+    pyimr.simulate(_SONIC_TIMES, _sonic_config(1e-3, min_radius_ratio=0.0105))
+
+  # the sonic guard, on the same pair, refuses one and leaves the other untouched
+  free = pyimr.simulate(_SONIC_TIMES, _sonic_config(1e-3))
+  guarded = pyimr.simulate(_SONIC_TIMES, _sonic_config(1e-3, max_wall_mach=0.99))
+  assert np.allclose(np.asarray(free.radius_ratio), np.asarray(guarded.radius_ratio))
+
+
+def _mach_config(max_wall_mach=None):
+  return pyimr.SimulationConfig(3e-4, 3e-4 / 7.0, _FLOOR_MATERIAL, dynamics="keller-miksis",
+                                rtol=1e-8, atol=1e-10, max_steps=400_000,
+                                max_wall_mach=max_wall_mach)
+
+
+def test_the_sonic_guard_is_validated_and_keys_the_compiled_program():
+  for bad in (0.0, -0.1, float("inf"), float("nan")):
+    with pytest.raises(ValueError, match="max_wall_mach"):
+      _mach_config(max_wall_mach=bad)
+  # above one is allowed rather than rejected as a typo: `rayleigh-plesset` is incompressible
+  # and has no sonic denominator, so its wall Mach genuinely exceeds one
+  _mach_config(max_wall_mach=4.0)
+
+  # the guard is baked into the traced program as an event, so it has to key the compile
+  # cache -- the permissive solve first, so a stale program would let the strict one through
+  free = pyimr.simulate(_FLOOR_TIMES, _mach_config(max_wall_mach=1.0))
+  fastest = float(np.abs(np.asarray(free.wall_velocity_m_s)).max()
+                  / pyimr.PhysicalParameters().sound_speed_m_s)
+  with pytest.raises(pyimr.SimulationError, match="reached max_wall_mach"):
+    pyimr.simulate(_FLOOR_TIMES, _mach_config(max_wall_mach=fastest / 2.0))
+
+
+def test_the_sonic_guard_is_one_sided():
+  """The inward collapse is not guarded, and that is deliberate.
+
+  `(1 - Rd/c) R` only vanishes for an OUTWARD wall; going in, the same factor grows, so a
+  supersonic collapse is far from the singularity even though a supersonic rebound is the
+  singularity. This fixture separates the two: over its accepted steps the wall reaches Mach
+  +0.312 outward and -1.117 inward, and 0.6 sits between them. A guard on `|Rd|` refuses it
+  here; a guard on `Rd` leaves it alone.
+  """
+  free = pyimr.simulate(_SONIC_TIMES, _sonic_config(1e-3))
+  guarded = pyimr.simulate(_SONIC_TIMES, _sonic_config(1e-3, max_wall_mach=0.6))
+  assert np.allclose(np.asarray(free.radius_ratio), np.asarray(guarded.radius_ratio))

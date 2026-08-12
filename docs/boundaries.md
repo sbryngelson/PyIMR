@@ -42,6 +42,37 @@ Those defects are why several PyIMR models are validated by reduction limit
 rather than against a pinned upstream trajectory: for those models, no working
 upstream implementation exists to pin against.
 
+## The sonic line
+
+The first-order-in-Mach dynamics divide by
+
+$$
+\left[1-(\lambda+1)\frac{\dot R}{c}\right]R + \frac{\text{(acceleration coefficient)}}{c},
+$$
+
+which vanishes as an **outward-moving** wall reaches $c/(\lambda+1)$ -- the sound
+speed for `keller-miksis` and `keller-enthalpy`, half of it for `herring`. Going
+inward the same factor grows, so a supersonic collapse is nowhere near the
+singularity while a supersonic rebound *is* the singularity.
+
+A stiffening law can drive a bubble there. On the #245 band a Yeoh `RelaxingMaterial`
+collapses, arrests, and rebounds onto that denominator: $\dot R$ climbs to $c$ to six
+digits while the radius sits still and the step size falls to machine epsilon. The
+solve then reports "maximum number of solver steps", which reads as a budget problem
+and is not one -- the trajectory approaches the singularity from below and never
+arrives, so no budget, tolerance, solver or quadrature setting reaches the far side.
+
+`max_wall_mach` refuses that case by name instead, as a solver event. It is off by
+default, one-sided, and deliberately **not** the same guard as `min_radius_ratio`:
+the two order runs differently. On that band a relaxation time of $10^{-3}$ integrates
+cleanly through $R/R_0 = 0.010186$, while $6.81\times10^{-6}$ dies stalled at $0.010447$
+-- *above* the depth the healthy one survives, so every radius floor is on the wrong
+side of one of them. Peak wall Mach separates the pair cleanly, $0.312$ against
+$0.99999$.
+
+Values above one are accepted rather than rejected as typos: `rayleigh-plesset` is
+incompressible, has no such denominator, and genuinely exceeds Mach one.
+
 ## Tangent equations
 
 Forward sensitivities integrate

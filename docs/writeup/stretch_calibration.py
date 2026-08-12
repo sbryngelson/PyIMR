@@ -31,7 +31,6 @@ AXES = ("mu", "galpha", "lambda1")
 
 
 def one(job):
-  import pyimr
   from pyimr.noise import lack_of_fit
   from pyimr.selection import evaluate_at, fit_candidate, physical_from_unit
 

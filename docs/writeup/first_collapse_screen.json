@@ -1,0 +1,53 @@
+{
+ "gelatin_15C": {
+  "size": 64.55482803963758,
+  "scored": {
+   "asphericity n=2 (silhouette)": 0.004231239510465796,
+   "asphericity n=2 (volume equivalent)": 0.002044323010289156,
+   "asphericity n=3 (volume equivalent)": 0.0020262977862915334,
+   "initial wall velocity -0.02": 0.3360294948225193,
+   "initial wall velocity +0.02": 0.22645596056408346
+  },
+  "joint": 0.23727286927488114,
+  "blocked": [
+   "asphericity n=2 (volume equivalent)",
+   "initial wall velocity -0.02"
+  ],
+  "first_collapse_share": 0.5749168917088192
+ },
+ "gelatin_23C": {
+  "size": 51.37016310959126,
+  "scored": {
+   "asphericity n=2 (silhouette)": 0.005688725217181145,
+   "asphericity n=2 (volume equivalent)": 0.024835809334894387,
+   "asphericity n=3 (volume equivalent)": 0.014525508874503257,
+   "initial wall velocity -0.02": 0.28911478896857495,
+   "initial wall velocity +0.02": 0.37628963121578946
+  },
+  "joint": 0.3803238903738922,
+  "blocked": [
+   "asphericity n=2 (silhouette)",
+   "asphericity n=2 (volume equivalent)",
+   "asphericity n=3 (volume equivalent)",
+   "initial wall velocity -0.02"
+  ],
+  "first_collapse_share": 0.7211119396174275
+ },
+ "gelatin_33C": {
+  "size": 25.041152019501354,
+  "scored": {
+   "asphericity n=2 (silhouette)": 7.744639512393991e-06,
+   "asphericity n=2 (volume equivalent)": 0.04963712844063757,
+   "asphericity n=3 (volume equivalent)": 0.033486410202000494,
+   "initial wall velocity -0.02": 0.19566099248135374,
+   "initial wall velocity +0.02": 0.11725847560783856
+  },
+  "joint": 0.11729824976089961,
+  "blocked": [
+   "asphericity n=2 (volume equivalent)",
+   "asphericity n=3 (volume equivalent)",
+   "initial wall velocity -0.02"
+  ],
+  "first_collapse_share": 0.5920672009224802
+ }
+}

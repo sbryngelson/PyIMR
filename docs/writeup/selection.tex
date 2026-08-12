@@ -129,6 +129,7 @@ parameters always fits at least as well as the simpler model inside it.}
 \end{figure}
 
 \section{Records and noise model}
+\label{sec:records}
 
 
 Each dataset is a set of repeated laser-induced cavitation events at one temperature,
@@ -767,7 +768,8 @@ are reported as $10^{-29}$ or smaller. Do not read these magnitudes literally.
 Evidence differences scale with sample count. With roughly $3600$ samples, a modest
 per-sample difference in fit compounds into an astronomical Bayes factor. The defensible
 reading is ordinal: the winner is decisive and the ordering means something, the magnitudes
-do not. Quote the residual $\chi^2/N$.
+do not. Quote the residual $\chi^2/N$. \Cref{sec:nats} sets out which normalisation each
+reported log evidence uses, and why numbers from different sections must not be differenced.
 
 \subsection{How good are the fits, really?}
 \label{sec:fitquality}
@@ -1310,6 +1312,52 @@ Twelve of the fifteen pairwise orderings are settled. Compressibility is require
 record. The pressure form assumed by every candidate in this package is beaten by three
 separate operators, and by Gilmore/Tait on all three records.
 
+\paragraph{Under the likelihood the residuals have, that ranking dissolves.}
+Every margin above assumes independent samples, and \cref{sec:screening} deflates such margins
+by $N/N_{\rm eff} \approx 20$. Applied here that puts Rayleigh--Plesset at $-4.0$ and $-3.8$ on
+two records --- inside the five nats \eqref{eq:screen} calls live --- while the conclusions call
+compressibility the most robust statement in this work. Both cannot stand, and the scalar is the
+wrong instrument for deciding which: it is derived for a sum of correlated terms and applied as
+though every model difference had the same shape, which \cref{sec:gain} measures they do not.
+
+So the evidences are recomputed with $\Sigma$ in the likelihood --- one exponential covariance
+per record, shared by every operator, since evidences taken under different covariances differ
+by $\log|\Sigma|$ and are not a Bayes factor at all. The correlation length is swept, because
+whitening amplifies fine structure by roughly $1/(1-\rho^2)$ and a single $\rho$ is a single
+arbitrary amplification.
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+\SI{15}{\celsius}, nats vs.\ the best & independent & $\rho=0.8$ & $\rho=0.9$ & $\rho=0.95$ & fitted \\
+\midrule
+Rayleigh--Plesset & $-185.7$ & $\mathbf{-4.3}$ & $-5.6$ & $-8.5$ & $-5.1$ \\
+Keller--Miksis & $-20.8$ & $-0.15$ & $-0.19$ & $-0.29$ & $-0.17$ \\
+Keller enthalpy/Tait & $-14.6$ & $-0.14$ & $-0.18$ & $-0.29$ & $-0.17$ \\
+Gilmore/Tait & $-2.2$ & $0$ & $0$ & $0$ & $0$ \\
+Gilmore/Mie--G & $0$ & $-0.15$ & $-0.20$ & $-0.31$ & $-0.18$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Two things change and one does not. \emph{The compressible operators become
+indistinguishable}: they span $0.31$ nats at \SI{15}{\celsius} and $0.33$ at \SI{23}{\celsius},
+against the $17.1$ and $4.2$ the independent likelihood reports. Whatever separated them was
+information the samples did not carry. And \emph{compressibility itself sits at the threshold
+rather than far above it}: Rayleigh--Plesset lands between $-3.3$ and $-9.2$ across the two
+records and the swept $\rho$, crossing the five-nat line depending on which $\rho$ is taken.
+
+What does not change is the sign. No correlated fit prefers the incompressible model, and
+Gilmore remains at or within a fifth of a nat of the top everywhere. The defensible statement is
+therefore narrower than the one above: \emph{compressibility is preferred on every record and
+decisive on none of them at \SI{15}{} or \SI{23}{\celsius}, and the six operators are not
+ordered by these data at all.}
+
+\Cref{sec:33anomaly} sets \SI{33}{\celsius} aside rather than reporting it: there
+Rayleigh--Plesset lands at $-10^4$ while two compressible operators separate by $200$ to $550$
+nats, out of family with both other records by three orders of magnitude, which is the
+signature of an ill-conditioned covariance and not of physics.
+
 \paragraph{A search budget produced an earlier answer.} At six multistart restarts the same
 comparison placed Gilmore/Tait fourth on two records and first on the third, and reported the
 operator as undetermined. It also settled no ordering at \SI{33}{\celsius}, which we read as a
@@ -1753,6 +1801,44 @@ worthless, since a ranking among wrong models is still a ranking, but it leaves 
 $\chi^2$ answers: how much of a reported parameter is physics, and how much is the model being
 the wrong shape? The question has an answer, and it is not the one an error bar gives.
 
+\paragraph{First, whether the ranking survives being wrong, which is testable and was not tested.}
+``A ranking among wrong models is still a ranking'' is a claim. Under misspecification the
+evidence rewards whichever model best ABSORBS the discrepancy, and absorption is precisely the
+mechanism \eqref{eq:biasbound} below shows biases the parameters --- so the ranking could be
+measuring absorption capacity rather than physical closeness, and nothing separates those.
+
+It separates directly. Generate from a truth the catalogue does not contain --- the two
+\cref{sec:survives} uses, thermal transport and a second relaxation mode --- rank the catalogue
+by evidence, and separately measure which candidate is genuinely closest, defined as the residual
+its OWN best fit leaves against the noiseless truth.
+
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{3}{c}{thermal truth} & \multicolumn{3}{c}{two-mode truth} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+candidate & $\log Z$ margin & rank & distance & $\log Z$ margin & rank & distance \\
+\midrule
+qSLS & $0$ & $1$ & $\mathbf{0.545}$ & $0$ & $1$ & $\mathbf{0.191}$ \\
+SLS & $-73.0$ & $2$ & $1.077$ & $-44.1$ & $2$ & $0.803$ \\
+NHKV & $-2549$ & $3$ & $4.974$ & $-2314$ & $3$ & $4.698$ \\
+qKV & $-2598$ & $4$ & $5.039$ & $-2405$ & $4$ & $4.809$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The orderings are identical: rank correlation $+1.000$ under both truths, and the
+evidence winner is the closest model in both. The demanding part of that is the bottom pair,
+whose distances differ by $1.3\%$ and which the evidence still orders correctly.
+
+Two limits on what this licenses. Both truths are drawn from physics this document already
+screens, so it tests misspecification of a KIND already considered and of a size
+\cref{sec:axes} measures at $14$ to $16$ noise units. And the catalogue's tiers are separated by
+thousands of nats, so the test is not stressed where it would be most informative --- between
+rivals a few nats apart, which is the regime \cref{sec:screening} says the operator axis is
+actually in. What it does establish is that the defence above is not merely an assertion at the
+size of error these records show.
+
 \subsection*{Half of it is invisible, and that is a theorem}
 
 Write the truth as $y = m(\theta) + \delta + \varepsilon$. Whitening by the standard error of
@@ -1909,7 +1995,51 @@ the cone they remove $15.1\%$. The other two records move by less than a point, 
 the anti-aligned candidate was small anyway --- the error is not uniform, and it is largest
 exactly where it would have mattered most.
 
-\paragraph{What this says.} Nothing on the list accounts for the discrepancy. Every genuine
+\paragraph{The list omitted the first collapse, which is where the discrepancy is.}
+Every candidate above is a bulk constitutive, transport or configuration effect, and $65$ to
+$69$ percent of $\hat\delta$ lies in the first collapse --- where \cref{sec:enrich} names
+sphericity and the far-field boundary as least secure, and then screens neither. Two
+first-collapse candidates, on the same cone and the same footing:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+candidate & \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
+\midrule
+asphericity $n=2$ (silhouette) & $0.4\%$ & $0.6\%^\dagger$ & $0.0\%$ \\
+asphericity $n=2$ (volume equivalent) & $0.2\%^\dagger$ & $2.5\%^\dagger$ & $5.0\%^\dagger$ \\
+asphericity $n=3$ (volume equivalent) & $0.2\%$ & $1.5\%^\dagger$ & $3.3\%^\dagger$ \\
+initial wall velocity $+0.02$ & $\mathbf{22.6\%}$ & $\mathbf{37.6\%}$ & $\mathbf{11.7\%}$ \\
+initial wall velocity $-0.02$ & $33.6\%^\dagger$ & $28.9\%^\dagger$ & $19.6\%^\dagger$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent $^\dagger$ anti-aligned, so no admissible amplitude removes anything; the signed pair
+on the last two rows is one candidate screened in both directions.
+
+The shape modes are integrated from \citet{plesset1954stability} along the fitted trajectory,
+$\ddot a_n + 3(\dot R/R)\dot a_n = A_n a_n$ with
+$A_n = (n-1)\ddot R/R - (n-1)(n+1)(n+2)\sigma/(\rho R^3)$, and screened under both imaging
+conventions because what a shape mode does to a REPORTED radius depends on whether the
+instrument returns a silhouette or a volume equivalent --- an assumption, so both are shown.
+
+\emph{Asphericity is not it.} At most $5\%$, anti-aligned on most records, and smaller than
+thermal transport. That is worth knowing precisely because it was the obvious suspect.
+
+\emph{The initial condition is the largest single candidate ever screened here.} Every fit in
+this document starts the bubble at $R_{\max}$ with zero wall velocity, which asserts that the
+imaged maximum is a turning point of a free collapse. A laser deposits energy; it need not be.
+Releasing that assumption reaches $37.6\%$ of $\hat\delta$, against $23.7\%$ for the initial
+radius and $6.5\%$ for the best genuine-physics entry on the original list.
+
+Read with \cref{sec:reqprior}, the two point the same way. The largest entry on the old list was
+the initial radius and the largest on the new one is the initial velocity; both are the initial
+condition rather than the material. The discrepancy this document has been attributing to
+constitutive incompleteness is, on the evidence of its own screen, better aimed at how the
+records begin.
+
+\paragraph{What this says.} Nothing on the constitutive or transport list accounts for the discrepancy. Every genuine
 physics candidate is small --- thermal transport between $1.9$ and $6.5$ percent, mass transfer
 below $2.4$, the operator below $7.7$ --- and taken \emph{all together} on the reachable cone
 they leave between $75$ and $85$ percent of $\hat\delta$ unexplained on every record. The
@@ -1937,6 +2067,34 @@ optimises a quantity whose parameters carry this budget --- which is the gap
 
 \section{Experimental design}
 \label{sec:design}
+
+\subsection*{One assumption carries this whole chapter}
+\label{sec:transfer}
+
+Every design below is scored at geometries nobody has run, over $R_{\max}$ from \SI{50}{} to
+\SI{1200}{\micro\metre}. The records span \SI{277}{}, \SI{298}{} and \SI{312}{\micro\metre} --- a
+twelve percent range. So the chapter extrapolates by a factor of twenty-four in the one variable
+it optimizes, and three separate quantities have to be carried out there with it: the noise
+profile $\sigma$, the correlation length $\tau$, and the discrepancy $\hat\delta$.
+
+Each is carried by \emph{phase} rather than by clock time, $t/t_c$, on the argument that all
+three are properties of the collapse and not of the apparatus. That argument is supported. It is
+not established, and the distinction matters enough to state once rather than three times in
+passing.
+
+What supports it is that each transfer was tested for consistency across the records, and each
+passed: median-filtered $\sigma$ profiles bring all three records to the same recommended
+geometry (\cref{sec:noisedesign}), and the three $\hat\delta$ overlap at $0.44$ to $0.81$ against
+$0.05$ for unrelated curves (\cref{sec:deltadesign}). Transfer by absolute time fails the same
+test, and fails it for a statable reason --- $t_c$ spans a factor of twenty-four across the
+candidates, so a fixed clock time lands at a different point of every collapse.
+
+What that evidence cannot do is test the extrapolation actually being made. The three records
+differ in \emph{temperature}, not in size. Agreement among them says the transfer is not
+sensitive to the material changing; it says nothing about a bubble four times larger, because no
+such bubble has been recorded. Everything downstream --- the certified measures, the batch
+tables, the run budgets --- is conditional on this, and the first experiment run at a genuinely
+different $R_{\max}$ tests it directly and cheaply.
 
 \subsection*{Designing without assuming the model}
 
@@ -2878,7 +3036,8 @@ those differences rather than a property of the likelihood.
 \paragraph{Applied rather than quoted, it changes neither the design nor, here, its sign.}
 The paragraph above is a statement about idealized shapes. Recomputing every geometry with
 $M = J^{\mathsf T}\Sigma^{-1}J$ at $\tau/t_c = 0.292$ --- the correlation length transferred by
-phase, for the reason \cref{sec:noisedesign} gives for $\sigma$ --- settles what it does to the
+phase, for the reason \cref{sec:noisedesign} gives for $\sigma$ and under
+\cref{sec:transfer}'s caveat --- settles what it does to the
 answer, and the answer is two negatives and one positive.
 
 The recommended geometry does not move, under any of the three measured noise profiles: the
@@ -3305,7 +3464,8 @@ attributes to choosing the geometry at every price below about $400$ frames a bu
 batch to five settings, so \eqref{eq:lackoffit} keeps a numerator, costs $0.008$ to $0.034$.
 
 $\Sigma$ is the assumption, and it is both weaker and less load-bearing than the paragraph above
-assumed. Weaker, because $\Sigma$ is a population covariance of \emph{material} parameters --- a
+assumed --- though it inherits the standing caveat of \cref{sec:transfer} like everything else
+here. Weaker, because $\Sigma$ is a population covariance of \emph{material} parameters --- a
 property of the gel and of how repeatably the laser nucleates, not of how large the bubble is ---
 and the three records measuring it differ in \emph{temperature}, not geometry, sitting at $277$,
 $298$ and \SI{312}{\micro\metre}. There is no evidence of geometry dependence because geometry
@@ -3467,8 +3627,8 @@ is the part of the discrepancy a design can \emph{see} rather than absorb. The t
 same way, which is what makes it worth having: testing the model wants $\hat\delta$ visible, and
 keeping the parameters clean wants it unabsorbed, and both are the same angle.
 
-Carrying it to an unrun geometry needs the transfer of \cref{sec:noisedesign}, and the premise is
-checkable rather than assumed. Resampled onto a common $t/t_c$ grid, the three records'
+Carrying it to an unrun geometry needs the transfer of \cref{sec:noisedesign}, under the standing
+caveat of \cref{sec:transfer}, and the premise is checkable rather than assumed. Resampled onto a common $t/t_c$ grid, the three records'
 $\hat\delta$ overlap at $0.44$, $0.42$ and $0.81$ against $0.05$ for unrelated curves of that
 length --- the same test, and the same verdict, that justified transferring $\sigma$ by phase.
 
@@ -3558,6 +3718,23 @@ the transfer it rests on is supported rather than established.
 
 \subsection{Limitations of this work}
 \label{sec:limitations}
+
+\paragraph{The \SI{33}{\celsius} correlated fits are not usable.}
+\label{sec:33anomaly}
+Recomputing the operator evidences with $\Sigma$ in the likelihood behaves on two records and
+not on the third. At \SI{15}{} and \SI{23}{\celsius} the compressible operators collapse to
+within a third of a nat of each other and Rayleigh--Plesset lands a few nats below, which is a
+sensible picture of data that cannot order six similar equations. At \SI{33}{\celsius} the same
+computation puts Rayleigh--Plesset at $-1.1\times10^{4}$ to $-2.8\times10^{4}$ and separates two
+compressible operators by $200$ to $550$ nats.
+
+Three orders of magnitude out of family with the other two records is not a physical result. The
+mechanism is visible in the construction: whitening by an exponential covariance amplifies
+whatever fine structure a residual has by about $1/(1-\rho^2)$, and a residual with a little
+high-frequency content left in it therefore produces an enormous $\chi^2$ that says more about
+the conditioning of $\Sigma$ than about the model. The record with the fewest trials --- seven
+against eighteen --- has the noisiest spread and so the least reliable whitening. These numbers
+are reported here so they are not mistaken for evidence, and excluded from every conclusion.
 
 \paragraph{The dropped points are outside the model, not outside the solver.}
 Roughly one point in six of the winner's parameter box cannot be integrated, and that is not
@@ -3802,6 +3979,50 @@ one -- the evidence rises when a useless parameter is added. Capping each direct
 its second arm did nothing.}
 \label{fig:occam}
 \end{figure}
+
+\subsection{What a nat means here}
+\label{sec:nats}
+
+Three sections report a log evidence for the same model on the same record and they disagree by
+a factor of four: $-2289.86$ from the grid quadrature, $+529.26$ from the capped Laplace
+expansion of \cref{sec:enrich}, and $+2173.55$ from the sequential Monte Carlo of
+\cref{sec:limitations}. Every threshold in this document is stated in nats, so this has to be
+said rather than left to inference.
+
+An evidence is defined only up to the normalisation of its likelihood, and the term that moves
+is $-\tfrac12\sum_i \log(2\pi\sigma_i^2)$. Recomputed at one fit on the \SI{15}{\celsius}
+record:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+$\sigma$ convention & $\chi^2/N$ & $-\chi^2/2$ & $-\tfrac12\sum\log 2\pi\sigma^2$ & Occam & $\log Z$ \\
+\midrule
+trial spread & $0.971$ & $-97.6$ & $+640.6$ & $-15.9$ & $\mathbf{527.1}$ \\
+standard error, $/\sqrt{18}$ & $17.478$ & $-1756.6$ & $+931.1$ & $-20.3$ & $-845.7$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The two conventions differ by $1373$ nats on one residual --- $290$ of it the
+$N\log\sqrt{J}$ shift and the rest the $\chi^2$, which scales by $J$ rather than shifting. This
+is the same choice \cref{sec:latent} shows moving $\chi^2/N$ from $0.974$ to $17.54$, and it
+moves $\log Z$ far more.
+
+Against that decomposition the three reported numbers resolve as follows. The capped Laplace is
+reproduced to $2.15$ nats, so \cref{sec:enrich} uses the trial spread and the expansion of
+\eqref{eq:occam-capped}. The grid quadrature is not this integral at all: \cref{sec:records}
+adds a marginalised noise scale, a redundancy weight and a BIC-style penalty, and quadratures a
+box rather than expanding about a mode, which accounts for its being $2817$ nats away. The
+sequential Monte Carlo sits $1646$ above the Laplace on the same convention and is \emph{not}
+reconciled here.
+
+What saves the document's conclusions is that every comparison it draws is made \emph{within}
+one pipeline --- SMC against SMC for the $101.6$-nat constitutive gap, Laplace against Laplace
+for the enrichment margins. Those are valid. What is not valid, and what a reader should not
+attempt, is differencing a number from one section against a number from another. The five-nat
+threshold of \eqref{eq:screen} is meaningful only against margins computed the same way, and it
+is applied to Laplace-scale margins throughout.
 
 \subsection{Capping the Occam factor at the prior}
 \label{sec:occam-cap}

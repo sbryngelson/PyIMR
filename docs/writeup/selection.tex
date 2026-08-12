@@ -1620,28 +1620,38 @@ record & stored stretch & implied & offset & $\chi^2/N$ & lack of fit \\
 \end{tabular}
 \end{center}
 
-\noindent Every record wants a larger equilibrium radius, by three to eleven percent against the
-\SI{1.68}{\percent} this section opens by calling worth an operator change.
+\noindent Every record prefers a larger equilibrium radius, by three to eleven percent against
+the \SI{1.68}{\percent} this section opens by calling worth an operator change.
 
-The direction of the evidence is that this is calibration and not the model helping itself to
-one more parameter. $\chi^2$ alone cannot tell those apart --- any added freedom lowers it ---
-but lack of fit can, because replicates supply pure error that costs no model. It falls on every
-record, and falls proportionally FURTHER than $\chi^2$ does: by factors of $0.52$, $0.73$ and
-$0.83$ against $0.65$, $0.88$ and $0.86$. Systematic misfit is genuinely reduced, not
-redistributed.
+\paragraph{Read against the source, most of that is not an offset.} The stretch is not a single
+measurement. \citet{abeid2024experimental} tabulate it as a mean over the experiments in each
+bin, with a spread: $7.09 \pm 0.36$ over $18$ events, $7.37 \pm 1.28$ over $14$, and
+$6.83 \pm 0.49$ over $7$. Against those the preferred values sit at $1.9$, $0.45$ and $0.49$
+standard deviations. Only \SI{15}{\celsius} is outside the tabulated uncertainty at all, and it
+is marginal.
 
-Two things stop that from being a licence to overwrite the stored numbers, and both are reasons
-to leave them and report this instead. The offsets are not one convention error --- they differ
-by a factor of three across records, so nothing derivable explains them all. And lack of fit
-still rejects after the correction, at $8.80$, $2.15$ and $1.49$, so the model remains wrong and
-some part of what $R_{\rm eq}$ absorbed was its error rather than the apparatus's. Replacing a
-recorded quantity with one inferred from the model under test would make every later fit partly
-circular, and the honest resolution is to re-derive the stretch from the source measurement.
+The definition matches too, which was the other thing worth checking. That source defines
+$R_\infty$ as the equilibrium bubble-wall radius --- the quantity the solver wants --- so the
+ratio is not a different measurement pressed into service, and there is no unit or convention
+error to correct.
+
+So the honest reading is not that the stretch is wrong. It is that a \emph{population mean is
+being applied to every trial}, and the population is wide: the same table reports $R_{\max}$ at
+$277\pm48$, $298\pm59$ and $312\pm32$ \si{\micro\metre}, so individual bubbles differ by ten to
+twenty percent in the absolute scale that sets the Reynolds, Weber and Deborah groups. Every fit
+in this document uses one value for all of them.
+
+Two consequences follow. The per-trial spreads of \cref{sec:latent} --- $1.9$, $6.7$ and $3.1$
+percent in $R_{\rm eq}$ --- are \emph{smaller} than the scatter the source reports for the same
+quantity, so they are consistent with it rather than evidence of anything new. And the absolute
+$R_{\max}$ of each event, which varies by more than the ratio does, is not fitted anywhere here
+and is not recoverable from the traces, since each is normalized by its own maximum before it
+reaches us.
 
 What must be said plainly is what the reported parameters rest on. Freeing $R_{\rm eq}$ moves
 $\mu$ by $11$ to $23$ percent and $g\alpha$ by $9$ to $41$, and it moves $\lambda_1$ by a factor
-of \emph{five and a half} at \SI{15}{\celsius}. The relaxation times in this document are
-conditional on a stretch that three records agree is too large.
+of \emph{five and a half} at \SI{15}{\celsius}. Those are the numbers this document reports, and
+they are conditional on a stretch known only to $\pm 5$ to $\pm 17$ percent.
 
 \section{Scoring the thermal treatment}
 \label{sec:thermal}

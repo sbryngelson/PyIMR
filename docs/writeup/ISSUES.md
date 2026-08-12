@@ -266,7 +266,9 @@ its shape (|cos| between the mode before and after of **0.987** and **0.943**) a
 *larger* share of the reduced residual (0.681 → 0.772, 0.720 → 0.835). An absorbed mode
 collapses; these do not. Only 15 °C partially absorbs (0.539 → 0.412 at |cos| 0.699).
 
-**But the first version of that test had a gap, and the claim was too strong.** It fitted
+**And a claim I made from it was wrong — see the note at the end of this section.**
+
+**The first version of that test had a gap, and the claim was too strong.** It fitted
 `(mu, galpha, lambda1)` — material axes — with `Req` pinned at `maximum/stretch` for every
 trial, so it could not have absorbed variation in the initial condition. That matters here
 specifically: the mode is 97–98% post-collapse and the afterbounce period is set by `Req`, which
@@ -417,3 +419,45 @@ The ledger has shifted since the first version. §3.2 was the weakest link and n
 conclusions it threatened; §3.1's hypothesis is refuted rather than merely unconfirmed; and
 §3.4 — an allocation question raised in passing — turns out to be worth more than every
 geometry effect in Part 1 combined.
+
+
+---
+
+## Postscript: a claim of mine that the source data refuted
+
+Worth recording separately because it went into the document before it was checked.
+
+From the one-sided pinning in the `Req` refits I concluded the stored stretch was "too large on
+every record" and wrote that into `sec:reqprior`. Chasing the provenance to
+`paper_imr_windowing` refuted it on two counts.
+
+**The definition is right.** That source defines `R_∞` as the *equilibrium bubble-wall radius* —
+exactly the quantity the solver wants — so the loader handing `R_max/stretch` to `Req` is
+correct. There is no convention error.
+
+**The offsets are mostly inside the tabulated uncertainty.** The stretch is a mean over the
+events in each bin, with a spread:
+
+| record | fitted | tabulated | deviation | N |
+|---|---|---|---|---|
+| 15 °C | 6.40 | 7.09 ± 0.36 | 1.9σ | 18 |
+| 23 °C | 6.80 | 7.37 ± 1.28 | **0.45σ** | 14 |
+| 33 °C | 6.59 | 6.83 ± 0.49 | **0.49σ** | 7 |
+
+Only 15 °C sits outside at all, marginally. Two of three are well within.
+
+**What is actually true**, and what `sec:reqprior` now says: a *population mean is applied to
+every trial*. The same table gives `R_max` as 277±48, 298±59, 312±32 µm — individual bubbles
+differ by 10–20% in the absolute scale that sets the Reynolds, Weber and Deborah groups, and one
+value is used for all of them. The per-trial `Req` spreads (1.9%, 6.7%, 3.1%) are *smaller* than
+the source's own scatter, so they corroborate it rather than showing anything new.
+
+**Still open, and now better posed:** per-event `R_max` varies more than the ratio does, is not
+fitted anywhere, and is not recoverable from the traces, since each is normalised by its own
+maximum before it reaches this repository. That is a live candidate for §3.1's dominant mode and
+it needs the un-normalised radii.
+
+**The lesson.** Two tests agreed the fits wanted a larger `Req`, and I read agreement between
+two model-based tests as convergence on a fact about the apparatus. Neither could see the
+tabulated uncertainty, because neither had the source. Checking provenance before writing a
+calibration claim would have cost one `grep`.

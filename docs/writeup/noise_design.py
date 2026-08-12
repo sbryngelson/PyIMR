@@ -145,7 +145,16 @@ def main():
   print(f"  the profiled models agree with each other on "
         f"{max(others.count(o) for o in set(others))} of {len(others)} -- so the flat scale is")
   print("  the outlier, not one eccentric record. The noise model changes the recommendation.")
-  json.dump(table, open(records.HERE / "noise_design.json", "w"), indent=1)
+  # summaries only: the per-candidate landscapes run to thousands of lines and nothing reads
+  # them, while every number this section quotes is a pick or a regret
+  json.dump({m: {"best": {"radius_m": values[picked[m]]["radius_m"],
+                          "stretch": values[picked[m]]["stretch"],
+                          "gain": float(arrays[m][picked[m]])},
+                 "regret_of_constant": float(arrays[m][picked[m]]
+                                             - arrays[m][picked["constant"]]),
+                 "gain_range": [float(arrays[m].min()), float(arrays[m].max())]}
+             for m in models},
+            open(records.HERE / "noise_design.json", "w"), indent=1)
 
 
 if __name__ == "__main__":

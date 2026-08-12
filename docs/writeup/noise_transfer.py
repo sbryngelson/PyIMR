@@ -118,9 +118,11 @@ def main():
   print(f"\n  absolute time, for contrast, picks "
         f"{len({picks[(d, 'absolute')] for d in records.DATASETS})} geometry across all three")
   print("  and is wrong for a statable reason: it transfers the profile to the wrong phase.")
-  json.dump({"gains": table, "constant": constant.tolist(),
-             "picks": {f"{d}|{k}": v for (d, k), v in picks.items()},
-             "constant_pick": base}, open(records.HERE / "noise_transfer.json", "w"), indent=1)
+  json.dump({"picks": {f"{d}|{k}": {"radius_m": points[v][0], "stretch": points[v][1],
+                                    "agrees_with_constant": v == base}
+                       for (d, k), v in picks.items()},
+             "constant_pick": {"radius_m": points[base][0], "stretch": points[base][1]}},
+            open(records.HERE / "noise_transfer.json", "w"), indent=1)
 
 
 if __name__ == "__main__":

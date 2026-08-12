@@ -118,10 +118,11 @@ def main():
       note = "-- (it is the choice)" if model == "constant" else f"{regret:+.4f} nats on {key}"
       print(f"  {model:13s} {settings:9d} {lack_df:8d} {own['material']:9.3f} "
             f"{own['operator']:9.3f} {note:>23s}")
+    # the visited settings, not the 227-long count vector that is mostly zeros
     results[label] = {
-      model: {"counts": chosen[model].counts.tolist(),
-              "table": [(points[i][0], points[i][1], int(n))
-                        for i, n in enumerate(chosen[model].counts) if n > 0]}
+      model: {"table": [(points[i][0], points[i][1], int(n))
+                        for i, n in enumerate(chosen[model].counts) if n > 0],
+              "settings": int(np.count_nonzero(chosen[model].counts))}
       for model in models}
     same = sum(np.array_equal(chosen[m].counts, chosen["constant"].counts)
                for m in models if m != "constant")

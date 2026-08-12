@@ -120,7 +120,15 @@ def main():
   print(f"    argmax B: R_max {values[best_b]['radius_m'] * 1e6:.1f} um at stretch "
         f"{values[best_b]['stretch']:.2f}")
 
-  json.dump(table, open(records.HERE / "gain_ceiling.json", "w"), indent=1)
+  ratio_all = bounds / gains
+  json.dump({"candidates": len(values),
+             "ratio": {"median": float(np.median(ratio_all)), "min": float(ratio_all.min()),
+                       "max": float(ratio_all.max()),
+                       "corr_with_U": float(np.corrcoef(ratio_all, gains)[0, 1])},
+             "U_range": [float(gains.min()), float(gains.max())],
+             "dominated_by_best_U": int(np.sum(bounds < gains.max())),
+             "best": {k: values[order[0]][k] for k in ("radius_m", "stretch", "U", "B")}},
+            open(records.HERE / "gain_ceiling.json", "w"), indent=1)
 
 
 if __name__ == "__main__":

@@ -1012,6 +1012,12 @@ trial's measurement noise is not separable from the trial spread with this data,
 weighted by a scale that already contains what is being estimated. They are nonetheless the
 first direct measurement of $\Sigma$ here, and \cref{sec:allocation} is what they buy.
 
+One entry has to be read with \cref{sec:reqprior}. Fitting $R_{\rm eq}$ per trial over a box
+wide enough that nothing is cut off gives spreads of $1.9$, $6.7$ and $3.1$ percent about
+medians of $1.099$, $1.063$ and $1.032$ --- so most of what a narrow box would have called
+scatter in the initial condition is a common offset in the stored stretch, and only the
+remainder belongs in $\Sigma$.
+
 \paragraph{It is not what makes the residuals correlated.}
 The natural hypothesis is that the lag-one correlation of the fit residual is this same
 effect. Whitening by~\eqref{eq:hierarchical} tests it directly:
@@ -1595,6 +1601,47 @@ falls from $0.97$ to $0.62$ at \SI{15}{\celsius}, $1.03$ to $0.90$ at \SI{23}{\c
 $0.44$ to $0.38$ at \SI{33}{\celsius}. That the offset shrinks as the gel warms is a pattern
 we can measure but not yet explain, and it is larger than the \SI{1.68}{\percent} that makes
 $R_{\mathrm{eq}}$ worth as much as the operator choice.
+
+\subsection*{Where it actually wants to sit}
+
+The sweep above asks whether a conclusion survives letting $R_{\rm eq}$ float. It never asks
+where $R_{\rm eq}$ goes, and the answer is not the stored value. Fitting it on the mean trace of
+each record over a box wide enough that nothing is cut off:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+record & stored stretch & implied & offset & $\chi^2/N$ & lack of fit \\
+\midrule
+\SI{15}{\celsius} & $7.09$ & $6.40$ & $\mathbf{+10.8\%}$ & $0.971 \to 0.632$ & $16.79 \to 8.80$ \\
+\SI{23}{\celsius} & $7.37$ & $6.80$ & $+8.3\%$ & $1.029 \to 0.901$ & $2.95 \to 2.15$ \\
+\SI{33}{\celsius} & $6.83$ & $6.59$ & $+3.6\%$ & $0.439 \to 0.379$ & $1.80 \to 1.49$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Every record wants a larger equilibrium radius, by three to eleven percent against the
+\SI{1.68}{\percent} this section opens by calling worth an operator change.
+
+The direction of the evidence is that this is calibration and not the model helping itself to
+one more parameter. $\chi^2$ alone cannot tell those apart --- any added freedom lowers it ---
+but lack of fit can, because replicates supply pure error that costs no model. It falls on every
+record, and falls proportionally FURTHER than $\chi^2$ does: by factors of $0.52$, $0.73$ and
+$0.83$ against $0.65$, $0.88$ and $0.86$. Systematic misfit is genuinely reduced, not
+redistributed.
+
+Two things stop that from being a licence to overwrite the stored numbers, and both are reasons
+to leave them and report this instead. The offsets are not one convention error --- they differ
+by a factor of three across records, so nothing derivable explains them all. And lack of fit
+still rejects after the correction, at $8.80$, $2.15$ and $1.49$, so the model remains wrong and
+some part of what $R_{\rm eq}$ absorbed was its error rather than the apparatus's. Replacing a
+recorded quantity with one inferred from the model under test would make every later fit partly
+circular, and the honest resolution is to re-derive the stretch from the source measurement.
+
+What must be said plainly is what the reported parameters rest on. Freeing $R_{\rm eq}$ moves
+$\mu$ by $11$ to $23$ percent and $g\alpha$ by $9$ to $41$, and it moves $\lambda_1$ by a factor
+of \emph{five and a half} at \SI{15}{\celsius}. The relaxation times in this document are
+conditional on a stretch that three records agree is too large.
 
 \section{Scoring the thermal treatment}
 \label{sec:thermal}

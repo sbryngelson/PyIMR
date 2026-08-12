@@ -1,0 +1,41 @@
+{
+ "gelatin_15C": {
+  "stored_stretch": 7.09,
+  "mean_req_scale": 1.1076154014494861,
+  "implied_stretch": 6.401138870696126,
+  "mean_chi2": 0.6317373947270959,
+  "trial_median": 1.0985429933355828,
+  "trial_spread": 0.019185473397099917,
+  "trial_range": [
+   1.061663192072187,
+   1.1405069849464697
+  ],
+  "still_pinned": 0
+ },
+ "gelatin_23C": {
+  "stored_stretch": 7.37,
+  "mean_req_scale": 1.0830707121861016,
+  "implied_stretch": 6.8047265216175745,
+  "mean_chi2": 0.9010917420744384,
+  "trial_median": 1.062995307285055,
+  "trial_spread": 0.06660702296600124,
+  "trial_range": [
+   0.9504090233774392,
+   1.164009762932381
+  ],
+  "still_pinned": 0
+ },
+ "gelatin_33C": {
+  "stored_stretch": 6.83,
+  "mean_req_scale": 1.0360756259967792,
+  "implied_stretch": 6.592182876060857,
+  "mean_chi2": 0.37928249288009225,
+  "trial_median": 1.032173344091369,
+  "trial_spread": 0.030706274978279515,
+  "trial_range": [
+   0.9997790673910383,
+   1.0938567424774401
+  ],
+  "still_pinned": 0
+ }
+}

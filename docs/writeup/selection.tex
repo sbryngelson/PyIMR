@@ -3166,6 +3166,46 @@ standing caveat of \cref{sec:transfer}: whether a laser produces the same spread
 nobody has run is exactly the kind of transfer this chapter cannot verify from three records at
 one size.
 
+\paragraph{So should the scatter be paid to remove? No.}
+The obvious follow-on is an investment question: a steadier laser or a better-controlled
+nucleation site tightens the scatter, so how many nats does that buy? Priced on the same grid,
+sweeping the coefficient of variation with the other coordinate held at its measured value:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+$R_{\max}$ cv & best single setpoint & delivered & under an optimal measure \\
+\midrule
+$0$ (perfect) & \SI{531}{\micro\metre} & $9.100$ & $\mathbf{10.434}$ \\
+$0.10$ & \SI{576}{\micro\metre} & $9.124$ & $10.365$ \\
+$0.25$ (measured) & \SI{736}{\micro\metre} & $9.623$ & $10.242$ \\
+$0.50$ & \SI{678}{\micro\metre} & $9.760$ & $10.049$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The two columns disagree in \emph{sign}, and which one applies is the whole point. Run
+as a single setting, scatter \emph{helps} --- perfect control is worth $-0.523$ nats, because the
+laser's imprecision accidentally spreads a design that would otherwise be a point, and
+\cref{sec:measure} is an argument that spread designs beat points. Run as a measure, scatter
+hurts: perfect control is worth $+0.191$.
+
+The sign of the second column is not a measurement but a theorem. The reachable
+$\mathbb{E}[M]$ under any scatter is a convex combination of $\{M(x)\}$, hence inside the hull
+that \eqref{eq:equivalence} already optimises over, so a measure can emulate any scatter and
+cannot do worse. Only the \emph{magnitude} is informative --- and the magnitude is what settles
+the investment.
+
+$0.191$ nats is small. It is less than restoring testability ($0.24$), a seventh of choosing the
+geometry under the right noise model ($1.34$), a sixth of merely accounting for the scatter
+(\cref{sec:setpoint}, $1.118$), and a twentieth of the bubbles-against-frames split
+(\cref{sec:allocation}, $3.93$). Perfect control of the stretch is worth less still, $+0.100$.
+
+\emph{Account for the scatter; do not pay to remove it.} Designing as though the setpoint were
+exact costs about a nat, and fixing that is free. Making the bubbles actually alike costs an
+apparatus and returns a fifth of a nat, because a certified measure wants a spread anyway and is
+largely indifferent to who chooses it.
+
 \paragraph{What this does not fix.}
 Three limitations, stated plainly. The information matrices are evaluated at a point estimate
 of $\theta$, so the design is locally optimal in the parameters though globally optimal in

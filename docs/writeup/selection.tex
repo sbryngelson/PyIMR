@@ -1163,8 +1163,8 @@ left with, the processing normalises by the first, and the mode is what the seco
 \paragraph{It does not carry to the records this document fits, and that is the finding.}
 The acquisition file and these records are \emph{different experiments}. The file is a
 temperature sweep of \texttt{pa5} events at $R_{\max}$ near \SI{310}{\micro\metre} and stretch
-near $8.1$; the records come from \citet{abeid2024experimental} at $277$, $298$ and
-\SI{312}{\micro\metre} and stretches $7.09$, $7.37$ and $6.83$. A mechanism shown on one is a
+near $8.1$; the records are the \emph{gelatin} rows of the same study \citep{chu2026limits},
+at $277$, $298$ and \SI{312}{\micro\metre} and stretches $7.09$, $7.37$ and $6.83$. A mechanism shown on one is a
 hypothesis about the other until it is run on the other, so it was:
 
 \begin{center}
@@ -1220,12 +1220,27 @@ takes $\lvert\cos\rvert$ from about $0.83$ down to $0.26$--$0.50$, and it makes 
 $10\%$ of the time. Observing that on two records of three is a one to three percent event under
 this explanation.
 
-So neither resolution nor replication accounts for it, and what remains is the experiment. The
-sweep is a different material at a different stretch, processed by the same pipeline; the mode
-each dataset shows under the inertial clock looks alike --- both dilation-aligned --- and only one
-of them is a two-timescale clock error. They may not be the same phenomenon at all, which is a
-sharper statement than this section could make before and a worse one for anybody hoping a
-processing change fixes these records.
+So neither resolution nor replication accounts for it, and what remains is the material.
+
+\emph{And the two materials are named in the source.} \Citet{chu2026limits} tabulate three
+formulations: stiff PAAm ($5\%$ acrylamide with $0.3\%$ bis), soft PAAm ($5\%/0.03\%$), and
+gelatin $5\%$. The acquisition file is the PAAm sweep --- its events are named for their bis
+fractions and its stretch of $8.1$ matches the tabulated $7.93$ to $8.36$ --- while the three
+records fitted here are the gelatin rows at $7.09$, $7.37$ and $6.83$. The materials were chosen
+for exactly this contrast: PAAm is expected to be insensitive to temperature over the range
+studied, and \emph{gelatin is expected to undergo a phase transition near \SI{30}{\celsius}}.
+
+That turns the discrepancy from an unexplained difference into a physical hypothesis, and the
+direction is right. The warp works on PAAm at every temperature, and on gelatin only at
+\SI{33}{\celsius} --- the one record above its transition, where the gel is softest and closest
+to a simple viscous medium. Below it, where the network is firm, the afterbounce does not behave
+as a second clock.
+
+Two further facts from the same source sharpen it and are not resolved here. The gelatin bins at
+$24.4$ and \SI{32.8}{\celsius} were reached on the \emph{cooling} branch after equilibration at
+\SI{60}{\celsius}, while the \SI{14.7}{\celsius} bin was reached on the warming branch from
+about \SI{5}{\celsius} --- so those records differ in thermal history as well as in temperature.
+And every bin carries a $\pm\SI{2}{\celsius}$ tolerance, so each is itself a small sweep.
 
 \paragraph{One candidate can be eliminated, and one new limit falls out.} Both $R_{\max}$ and
 $R_{\rm eq}$ are \emph{fitted} rather than read off --- the first by a fourth-order polynomial
@@ -1963,9 +1978,10 @@ record & stored stretch & implied & offset & $\chi^2/N$ & lack of fit \\
 the \SI{1.68}{\percent} this section opens by calling worth an operator change.
 
 \paragraph{Read against the source, most of that is not an offset.} The stretch is not a single
-measurement. \citet{abeid2024experimental} tabulate it as a mean over the experiments in each
-bin, with a spread: $7.09 \pm 0.36$ over $18$ events, $7.37 \pm 1.28$ over $14$, and
-$6.83 \pm 0.49$ over $7$. Against those the preferred values sit at $1.9$, $0.45$ and $0.49$
+measurement. \citet{chu2026limits} tabulate it as a mean over the experiments in each bin, with
+a spread: $7.09 \pm 0.36$ over $18$ events, $7.37 \pm 1.28$ over $14$, and $6.83 \pm 0.49$ over
+$7$. (Nucleation and imaging follow \citet{abeid2024experimental}; the tabulated quantities are
+that study's own.) Against those the preferred values sit at $1.9$, $0.45$ and $0.49$
 standard deviations. Only \SI{15}{\celsius} is outside the tabulated uncertainty at all, and it
 is marginal.
 

@@ -1135,3 +1135,107 @@ the estimation.** Take a small β, not a balanced one.
 each other" — was constructed from one radius and did not survive the full scan. Every prior
 instance this session had the same shape: a result that resolves neatly is the one to run
 completely before writing down.
+
+## Part 11 — the data was already here
+
+Two things I said were blocked on data nobody had handed over. Both were runnable from
+`~/fastscratch/imr-data-tempsweeps/data`, which holds 192 files. This document was using three.
+
+### The third explanation, the material, is now tested directly
+
+`docs/writeup/material_clock.py`. §twotime found the warp removes half the gelatin trial
+variance while *strengthening* the dilation signature on two records of three, and named three
+possible reasons: time resolution, replicate count, and the experiment itself. It eliminated the
+first two and left the third open.
+
+The third is testable with files already on disk. The processed per-trial traces for **both**
+materials sit in the same directory in the same format — a normalised clock in column zero, one
+`R/R_max` trace per column — and, decisively, **at the same sampling step** (`dt = 0.025`). So
+the PAAm arm can be run through the identical warp, sham and diagnostic: 249 events against
+gelatin's 39, with resolution and processing held fixed by construction rather than by argument.
+
+The gelatin columns below reproduce §twotime's table to three digits from an independently
+written loader, which is worth having as a check but is not the new result.
+
+| record | material | n | variance removed | \|cos\| before → after |
+|---|---|---|---|---|
+| gelatin 15 °C | gelatin | 18 | 48.5% | 0.706 → 0.877 |
+| gelatin 23 °C | gelatin | 14 | 40.6% | 0.610 → 0.855 |
+| gelatin 33 °C | gelatin | 7 | 70.1% | 0.812 → **0.020** |
+| PAAm 0.5% | PAAm | 52 | 77.1% | 0.956 → 0.845 |
+| PAAm 0.5% sweep | PAAm | 117 | 72.9% | 0.874 → 0.285 |
+| PAAm 0.5/0.03% sweep | PAAm | 80 | 67.1% | 0.975 → 0.804 |
+| **gelatin** | | **39** | **49.5%** | 0.691 → 0.716 |
+| **PAAm** | | **249** | **71.9%** | 0.923 → 0.568 |
+
+**The reduction is entirely earned.** The sham — each event warped with another event's knot
+*pair*, so the knot geometry stays realistic and only the match to the event is broken —
+*increases* the variance in all six records. Two fitted knots buy nothing for free here.
+
+**The material explanation survives, and it is now the only one left standing.** §twotime
+eliminated resolution by arithmetic and replicate count by resampling; this eliminates processing
+and sampling by construction, since both arms run the same code over files with the same step. A
+difference that persists through all four is the material.
+
+**What differs by material is the residual, not the removal.** In PAAm the dominant mode
+starts strongly clock-aligned (0.923) and de-aligns once warped (0.568): the clock *was* the mode.
+In gelatin it starts moderate (0.691) and stays (0.716): the warp removes half the variance and
+what is left is still as clock-like as what it started with. The split is not clean at record
+level — 33 °C gelatin collapses to 0.020, the most complete removal anywhere.
+
+**A note on the first sham I wrote.** It permuted the two knots *independently*, which lets the
+first minimum land past the second, breaks the warp's monotonicity, and inflated the sham's
+variance for a reason with nothing to do with alignment. That produced "net" reductions above
+100%. A number over 100% of a variance is not a subtle error; it is the arithmetic telling you the
+control is broken.
+
+### The setpoint scatter, measured on 437 events
+
+`docs/writeup/measured_scatter.py`. §setpoint and §control rest on an `R_max` cv of 0.25 and a
+stretch cv of 0.06, taken from a three-row table, plus two unexamined assumptions: log-normal
+shape, and independence of the two coordinates. `PA0503_radius.csv` carries **437 per-event
+`(R_max, R_eq)` pairs in µm** — the absolute radii Part 9 called "not recoverable."
+
+| quantity | assumed | measured (437 events) |
+|---|---|---|
+| `R_max` cv | 0.250 | **0.223** |
+| stretch cv | 0.060 | **0.067** |
+| corr(log `R_max`, log stretch) | 0 | **−0.140** |
+
+Both widths hold and independence is nearly right. Four laws, separating shape from structure:
+
+| law | best setpoint | regret | support shared with measured |
+|---|---|---|---|
+| assumed log-normal | 678 µm @ 6.70 | 0.434 | 3 of 5 |
+| log-normal, measured cv | 678 µm @ 6.70 | 0.436 | 3 of 5 |
+| measured, shuffled | 866 µm @ 6.70 | 0.334 | 4 of 5 |
+| measured, joint | 866 µm @ 6.70 | 0.267 | 5 of 5 |
+
+**The conclusion survives; the number and the support do not.** The regret stays real and positive
+and the setpoint moves under all four laws, so §setpoint's *claim* never depended on the assumed
+distribution. But the assumed law overstates the regret by 63% (0.434 against 0.267) and places
+**two of five certified settings wrong**. Delivered information is nearly identical (10.240 vs
+10.208 nats), so the cost of the wrong law is misplacement, not loss.
+
+**Control is worth nothing measurable at a single setpoint.** Perfect control scores −0.116 nats
+against the measured scatter, and the ladder wanders by ±0.16 across the range — the size of the
+resampling noise. This is the negative sign §control already established for a setpoint, now
+against a measured law rather than an assumed one.
+
+**The caveat that has to be stated.** These 437 events are PAAm (`PA0503`, mean `R_max`
+\SI{359}{\micro\metre}), and they are being applied to a gelatin design whose records sit at 277
+to \SI{312}{\micro\metre}. That the scatter *law* transfers between materials is §transfer's
+standing assumption, not something these events measure. What they do settle is that the assumed
+widths and the independence assumption were sound.
+
+### The lesson
+
+I wrote "this needs raw per-event traces nobody has handed over" without running `ls` on the data
+directory, which holds 192 files of which this document used three. The PAAm arm that closes
+§twotime's last open explanation, and the 437 measured radii that check §setpoint's assumptions,
+were both sitting there the whole time. The correct claim was "I have not looked."
+
+A second miss, caught only by grepping the chapter before committing this: I first wrote the
+gelatin result up as *overturning* §twotime, having forgotten the chapter already contained it.
+It reproduces §twotime to three digits. Re-deriving a result you already have is cheap; announcing
+it as a correction is not.

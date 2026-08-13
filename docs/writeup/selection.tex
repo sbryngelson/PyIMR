@@ -1285,9 +1285,40 @@ how bubbles differ.
 So the honest statement is narrower than the sweep alone would license. \emph{On acquisition data
 of this kind the dominant trial mode is a two-timescale clock error, and aligning both timescales
 removes it.} On the three records fitted here the same alignment removes half the variance and
-leaves the mode more dilation-like rather than less, on two records of three. Whether that is the
-material, the replicate count, or the sampling is the open question, and it is a much narrower
-one than \#222 began with.
+leaves the mode more dilation-like rather than less, on two records of three.
+
+\paragraph{The remaining explanation is the material, and it can be tested rather than left
+open.} Resolution was eliminated by arithmetic and the replicate count by resampling, which
+leaves the experiment itself. That comparison does not need the acquisition file at all: the
+processed per-trial traces for \emph{both} materials are distributed in one format --- a
+normalised clock, then one $R/R_{\max}$ trace per column --- and, decisively, at the same
+sampling step of $0.025\,t_c$. Running the identical warp, sham and diagnostic over both arms
+holds processing and resolution fixed by construction rather than by argument:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+material & records & events & variance removed & $\lvert\cos\rvert$ before & after \\
+\midrule
+gelatin & $3$ & $39$ & $49.5\%$ & $0.691$ & $0.716$ \\
+PAAm & $3$ & $249$ & $\mathbf{71.9\%}$ & $0.923$ & $\mathbf{0.568}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent In both arms the sham --- each event warped with another event's knot \emph{pair}, so
+the knot geometry stays realistic and only the match to the event is broken --- \emph{increases}
+the variance in all six records. None of the reduction is bought by the two fitted degrees of
+freedom.
+
+The two materials therefore differ in what the warp leaves, not in whether it works. In PAAm the
+dominant mode begins strongly clock-aligned and de-aligns once both hands are set, which is the
+signature of a mode that \emph{was} the clock. In gelatin the warp removes as much variance but
+what remains is as dilation-like as what it started with. With sampling, processing and analysis
+identical across $288$ events, the difference that survives is the material --- which makes
+gelatin's phase transition near \SI{30}{\celsius} the thing to explain, and is consistent with
+\SI{33}{\celsius} being the one gelatin record that behaves like the PAAm arm. \#222 is now a
+question about a material rather than about a pipeline.
 
 Two further facts locate it without naming it. It lives in the \emph{rebound}: $98.0\%$ and
 $97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and
@@ -3147,6 +3178,42 @@ scatter the recommended bubble is \emph{half again larger}, \SI{786}{} against
 \SI{514}{\micro\metre}, and the regret is $1.118$ nats. For a whole certified batch the same
 comparison costs $0.982$: a measure built on the nominal information delivers $8.467$ where one
 built on \eqref{eq:setpoint} delivers $9.449$.
+
+\paragraph{Those widths were assumed, and they have since been measured.} The coefficients above
+come from a three-row table, and \eqref{eq:setpoint} was evaluated over independent log-normal
+draws --- a width, a shape and an independence assumption, none of them checked. All three are
+checkable against $437$ per-event $(R_{\max}, R_{\rm eq})$ pairs recorded in micrometres, before
+the normalisation that removes absolute size from every trace fitted here. The measured
+coefficients are $0.223$ and $0.067$ against the assumed $0.25$ and $0.06$, and the correlation
+between $\log R_{\max}$ and $\log s$ is $-0.14$: the widths hold and the independence is very
+nearly right. Resampling the measured pairs in place of the assumed law, on a common grid:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+law over the deviations & scatter-aware optimum & regret & support shared \\
+\midrule
+assumed log-normal & \SI{678}{\micro\metre} at $6.70$ & $0.434$ & $3$ of $5$ \\
+log-normal at the measured widths & \SI{678}{\micro\metre} at $6.70$ & $0.436$ & $3$ of $5$ \\
+measured pairs, shuffled & \SI{866}{\micro\metre} at $6.70$ & $0.334$ & $4$ of $5$ \\
+\textbf{measured pairs, joint} & \textbf{\SI{866}{\micro\metre} at $6.70$} & $\mathbf{0.267}$ & $5$ of $5$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The conclusion of this section survives and its arithmetic does not. Under every law
+the regret is real and positive and the recommendation moves, so the \emph{claim} never depended
+on the assumed distribution; but the assumed law overstates the regret by $63\%$ and places two
+of five certified settings where the measured law does not. Delivered information is nearly
+identical either way ($10.240$ against $10.208$ nats), so what the wrong law costs is
+misplacement rather than loss --- and since the settings are what a collaborator runs, that is
+the part worth getting right.
+
+One caveat belongs with this and not in a footnote: these $437$ events are polyacrylamide, at a
+mean $R_{\max}$ of \SI{359}{\micro\metre}, while the design they are applied to is gelatin at
+$277$ to \SI{312}{\micro\metre}. That a scatter \emph{law} transfers across materials is the
+standing assumption of \cref{sec:transfer} and is not something these events establish. What
+they do establish is that the widths and the independence assumed above were sound.
 
 Read that against the chapter's other effects. Choosing the geometry under the wrong noise model
 costs at most $1.34$ nats (\cref{sec:noisedesign}); restoring testability costs $0.01$ to $0.24$;

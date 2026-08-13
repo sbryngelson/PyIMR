@@ -1116,9 +1116,89 @@ not scale together. The rebound period is set by the gas the bubble is left with
 $t_c$ aligns the collapse and leaves the afterbounce misaligned --- and the afterbounce is where
 this mode lives.
 
-That is a specific and testable statement, and it is where the question now sits: not what the
-mode is, but whether a \emph{two}-timescale alignment --- collapse and rebound separately, both
-measurable per event --- removes what one cannot.
+\paragraph{It does, and that closes the question.} Both timescales are measurable per event:
+the peak sits at $t_{\rm norm}=0$ by construction, the first minimum near $0.92$ and the second
+near $1.73$, so a piecewise-linear warp taking $(\text{peak}, \text{min}_1, \text{min}_2)$ to
+$(0,1,2)$ aligns the collapse and the afterbounce at once. They are not the same quantity: the
+collapse time has a coefficient of variation of $0.031$--$0.033$ and the afterbounce period
+$0.056$--$0.069$, and the two correlate at only $+0.35$ to $+0.52$.
+
+\begin{center}
+\begin{tabular}{llcccc}
+\toprule
+bin & alignment & leading share & $\lvert\cos\rvert$ to $-t\dot R$ & dilation share & total variance \\
+\midrule
+\SIrange{12}{18}{\celsius} & inertial only & $0.817$ & $0.850$ & $0.599$ & $0.323$ \\
+ & collapse only & $0.609$ & $0.756$ & $0.408$ & $0.107$ \\
+ & \textbf{two timescales} & $0.424$ & $\mathbf{0.094}$ & $\mathbf{0.262}$ & $\mathbf{0.054}$ \\
+ & sham (population knots) & $0.602$ & $0.969$ & $0.571$ & $0.463$ \\
+\midrule
+\SIrange{20}{26}{\celsius} & inertial only & $0.784$ & $0.879$ & $0.614$ & $0.287$ \\
+ & \textbf{two timescales} & $0.510$ & $\mathbf{0.133}$ & $\mathbf{0.233}$ & $\mathbf{0.059}$ \\
+ & sham & $0.593$ & $0.972$ & $0.565$ & $0.396$ \\
+\midrule
+\SIrange{30}{36}{\celsius} & inertial only & $0.654$ & $0.898$ & $0.552$ & $0.316$ \\
+ & \textbf{two timescales} & $0.682$ & $\mathbf{0.297}$ & $\mathbf{0.193}$ & $\mathbf{0.065}$ \\
+ & sham & $0.593$ & $0.938$ & $0.545$ & $0.480$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Aligning both timescales removes four fifths of the trial variance --- $\times 0.168$,
+$\times 0.205$ and $\times 0.206$ against the inertial clock --- and, decisively, \emph{destroys
+the dilation signature}: the leading mode's overlap with $-t\dot R$ falls from $0.85$--$0.90$ to
+$0.09$--$0.30$. What is left is no longer a clock error of any kind.
+
+The sham is what licenses reading that as physics rather than as arithmetic. A warp with two
+knots per event removes variance whatever the knots are, so the same warp was run with knots
+drawn from the population instead of measured from each trace. It does not help --- it makes
+things \emph{worse}, at $0.40$ to $0.48$ against the inertial clock's $0.29$ to $0.32$ --- and the
+measured warp beats it by a further factor of seven to nine. The reduction comes from the
+timescales being the event's own.
+
+On that data the mode is a clock error with two hands: a bubble has two independent timescales,
+the collapse set by $R_{\max}$ and the ambient pressure and the afterbounce set by the gas it is
+left with, the processing normalises by the first, and the mode is what the second leaves behind.
+
+\paragraph{It does not carry to the records this document fits, and that is the finding.}
+The acquisition file and these records are \emph{different experiments}. The file is a
+temperature sweep of \texttt{pa5} events at $R_{\max}$ near \SI{310}{\micro\metre} and stretch
+near $8.1$; the records come from \citet{abeid2024experimental} at $277$, $298$ and
+\SI{312}{\micro\metre} and stretches $7.09$, $7.37$ and $6.83$. A mechanism shown on one is a
+hypothesis about the other until it is run on the other, so it was:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+record & $J$ & alignment & leading share & $\lvert\cos\rvert$ to $-t\dot R$ & total variance \\
+\midrule
+\SI{15}{\celsius} & $18$ & inertial only & $0.541$ & $0.706$ & $0.0637$ \\
+ & & two timescales & $0.635$ & $\mathbf{0.877}$ & $0.0328$ \\
+\SI{23}{\celsius} & $14$ & inertial only & $0.533$ & $0.612$ & $0.0580$ \\
+ & & two timescales & $0.591$ & $\mathbf{0.852}$ & $0.0339$ \\
+\SI{33}{\celsius} & $7$ & inertial only & $0.787$ & $0.815$ & $0.1155$ \\
+ & & two timescales & $0.642$ & $\mathbf{0.024}$ & $0.0345$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The warp halves the trial variance on all three, so it is doing something. But the
+dilation signature, which it destroys on the sweep data, it \emph{strengthens} here at
+\SI{15}{} and \SI{23}{\celsius} --- from $0.71$ to $0.88$ and from $0.61$ to $0.85$ --- and
+removes only at \SI{33}{\celsius}. One record of three behaves like the sweep.
+
+We do not know why. The candidate differences are stated rather than resolved: a different
+material at a different stretch, $7$ to $18$ trials against $84$ to $253$ events, and minima
+located on $201$ samples spanning five collapse times, where a one-sample error in a knot is
+comparable to the collapse-time scatter the warp is trying to remove. Any of those could be
+responsible and this document cannot separate them.
+
+So the honest statement is narrower than the sweep alone would license. \emph{On acquisition data
+of this kind the dominant trial mode is a two-timescale clock error, and aligning both timescales
+removes it.} On the three records fitted here the same alignment removes half the variance and
+leaves the mode more dilation-like rather than less, on two records of three. Whether that is the
+material, the replicate count, or the sampling is the open question, and it is a much narrower
+one than \#222 began with.
 
 Two further facts locate it without naming it. It lives in the \emph{rebound}: $98.0\%$ and
 $97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and

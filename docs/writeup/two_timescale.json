@@ -1,0 +1,184 @@
+{
+ "timescales": {
+  "12-18C": {
+   "events": 253,
+   "collapse_mean": 0.9211645835392741,
+   "collapse_cv": 0.03337781451269666,
+   "rebound_mean": 0.7974841089769182,
+   "rebound_cv": 0.06944420163651197,
+   "correlation": 0.5168167389133351
+  },
+  "20-26C": {
+   "events": 100,
+   "collapse_mean": 0.9202464036450827,
+   "collapse_cv": 0.0317556215926914,
+   "rebound_mean": 0.7884234419220368,
+   "rebound_cv": 0.05574208790238756,
+   "correlation": 0.3992004671114276
+  },
+  "30-36C": {
+   "events": 84,
+   "collapse_mean": 0.9282029658837662,
+   "collapse_cv": 0.030690881041048734,
+   "rebound_mean": 0.817741034277252,
+   "rebound_cv": 0.06081149351149439,
+   "correlation": 0.34513237145380193
+  }
+ },
+ "modes": {
+  "12-18C": {
+   "inertial only": {
+    "events": 253,
+    "share": 0.817027355810395,
+    "cos_dilation": 0.8503333678402412,
+    "dilation_variance": 0.5992582458835328,
+    "total_variance": 0.3226706917975626
+   },
+   "collapse only": {
+    "events": 253,
+    "share": 0.6087655672078798,
+    "cos_dilation": 0.755507696016556,
+    "dilation_variance": 0.408249595991119,
+    "total_variance": 0.10737935625041262
+   },
+   "two timescales": {
+    "events": 253,
+    "share": 0.42446463820888025,
+    "cos_dilation": 0.0935622069967325,
+    "dilation_variance": 0.26162497348346025,
+    "total_variance": 0.054306487709921955
+   },
+   "sham (population)": {
+    "events": 253,
+    "share": 0.6021543471108121,
+    "cos_dilation": 0.9690325234923218,
+    "dilation_variance": 0.5707249735580691,
+    "total_variance": 0.4625299039029005
+   }
+  },
+  "20-26C": {
+   "inertial only": {
+    "events": 100,
+    "share": 0.7843894886289284,
+    "cos_dilation": 0.8785521615673669,
+    "dilation_variance": 0.6142463516729696,
+    "total_variance": 0.2871591969148175
+   },
+   "collapse only": {
+    "events": 100,
+    "share": 0.6529253652772501,
+    "cos_dilation": 0.7019491436178011,
+    "dilation_variance": 0.3821824100483785,
+    "total_variance": 0.13776292454728906
+   },
+   "two timescales": {
+    "events": 100,
+    "share": 0.5103999368283885,
+    "cos_dilation": 0.1334368121989622,
+    "dilation_variance": 0.23265166633393564,
+    "total_variance": 0.058902407240943956
+   },
+   "sham (population)": {
+    "events": 100,
+    "share": 0.5932907552784685,
+    "cos_dilation": 0.9723724908853153,
+    "dilation_variance": 0.5650579768140594,
+    "total_variance": 0.39629333988936055
+   }
+  },
+  "30-36C": {
+   "inertial only": {
+    "events": 84,
+    "share": 0.654483338480286,
+    "cos_dilation": 0.8983828556876827,
+    "dilation_variance": 0.5519594284160925,
+    "total_variance": 0.3162477851521096
+   },
+   "collapse only": {
+    "events": 84,
+    "share": 0.7123259025961249,
+    "cos_dilation": 0.5671139416754999,
+    "dilation_variance": 0.2785219032274685,
+    "total_variance": 0.17205770791113043
+   },
+   "two timescales": {
+    "events": 84,
+    "share": 0.6819744551371381,
+    "cos_dilation": 0.29729225773240436,
+    "dilation_variance": 0.19313867982647315,
+    "total_variance": 0.06500927825883672
+   },
+   "sham (population)": {
+    "events": 84,
+    "share": 0.593047142554759,
+    "cos_dilation": 0.9377384119471346,
+    "dilation_variance": 0.5445228312305948,
+    "total_variance": 0.47987464716634803
+   }
+  }
+ },
+ "reductions": {
+  "12-18C": {
+   "vs_inertial": 0.1683031309952154,
+   "vs_sham": 0.11741184137863352
+  },
+  "20-26C": {
+   "vs_inertial": 0.2051210891859984,
+   "vs_sham": 0.14863335138912168
+  },
+  "30-36C": {
+   "vs_inertial": 0.20556437487006715,
+   "vs_sham": 0.13547137495742992
+  }
+ },
+ "own_records": {
+  "gelatin_15C": {
+   "inertial only": {
+    "events": 18,
+    "share": 0.5405288333203246,
+    "cos_dilation": 0.7060203547717875,
+    "dilation_variance": 0.39700549980482247,
+    "total_variance": 0.06369381195635551
+   },
+   "two timescales": {
+    "events": 18,
+    "share": 0.6345994790034688,
+    "cos_dilation": 0.8774816181936433,
+    "dilation_variance": 0.5159521789560725,
+    "total_variance": 0.03277164604890515
+   }
+  },
+  "gelatin_23C": {
+   "inertial only": {
+    "events": 14,
+    "share": 0.5330756115574229,
+    "cos_dilation": 0.6115573202143013,
+    "dilation_variance": 0.34413567557054514,
+    "total_variance": 0.05802604042237928
+   },
+   "two timescales": {
+    "events": 14,
+    "share": 0.5907116892608543,
+    "cos_dilation": 0.8519475214585861,
+    "dilation_variance": 0.45963453384318986,
+    "total_variance": 0.03387949125512017
+   }
+  },
+  "gelatin_33C": {
+   "inertial only": {
+    "events": 7,
+    "share": 0.7873702315208753,
+    "cos_dilation": 0.8153579044997579,
+    "dilation_variance": 0.5463868843369553,
+    "total_variance": 0.11547359877307894
+   },
+   "two timescales": {
+    "events": 7,
+    "share": 0.6423519443254789,
+    "cos_dilation": 0.024412211907523292,
+    "dilation_variance": 0.24347607268486415,
+    "total_variance": 0.03450593593591155
+   }
+  }
+ }
+}

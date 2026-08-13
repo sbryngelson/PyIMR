@@ -728,6 +728,74 @@ collapse and rebound separately, both measurable per event — removes what one 
 
 ---
 
+### 8.4 #222 explained: the clock has two hands ✓
+
+Both timescales are measurable per event — peak at `t_norm = 0`, first minimum ≈0.92, second
+≈1.73 — so a piecewise warp taking (peak, min₁, min₂) → (0,1,2) aligns collapse and afterbounce
+at once. They are **not** the same quantity: collapse cv 0.031–0.033, afterbounce cv 0.056–0.069,
+correlating at only +0.35 to +0.52.
+
+| bin | alignment | share | \|cos\| to −t·Ṙ | dilation share | total var |
+|---|---|---|---|---|---|
+| 12–18 °C | inertial only | 0.817 | 0.850 | 0.599 | 0.323 |
+| | collapse only | 0.609 | 0.756 | 0.408 | 0.107 |
+| | **two timescales** | 0.424 | **0.094** | **0.262** | **0.054** |
+| | sham (population knots) | 0.602 | 0.969 | 0.571 | 0.463 |
+| 20–26 °C | inertial only | 0.784 | 0.879 | 0.614 | 0.287 |
+| | **two timescales** | 0.510 | **0.133** | **0.233** | **0.059** |
+| 30–36 °C | inertial only | 0.654 | 0.898 | 0.552 | 0.316 |
+| | **two timescales** | 0.682 | **0.297** | **0.193** | **0.065** |
+
+Aligning both removes **four fifths** of the trial variance (×0.168, ×0.205, ×0.206) and
+**destroys the dilation signature** — |cos| falls from 0.85–0.90 to 0.09–0.30. What is left is no
+longer a clock error of any kind.
+
+**The sham is what makes this physics rather than arithmetic.** Two knots per event remove
+variance whatever the knots are, so the same warp was run with knots drawn from the population.
+It makes things *worse* (0.40–0.48 against the inertial clock's 0.29–0.32), and the measured warp
+beats it by a further factor of 7–9. The reduction comes from the timescales being the event's
+own.
+
+On the sweep data the mode is a clock error with two hands: the collapse set by `R_max` and the
+ambient pressure, the afterbounce set by the gas the bubble is left with, and the processing
+normalising by the first.
+
+### 8.5 But it does NOT carry to the records this document fits ✗
+
+**These are different experiments**, which I nearly failed to check. The file is a temperature
+sweep of `pa5` events at R_max ≈ 310 µm, stretch ≈ 8.1. The records come from
+`abeid2024experimental` at 277/298/312 µm and stretches 7.09/7.37/6.83. A mechanism shown on one
+is a hypothesis about the other until run on the other:
+
+| record | J | alignment | share | \|cos\| to −t·Ṙ | total var |
+|---|---|---|---|---|---|
+| 15 °C | 18 | inertial only | 0.541 | 0.706 | 0.0637 |
+| | | two timescales | 0.635 | **0.877** | 0.0328 |
+| 23 °C | 14 | inertial only | 0.533 | 0.612 | 0.0580 |
+| | | two timescales | 0.591 | **0.852** | 0.0339 |
+| 33 °C | 7 | inertial only | 0.787 | 0.815 | 0.1155 |
+| | | two timescales | 0.642 | **0.024** | 0.0345 |
+
+The warp halves the variance on all three, so it does something. But the dilation signature it
+*destroys* on the sweep it **strengthens** here at 15 and 23 °C — 0.71→0.88 and 0.61→0.85 — and
+removes only at 33 °C. One record of three behaves like the sweep.
+
+Candidate differences, stated rather than resolved: different material at a different stretch;
+7–18 trials against 84–253 events; and minima located on 201 samples over five collapse times,
+where a one-sample knot error is comparable to the collapse-time scatter being removed.
+
+**Honest statement:** on acquisition data of this kind the dominant trial mode is a two-timescale
+clock error and aligning both removes it. On the three records fitted here the same alignment
+removes half the variance and leaves the mode *more* dilation-like on two of three. Why is the
+open question — and it is far narrower than what #222 began with.
+
+**Process note.** PR #261 was written claiming #222 explained, on the strength of the sweep data
+alone. Checking whether the two datasets were the same experiment — they are not — is what caught
+it before merge. Comparing `R_max` and stretch between a new data file and the records already in
+hand costs one command and should be the first thing done, not the last.
+
+---
+
 ## Ledger
 
 | | count |

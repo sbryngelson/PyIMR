@@ -639,6 +639,56 @@ quantities the mode's post-collapse position pointed at most directly.
 
 ---
 
+## Part 8 — the acquisition data arrives, and #222 gets a mechanism
+
+`data_pa5_tempsweeps_master_20260210.mat`: 835 events, each with a measured `R0` (= R_max), a
+measured `Req`, and the un-normalised trace. The quantity #222 was blocked on for the whole
+investigation turns out to be a field. (Summaries only are committed; the raw file is not.)
+
+### 8.1 The scatter is in the scale, not the ratio ✓
+
+| bin | n | R_max | cv | stretch | cv |
+|---|---|---|---|---|---|
+| 12–18 °C | 253 | 311.1 ± 78.8 µm | **0.253** | 8.21 ± 0.43 | 0.052 |
+| 20–26 °C | 100 | 301.7 ± 82.9 | **0.275** | 8.11 ± 0.53 | 0.066 |
+| 30–36 °C | 84 | 341.3 ± 76.9 | **0.225** | 8.12 ± 0.50 | 0.062 |
+
+R_max varies **four times more** than the stretch. That settles the successor question left open
+when #253 closed. Two consequences for the paper beyond #222: the stretch is available **per
+event**, so §reqprior's "population mean applied to every trial" need not be an assumption at
+all; and the raw mean stretch is ~8.1 at every temperature against the table's 7.09/7.37/6.83, a
+10–15% discrepancy worth chasing.
+
+### 8.2 A scatter in R_max is a scatter in the CLOCK, and that is #222's mode ✓
+
+`R(t)/R_max` is near-universal in `t/t_c` with `t_c ∝ R_max`, so size scatter is pure time
+dilation, whose signature `∂R/∂log t_c = −t·Ṙ` is small early and grows as phase error
+accumulates — concentrated post-collapse, which is where #222's mode has always been.
+
+| | events | leading share | \|cos\| to −t·Ṙ | chance |
+|---|---|---|---|---|
+| **raw** 12–18 °C | 253 | 0.882 | **0.951** | 0.075 |
+| **raw** 20–26 °C | 100 | 0.869 | **0.976** | 0.075 |
+| **raw** 30–36 °C | 84 | 0.861 | **0.973** | 0.075 |
+| processed 15 °C | 18 | 0.539 | 0.572 | 0.071 |
+| processed 23 °C | 14 | 0.681 | 0.581 | 0.072 |
+| processed 33 °C | 7 | 0.720 | 0.518 | 0.071 |
+
+**In the acquisition data the dominant mode IS the time dilation** — |cos| 0.95–0.98, seven
+eighths of the variance. Nothing to explain there.
+
+What reaches this repo is the residue. The pipeline already removes most of it: implied timescale
+scatter 1.0–2.1% against 22–28% measured per event, a **factor of 15**. What survives still
+aligns at 0.52–0.58 and carries **24–27% of the trial variance** — the largest single share
+anyone has attributed to this mode, against 0.467 for the best of nine linearised parameter
+directions.
+
+**Not the whole of it.** Projecting the dilation out leaves a leading mode overlapping the
+original at |cos| 0.81–0.85. A quarter is accounted for; the rest is not. But #222 has gone from
+"a mode with no candidate" to "a mode with one identified mechanism carrying a quarter of it".
+
+---
+
 ## Ledger
 
 | | count |

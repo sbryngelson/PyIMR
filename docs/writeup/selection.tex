@@ -1016,12 +1016,65 @@ There is real scatter in both quantities --- $u_0$ spreads by $0.008$ to $0.016$
 velocity across trials, over ranges from $-0.047$ to $+0.009$, and $R_{\rm eq}$ by $2.0$ to
 $6.4\%$. It simply is not what carries the mode.
 
-So the claim can now be made at full strength rather than narrowly. \emph{Whatever carries half
-to three-quarters of the trial scatter is not any quantity this model has}: not the material
+So the claim can be made at full strength rather than narrowly. \emph{Whatever carries half to
+three-quarters of the trial scatter is not any quantity this model has}: not the material
 parameters at each trial's own optimum, not the equilibrium radius over a box that does not cut
 off, and not the initial wall velocity. Four absorptions attempted, four failed, and the last two
 were the configuration quantities that the mode's position after the collapse pointed at most
 directly.
+
+\paragraph{It is largely the clock, and the acquisition data says so directly.}
+Each of those tests varied a property of the bubble. The one quantity that could not be tested
+was the one every trace is divided by before it arrives: its own $R_{\max}$. The acquisition
+record carries it --- $835$ events, each with a measured $R_{\max}$, a measured $R_{\rm eq}$ and
+an un-normalised trace --- and two facts follow immediately.
+
+\emph{The scatter is in the scale, not in the ratio.} Per event, $R_{\max}$ has a coefficient of
+variation of $0.25$, $0.28$ and $0.23$ in bins around \SI{15}{}, \SI{23}{} and
+\SI{33}{\celsius}, while the stretch $R_{\max}/R_{\rm eq}$ has $0.052$, $0.066$ and $0.062$ about
+a mean near $8.1$ at every temperature. The absolute scale varies four times more than the ratio
+this document has been treating as the uncertain one.
+
+\emph{And a scatter in $R_{\max}$ is a scatter in the clock.} $R(t)/R_{\max}$ is a near-universal
+function of $t/t_c$ with $t_c\propto R_{\max}$, so bubbles differing only in size trace one curve
+at different rates, and the deviation that produces is
+$\partial R/\partial\log t_c = -t\dot R$ --- small early, growing as phase error accumulates,
+and therefore concentrated after the collapse. Which is where this mode has been all along.
+
+On the raw traces the identification is not marginal:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+& events & leading share & $\lvert\cos\rvert$ to $-t\dot R$ & chance \\
+\midrule
+raw, \SIrange{12}{18}{\celsius} & $253$ & $0.882$ & $\mathbf{0.951}$ & $0.075$ \\
+raw, \SIrange{20}{26}{\celsius} & $100$ & $0.869$ & $\mathbf{0.976}$ & $0.075$ \\
+raw, \SIrange{30}{36}{\celsius} & $84$ & $0.861$ & $\mathbf{0.973}$ & $0.075$ \\
+\midrule
+processed, \SI{15}{\celsius} & $18$ & $0.539$ & $0.572$ & $0.071$ \\
+processed, \SI{23}{\celsius} & $14$ & $0.681$ & $0.581$ & $0.072$ \\
+processed, \SI{33}{\celsius} & $7$ & $0.720$ & $0.518$ & $0.071$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent In the acquisition data the dominant mode \emph{is} the time dilation, at
+$\lvert\cos\rvert$ of $0.95$ to $0.98$ against a chance level of $0.075$, carrying seven-eighths
+of the variance. There is nothing to explain there.
+
+What reaches this document is the residue. The processing already removes most of it: the
+timescale scatter the records imply is $1.0$ to $2.1$ percent against the $22$ to $28$ measured
+per event, a factor of $15$. What survives still aligns with the dilation at $0.52$ to $0.58$ and
+carries $24$ to $27$ percent of the trial variance --- \emph{the largest single share anyone has
+attributed to this mode}, against $0.467$ for the best of nine linearised parameter directions.
+
+It is not the whole of it. Projecting the dilation out leaves a leading mode overlapping the
+original at $\lvert\cos\rvert$ of $0.81$ to $0.85$, so a fifth to a quarter is accounted for and
+the rest is not. But the character of the question has changed: this is no longer a mode with no
+candidate, it is a mode with one identified mechanism carrying a quarter of it and a remainder
+that the same normalisation may well be leaving behind in a form the linear direction does not
+capture.
 
 Two further facts locate it without naming it. It lives in the \emph{rebound}: $98.0\%$ and
 $97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and

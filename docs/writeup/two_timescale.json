@@ -130,5 +130,55 @@
    "vs_inertial": 0.20556437487006715,
    "vs_sham": 0.13547137495742992
   }
+ },
+ "own_records": {
+  "gelatin_15C": {
+   "inertial only": {
+    "events": 18,
+    "share": 0.5405288333203246,
+    "cos_dilation": 0.7060203547717875,
+    "dilation_variance": 0.39700549980482247,
+    "total_variance": 0.06369381195635551
+   },
+   "two timescales": {
+    "events": 18,
+    "share": 0.6345994790034688,
+    "cos_dilation": 0.8774816181936433,
+    "dilation_variance": 0.5159521789560725,
+    "total_variance": 0.03277164604890515
+   }
+  },
+  "gelatin_23C": {
+   "inertial only": {
+    "events": 14,
+    "share": 0.5330756115574229,
+    "cos_dilation": 0.6115573202143013,
+    "dilation_variance": 0.34413567557054514,
+    "total_variance": 0.05802604042237928
+   },
+   "two timescales": {
+    "events": 14,
+    "share": 0.5907116892608543,
+    "cos_dilation": 0.8519475214585861,
+    "dilation_variance": 0.45963453384318986,
+    "total_variance": 0.03387949125512017
+   }
+  },
+  "gelatin_33C": {
+   "inertial only": {
+    "events": 7,
+    "share": 0.7873702315208753,
+    "cos_dilation": 0.8153579044997579,
+    "dilation_variance": 0.5463868843369553,
+    "total_variance": 0.11547359877307894
+   },
+   "two timescales": {
+    "events": 7,
+    "share": 0.6423519443254789,
+    "cos_dilation": 0.024412211907523292,
+    "dilation_variance": 0.24347607268486415,
+    "total_variance": 0.03450593593591155
+   }
+  }
  }
 }

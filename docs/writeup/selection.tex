@@ -1156,11 +1156,49 @@ things \emph{worse}, at $0.40$ to $0.48$ against the inertial clock's $0.29$ to 
 measured warp beats it by a further factor of seven to nine. The reduction comes from the
 timescales being the event's own.
 
-So \cref{sec:latent}'s mode is a clock error with two hands. A bubble has two independent
-timescales, the collapse set by $R_{\max}$ and the ambient pressure and the afterbounce set by
-the gas it is left with; the processing normalises by the first; and the mode is what the second
-one leaves behind, which is why it lives after the collapse and why no parameter of any model
-ever absorbed it. The remedy is a processing change, not a constitutive one.
+On that data the mode is a clock error with two hands: a bubble has two independent timescales,
+the collapse set by $R_{\max}$ and the ambient pressure and the afterbounce set by the gas it is
+left with, the processing normalises by the first, and the mode is what the second leaves behind.
+
+\paragraph{It does not carry to the records this document fits, and that is the finding.}
+The acquisition file and these records are \emph{different experiments}. The file is a
+temperature sweep of \texttt{pa5} events at $R_{\max}$ near \SI{310}{\micro\metre} and stretch
+near $8.1$; the records come from \citet{abeid2024experimental} at $277$, $298$ and
+\SI{312}{\micro\metre} and stretches $7.09$, $7.37$ and $6.83$. A mechanism shown on one is a
+hypothesis about the other until it is run on the other, so it was:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+record & $J$ & alignment & leading share & $\lvert\cos\rvert$ to $-t\dot R$ & total variance \\
+\midrule
+\SI{15}{\celsius} & $18$ & inertial only & $0.541$ & $0.706$ & $0.0637$ \\
+ & & two timescales & $0.635$ & $\mathbf{0.877}$ & $0.0328$ \\
+\SI{23}{\celsius} & $14$ & inertial only & $0.533$ & $0.612$ & $0.0580$ \\
+ & & two timescales & $0.591$ & $\mathbf{0.852}$ & $0.0339$ \\
+\SI{33}{\celsius} & $7$ & inertial only & $0.787$ & $0.815$ & $0.1155$ \\
+ & & two timescales & $0.642$ & $\mathbf{0.024}$ & $0.0345$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The warp halves the trial variance on all three, so it is doing something. But the
+dilation signature, which it destroys on the sweep data, it \emph{strengthens} here at
+\SI{15}{} and \SI{23}{\celsius} --- from $0.71$ to $0.88$ and from $0.61$ to $0.85$ --- and
+removes only at \SI{33}{\celsius}. One record of three behaves like the sweep.
+
+We do not know why. The candidate differences are stated rather than resolved: a different
+material at a different stretch, $7$ to $18$ trials against $84$ to $253$ events, and minima
+located on $201$ samples spanning five collapse times, where a one-sample error in a knot is
+comparable to the collapse-time scatter the warp is trying to remove. Any of those could be
+responsible and this document cannot separate them.
+
+So the honest statement is narrower than the sweep alone would license. \emph{On acquisition data
+of this kind the dominant trial mode is a two-timescale clock error, and aligning both timescales
+removes it.} On the three records fitted here the same alignment removes half the variance and
+leaves the mode more dilation-like rather than less, on two records of three. Whether that is the
+material, the replicate count, or the sampling is the open question, and it is a much narrower
+one than \#222 began with.
 
 Two further facts locate it without naming it. It lives in the \emph{rebound}: $98.0\%$ and
 $97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and

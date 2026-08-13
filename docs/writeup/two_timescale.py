@@ -22,6 +22,13 @@ degree of freedom the data contains, which makes it a far sharper object than th
 issue started with --- and the first thing in this whole investigation that is neither a
 parameter, nor a configuration quantity, nor a clock.
 
+TWO DIFFERENT DATASETS, AND THAT HAS TO BE SAID FIRST. The acquisition file is the temperature
+sweep (`pa5...` events, $R_{\max}$ near \SI{310}{\micro\metre}, stretch near $8.1$). The three
+records this document fits come from \citet{abeid2024experimental} --- $R_{\max}$ of $277$, $298$
+and \SI{312}{\micro\metre} at stretches $7.09$, $7.37$ and $6.83$. They are not the same
+experiment, so a mechanism demonstrated on one is a hypothesis about the other until it is run on
+the other. It is run on both below.
+
 THE WARP IS NOT FREE AND THE COST IS REPORTED. Two knots per event is two fitted quantities, so
 some variance reduction is guaranteed by construction. The comparison that controls for it is a
 SHAM warp: the same two knots, drawn from the population rather than from each event's own
@@ -187,6 +194,42 @@ def main():
   print("\n  The middle column is the one that means anything: a warp with two knots removes")
   print("  variance whatever the knots are, and only the ratio against the sham says how much")
   print("  of that came from the timescales being MEASURED rather than merely fitted.")
+
+  print("\n  the same warp on THIS DOCUMENT'S records, which are a different experiment\n")
+  from per_trial_fits import _trials
+
+  print(f"  {'record':13s} {'J':>3s} {'alignment':>16s} {'share':>7s} {'|cos| dilation':>15s} "
+        f"{'total var':>11s}")
+  own = {}
+  for dataset in records.DATASETS:
+    times, mean, spread, maximum, stretch, window = _trials(dataset)
+    from pyimr.noise import characteristic_time
+    clock = (times - times[0]) / characteristic_time(maximum)
+    rows = []
+    for index in range(window.shape[1]):
+      trace = window[:, index]
+      pair = knots(clock, trace)
+      if pair is None: continue
+      rows.append((clock, trace, pair[0], pair[1]))
+    if len(rows) < 4:
+      print(f"  {dataset:13s} {window.shape[1]:3d}  only {len(rows)} trials resolve two minima")
+      continue
+    first = np.array([r[2] for r in rows]); second = np.array([r[3] for r in rows])
+    entry = {}
+    for label, pairs in (("inertial only", [(1.0, 2.0)] * len(rows)),
+                         ("two timescales", list(zip(first, second, strict=True)))):
+      stack = [warped(c, t, a, b) for (c, t, _, _), (a, b) in zip(rows, pairs, strict=True)
+               if 0.0 < a < b]
+      if len(stack) < 4: continue
+      entry[label] = mode_of(stack)
+      got = entry[label]
+      print(f"  {dataset:13s} {len(rows):3d} {label:>16s} {got['share']:7.3f} "
+            f"{got['cos_dilation']:15.3f} {got['total_variance']:11.3e}")
+    own[dataset] = entry
+  summary_out["own_records"] = own
+  print("\n  These records are a different experiment from the acquisition file above --")
+  print("  abeid2024experimental at stretch 7.09/7.37/6.83 against pa5 at 8.1 -- so this is")
+  print("  the test that decides whether the mechanism reaches the data this document fits.")
 
   json.dump(summary_out, open(records.HERE / "two_timescale.json", "w"), indent=1)
 

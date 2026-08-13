@@ -1193,6 +1193,46 @@ located on $201$ samples spanning five collapse times, where a one-sample error 
 comparable to the collapse-time scatter the warp is trying to remove. Any of those could be
 responsible and this document cannot separate them.
 
+\paragraph{One candidate can be eliminated, and one new limit falls out.} Both $R_{\max}$ and
+$R_{\rm eq}$ are \emph{fitted} rather than read off --- the first by a fourth-order polynomial
+through a window at the peak, the second by averaging the tail of $R(t)$ --- and since the clock
+is $R_{\max}\sqrt{\rho/p_\infty}$, an error in the first fit is an error in that event's clock.
+That is the right shape for the residual dilation, and it is testable because the file stores the
+fit quality per event.
+
+It is not that. The $R_{\max}$ fits are uniformly excellent --- $R^2$ of $0.9996$ on average with
+a worst case of $0.9944$ --- and the dilation amplitude does not track what variation there is:
+$\lvert\text{dilation}\rvert$ against $1-R^2$ correlates at $+0.064$, $+0.016$ and $-0.220$
+across the three bins. The residue is not $R_{\max}$ fit noise.
+
+$R_{\rm eq}$ is a different matter, and this is the new limit. The authors describe two
+estimators --- the tail average that is stored, and the median of the post-collapse oscillations
+--- and both are available:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+bin & $n$ & stretch, tail average & cv & stretch, median of extrema & cv \\
+\midrule
+\SIrange{12}{18}{\celsius} & $253$ & $8.211 \pm 0.431$ & $0.053$ & $8.291 \pm 0.540$ & $0.065$ \\
+\SIrange{20}{26}{\celsius} & $100$ & $8.106 \pm 0.534$ & $0.066$ & $8.075 \pm 0.642$ & $0.080$ \\
+\SIrange{30}{36}{\celsius} & $84$ & $8.120 \pm 0.499$ & $0.062$ & $8.059 \pm 0.541$ & $0.067$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent They agree on the mean to under one percent and correlate at only $+0.50$, $+0.66$ and
+$+0.80$. Two estimators of one quantity, with comparable spreads and a correlation of a half,
+means a large share of the apparent scatter is the \emph{estimator} rather than the bubble --- and
+since both read the same trace's tail, their errors are if anything positively correlated, which
+makes that a conservative reading.
+
+So the per-event stretch is not the clean replacement for a population mean that
+\cref{sec:reqprior} might hope for. Having it per event removes the assumption that every bubble
+shares one value; it does not make any one bubble's value precise, and on this evidence a
+substantial part of the five-to-eight percent scatter is how $R_{\rm eq}$ is measured rather than
+how bubbles differ.
+
 So the honest statement is narrower than the sweep alone would license. \emph{On acquisition data
 of this kind the dominant trial mode is a two-timescale clock error, and aligning both timescales
 removes it.} On the three records fitted here the same alignment removes half the variance and

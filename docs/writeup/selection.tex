@@ -3106,6 +3106,66 @@ fitting six coefficients leaves one residual degree of freedom per axis, so the 
 assumed rather than tested; its residuals, $\pm0.005$ in $\log\mu$, $\pm0.05$ in $\log g\alpha$
 and $\pm0.13$ in $\log\lambda_1$, are a consistency note and nothing more.
 
+\subsection*{The setpoint is not the geometry}
+\label{sec:setpoint}
+
+Every design in this chapter names a target and treats it as a knob: \SI{416}{\micro\metre} at
+stretch $10.9$, \SI{1015}{\micro\metre} at $6.7$, a batch of eight settings. The acquisition data
+says it is not a knob. Per event, $R_{\max}$ has a coefficient of variation of $0.25$, $0.28$ and
+$0.23$, and the stretch a further $0.05$ to $0.07$. A quarter is not a tolerance --- it is the
+difference between \SI{400}{} and \SI{500}{\micro\metre}, and it means a certified optimum sitting
+on a ridge is worth only what can actually be hit.
+
+The repair is a change of variable and costs nothing. What the experimenter chooses is a
+setpoint; what arrives is a draw. One run at setpoint $s$ therefore supplies
+%
+\begin{equation}
+M(s) \;=\; \mathbb{E}_{x\sim p(\cdot\mid s)}\big[J(x)^{\mathsf T}J(x)\big],
+\label{eq:setpoint}
+\end{equation}
+%
+and every property this chapter relies on survives it: an expectation of information matrices is
+a matrix, $M(\xi)=\sum_i \xi_i M(s_i)$ is still linear in $\xi$, so the criterion is still
+concave and \eqref{eq:equivalence} still certifies. The certificate is identical. Only the
+answer moves.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+scatter & nominal peak, delivered & scatter-aware optimum, delivered & regret \\
+\midrule
+$\times\tfrac12$ & \SI{514}{\micro\metre} at $6.92$, $7.823$ & \SI{636}{\micro\metre} at $6.92$, $8.312$ & $0.489$ \\
+\textbf{measured} & \SI{514}{\micro\metre} at $6.92$, $7.740$ & \textbf{\SI{786}{\micro\metre} at $6.92$}, $8.859$ & $\mathbf{1.118}$ \\
+$\times 2$ & \SI{514}{\micro\metre} at $6.92$, $6.193$ & \SI{786}{\micro\metre} at $5.62$, $7.667$ & $1.474$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Both columns are scored against what actually happens --- the expectation --- so the
+difference is what ignoring the scatter costs rather than an accounting artifact. At the measured
+scatter the recommended bubble is \emph{half again larger}, \SI{786}{} against
+\SI{514}{\micro\metre}, and the regret is $1.118$ nats. For a whole certified batch the same
+comparison costs $0.982$: a measure built on the nominal information delivers $8.467$ where one
+built on \eqref{eq:setpoint} delivers $9.449$.
+
+Read that against the chapter's other effects. Choosing the geometry under the wrong noise model
+costs at most $1.34$ nats (\cref{sec:noisedesign}); restoring testability costs $0.01$ to $0.24$;
+the spread across robust batches is $0.21$. \emph{Ignoring that the setpoint is not the geometry
+costs about as much as the entire noise-model correction}, and unlike that correction it requires
+no new measurement and no new theory --- only averaging the information over a distribution that
+has already been measured.
+
+The direction is worth reading physically. Scatter pushes the recommendation \emph{up} in
+$R_{\max}$, because the information ridge is asymmetric: undershooting a small bubble loses more
+than overshooting a large one, so a setpoint with room beneath it is worth more than a sharper
+peak without. The batch spreads accordingly, putting $0.467$ of its runs at \SI{636}{} and
+$0.150$ at \SI{786}{\micro\metre}, with the small hard-driven corner kept at reduced weight.
+
+The scatter itself is measured rather than assumed, and swept at half and twice, under the
+standing caveat of \cref{sec:transfer}: whether a laser produces the same spread at a setpoint
+nobody has run is exactly the kind of transfer this chapter cannot verify from three records at
+one size.
+
 \paragraph{What this does not fix.}
 Three limitations, stated plainly. The information matrices are evaluated at a point estimate
 of $\theta$, so the design is locally optimal in the parameters though globally optimal in

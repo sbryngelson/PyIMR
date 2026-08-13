@@ -860,6 +860,57 @@ than before, and a worse one for anyone hoping a processing change fixes these r
 
 ---
 
+## Part 9 — design: the setpoint is not the geometry
+
+The acquisition data exposes a gap in the design chapter that has nothing to do with the paper it
+came from. Every certified design names a target `R_max` — 416, 514, 1015 µm — and treats it as a
+knob. **It is not one.** Per event, `R_max` scatters at cv 0.25 / 0.28 / 0.23 and the stretch at
+0.05–0.07. A certified optimum sitting on a ridge is worth only what can be hit.
+
+### 9.1 The repair costs nothing and the certificate is identical ✓
+
+What the experimenter chooses is a setpoint; what arrives is a draw. So one run supplies
+
+    M(s) = E_{x ~ p(·|s)} [ J(x)ᵀ J(x) ]
+
+and every property the chapter relies on survives: an expectation of information matrices is a
+matrix, `M(ξ) = Σ ξᵢ M(sᵢ)` is still **linear** in ξ, so the criterion is still concave and
+Kiefer–Wolfowitz still certifies. Nothing is given up. Only the answer moves.
+
+| scatter | nominal peak, delivered | scatter-aware optimum, delivered | regret |
+|---|---|---|---|
+| ×½ | 514 µm @ 6.92, 7.823 | 636 µm @ 6.92, 8.312 | 0.489 |
+| **measured** | 514 µm @ 6.92, 7.740 | **786 µm @ 6.92**, 8.859 | **1.118** |
+| ×2 | 514 µm @ 6.92, 6.193 | 786 µm @ 5.62, 7.667 | 1.474 |
+
+Both columns are scored against what actually happens, so the difference is the real cost of
+ignoring the scatter. At the measured value the recommended bubble is **half again larger** and
+the regret is 1.118 nats. For a whole certified batch: nominal-built measure delivers 8.467,
+expectation-built delivers **9.449** — a loss of **0.982**.
+
+### 9.2 Read against the chapter's other effects
+
+| lever | worth |
+|---|---|
+| bubbles vs. frames (§allocation) | +3.4 to +4.0 nats |
+| **ignoring setpoint scatter** | **0.98 to 1.12** |
+| geometry under the wrong noise model | ≤ 1.34 |
+| restoring testability | 0.01–0.24 |
+| robust vs. per-record batch | 0.21 |
+
+It costs about as much as the entire noise-model correction the chapter already treats as
+important — and unlike that correction it needs no new measurement and no new theory, only
+averaging over a distribution already measured.
+
+### 9.3 The direction is physical
+
+Scatter pushes the recommendation **up** in `R_max`. The information ridge is asymmetric:
+undershooting a small bubble loses more than overshooting a large one, so a setpoint with room
+beneath it beats a sharper peak without. The batch spreads accordingly — 0.467 at 636 µm, 0.150
+at 786 µm, with the small hard-driven corner kept at reduced weight.
+
+---
+
 ## Ledger
 
 | | count |

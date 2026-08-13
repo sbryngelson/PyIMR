@@ -830,6 +830,36 @@ of the 5–8% scatter is how `R_eq` is measured.
 
 ---
 
+### 8.7 Why it doesn't carry: not resolution, not replicates — the experiment ✓
+
+Three candidates for why the two-timescale warp works on the sweep and fails on these records.
+Two are settled with the data in hand.
+
+**Resolution is eliminated — arithmetic.** Records: 201 samples over 5 t_c = **0.0250 t_c**
+spacing. Sweep: median **0.0315**. The records are *finer* than the data the warp works on.
+
+**Replicate count is eliminated — measured.** Drawing n events at random from a bin where the
+warp works, 200 draws per cell:
+
+| bin | n | \|cos\| before | \|cos\| after | P(after > before) |
+|---|---|---|---|---|
+| 12–18 °C | 7 | 0.818 | 0.502 | 0.10 |
+| | 18 | 0.831 | 0.446 | 0.06 |
+| | 80 | 0.847 | 0.353 | 0.01 |
+| 20–26 °C | 18 | 0.856 | 0.263 | 0.01 |
+| 30–36 °C | 18 | 0.875 | 0.302 | 0.00 |
+
+At the records' own counts the warp still works — 0.83 → 0.26–0.50 — and makes the signature
+*worse* only 0–10% of the time. Seeing that on **two of three** records is a **1–3% event** under
+this explanation.
+
+**So what remains is the experiment.** Different material at a different stretch, same pipeline.
+Both datasets show a dilation-aligned leading mode under the inertial clock, and only one of them
+is a two-timescale clock error. **They may not be the same phenomenon** — a sharper statement
+than before, and a worse one for anyone hoping a processing change fixes these records.
+
+---
+
 ## Ledger
 
 | | count |

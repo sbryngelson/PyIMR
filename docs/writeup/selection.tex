@@ -1187,11 +1187,45 @@ dilation signature, which it destroys on the sweep data, it \emph{strengthens} h
 \SI{15}{} and \SI{23}{\celsius} --- from $0.71$ to $0.88$ and from $0.61$ to $0.85$ --- and
 removes only at \SI{33}{\celsius}. One record of three behaves like the sweep.
 
-We do not know why. The candidate differences are stated rather than resolved: a different
-material at a different stretch, $7$ to $18$ trials against $84$ to $253$ events, and minima
-located on $201$ samples spanning five collapse times, where a one-sample error in a knot is
-comparable to the collapse-time scatter the warp is trying to remove. Any of those could be
-responsible and this document cannot separate them.
+Three explanations were available --- time resolution, replicate count, and the experiment
+itself --- and two of them can be settled with the data already in hand.
+
+\emph{Resolution is not it, and that is arithmetic.} The records carry $201$ samples over
+$5\,t_c$, a spacing of $0.0250\,t_c$; the sweep traces have a median spacing of $0.0315$. The
+records are \emph{finer} than the data the warp demonstrably works on.
+
+\emph{Nor is the replicate count.} If eighteen trials cannot support the warp, drawing eighteen
+events at random from a bin where it works should reproduce the failure --- same material, same
+instrument, same processing, only the count changed. Over $200$ draws per cell:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+bin & $n$ & $\lvert\cos\rvert$ before & $\lvert\cos\rvert$ after & $P(\text{after} > \text{before})$ \\
+\midrule
+\SIrange{12}{18}{\celsius} & $7$ & $0.818$ & $0.502$ & $0.10$ \\
+ & $18$ & $0.831$ & $0.446$ & $0.06$ \\
+ & $80$ & $0.847$ & $0.353$ & $0.01$ \\
+\SIrange{20}{26}{\celsius} & $7$ & $0.824$ & $0.364$ & $0.03$ \\
+ & $18$ & $0.856$ & $0.263$ & $0.01$ \\
+\SIrange{30}{36}{\celsius} & $7$ & $0.834$ & $0.345$ & $0.04$ \\
+ & $18$ & $0.875$ & $0.302$ & $0.00$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent medians over the draws. At the records' own replicate counts the warp still works: it
+takes $\lvert\cos\rvert$ from about $0.83$ down to $0.26$--$0.50$, and it makes the signature
+\emph{worse} --- which is what happens on two of this document's three records --- between $0$ and
+$10\%$ of the time. Observing that on two records of three is a one to three percent event under
+this explanation.
+
+So neither resolution nor replication accounts for it, and what remains is the experiment. The
+sweep is a different material at a different stretch, processed by the same pipeline; the mode
+each dataset shows under the inertial clock looks alike --- both dilation-aligned --- and only one
+of them is a two-timescale clock error. They may not be the same phenomenon at all, which is a
+sharper statement than this section could make before and a worse one for anybody hoping a
+processing change fixes these records.
 
 \paragraph{One candidate can be eliminated, and one new limit falls out.} Both $R_{\max}$ and
 $R_{\rm eq}$ are \emph{fitted} rather than read off --- the first by a fourth-order polynomial

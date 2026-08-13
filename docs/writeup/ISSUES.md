@@ -582,6 +582,63 @@ constitutive law.
 
 ---
 
+## Part 7 — the initial condition, fitted rather than screened
+
+Following §6.5, which made a non-zero initial wall velocity the largest candidate ever put
+through the discrepancy screen at 37.6%. Fitted with the **stretch also free**, since pinning a
+quantity known to ±5–17% would let one configuration error masquerade as the other.
+
+### 7.1 The 37.6% does not survive the fit ✗
+
+| free | 15 °C lack-of-fit | 23 °C | 33 °C |
+|---|---|---|---|
+| nothing | 16.79 | 2.95 | 1.80 |
+| `R_eq` | **8.43** | **2.15** | 1.60 |
+| `u0` | 15.38 | 2.86 | 1.57 |
+| both | *withheld* | 2.30 | **1.38** |
+
+χ²/N falls everywhere (0.97→0.50, 1.03→0.32, 0.44→0.23) — that is what free parameters do and is
+not the question. On **lack of fit**, adding `u0` on top of a free stretch improves 33 °C and
+worsens 23 °C. **15 °C is withheld**: all three prior widths fail the nesting gate — a box
+containing another scoring worse than it — at 16 restarts and again at 32. That surface is
+multimodal, so the cell is not read.
+
+The stretch remains the larger configuration effect on every record.
+
+### 7.2 Two things that did come out clean ✓
+
+**`u0` is determined, not bounded.** −0.022 to −0.033 of the Rayleigh scale, always inward,
+identical at ±10% and ±30% prior width.
+
+**`R_eq` and `u0` are separately identified.** corr = +0.06 to +0.13, cond(JᵀJ) ~ 1e2 — against
+−1.00000 and 1e8 for the g–α pair. Two configuration quantities that could easily have been one
+direction are not.
+
+**The obvious interpretation fails a quick check.** An inward velocity at the imaged maximum
+suggests the maximum is a sampled frame, not the true turning point. Half a frame of the model's
+own deceleration is −0.007 to −0.008 — three to four times too small. Sign and order right,
+magnitude wrong, so sampling is part of it at most.
+
+### 7.3 #222: the mode is not the initial condition either — four for four ✗
+
+| record | raw | material | +`R_eq` | +`R_eq`+`u0` | \|cos\| to raw |
+|---|---|---|---|---|---|
+| 15 °C | 0.539 | 0.412 | 0.338 | 0.340 | 0.678 |
+| 23 °C | 0.681 | 0.772 | 0.791 | **0.800** | **0.987** |
+| 33 °C | 0.720 | 0.835 | 0.717 | **0.840** | **0.945** |
+
+Nothing moves. Nothing pinned, so the boxes were not the constraint. There *is* real trial
+scatter in both — `u0` by 0.008–0.016 of the Rayleigh scale, `R_eq` by 2.0–6.4% — it just is not
+what carries the mode.
+
+**#222 can now be stated at full strength**: whatever carries half to three-quarters of the trial
+scatter is not any quantity this model has. Not the material parameters at each trial's own
+optimum, not the equilibrium radius over a box that does not cut off, and not the initial wall
+velocity. Four absorptions attempted, four failed — and the last two were the configuration
+quantities the mode's post-collapse position pointed at most directly.
+
+---
+
 ## Ledger
 
 | | count |

@@ -987,10 +987,41 @@ larger equilibrium radius than the prior permits, and were cut off. The pinning 
 sided, which reads as a systematic offset in the record's stretch rather than as scatter between
 bubbles --- a calibration question, and a different one from this section's.
 
-So the claim this document makes is the narrower one. Whatever carries half to three-quarters of
-the trial scatter is not the material parameters, at each trial's own optimum; and at the one
-record where the initial condition could move freely, it is not that either. Whether a wider
-prior on $R_{\rm eq}$ would absorb it at \SI{15}{} and \SI{23}{\celsius} is untested.
+\paragraph{Nor is it how the bubble starts moving, which was the last axis available.}
+Every test above varies what the bubble \emph{is}. None varies how it \emph{starts}, and that
+gap mattered: the mode is $97$ to $98\%$ post-collapse, what a bubble carries into its rebound is
+set by the energy it goes in with, and every fit here begins at $R_{\max}$ with zero wall
+velocity --- asserting that the imaged maximum is a turning point of a free collapse.
+
+Refitting each trial with an initial wall velocity free \emph{and} the stretch free, over boxes
+wide enough that nothing pins:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+record & raw & material & $+\,R_{\rm eq}$ & $+\,R_{\rm eq}+u_0$ & $\lvert\cos\rvert$ to raw \\
+\midrule
+\SI{15}{\celsius} & $0.539$ & $0.412$ & $0.338$ & $0.340$ & $0.678$ \\
+\SI{23}{\celsius} & $0.681$ & $0.772$ & $0.791$ & $\mathbf{0.800}$ & $\mathbf{0.987}$ \\
+\SI{33}{\celsius} & $0.720$ & $0.835$ & $0.717$ & $\mathbf{0.840}$ & $\mathbf{0.945}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Nothing moves. The leading share is unchanged to within a percent on every record, and
+the mode keeps its shape at $\lvert\cos\rvert = 0.987$ and $0.945$. Nothing pinned, so the boxes
+were not the constraint.
+
+There is real scatter in both quantities --- $u_0$ spreads by $0.008$ to $0.016$ of the Rayleigh
+velocity across trials, over ranges from $-0.047$ to $+0.009$, and $R_{\rm eq}$ by $2.0$ to
+$6.4\%$. It simply is not what carries the mode.
+
+So the claim can now be made at full strength rather than narrowly. \emph{Whatever carries half
+to three-quarters of the trial scatter is not any quantity this model has}: not the material
+parameters at each trial's own optimum, not the equilibrium radius over a box that does not cut
+off, and not the initial wall velocity. Four absorptions attempted, four failed, and the last two
+were the configuration quantities that the mode's position after the collapse pointed at most
+directly.
 
 Two further facts locate it without naming it. It lives in the \emph{rebound}: $98.0\%$ and
 $97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and
@@ -2032,6 +2063,47 @@ this document starts the bubble at $R_{\max}$ with zero wall velocity, which ass
 imaged maximum is a turning point of a free collapse. A laser deposits energy; it need not be.
 Releasing that assumption reaches $37.6\%$ of $\hat\delta$, against $23.7\%$ for the initial
 radius and $6.5\%$ for the best genuine-physics entry on the original list.
+
+\paragraph{Fitted rather than screened, that $37.6\%$ does not survive.} A screen bounds what a
+candidate could remove with its amplitude free, and the way to collect on it is to fit. Doing so
+with the stretch \emph{also} free --- pinning a quantity known only to five--seventeen percent
+would let one error masquerade as the other --- the velocity does land somewhere definite and
+does not buy what the screen promised:
+
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{2}{c}{\SI{15}{\celsius}} & \multicolumn{2}{c}{\SI{23}{\celsius}}
+& \multicolumn{2}{c}{\SI{33}{\celsius}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+free & $\chi^2/N$ & lack of fit & $\chi^2/N$ & lack of fit & $\chi^2/N$ & lack of fit \\
+\midrule
+nothing & $0.971$ & $16.79$ & $1.029$ & $2.95$ & $0.439$ & $1.80$ \\
+$R_{\rm eq}$ & $0.623$ & $\mathbf{8.43}$ & $0.901$ & $\mathbf{2.15}$ & $0.379$ & $1.60$ \\
+$u_0$ & $0.724$ & $15.38$ & $0.372$ & $2.86$ & $0.278$ & $1.57$ \\
+both & $0.500$ & --- & $0.324$ & $2.30$ & $0.229$ & $\mathbf{1.38}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent $\chi^2/N$ falls everywhere, which is what free parameters do and is not the
+question. Against \emph{lack of fit}, adding $u_0$ on top of a free stretch improves one record
+and worsens another, and \SI{15}{\celsius} is withheld: its three prior widths fail the nesting
+gate of \cref{sec:reqprior} --- a box containing another scoring worse than it --- at $16$
+restarts and again at $32$, so that surface is multimodal and the cell is not read.
+
+Two things do come out of it cleanly. The velocity lands at $-0.022$ to $-0.033$ of the Rayleigh
+scale on every record, always inward, and identically at $\pm10\%$ and $\pm30\%$ prior width, so
+it is a determined quantity rather than a bound. And $R_{\rm eq}$ and $u_0$ are \emph{separately
+identified}: their correlation is $+0.06$ to $+0.13$ with $J^{\mathsf T}J$ conditioned near
+$10^2$, against $-1.00000$ and $10^8$ for the $g$--$\alpha$ pair of \cref{sec:identifiability}.
+Two configuration quantities that could easily have been one direction are not.
+
+The obvious reading of an inward velocity at the imaged maximum is that the maximum is a sampled
+frame rather than the true turning point. That is checkable and does not survive either: half a
+frame of the model's own deceleration is $-0.007$ to $-0.008$ of the Rayleigh scale, three to
+four times smaller than what is fitted. The sign and the order are right and the magnitude is
+not, so sampling is part of it at most.
 
 Read with \cref{sec:reqprior}, the two point the same way. The largest entry on the old list was
 the initial radius and the largest on the new one is the initial velocity; both are the initial

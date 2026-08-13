@@ -1081,3 +1081,57 @@ it needs the un-normalised radii.
 two model-based tests as convergence on a fact about the apparatus. Neither could see the
 tabulated uncertainty, because neither had the source. Checking provenance before writing a
 calibration claim would have cost one `grep`.
+
+## Part 10 — the certificate is smaller than it looked
+
+`docs/writeup/offgrid_and_compound.py`. §measure closed with three limitations. The point
+estimate was answered by the bias-box design; these were the other two, and both were runnable
+without new data.
+
+**The certificate does not reach past its own grid.** On the 224-point grid the measure certifies
+exactly — `max d(x,ξ*) = 4.000000` against `p = 4`, gap 8.1e-10. On a grid eight times finer:
+
+```
+evaluated on              points   max d(x, xi*)   bound p   exceedance
+the grid it certified on     224        4.000000         4     8.10e-10
+a grid 8x finer             1840       69.560989         4     6.56e+01
+```
+
+at 552 µm @ stretch 17.82. So every certified batch in this chapter is optimal **over its
+candidate set** and none is proved optimal over the continuum.
+
+**Three things it is not.** Not ill-conditioning: `cond(M(ξ*)) = 1.97e4`, eigenvalues
+`[14.2, 468, 3288, 278419]`. Not a solver artifact: at 552 µm the spike survives a hundredfold
+tolerance tightening — `‖M‖ = 1.0086e6` at rtol 1e-7 *and* 1e-9, identical to five digits — while
+`min R/R_max` moves smoothly (0.0379 → 0.0326 → 0.0287) straight through it. Not broad: scanned in
+stretch, `d` sits at 0.4–0.9 almost everywhere, hits 9.69 at 17.80 and 64.06 at 17.82, and is back
+to 0.52 by 18.00. These are ridges where a small change flips the post-collapse history.
+
+**Where I got it wrong, and how the full run caught it.** Since §setpoint establishes that a
+geometry is not a knob, I expected averaging over the measured stretch scatter (cv 0.06, wider
+than the ridges) to erase the exceedance — and a spot check at 552 µm said exactly that: `d`
+9.690 → 1.018. It does not generalise. Over the whole grid the setpoint-averaged maximum is
+**12.38**, exceedance 8.4 rather than 65.6. Averaging helps by a factor of eight and does not
+close it; the ridges are not merely information nobody can ask for. One radius is not the grid,
+and the tidy version of this finding was wrong.
+
+**The compound front, which §design said was never run.** It was blocked on an estimator, not on
+theory: Φ_β is concave for every β, but the per-design log Bayes factor pins at the boundary. The
+linearised separation of §batch has no inner optimisation and no boundary, so it can play the
+utility.
+
+| β | settings | gap | log det M | separation | of each max |
+|---|---|---|---|---|---|
+| 0 | 4 | 7e-10 | **31.92** | 179.4 | 100%, 19.9% |
+| 0.10 | 3 | 6e-10 | 24.45 | 887.9 | 76.6%, 98.3% |
+| 0.50 | 3 | 1e-12 | 20.74 | 902.1 | 65.0%, 99.9% |
+| 1 | 1 | 0 | 18.82 | **903.0** | 58.9%, 100% |
+
+Certified along the whole front. Not the dissolution §design claims — no β attains both maxima —
+but steeply asymmetric: **a tenth of a weight on discrimination buys 98.3% of it for a quarter of
+the estimation.** Take a small β, not a balanced one.
+
+**The lesson, and it is the session's recurring one.** The nice story — "the two loose ends solve
+each other" — was constructed from one radius and did not survive the full scan. Every prior
+instance this session had the same shape: a result that resolves neatly is the one to run
+completely before writing down.

@@ -3255,11 +3255,68 @@ of $\theta$, so the design is locally optimal in the parameters though globally 
 $\xi$ --- which \cref{sec:biasdesign} now prices and partly repairs, at $0.39$ to $0.67$ nats.
 
 The candidate set is still a grid, so the certificate proves optimality \emph{over that grid}.
-But $d(x,\xi^\star)$ can be evaluated anywhere, which makes checking for a missed region a
-cheap scan rather than another search.
+That scan has now been run, and it fails.
 
-The compound form was not run on these records. The per-design log Bayes factor still suffers
-the boundary pinning described above.
+\paragraph{The certificate does not reach past its own grid.} On the $224$-point grid the
+measure certifies exactly: $\max_x d(x,\xi^\star) = 4.000000$ against $p = 4$, at a gap of
+$8\times10^{-10}$. Evaluated on a grid eight times finer, the same measure gives
+%
+\begin{equation*}
+\max_x d(x,\xi^\star) = 69.56 \quad\text{against}\quad p = 4,
+\end{equation*}
+%
+exceeding the bound by $65.6$ at \SI{552}{\micro\metre} and stretch $17.82$. The measure is
+optimal among the settings it was offered and is \emph{not} optimal over the continuum.
+
+The exceedance is not numerical. It survives a hundredfold tightening of the solver tolerance
+--- $\lVert M\rVert = 1.0086\times10^{6}$ at $\text{rtol}=10^{-7}$ and at $10^{-9}$, identical to
+five digits --- and the trajectory itself varies smoothly through it, the collapse deepening
+monotonically from $0.0379$ to $0.0287$ across the feature. What spikes is the sensitivity, not
+the solve.
+
+It is, though, extremely narrow. Scanned in stretch at fixed radius, $d$ sits at $0.4$ to $0.9$
+almost everywhere and rises to $9.69$ at $17.80$ and $64.06$ at $17.82$, falling back to $0.52$
+by $18.00$. These are ridges a coarse grid steps over, where a small parameter change flips the
+post-collapse trajectory between qualitatively different histories.
+
+\emph{Averaging over the setpoint scatter helps and does not fix it.} Since \cref{sec:setpoint}
+establishes that a geometry is not a knob --- the stretch arrives with a coefficient of variation
+of $0.06$, wider than these ridges --- the candidate a design can actually ask for is
+$\mathbb{E}[M]$, and much of the spike averages out. The exceedance falls from $65.6$ to $8.4$.
+It does not reach zero, so the ridges are not merely information nobody can request; some part of
+them survives being asked for imprecisely.
+
+The consequence is a genuine limitation on this chapter's strongest claim, and it is the honest
+version of the caveat this list previously carried. \emph{Every certified batch here is optimal
+over its candidate set and none is proved optimal over the continuum.} The scan says where to
+refine --- around \SI{550}{\micro\metre} at high stretch --- and refining there will move the
+answer.
+
+\paragraph{The compound front, which was previously not run.} It was blocked on an estimator
+rather than on theory: $\Phi_\beta$ is concave for every $\beta$, but the per-design log Bayes
+factor suffered the boundary pinning of \cref{sec:integral}. The linearised separation of
+\cref{sec:batch} --- the model difference orthogonal to the material span --- has no inner
+optimisation and no boundary to pin against, so it can play the utility.
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+$\beta$ & settings & gap & $\log\det M$ & separation & of each maximum \\
+\midrule
+$0$ & $4$ & $7\times10^{-10}$ & $\mathbf{31.92}$ & $179.4$ & $100\%$, $19.9\%$ \\
+$0.10$ & $3$ & $6\times10^{-10}$ & $24.45$ & $887.9$ & $76.6\%$, $98.3\%$ \\
+$0.50$ & $3$ & $1\times10^{-12}$ & $20.74$ & $902.1$ & $65.0\%$, $99.9\%$ \\
+$1$ & $1$ & $0$ & $18.82$ & $\mathbf{903.0}$ & $58.9\%$, $100\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Certified along the whole front. The trade is real rather than dissolved --- no
+$\beta$ attains both maxima --- but it is steeply asymmetric, and that is the practical finding:
+\emph{a tenth of a weight on discrimination buys $98.3\%$ of it for a quarter of the estimation}.
+A collaborator who wants both should take a small $\beta$, not a balanced one, and the support
+moves from four settings to three rather than collapsing to the single design $\beta = 1$ would
+give.
 
 
 \begin{figure}[t]

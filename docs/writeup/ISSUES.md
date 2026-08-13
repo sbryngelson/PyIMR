@@ -951,6 +951,40 @@ indifferent to who chooses it.
 
 ---
 
+### 9.5 Is the allocation gain the clock? — hypothesis not supported ✗
+
+The allocation is the chapter's biggest lever (+3.4 to +4.0 nats), and it rests **entirely** on
+Σ_θ ≠ 0: as Σ_θ → 0 the information becomes `J·F_N`, only the product `JN` matters, and there is
+nothing to allocate. §latent then showed a quarter of the trial variance is a *clock* error, and
+Σ_θ came from per-trial fits — so the parameters were absorbing whatever of it they could.
+
+Rescaling every trial onto the record's median collapse time and refitting:
+
+| record | J | μ raw | aligned | gα raw | aligned | λ₁ raw | aligned |
+|---|---|---|---|---|---|---|---|
+| 15 °C | 18 | 14.1% | 14.9% | 31.5% | **13.2%** | 51.0% | 93.8% |
+| 23 °C | 14 | 29.2% | 30.3% | 18.4% | 35.9% | 46.3% | 65.5% |
+| 33 °C | 7 | 20.8% | 20.4% | 53.4% | 52.9% | 86.0% | 79.3% |
+
+Allocation gain moves by **+0.589, +0.043, −0.416** against gains of 5.78 / 5.67 / 5.35. **The
+recommendation survives** — at most a tenth of the effect on one record, nothing on another,
+wrong sign on the third.
+
+**The test is weaker than it looks, and the Σ table says why.** Alignment mostly *raises* the
+spread (λ₁ at 15 °C: 51% → 94%), because rescaling a trace's clock and resampling distorts it in
+ways the material parameters then absorb. Only gα at 15 °C behaves as predicted. So this does not
+support the contamination reading and is not clean enough to refute it — what it establishes is
+that the allocation is not *obviously* a clock artifact, which is what was asked.
+
+**Two implementation notes.** The first version searched `N ≥ 5` and returned J = 723, N = 5 on
+every record — an unphysical corner well below the N_eff ≈ 10 floor §allocation itself sets.
+Floored at 25. The optimum still sits *on* the floor, which is §allocation's own finding restated:
+the optimum wants fewer samples than any defensible floor allows. And the per-trial fits are now
+cached, since the cheap half of this study was being blocked behind 40 minutes of the expensive
+half on every re-run.
+
+---
+
 ## Ledger
 
 | | count |

@@ -3842,6 +3842,41 @@ $0.21$. \textbf{The allocation nobody has been optimizing is worth three to ten 
 them}, and it is the one variable the batch optimization of \cref{sec:batch} has never been
 allowed to move.
 
+\paragraph{Is the gain the clock rather than the material?} It rests entirely on
+$\Sigma_\theta$ being non-zero --- as $\Sigma_\theta \to 0$, \eqref{eq:allocation} becomes
+$JF_N$, only the product $JN$ matters, and there is nothing to allocate. And \cref{sec:latent}
+has since shown a quarter of the trial variance to be a clock error rather than a material
+difference. $\Sigma_\theta$ was estimated by fitting each trial separately, so whatever of that
+the parameters could absorb, they did.
+
+Rescaling every trial onto the record's median collapse time --- a processing change costing
+nothing --- and refitting gives a $\Sigma_\theta$ with the timing taken out:
+
+\begin{center}
+\begin{tabular}{lccccccc}
+\toprule
+record & $J$ & $\mu$ raw & aligned & $g\alpha$ raw & aligned & $\lambda_1$ raw & aligned \\
+\midrule
+\SI{15}{\celsius} & $18$ & $14.1\%$ & $14.9\%$ & $31.5\%$ & $\mathbf{13.2\%}$ & $51.0\%$ & $93.8\%$ \\
+\SI{23}{\celsius} & $14$ & $29.2\%$ & $30.3\%$ & $18.4\%$ & $35.9\%$ & $46.3\%$ & $65.5\%$ \\
+\SI{33}{\celsius} & $7$ & $20.8\%$ & $20.4\%$ & $53.4\%$ & $52.9\%$ & $86.0\%$ & $79.3\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent and the allocation recomputed on it moves by $+0.589$, $+0.043$ and $-0.416$ nats
+against gains of $5.78$, $5.67$ and $5.35$. \emph{The recommendation survives}: the
+contamination is at most a tenth of the effect on one record, nothing on another, and of the
+wrong sign on the third.
+
+The test is weaker than it looks, and the $\Sigma$ table says why. Alignment mostly \emph{raises}
+the spread rather than lowering it --- $\lambda_1$ at \SI{15}{\celsius} goes from $51\%$ to
+$94\%$ --- because rescaling a trace's clock and resampling it distorts the trace in ways the
+material parameters then have to absorb. Only $g\alpha$ at \SI{15}{\celsius} behaves as the
+hypothesis predicts. So this does not support the contamination reading, and it is not clean
+enough to refute it either; what it does establish is that the allocation recommendation is not
+obviously an artifact of the clock, which is what it was asked.
+
 Three caveats, and they do not cancel. The trials column of \eqref{eq:allocation} gains exactly
 $p\log 2$ per doubling because $F$ is linear in $J$ --- that is arithmetic, and the measurement
 is the sample column beside it. $F_N$ is scaled linearly in $N$ here, as though samples within a

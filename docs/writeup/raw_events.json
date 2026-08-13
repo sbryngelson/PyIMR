@@ -1,0 +1,75 @@
+{
+ "per_bin": {
+  "12-18C": {
+   "events": 253,
+   "r_max_mean_m": 0.00031108695170783724,
+   "r_max_cv": 0.2534525084056764,
+   "stretch_mean": 8.21120409978206,
+   "stretch_cv": 0.052491394298312476
+  },
+  "20-26C": {
+   "events": 100,
+   "r_max_mean_m": 0.0003016867135438655,
+   "r_max_cv": 0.2748253955301955,
+   "stretch_mean": 8.106310513033442,
+   "stretch_cv": 0.06582776621908892
+  },
+  "30-36C": {
+   "events": 84,
+   "r_max_mean_m": 0.00034125136547333523,
+   "r_max_cv": 0.22546362563536418,
+   "stretch_mean": 8.119620486035119,
+   "stretch_cv": 0.06150845738782726
+  }
+ },
+ "raw_modes": {
+  "12-18C": {
+   "events": 253,
+   "share": 0.8822001596909552,
+   "cos_dilation": 0.9514990692105377,
+   "chance": 0.07453559924999299
+  },
+  "20-26C": {
+   "events": 100,
+   "share": 0.8688882176062367,
+   "cos_dilation": 0.9760156168249424,
+   "chance": 0.07453559924999299
+  },
+  "30-36C": {
+   "events": 84,
+   "share": 0.8610443162200532,
+   "cos_dilation": 0.9733417531839923,
+   "chance": 0.07453559924999299
+  }
+ },
+ "processed": {
+  "gelatin_15C": {
+   "trials": 18,
+   "share": 0.5390992943489825,
+   "cos_dilation": 0.5716187331444936,
+   "variance_explained": 0.2413046446969206,
+   "implied_timescale_cv": 0.01016479225600462,
+   "cos_mode_after": 0.813199216623931
+  },
+  "gelatin_23C": {
+   "trials": 14,
+   "share": 0.6813820604777361,
+   "cos_dilation": 0.5812820254892279,
+   "variance_explained": 0.2586022754519973,
+   "implied_timescale_cv": 0.020698783245957728,
+   "cos_mode_after": 0.8114583216991036
+  },
+  "gelatin_33C": {
+   "trials": 7,
+   "share": 0.7195565059341799,
+   "cos_dilation": 0.5178594029247503,
+   "variance_explained": 0.27331203299132056,
+   "implied_timescale_cv": 0.018618644534868067,
+   "cos_mode_after": 0.8532109935061278
+  }
+ },
+ "implied_vs_measured": {
+  "implied": 0.01649407334561014,
+  "measured": 0.25124717652374534
+ }
+}

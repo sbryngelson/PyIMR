@@ -985,6 +985,43 @@ half on every re-run.
 
 ---
 
+### 9.6 Robust to the bias bound — the last of §measure's three limitations ✓
+
+§measure certifies globally in ξ and then admits the information is evaluated at a point estimate
+of θ. Its own repair — average over a prior — was never taken because there was no prior.
+`eq:biasbound` supplies something better: a *computed* set containing the truth unless the unseen
+half of the discrepancy exceeds the seen half. At 15 °C that is ×1.58 in μ, ×1.30 in gα, ×3.11 in λ₁.
+
+**The bound reaches the design.** Across the box's nine corners the best single geometry is one
+of **five** distinct answers, from 50 to 307 µm. The recommendation is not stable under the
+parameter uncertainty the document itself computes.
+
+| design built on | settings | at the fit | average over box | worst corner |
+|---|---|---|---|---|
+| nominal, at the fit | 4 | **10.951** | 10.708 | 8.795 |
+| Bayesian, max E[log det] | 5 | 10.536 | **11.101** | 9.044 |
+| maximin, max min log det | 6 | 9.779 | 10.312 | **9.464** |
+
+Each design is best in its own column — the check that all three are being *optimised* rather
+than merely evaluated. Designing at the point estimate costs **0.393** nats on average and
+**0.669** in the worst case.
+
+Both robustifications keep the certificate (averaging concave criteria is concave; a pointwise
+minimum of concave criteria is concave), implemented by stacking each candidate's corner matrices
+block-diagonally so `optimal_measure`'s criterion interface reduces over blocks.
+
+**One honest qualification.** The Bayesian design certifies at 1e-9; the maximin does **not**
+converge, stopping at a gap of **4.4**. A pointwise minimum isn't smooth and the subgradient
+iteration isn't the right tool. Its value is a lower bound reached, not an optimum proved.
+
+**A Jensen error caught mid-way.** The first version optimised `log det E[M]` and scored
+`E[log det M]` — not the same criterion — which showed up as the "averaged" design performing
+*worse on the average* than the nominal one, which is impossible if it were optimising that
+column. Both reductions now go through the block stack so each optimises the column it is
+reported in.
+
+---
+
 ## Ledger
 
 | | count |

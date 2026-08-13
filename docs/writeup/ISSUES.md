@@ -689,6 +689,45 @@ original at |cos| 0.81–0.85. A quarter is accounted for; the rest is not. But 
 
 ---
 
+### 8.3 Which clock the pipeline uses, and what each one buys ✓
+
+The file says it by its own fields: `R_norm = R/R_max` to the last bit, and
+`d(t_norm)/dt = 10/R_max` with `sqrt(p_inf/rho) = 10.07 m/s`. **Each event's time is divided by
+its own inertial scale.** That is where the factor of fifteen went. The file also stores
+`tc_norm` — the *measured* collapse time in units of that estimate — which scatters by 3.1–3.3%.
+
+Rebuilding the deviation matrix under three clocks on the same events:
+
+| bin | clock | share | \|cos\| to −t·Ṙ | implied cv | total variance |
+|---|---|---|---|---|---|
+| 12–18 °C | population | 0.674 | 0.944 | 0.226 | 5.36 |
+| | per-event inertial | 0.756 | 0.852 | 0.024 | 0.383 |
+| | measured collapse | 0.637 | 0.926 | 0.017 | **0.245** |
+| 20–26 °C | population | 0.729 | 0.914 | 0.244 | 6.27 |
+| | per-event inertial | 0.770 | 0.872 | 0.026 | 0.408 |
+| | measured collapse | 0.632 | 0.953 | 0.017 | **0.228** |
+| 30–36 °C | population | 0.694 | 0.879 | 0.200 | 5.15 |
+| | per-event inertial | 0.615 | 0.919 | 0.023 | 0.352 |
+| | measured collapse | 0.586 | 0.872 | 0.017 | **0.266** |
+
+**The per-event clock is worth a factor of 14.** A population `R_max` inflates trial variance
+14–15×, and the scatter it implies (0.20–0.24) matches the measured `R_max` CV (0.22–0.28) — the
+identification is exact, not suggestive.
+
+**Realigning on the measured collapse time buys a further ×0.56–0.76.** So `tc_norm` is a real
+residual the inertial estimate leaves behind.
+
+**And the dilation shape survives every clock** — |cos| 0.87–0.95, carrying 0.47–0.61 of the
+variance at all three. One scalar per event cannot remove it, and that is the physical content:
+**the collapse and the rebound do not scale together.** The rebound period is set by the gas the
+bubble is left with, so aligning on `t_c` aligns the collapse and leaves the afterbounce
+misaligned — and the afterbounce is exactly where this mode lives (97–98%).
+
+The question is now specific: not *what* the mode is, but whether a **two-timescale** alignment —
+collapse and rebound separately, both measurable per event — removes what one cannot.
+
+---
+
 ## Ledger
 
 | | count |

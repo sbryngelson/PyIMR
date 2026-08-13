@@ -1071,10 +1071,54 @@ attributed to this mode}, against $0.467$ for the best of nine linearised parame
 
 It is not the whole of it. Projecting the dilation out leaves a leading mode overlapping the
 original at $\lvert\cos\rvert$ of $0.81$ to $0.85$, so a fifth to a quarter is accounted for and
-the rest is not. But the character of the question has changed: this is no longer a mode with no
-candidate, it is a mode with one identified mechanism carrying a quarter of it and a remainder
-that the same normalisation may well be leaving behind in a form the linear direction does not
-capture.
+the rest is not.
+
+\paragraph{Which clock, and what each one buys.} The acquisition file settles what the pipeline
+is doing, by its own fields: $R_{\rm norm} = R/R_{\max}$ to the last bit, and
+$\mathrm{d}t_{\rm norm}/\mathrm{d}t = 10/R_{\max}$ with
+$\sqrt{p_\infty/\rho} = \SI{10.07}{\metre\per\second}$ --- so each event's time is divided by
+\emph{its own} inertial scale $R_{\max}\sqrt{\rho/p_\infty}$. That is where the factor of fifteen
+went, and the file also stores \texttt{tc\_norm}, the \emph{measured} collapse time in units of
+that estimate, which scatters by $3.1$ to $3.3\%$.
+
+Rebuilding the deviation matrix under three clocks on the same events:
+
+\begin{center}
+\begin{tabular}{llccccc}
+\toprule
+bin & clock & $n$ & leading share & $\lvert\cos\rvert$ to $-t\dot R$ & implied cv & total variance \\
+\midrule
+\SIrange{12}{18}{\celsius} & population & $253$ & $0.674$ & $0.944$ & $0.226$ & $5.36$ \\
+ & per-event inertial & & $0.756$ & $0.852$ & $0.024$ & $0.383$ \\
+ & measured collapse & & $0.637$ & $0.926$ & $0.017$ & $\mathbf{0.245}$ \\
+\midrule
+\SIrange{20}{26}{\celsius} & population & $100$ & $0.729$ & $0.914$ & $0.244$ & $6.27$ \\
+ & per-event inertial & & $0.770$ & $0.872$ & $0.026$ & $0.408$ \\
+ & measured collapse & & $0.632$ & $0.953$ & $0.017$ & $\mathbf{0.228}$ \\
+\midrule
+\SIrange{30}{36}{\celsius} & population & $84$ & $0.694$ & $0.879$ & $0.200$ & $5.15$ \\
+ & per-event inertial & & $0.615$ & $0.919$ & $0.023$ & $0.352$ \\
+ & measured collapse & & $0.586$ & $0.872$ & $0.017$ & $\mathbf{0.266}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Three things follow. \emph{The per-event clock is worth a factor of fourteen}: a
+population $R_{\max}$ inflates the trial variance $14$ to $15$ times, and the scatter it implies,
+$0.20$ to $0.24$, matches the $0.22$ to $0.28$ measured directly --- the identification is exact
+rather than suggestive. \emph{Realigning on the measured collapse time buys a further quarter to
+two-fifths}, so \texttt{tc\_norm} is a real residual the inertial estimate leaves behind.
+
+\emph{And the dilation shape survives every clock.} At all three the leading mode overlaps
+$-t\dot R$ at $0.87$ to $0.95$ and the direction carries $0.47$ to $0.61$ of the variance. One
+scalar per event cannot remove it, which is the physical content: the collapse and the rebound do
+not scale together. The rebound period is set by the gas the bubble is left with, so aligning on
+$t_c$ aligns the collapse and leaves the afterbounce misaligned --- and the afterbounce is where
+this mode lives.
+
+That is a specific and testable statement, and it is where the question now sits: not what the
+mode is, but whether a \emph{two}-timescale alignment --- collapse and rebound separately, both
+measurable per event --- removes what one cannot.
 
 Two further facts locate it without naming it. It lives in the \emph{rebound}: $98.0\%$ and
 $97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and

@@ -1,0 +1,113 @@
+{
+ "tc_norm": {
+  "12-18C": {
+   "mean": 0.9211645835392741,
+   "cv": 0.03337781451269666,
+   "r_max_cv": 0.2534525084056764
+  },
+  "20-26C": {
+   "mean": 0.9202464036450827,
+   "cv": 0.0317556215926914,
+   "r_max_cv": 0.2748253955301955
+  },
+  "30-36C": {
+   "mean": 0.9282029658837662,
+   "cv": 0.030690881041048734,
+   "r_max_cv": 0.22546362563536418
+  }
+ },
+ "modes": {
+  "12-18C": {
+   "population": {
+    "events": 253,
+    "share": 0.6742897381919453,
+    "cos_dilation": 0.9439268909876399,
+    "variance_explained": 0.6054700648493196,
+    "implied_cv": 0.22601347483738332,
+    "total_variance": 5.362457096533215
+   },
+   "inertial": {
+    "events": 253,
+    "share": 0.7561030305200448,
+    "cos_dilation": 0.8518709002898113,
+    "variance_explained": 0.5542299538738509,
+    "implied_cv": 0.02433929390620179,
+    "total_variance": 0.3826260294809181
+   },
+   "collapse": {
+    "events": 253,
+    "share": 0.6366845421908477,
+    "cos_dilation": 0.926104621069214,
+    "variance_explained": 0.5603920387458721,
+    "implied_cv": 0.017326308822476197,
+    "total_variance": 0.24532569401786422
+   }
+  },
+  "20-26C": {
+   "population": {
+    "events": 100,
+    "share": 0.7287479474248574,
+    "cos_dilation": 0.914497598560328,
+    "variance_explained": 0.6120436975390706,
+    "implied_cv": 0.24426872446748196,
+    "total_variance": 6.26600170601821
+   },
+   "inertial": {
+    "events": 100,
+    "share": 0.7700915303817362,
+    "cos_dilation": 0.8719478661105369,
+    "variance_explained": 0.5912233019464608,
+    "implied_cv": 0.026416595186264727,
+    "total_variance": 0.40818249251667454
+   },
+   "collapse": {
+    "events": 100,
+    "share": 0.6324530507927495,
+    "cos_dilation": 0.9534700327475978,
+    "variance_explained": 0.5837572905786154,
+    "implied_cv": 0.017363049878906738,
+    "total_variance": 0.22840074016868095
+   }
+  },
+  "30-36C": {
+   "population": {
+    "events": 84,
+    "share": 0.6940550893165047,
+    "cos_dilation": 0.8788745172099068,
+    "variance_explained": 0.5453690972329388,
+    "implied_cv": 0.19952217235216482,
+    "total_variance": 5.146923096230162
+   },
+   "inertial": {
+    "events": 84,
+    "share": 0.6147318182552396,
+    "cos_dilation": 0.9185943935752793,
+    "variance_explained": 0.5296078897522574,
+    "implied_cv": 0.022683582294223795,
+    "total_variance": 0.351858907788899
+   },
+   "collapse": {
+    "events": 84,
+    "share": 0.5858572126871985,
+    "cos_dilation": 0.8721845939984286,
+    "variance_explained": 0.47400927714549745,
+    "implied_cv": 0.01667311455494715,
+    "total_variance": 0.265772319384331
+   }
+  }
+ },
+ "reductions": {
+  "12-18C": {
+   "per_event_clock": 0.07135274419785712,
+   "measured_collapse": 0.6411631073575428
+  },
+  "20-26C": {
+   "per_event_clock": 0.0651424164351302,
+   "measured_collapse": 0.5595554546214414
+  },
+  "30-36C": {
+   "per_event_clock": 0.06836296195033811,
+   "measured_collapse": 0.7553377603950944
+  }
+ }
+}

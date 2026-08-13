@@ -728,6 +728,42 @@ collapse and rebound separately, both measurable per event — removes what one 
 
 ---
 
+### 8.4 #222 explained: the clock has two hands ✓
+
+Both timescales are measurable per event — peak at `t_norm = 0`, first minimum ≈0.92, second
+≈1.73 — so a piecewise warp taking (peak, min₁, min₂) → (0,1,2) aligns collapse and afterbounce
+at once. They are **not** the same quantity: collapse cv 0.031–0.033, afterbounce cv 0.056–0.069,
+correlating at only +0.35 to +0.52.
+
+| bin | alignment | share | \|cos\| to −t·Ṙ | dilation share | total var |
+|---|---|---|---|---|---|
+| 12–18 °C | inertial only | 0.817 | 0.850 | 0.599 | 0.323 |
+| | collapse only | 0.609 | 0.756 | 0.408 | 0.107 |
+| | **two timescales** | 0.424 | **0.094** | **0.262** | **0.054** |
+| | sham (population knots) | 0.602 | 0.969 | 0.571 | 0.463 |
+| 20–26 °C | inertial only | 0.784 | 0.879 | 0.614 | 0.287 |
+| | **two timescales** | 0.510 | **0.133** | **0.233** | **0.059** |
+| 30–36 °C | inertial only | 0.654 | 0.898 | 0.552 | 0.316 |
+| | **two timescales** | 0.682 | **0.297** | **0.193** | **0.065** |
+
+Aligning both removes **four fifths** of the trial variance (×0.168, ×0.205, ×0.206) and
+**destroys the dilation signature** — |cos| falls from 0.85–0.90 to 0.09–0.30. What is left is no
+longer a clock error of any kind.
+
+**The sham is what makes this physics rather than arithmetic.** Two knots per event remove
+variance whatever the knots are, so the same warp was run with knots drawn from the population.
+It makes things *worse* (0.40–0.48 against the inertial clock's 0.29–0.32), and the measured warp
+beats it by a further factor of 7–9. The reduction comes from the timescales being the event's
+own.
+
+**So #222 is answered.** A bubble has two independent timescales — the collapse set by `R_max`
+and the ambient pressure, the afterbounce set by the gas it is left with. The processing
+normalises by the first. The mode is what the second leaves behind, which is why it lives after
+the collapse and why no parameter of any model ever absorbed it (four attempts, four failures).
+The remedy is a processing change, not a constitutive one.
+
+---
+
 ## Ledger
 
 | | count |

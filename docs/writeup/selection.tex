@@ -1116,9 +1116,51 @@ not scale together. The rebound period is set by the gas the bubble is left with
 $t_c$ aligns the collapse and leaves the afterbounce misaligned --- and the afterbounce is where
 this mode lives.
 
-That is a specific and testable statement, and it is where the question now sits: not what the
-mode is, but whether a \emph{two}-timescale alignment --- collapse and rebound separately, both
-measurable per event --- removes what one cannot.
+\paragraph{It does, and that closes the question.} Both timescales are measurable per event:
+the peak sits at $t_{\rm norm}=0$ by construction, the first minimum near $0.92$ and the second
+near $1.73$, so a piecewise-linear warp taking $(\text{peak}, \text{min}_1, \text{min}_2)$ to
+$(0,1,2)$ aligns the collapse and the afterbounce at once. They are not the same quantity: the
+collapse time has a coefficient of variation of $0.031$--$0.033$ and the afterbounce period
+$0.056$--$0.069$, and the two correlate at only $+0.35$ to $+0.52$.
+
+\begin{center}
+\begin{tabular}{llcccc}
+\toprule
+bin & alignment & leading share & $\lvert\cos\rvert$ to $-t\dot R$ & dilation share & total variance \\
+\midrule
+\SIrange{12}{18}{\celsius} & inertial only & $0.817$ & $0.850$ & $0.599$ & $0.323$ \\
+ & collapse only & $0.609$ & $0.756$ & $0.408$ & $0.107$ \\
+ & \textbf{two timescales} & $0.424$ & $\mathbf{0.094}$ & $\mathbf{0.262}$ & $\mathbf{0.054}$ \\
+ & sham (population knots) & $0.602$ & $0.969$ & $0.571$ & $0.463$ \\
+\midrule
+\SIrange{20}{26}{\celsius} & inertial only & $0.784$ & $0.879$ & $0.614$ & $0.287$ \\
+ & \textbf{two timescales} & $0.510$ & $\mathbf{0.133}$ & $\mathbf{0.233}$ & $\mathbf{0.059}$ \\
+ & sham & $0.593$ & $0.972$ & $0.565$ & $0.396$ \\
+\midrule
+\SIrange{30}{36}{\celsius} & inertial only & $0.654$ & $0.898$ & $0.552$ & $0.316$ \\
+ & \textbf{two timescales} & $0.682$ & $\mathbf{0.297}$ & $\mathbf{0.193}$ & $\mathbf{0.065}$ \\
+ & sham & $0.593$ & $0.938$ & $0.545$ & $0.480$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Aligning both timescales removes four fifths of the trial variance --- $\times 0.168$,
+$\times 0.205$ and $\times 0.206$ against the inertial clock --- and, decisively, \emph{destroys
+the dilation signature}: the leading mode's overlap with $-t\dot R$ falls from $0.85$--$0.90$ to
+$0.09$--$0.30$. What is left is no longer a clock error of any kind.
+
+The sham is what licenses reading that as physics rather than as arithmetic. A warp with two
+knots per event removes variance whatever the knots are, so the same warp was run with knots
+drawn from the population instead of measured from each trace. It does not help --- it makes
+things \emph{worse}, at $0.40$ to $0.48$ against the inertial clock's $0.29$ to $0.32$ --- and the
+measured warp beats it by a further factor of seven to nine. The reduction comes from the
+timescales being the event's own.
+
+So \cref{sec:latent}'s mode is a clock error with two hands. A bubble has two independent
+timescales, the collapse set by $R_{\max}$ and the ambient pressure and the afterbounce set by
+the gas it is left with; the processing normalises by the first; and the mode is what the second
+one leaves behind, which is why it lives after the collapse and why no parameter of any model
+ever absorbed it. The remedy is a processing change, not a constitutive one.
 
 Two further facts locate it without naming it. It lives in the \emph{rebound}: $98.0\%$ and
 $97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and

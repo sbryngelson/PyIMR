@@ -796,6 +796,40 @@ hand costs one command and should be the first thing done, not the last.
 
 ---
 
+### 8.6 Where R_max and R_eq come from, per the authors — and what that eliminates
+
+Confirmed against the stored metadata: `R_max` is a 4th-order polynomial fit through a window at
+the peak (`R0PfitPower=4`, `R0PfitWindow=0.4`), `R_eq` is a tail average of R(t)
+(`ReqCutoff=0.95`). Both are fitted, not read off.
+
+**R_max is in metres, already calibrated.** 266.3 µm = 91.3 px at `m_px = 2.9157e-6`. (The
+authors were unsure; worth telling them.)
+
+**The R_max fit is NOT the residual dilation ✗ — my hypothesis, refuted.** Since the clock is
+`R_max·√(ρ/p∞)`, a fit error is a clock error, which is the right shape. But the fits are
+uniformly excellent — R² mean 0.9996, worst 0.9944 — and the dilation amplitude does not track
+what variation exists: corr(|dilation|, 1−R²) = +0.064, +0.016, **−0.220**. Eliminated.
+
+**R_eq is estimator-noise-limited ✓ — a new limit.** The authors describe two estimators; both
+are computable:
+
+| bin | n | stretch (tail average) | cv | stretch (median of extrema) | cv | corr |
+|---|---|---|---|---|---|---|
+| 12–18 °C | 253 | 8.211 ± 0.431 | 0.053 | 8.291 ± 0.540 | 0.065 | +0.50 |
+| 20–26 °C | 100 | 8.106 ± 0.534 | 0.066 | 8.075 ± 0.642 | 0.080 | +0.66 |
+| 30–36 °C | 84 | 8.120 ± 0.499 | 0.062 | 8.059 ± 0.541 | 0.067 | +0.80 |
+
+They agree on the mean to under 1% and correlate at only **+0.50 to +0.80**. Two estimators of
+one quantity, comparable spreads, correlation of a half → a large share of the apparent scatter
+is the *estimator*, not the bubble. Both read the same trace's tail, so their errors are if
+anything positively correlated, making that conservative.
+
+**Consequence for §reqprior:** having the stretch per event removes the assumption that every
+bubble shares one value. It does **not** make any one bubble's value precise. A substantial part
+of the 5–8% scatter is how `R_eq` is measured.
+
+---
+
 ## Ledger
 
 | | count |

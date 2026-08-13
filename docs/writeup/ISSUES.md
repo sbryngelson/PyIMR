@@ -911,6 +911,46 @@ at 786 µm, with the small hard-driven corner kept at reduced weight.
 
 ---
 
+### 9.4 Pricing the control: account for the scatter, don't pay to remove it ✓
+
+The investment question that follows §9.1. Sweeping the coefficient of variation, other
+coordinate held at measured:
+
+| R_max cv | best single setpoint | delivered | under an optimal measure |
+|---|---|---|---|
+| 0 (perfect) | 531 µm | 9.100 | **10.434** |
+| 0.10 | 576 µm | 9.124 | 10.365 |
+| 0.25 (measured) | 736 µm | 9.623 | 10.242 |
+| 0.50 | 678 µm | 9.760 | 10.049 |
+
+**The two columns disagree in sign, and that is the finding.** As a single setting, scatter
+*helps* — perfect control is worth **−0.523** nats, because the laser's imprecision accidentally
+spreads a design that would otherwise be a point, and §measure is an argument that spread designs
+beat points. As a measure, scatter hurts: perfect control is worth **+0.191**.
+
+The sign of the second column is a **theorem, not a measurement**: reachable E[M] under any
+scatter is a convex combination of {M(x)}, hence inside the hull the equivalence theorem already
+optimises over, so a measure can emulate any scatter and cannot do worse. Only the magnitude is
+informative.
+
+**And the magnitude settles it.**
+
+| lever | worth |
+|---|---|
+| bubbles vs. frames | +3.93 |
+| geometry under the right noise model | +1.34 |
+| **accounting** for setpoint scatter | +1.118 |
+| restoring testability | +0.24 |
+| **perfect R_max control** | **+0.191** |
+| perfect stretch control | +0.100 |
+
+**Account for the scatter; do not pay to remove it.** Designing as though the setpoint were exact
+costs about a nat and fixing it is free. Making the bubbles actually alike costs an apparatus and
+returns a fifth of a nat — because a certified measure wants a spread anyway and is largely
+indifferent to who chooses it.
+
+---
+
 ## Ledger
 
 | | count |

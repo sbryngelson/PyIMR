@@ -53,9 +53,12 @@ def gain_of(columns, phase, tau, spread):
   scale = np.interp(phase, tau, spread)
   whitened = columns / scale[:, None]
   fisher = whitened.T @ whitened
-  fisher = 0.5 * (fisher + fisher.T)
   prior = 1.0 / np.sqrt(12.0)
-  return 0.5 * fisher * prior**2
+  # one factor of a half, not two. `whitened.T @ whitened` is symmetric by construction, so
+  # `0.5 * (F + F.T)` is the identity on it and any second 0.5 is a straight halving of M.
+  # The sibling scripts -- measured_scatter, control_value, bias_robust_design -- all fold the
+  # symmetrisation and the prior scaling into one expression and are right; this one did not.
+  return 0.5 * (fisher + fisher.T) * prior**2
 
 
 def main():

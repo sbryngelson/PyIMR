@@ -2860,9 +2860,9 @@ answer moves.
 \toprule
 scatter & nominal peak, delivered & scatter-aware optimum, delivered & regret \\
 \midrule
-$\times\tfrac12$ & \SI{514}{\micro\metre} at $6.92$, $7.823$ & \SI{636}{\micro\metre} at $6.92$, $8.312$ & $0.489$ \\
-\textbf{measured} & \SI{514}{\micro\metre} at $6.92$, $7.740$ & \textbf{\SI{786}{\micro\metre} at $6.92$}, $8.859$ & $\mathbf{1.118}$ \\
-$\times 2$ & \SI{514}{\micro\metre} at $6.92$, $6.193$ & \SI{786}{\micro\metre} at $5.62$, $7.667$ & $1.474$ \\
+$\times\tfrac12$ & \SI{514}{\micro\metre} at $6.92$, $8.982$ & \SI{636}{\micro\metre} at $6.92$, $9.646$ & $0.664$ \\
+\textbf{measured} & \SI{514}{\micro\metre} at $6.92$, $9.034$ & \textbf{\SI{786}{\micro\metre} at $6.92$}, $10.254$ & $\mathbf{1.220}$ \\
+$\times 2$ & \SI{514}{\micro\metre} at $6.92$, $7.473$ & \SI{786}{\micro\metre} at $5.62$, $9.031$ & $1.558$ \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -2870,9 +2870,9 @@ $\times 2$ & \SI{514}{\micro\metre} at $6.92$, $6.193$ & \SI{786}{\micro\metre} 
 \noindent Both columns are scored against what actually happens --- the expectation --- so the
 difference is what ignoring the scatter costs rather than an accounting artifact. At the measured
 scatter the recommended bubble is \emph{half again larger}, \SI{786}{} against
-\SI{514}{\micro\metre}, and the regret is $1.118$ nats. For a whole certified batch the same
-comparison costs $0.982$: a measure built on the nominal information delivers $8.467$ where one
-built on \eqref{eq:setpoint} delivers $9.449$.
+\SI{514}{\micro\metre}, and the regret is $1.220$ nats. For a whole certified batch the same
+comparison costs $1.046$: a measure built on the nominal information delivers $9.877$ where one
+built on \eqref{eq:setpoint} delivers $10.923$.
 
 \paragraph{Those widths were assumed, and they have since been measured.} The coefficients above
 come from a three-row table, and \eqref{eq:setpoint} was evaluated over independent log-normal
@@ -2959,7 +2959,7 @@ cannot do worse. Only the \emph{magnitude} is informative --- and the magnitude 
 the investment.
 
 $0.191$ nats is small --- the second-smallest entry in the price list of \cref{sec:survives},
-below even restoring testability, and a twentieth of the bubbles-against-frames split. Perfect
+below even restoring testability, and a twenty-fifth of the bubbles-against-frames split. Perfect
 control of the stretch is worth less still, $+0.100$, and is last.
 
 \emph{Account for the scatter; do not pay to remove it.} Designing as though the setpoint were
@@ -3460,7 +3460,7 @@ what it buys & nats & where \\
 splitting a frame budget between bubbles and samples & $\mathbf{3.40}$--$\mathbf{3.96}$
   & \cref{sec:allocation} \\
 choosing the geometry under the measured noise model & $1.34$ & \cref{sec:noisedesign} \\
-accounting for the scatter in the setpoint & $1.118$ & \cref{sec:setpoint} \\
+accounting for the scatter in the setpoint & $1.220$ & \cref{sec:setpoint} \\
 designing against the bias bound rather than a fit & $0.39$--$0.67$ & \cref{sec:biasdesign} \\
 restoring a testable batch & $0.01$--$0.24$ & \eqref{eq:constrained} \\
 perfect control of $R_{\max}$ & $0.191$ & \cref{sec:setpoint} \\

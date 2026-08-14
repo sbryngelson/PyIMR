@@ -30,11 +30,13 @@ For the first, Bayesian model selection over seventeen candidates, with a noise 
 from trial-to-trial spread and a prior that prices a model down where it merely reproduces a
 simpler one it contains. A quadratic Zener solid -- strain-stiffening elasticity \emph{and}
 stress relaxation -- wins at every temperature, reaching $\chi^2/N = 1.23$ to $1.35$ on the
-selection grid and $0.96$ refitted to its true optimum at \SI{15}{\celsius}. Neither ingredient
+selection grid and $0.96$ refitted to its true optimum at \SI{15}{\celsius} --- figures that
+overstate the agreement, for a reason given below and worth carrying from here. Neither ingredient
 suffices alone: relaxation without stiffening reaches $1.98$, and both memoryless candidates land
 at $20$, where they fit each other to one part in a thousand. The stiffening term does no work at
 all without a relaxation mode to act on, and its advantage collapses as the gel warms -- the
-clearest physical signal in the comparison.
+clearest physical signal in the comparison, though one carried by three temperatures with $18$,
+$14$ and $7$ trials, which makes it suggestive rather than established.
 
 We report the limitations plainly. The residuals are ceilings rather than estimates, because the
 winning model's best-fitting region is partly unintegrable, and a good $\chi^2/N$ overstates how
@@ -164,6 +166,16 @@ that box. It carries three further pieces: the noise scale marginalized under a 
 prior, a redundancy factor down-weighting parameters where a model merely reproduces a simpler
 model it contains, and a BIC-style complexity penalty.
 
+That last piece is charged twice over and should be said plainly. Marginalising over the prior
+already penalises a parameter the data does not use --- that is what the Occam factor of
+\eqref{eq:laplace} is --- so multiplying the integral by $N^{-k/2}$ charges dimension a second
+time, at $4.1$ nats per parameter on the \SI{15}{\celsius} record, and does so on the raw sample
+count where \cref{sec:limitations} puts the effective one near ten. It is a blemish rather than
+an error here: the candidates at the top of each record differ by at most two parameters against
+margins of $76$ to $1496$ nats, so removing the term, or recomputing it on the effective count,
+leaves the ranking and the top-five ordering unchanged on all three records. A comparison with
+smaller margins could not be treated so lightly.
+
 Trajectories are compressible~\citep{keller1980bubble}. The incompressible approximation
 changes the residuals by a factor of two to four and must not be used for these records.
 
@@ -175,8 +187,8 @@ treating them as interchangeable.
 
 \subsection{The likelihood, and what it assumes}
 
-Each record gives a mean radius $y_i$ at time $t_i$ over $18$ trials, with the
-trial-to-trial standard deviation $s_i$ as the noise estimate. Modeling the observations
+Each record gives a mean radius $y_i$ at time $t_i$ over $18$, $14$ and $7$ trials
+respectively, with the trial-to-trial standard deviation $s_i$ as the noise estimate. Modeling the observations
 as independent and Gaussian about the prediction $m_i(\theta)$,
 %
 \begin{equation}
@@ -187,8 +199,11 @@ p(y \mid \theta) = \prod_i \frac{1}{\sqrt{2\pi}\,\sigma_i}
 \label{eq:likelihood}
 \end{equation}
 
-Three assumptions are buried here and each is separately checkable. \emph{Gaussianity} is
-the weakest claim, and is reasonable because $y_i$ is a mean over $18$ trials.
+Three assumptions are buried here and each is separately checkable. \emph{Gaussianity} rests
+on $y_i$ being a mean over trials, which is a good argument at $18$ and a thin one at $7$: on
+the \SI{33}{\celsius} record the central limit theorem is doing very little work, and $s_i$ is
+estimated from the same seven samples it is used to weight, a dependence this likelihood does
+not propagate. Conclusions resting on that record alone should be read accordingly.
 \emph{Known $\sigma_i$} is not innocuous: using the sample spread as the true deviation
 understates uncertainty. \Cref{sec:beta} handles it by giving the noise scale a prior and
 integrating it out. \emph{Independence} is the one that fails: the
@@ -202,6 +217,18 @@ $w = w_0 + (1-w_0)\,\mathrm{logit}^{-1}\!\big(\kappa(\dot\varepsilon_{\rm th} -
 |\dot\varepsilon_i|)/\dot\varepsilon_{\rm th}\big)$. This is a statement about the
 measurement, not the model, and it is why $\chi^2/N$ is dominated by the late record where
 the weights are large.
+
+The three constants are a floor of $0.1$, a steepness of $1$ and a threshold rate of
+\SI{e5}{\per\second}. Two things make them less load-bearing than they look. An overall factor
+on every variance is absorbed by the marginalised noise scale of \cref{sec:beta}, so the
+\emph{level} of the weight cannot affect any comparison; only the \emph{shape} can, because
+candidates place their residual in different parts of the record. And the shape was swept: each
+constant at its default and a factor of two or three either side, $27$ combinations, with the
+range and the pass criterion fixed before the first evaluation. The quadratic Zener solid is the
+best-fitting candidate in all $27$ on all three records, the tightest margin being $320$ in
+$\chi^2$ at \SI{33}{\celsius}. That sweep recomputes $\chi^2$ at each stored best fit rather
+than re-quadraturing $68{,}720$ grid points per record twenty-seven times, so it speaks to the
+best-fit ordering rather than to the evidence itself.
 
 
 \begin{figure}[t]
@@ -380,7 +407,14 @@ $F^n/(F^n + \tau^n)$ against the resolvable scale $\tau$. That gives a number ne
 the parent imitates the child, approaching $1$ when it does something genuinely different.
 
 The weight is the \emph{minimum} over children. A model that can imitate any one simpler
-model is redundant there, however different it looks from the rest.
+model is redundant there, however different it looks from the rest. The children are the models
+a candidate declares it contains, a structural property of the candidate rather than of the
+comparison set, so adding a rival to the catalogue does not change anybody else's prior.
+
+The product of the two factors is normalised to sum to one over the quadrature grid, which makes
+it the discrete prior \eqref{eq:evidence} needs. It is therefore conditional on that grid: a
+different resolution is a different prior, which is why every candidate is evaluated at one
+resolution.
 
 \subsection{The Fisher information, and what its eigenvectors are}
 \label{sec:identifiability}

@@ -1,0 +1,12 @@
+{
+ "succeeded": 227,
+ "probed": 240,
+ "corners": {
+  "box corner, small+low": 6.8668382001356e-160,
+  "box corner, small+high": 6.830481909222471e-66,
+  "box corner, large+low": 6.376968533853505e-87,
+  "box corner, large+high": 0.17465057230571818,
+  "box centre": 6.694580661522362e-31
+ },
+ "worst_lost": 0.17465057230571818
+}

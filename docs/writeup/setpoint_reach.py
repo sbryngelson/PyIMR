@@ -98,6 +98,32 @@ def main():
     summary["corners"][label] = float(lost)
     print(f"  {label:>22s} {lost:10.2%} {'low by that much' if lost > 1e-3 else 'negligible':>13s}")
 
+  # the usable setpoint domain: where essentially all of a setpoint's realisations integrate
+  print("\n  the usable setpoint domain: lost quadrature mass by setpoint\n")
+  set_r = np.geomspace(*BOX_R, 12)
+  set_s = np.geomspace(*BOX_S, 8)
+  print(f"  {'stretch':>8s}  " + " ".join(f"{r * 1e6:5.0f}" for r in set_r))
+  frontier = {}
+  for s0 in set_s:
+    cells, usable_to = [], None
+    for r0 in set_r:
+      wr = np.exp(-0.5 * ((interp_r - np.log(r0)) / sr) ** 2)
+      ws = np.exp(-0.5 * ((interp_s - np.log(s0)) / ss) ** 2)
+      w = np.outer(wr, ws); w /= w.sum()
+      lost = sum(w[i, j] for i, r in enumerate(radii) for j, st in enumerate(stretches)
+                 if not ok[(float(r), float(st))])
+      cells.append(f"{lost:5.1%}" if lost > 5e-4 else "    .")
+      if lost <= 0.01: usable_to = r0
+    frontier[f"{s0:.2f}"] = None if usable_to is None else float(usable_to)
+    print(f"  {s0:8.2f}  " + " ".join(cells))
+  summary["frontier"] = frontier
+  print("  '.' is below 0.05% lost; the usable region is where the mass loss is negligible.")
+
+  print("\n  largest setpoint radius keeping the loss under 1%, by stretch\n")
+  print(f"  {'stretch':>8s} {'max setpoint radius':>21s}")
+  for k, v in frontier.items():
+    print(f"  {k:>8s} {'none' if v is None else f'{v * 1e6:.0f} um':>21s}")
+
   worst = max(summary["corners"].values())
   print()
   if worst < 1e-3:

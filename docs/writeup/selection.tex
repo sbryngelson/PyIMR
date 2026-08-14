@@ -55,7 +55,9 @@ provably best among the settings offered, not over the continuum.
 What the certified problem is worth depends on which variable it optimizes, and the geometry
 everything else optimizes is not the important one. Pricing the candidates -- a trace of $N$
 samples costs $N$ frames -- puts the split between bubbles and frames inside the certified
-problem, and that split is worth $+3.9$ to $+5.8$ nats against at most $1.34$ for the geometry.
+problem, and that split is worth $+3.4$ to $+4.0$ nats against at most $1.34$ for the geometry
+--- and it survives the discovery that a quarter of the between-trial scatter it rests on is a
+clock error rather than a material one.
 Two further corrections move the recommendation rather than its error bar: a geometry is not a
 knob, and designing as though it were costs about a nat, on scatter widths confirmed here against
 $437$ per-event radii; and averaging over a computed model-error bound rather than a point
@@ -2918,10 +2920,9 @@ that \eqref{eq:equivalence} already optimises over, so a measure can emulate any
 cannot do worse. Only the \emph{magnitude} is informative --- and the magnitude is what settles
 the investment.
 
-$0.191$ nats is small. It is less than restoring testability ($0.24$), a seventh of choosing the
-geometry under the right noise model ($1.34$), a sixth of merely accounting for the scatter
-(\cref{sec:setpoint}, $1.118$), and a twentieth of the bubbles-against-frames split
-(\cref{sec:allocation}, $3.93$). Perfect control of the stretch is worth less still, $+0.100$.
+$0.191$ nats is small --- the second-smallest entry in the price list of \cref{sec:survives},
+below even restoring testability, and a twentieth of the bubbles-against-frames split. Perfect
+control of the stretch is worth less still, $+0.100$, and is last.
 
 \emph{Account for the scatter; do not pay to remove it.} Designing as though the setpoint were
 exact costs about a nat, and fixing that is free. Making the bubbles actually alike costs an
@@ -3377,6 +3378,31 @@ is worth buying does change even where the ranking does not.
 The certified measure of \cref{sec:design} is a theorem about a criterion. What it is
 worth depends on which variable that criterion is allowed to move, and the geometry
 everything above optimises turns out not to be the important one.
+
+Every effect this chapter prices is in nats of the same posterior, so they can be ranked on one
+axis. Doing that once, before the two largest are derived, is the point of this section:
+
+\begin{center}
+\begin{tabular}{lcl}
+\toprule
+what it buys & nats & where \\
+\midrule
+splitting a frame budget between bubbles and samples & $\mathbf{3.40}$--$\mathbf{3.96}$
+  & \cref{sec:allocation} \\
+choosing the geometry under the measured noise model & $1.34$ & \cref{sec:noisedesign} \\
+accounting for the scatter in the setpoint & $1.118$ & \cref{sec:setpoint} \\
+designing against the bias bound rather than a fit & $0.39$--$0.67$ & \cref{sec:biasdesign} \\
+restoring a testable batch & $0.01$--$0.24$ & \eqref{eq:constrained} \\
+perfect control of $R_{\max}$ & $0.191$ & \cref{sec:setpoint} \\
+perfect control of the stretch & $0.100$ & \cref{sec:setpoint} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The ordering is the recommendation. The top entry is the one variable no batch in this
+chapter was allowed to move, and it is worth more than everything below it combined; the bottom
+two are the ones that cost an apparatus. The rest of this section derives the top two, in that
+order.
 
 \subsection*{Frames are a design variable, and there are far too many of them}
 

@@ -1239,3 +1239,56 @@ A second miss, caught only by grepping the chapter before committing this: I fir
 gelatin result up as *overturning* §twotime, having forgotten the chapter already contained it.
 It reproduces §twotime to three digits. Re-deriving a result you already have is cheap; announcing
 it as a correction is not.
+
+## Part 12 — the refinement closes, after three bugs of my own
+
+`docs/writeup/grid_refinement.py`. Part 10 left the certificate exceeding its bound by 65.6 and
+predicted refining would move the answer. It does — to an excess of **0.017**, four tenths of a
+percent of the bound:
+
+| round | candidates | max d, independent scan | excess | points above p |
+|---|---|---|---|---|
+| 0 | 1840 | 6.897 | 2.90 | 12 |
+| 1 | 2114 | 4.045 | 0.045 | 5 |
+| 2 | 2181 | 4.030 | 0.030 | 1 |
+| 3 | 2181 | **4.017** | **0.017** | 1 |
+
+Monotone, violating set 12 → 1, and the surviving point sits at 1023 µm @ 6.70 drifting under a
+micrometre per round toward a support point already at 1023.6 µm — the residual of a discretised
+vertex-direction method, not a new ridge. The 937 µm ridge Part 10 flagged is now *in* the
+support at weight 0.033.
+
+**Three bugs, each of which produced a plausible wrong answer.** Worth recording because none of
+them crashed, and two of them printed converged-looking numbers.
+
+1. **The scan set exploded.** I built the independent scan as the tensor product of every unique
+   radius × every unique stretch *in the candidate set*. Correct while the candidates are a clean
+   46×40 grid; once refinement adds scattered points the set has ~190 unique values per axis, so
+   the probe becomes ~36,000 points. It died partway through solving 13,798. Fixed by computing
+   the midpoint lattice **once** from the base grid.
+
+2. **The zoom escaped the design box.** `zoom_around` had no clip, so a flagged point near an edge
+   walked its zoom outside 50–1200 µm × 3–20, and the next round walked it further. That run
+   reported its worst exceedances at 37.6 µm and stretch 26.3 and appeared to *stall at 0.4*. A
+   design that cannot be requested is not a counterexample to a certificate over designs that can.
+
+3. **The dedupe ate the vertex-direction step.** After clipping, the run looked clean — every
+   point in-domain, no duplicate support — and reported a stall at 0.33. The tell was that the
+   worst point was byte-identical across rounds 1, 2 and 3: 937.2 µm @ 17.601, three times. If a
+   flagged point actually enters the candidate set the certificate forces `d ≤ p` there, so the
+   same exceedance at the same geometry after twice adding it meant it was never getting in. Its
+   own zoom box centres the radius at `sqrt(0.96·1.04) = 0.9992` of it — 0.08%, inside my 0.1%
+   dedupe radius — so `distinct()` kept the neighbour and discarded the argmax. Flagged points are
+   now seeded first and always survive.
+
+**The lesson, and it is not the one about being careful.** Bug 2 and bug 3 each produced a
+*stall*: a monotone-looking sequence flattening at a small positive number, which is exactly what
+the interesting negative result would look like. Twice I was one write-up away from reporting
+"the continuous optimum lives on ridges no finite set represents." What caught both was not
+suspicion of the code but arithmetic that could not be true — a worst point outside the domain,
+and an identical worst point after adding it. **A converged number is not evidence; a number that
+cannot be what it claims is.**
+
+**The chapter's claim, corrected in both directions.** Part 10 said the certificate does not reach
+past its grid, which was right. It also implied that was a standing limitation, which was wrong:
+the distance from the candidate set to the continuum is a refinement anyone can run.

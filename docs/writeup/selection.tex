@@ -11,7 +11,8 @@
 \setlength{\intextsep}{10pt plus 2pt minus 2pt}
 \setlength{\abovecaptionskip}{6pt}
 
-\title{Which constitutive model do measured cavitation records prefer?}
+\title{Which constitutive model do cavitation records prefer,\\
+and what experiment would settle it?}
 \author{Spencer H. Bryngelson}
 \date{\today}
 
@@ -21,45 +22,51 @@
 \maketitle
 
 \begin{abstract}
-We compare seventeen constitutive models against laser-induced cavitation records in gelatin
-at three temperatures. The method is Bayesian model selection, with a noise scale measured
-from trial-to-trial spread and a prior that prices a model down where it merely reproduces a
-simpler one it contains.
+We ask two questions of laser-induced cavitation records in gelatin at three temperatures: which
+constitutive model the data prefer, and what experiment would settle the question better. The
+second turns out to be the harder one, and most of this paper is about it.
 
-A quadratic Zener solid -- strain-stiffening elasticity \emph{and} stress relaxation -- wins at
-every temperature. It reaches $\chi^2/N = 1.23$ to $1.35$ on the selection grid, and $0.96$
-refitted to its true optimum at \SI{15}{\celsius}. Neither ingredient suffices alone: at that
-temperature relaxation without stiffening reaches $1.98$, and both memoryless candidates land
-at $20$, where they fit each other to one part in a thousand. The stiffening term does no work
-at all without a relaxation mode to act on. Its advantage collapses as the gel warms, the
+For the first, Bayesian model selection over seventeen candidates, with a noise scale measured
+from trial-to-trial spread and a prior that prices a model down where it merely reproduces a
+simpler one it contains. A quadratic Zener solid -- strain-stiffening elasticity \emph{and}
+stress relaxation -- wins at every temperature, reaching $\chi^2/N = 1.23$ to $1.35$ on the
+selection grid and $0.96$ refitted to its true optimum at \SI{15}{\celsius}. Neither ingredient
+suffices alone: relaxation without stiffening reaches $1.98$, and both memoryless candidates land
+at $20$, where they fit each other to one part in a thousand. The stiffening term does no work at
+all without a relaxation mode to act on, and its advantage collapses as the gel warms -- the
 clearest physical signal in the comparison.
 
-We report the limitations plainly. The residuals are ceilings rather than estimates, because
-the winning model's best-fitting region is partly unintegrable. More importantly, a good
-$\chi^2/N$ overstates how well the model does. The residual has lag-one autocorrelation
-$0.918$, so the $201$ samples carry the information of about ten independent ones, and what
-remains is structure the model lacks rather than noise it failed to average away. The ranking
-survives this -- a $3\%$ change under a correlated likelihood -- but the absolute claim does
-not.
+We report the limitations plainly. The residuals are ceilings rather than estimates, because the
+winning model's best-fitting region is partly unintegrable, and a good $\chi^2/N$ overstates how
+well the model does: the residual has lag-one autocorrelation $0.918$, so the $201$ samples carry
+the information of about ten independent ones, and what remains is structure the model lacks
+rather than noise it failed to average away. The ranking survives this -- a $3\%$ change under a
+correlated likelihood -- but the absolute claim does not.
 
-We then ask what experiment would do better. Scored by parameter precision and by model
-discrimination, the criteria disagree, and both prove delicate: a criterion defined by an
-inner minimum is multimodal here, and every improvement to the optimizer lowers it.
+For the second, scoring by parameter precision and by model discrimination gives criteria that
+disagree, and both prove delicate: a criterion defined by an inner minimum is multimodal here,
+and every improvement to the optimizer lowers it. Reformulating over design \emph{measures}
+rather than single designs makes the problem convex, and the Kiefer--Wolfowitz equivalence
+theorem then certifies the answer -- over the candidate set, a qualifier that turns out to be
+load-bearing and then repayable. On a grid eight times finer the sensitivity reaches $69.6$
+against a bound of $4$, so the certified optimum is at first provably best only among the
+settings it was offered. Refining the candidate set where the scan flags, and rescanning an
+independent set each round, drives the excess to $0.017$ -- four tenths of a percent of the
+bound, from a single point converging on one already in the support, and falling by about two
+fifths per round. That is how discretisation behaves rather than an obstruction, though the
+sequence was stopped at four rounds and not run to its limit.
 
-Reformulating over design \emph{measures} rather than single designs makes the problem convex,
-and the Kiefer--Wolfowitz equivalence theorem then certifies the answer. Over $480$ candidates
-the optimum splits the runs three ways and beats the best single design by a D-efficiency
-factor of $5.74$ -- certified globally optimal at a gap of $9\times10^{-10}$, not merely the
-best found.
-
-That formulation optimizes the wrong variable. Pricing the candidates -- a trace of $N$ samples
-costs $N$ frames -- puts the split between bubbles and frames inside the certified problem, and
-it is worth $0.9$ to $10$ nats against at most $1.3$ for the geometry everything else optimizes.
-Two questions the design chapter left open close on the same terms: the screening threshold,
-which a maximin over the correlated-likelihood deflation removes, and the value of staging a
-budget, which is nil because one bubble at a geometry chosen for it settles every live operator
-rival. The temperature dependence closes nothing -- with temperature held it is structurally
-unidentifiable, at any budget and any geometry.
+What the certified problem is worth depends on which variable it optimizes, and the geometry
+everything else optimizes is not the important one. Pricing the candidates -- a trace of $N$
+samples costs $N$ frames -- puts the split between bubbles and frames inside the certified
+problem, and that split is worth $+3.4$ to $+4.0$ nats against at most $1.34$ for the geometry
+--- and it survives the discovery that a quarter of the between-trial scatter it rests on is a
+clock error rather than a material one.
+Two further corrections move the recommendation rather than its error bar: a geometry is not a
+knob, and designing as though it were costs about a nat, on scatter widths confirmed here against
+$437$ per-event radii; and averaging over a computed model-error bound rather than a point
+estimate is worth $0.39$ to $0.67$. The temperature dependence closes nothing -- with temperature
+held it is structurally unidentifiable, at any budget and any geometry.
 \end{abstract}
 
 \noindent\textbf{Keywords:} inertial microcavitation rheometry; model selection; Bayesian evidence; identifiability; optimal experimental design
@@ -2579,12 +2586,1498 @@ The $T$ columns entering the domination test are upper bounds, so the front is p
 its discrimination coordinates. The E-optimality coordinate is an eigenvalue of
 $J^{\mathsf T}J$ with no inner optimization, and carries no such reservation.
 
+\subsection*{Designing over measures, and certifying the answer}
+\label{sec:measure}
+
+Every design result above shares a defect that no amount of care in computing them repairs:
+each is the output of a search over a single design point, that search is not convex, and
+nothing in its output distinguishes a good answer from a bad one. The evidence that this is
+not hypothetical is in the preceding subsections. A surrogate search recovered $16\%$ of the
+best conditioning actually available and reported the result without qualification; a dense
+grid over a criterion whose inner minimization was unreliable produced a front that was
+precise and wrong. Both look exactly like success.
+
+The classical formulation removes the defect rather than mitigating it.
+
+\paragraph{Designs as measures.}
+Instead of choosing one design $x$ from a candidate set $\mathcal{X}$, choose a probability
+measure $\xi$ on $\mathcal{X}$: run a fraction $\xi_i$ of the bubbles at setting $x_i$. This
+is not an abstraction imposed for mathematical convenience -- it is what an experimenter
+with a run budget does anyway, and it is strictly more expressive, since a single design is
+the special case of a measure concentrated on one point. The information available from a
+run allocated by $\xi$ is the average
+%
+\begin{equation}
+M(\xi) \;=\; \sum_i \xi_i\, M(x_i),
+\qquad
+M(x) = J(x)^{\mathsf T}J(x),
+\label{eq:measure-information}
+\end{equation}
+%
+because information from independent runs adds and $\xi$ says how many of each to take.
+
+The consequence is the whole point: $M(\xi)$ is \emph{linear} in $\xi$.
+
+\paragraph{Concavity, and why the first-order condition is enough.}
+$\log\det$ is concave on the positive-definite cone, and the composition of a concave
+function with a linear map is concave, so $\Phi(\xi) = \log\det M(\xi)$ is concave on the
+simplex -- a convex set. A concave function on a convex set has no local maximum that is
+not global, and its first-order condition is not merely necessary but sufficient. Every
+pathology this study ran into -- wrong basins, surrogate blind spots, answers that improve
+whenever the optimizer does -- is a symptom of non-convexity, and none of them can occur
+here.
+
+The same holds for $\Phi_A = -\operatorname{tr}M(\xi)^{-1}$ and $\Phi_E =
+\lambda_{\min}(M(\xi))$, and for any non-negative combination of concave criteria.
+
+\paragraph{The directional derivative.}
+Move mass $\alpha$ from $\xi$ toward the single design $x$, giving
+$\xi_\alpha = (1-\alpha)\xi + \alpha\,\delta_x$. By linearity
+$M(\xi_\alpha) = (1-\alpha)M(\xi) + \alpha M(x)$, and using
+$\partial \log\det A = \operatorname{tr}(A^{-1}\partial A)$,
+%
+\begin{equation}
+\phi(x,\xi) \;\equiv\; \left.\frac{\partial}{\partial\alpha}\log\det M(\xi_\alpha)\right|_{\alpha=0}
+= \operatorname{tr}\!\left[M(\xi)^{-1}M(x)\right] - p .
+\label{eq:directional}
+\end{equation}
+%
+For a linear utility $u$ averaging over the design, the same construction gives
+$\phi_u(x,\xi) = u_x - u^{\mathsf T}\xi$.
+
+\paragraph{The General Equivalence Theorem.}
+Since $\Phi$ is concave and the simplex is the convex hull of its vertices $\delta_x$, the
+measure $\xi^\star$ maximizes $\Phi$ if and only if no vertex direction ascends:
+%
+\begin{equation}
+\boxed{\;
+\xi^\star \text{ is D-optimal}
+\iff
+d(x,\xi^\star) \equiv \operatorname{tr}\!\left[M(\xi^\star)^{-1}M(x)\right] \le p
+\quad\text{for all } x\in\mathcal{X},
+\;}
+\label{eq:equivalence}
+\end{equation}
+%
+with equality at every support point of $\xi^\star$. This is the theorem of Kiefer and
+Wolfowitz~\citep{kiefer1960equivalence}, and it is what this section exists to obtain: a
+quantity computed from a candidate answer that \emph{proves} the answer optimal. The gap
+$\max_x d(x,\xi) - p$ is a certificate, not a convergence report.
+
+Two further facts come free. Equality puts the support exactly where $d(x,\xi^\star)$ is
+largest, so the optimal design runs at the settings of greatest standardized prediction
+variance. D-optimality and G-optimality coincide.
+And by Carath\'eodory's theorem applied to the convex hull of the $M(x)$, an optimal measure
+supported on at most $p(p+1)/2 + 1$ points always exists: at most $11$ here.
+
+\paragraph{Computing it.}
+The implementation uses the multiplicative algorithm of Silvey, Titterington and
+Torsney~\citep{silvey1978algorithm},
+%
+\begin{equation}
+\xi_i \;\longleftarrow\; \frac{\xi_i\,F_i}{\sum_j \xi_j F_j},
+\qquad
+F_i = \operatorname{tr}\!\left[M(\xi)^{-1}M(x_i)\right]
+\;\;\text{for}\;\; \Phi = \log\det,
+\label{eq:multiplicative}
+\end{equation}
+%
+which stays on the simplex by construction: weights remain non-negative and normalized
+without projection, and the criterion rises at each step. Note that
+$\sum_i \xi_i F_i = p$ identically, so~\eqref{eq:multiplicative} moves mass toward designs
+whose $d(x,\xi)$ exceeds $p$, which is precisely the set that~\eqref{eq:equivalence} says
+must be empty at the optimum. The update and the certificate are the same quantity.
+
+Vertex-direction steps with a line search were tried first and cannot converge here. The step
+required near the optimum falls below any fixed search grid, and the iteration stalls with a
+positive gap.
+
+Convergence of~\eqref{eq:multiplicative} degrades as candidates crowd together. A design just
+off the support is nearly as good as one on it, and its weight decays in proportion.
+Certifying a parabola on $[-1,1]$ took $6400$ iterations over $51$ candidates, $25\,000$ over
+$101$, and $329\,000$ over $401$ -- with the criterion value correct to six figures long
+before any of those.
+
+An exhausted budget therefore yields a converged value without a proof. That is a different
+thing from a wrong answer, and the reported gap distinguishes them.
+
+\paragraph{The certified design for these records.}
+Over $480$ candidates spanning $R_{\max} \in [50, 1200]\,\mu$m and stretch $[3, 20]$, with
+$M(x) = J^{\mathsf T}J$ for the four qSLS parameters at the posterior median, the algorithm
+certifies at a gap of $9\times10^{-10}$ in $1406$ iterations:
+$\max_x \operatorname{tr}[M^{-1}M(x)] = 4.00000000$ against $p = 4$. The optimal measure is
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+$R_{\max}$ & stretch & weight \\
+\midrule
+$1015\,\mu$m & $6.70$ & $0.470$ \\
+$161\,\mu$m  & $19.26$ & $0.303$ \\
+$50\,\mu$m   & $17.78$ & $0.227$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+against a best single design of $1015\,\mu$m at stretch $6.70$. The measure exceeds it by
+$6.99$ in $\log\det$, a D-efficiency ratio of $\exp(6.99/4) = 5.74$; equivalently the
+confidence ellipsoid is $\exp(6.99/2) \approx 33$ times smaller in volume, and a typical
+parameter's interval is $\exp(6.99/8) = 2.4$ times tighter. No single design can match it,
+and this is not a claim about the search: \eqref{eq:equivalence} certifies that none exists.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig_certificate.pdf}
+\caption{The equivalence-theorem certificate. Left: the sensitivity
+$d(x,\xi^\star)=\operatorname{tr}[M(\xi^\star)^{-1}M(x)]$ over the design plane, with the
+three support points circled and labeled by weight; the dashed contour is the level $p=4$.
+Right: the same values sorted. No design exceeds the bound and the support attains it
+exactly, which is the proof -- $\max_x d = 4.00000000$ against $p=4$, gap
+$9\times10^{-10}$. Nothing analogous exists for the single-design searches elsewhere in
+this document.}
+\label{fig:certificate}
+\end{figure}
+
+\paragraph{The mixture is the resolution of the conflict.}
+The support is worth reading physically. Nearly half the runs go to a large, gently driven
+bubble and the rest to small, hard-driven ones -- the two corners that pull in opposite
+directions. Separating $g$ from $\alpha$ wants a gentle collapse,
+because the distinguishing term of $Z_e$ decays as $\lambda^{-4}$; exciting the relaxation
+mode wants a fast one.
+
+A single design must choose between them. A measure need not. So the trade-off that motivated
+the Pareto front dissolves once the design space is the one the experiment actually admits --
+the front was answering a question made hard by an artificial restriction.
+
+\paragraph{Discrimination in the same frame.}
+Log evidence is additive over independent experiments, so an expected log Bayes factor per
+run is linear in $\xi$ and therefore concave. The compound criterion
+%
+\begin{equation}
+\Phi_\beta(\xi) = (1-\beta)\log\det M(\xi) + \beta\, u^{\mathsf T}\xi,
+\qquad \beta \in [0,1],
+\label{eq:compound}
+\end{equation}
+%
+is then concave for every $\beta$ and inherits the certificate unchanged. Its directional
+derivative is the matching combination of~\eqref{eq:directional} and $u_x - u^{\mathsf T}\xi$.
+This is the compound-criterion construction of Atkinson and of Cook and
+Wong~\citep{atkinson2008dt,cook1994equivalence} -- the principled form of the trade this study
+otherwise handled by search.
+
+Sweeping $\beta$ traces the Pareto front, and each criterion being concave in $\xi$ makes that
+front convex. This is why the classical literature scalarizes with weighted sums where this
+study needed a Chebyshev form. The non-convexity that forced the elaborate scalarization was
+an artifact of optimizing over a single design point.
+
+\paragraph{Temperature is the only axis on the table that rotates rather than amplifies.}
+\Cref{sec:criteria} proves that a design change which merely amplifies signal sends
+$F \to sF$, leaving $\kappa$ untouched, so degeneracy can only be removed by a design that
+rotates the eigenvectors. Every candidate in this chapter is $(R_{\max}, \text{stretch})$, and
+both are drive settings. Temperature is not: it moves the material's own $g\alpha$, it costs
+nothing but a bath, and it has never been a design variable here.
+
+The obstruction is that each temperature has its own parameters, so three records at three
+temperatures are three separate fits with nothing to design \emph{for}. Temperature becomes an
+axis only under a model that shares parameters across it, and the weakest such model that is
+still physics is Arrhenius, $\log\theta_a(T) = c_a + b_a(1/T - 1/T_{\rm ref})$: two coefficients
+per axis, six in all, with the chain rule turning a trace's sensitivity to $\log\theta_a$ into
+sensitivities to $(c_a, b_a)$, the second scaled by $(1/T - 1/T_{\rm ref})$.
+
+Under that model the comparison is not close, and not subtle. \emph{With temperature held, the
+six-parameter information is singular and the design is refused.} That is near-tautological once
+stated --- a slope cannot be measured at one point, so the $b_a$ columns are exact multiples of
+the $c_a$ columns and the rank is three, not six --- and it is exactly the abstract claim of
+\cref{sec:criteria} made concrete: no optimization over geometry, at any budget, identifies the
+temperature dependence. Only varying temperature does. Freeing it certifies at a gap of
+$8\times10^{-10}$ on six settings spanning \SIrange{12}{36}{\celsius}, with $\log\det = 5.15$ and
+$\kappa = 2.8\times10^{9}$ where the held design has no finite $\kappa$ at all.
+
+This is the most conditional result in the chapter and is reported as such. Three temperatures
+fitting six coefficients leaves one residual degree of freedom per axis, so the Arrhenius form is
+assumed rather than tested; its residuals, $\pm0.005$ in $\log\mu$, $\pm0.05$ in $\log g\alpha$
+and $\pm0.13$ in $\log\lambda_1$, are a consistency note and nothing more.
+
+\subsection*{The setpoint is not the geometry}
+\label{sec:setpoint}
+
+Every design in this chapter names a target and treats it as a knob: \SI{416}{\micro\metre} at
+stretch $10.9$, \SI{1015}{\micro\metre} at $6.7$, a batch of eight settings. The acquisition data
+says it is not a knob. Per event, $R_{\max}$ has a coefficient of variation of $0.25$, $0.28$ and
+$0.23$, and the stretch a further $0.05$ to $0.07$. A quarter is not a tolerance --- it is the
+difference between \SI{400}{} and \SI{500}{\micro\metre}, and it means a certified optimum sitting
+on a ridge is worth only what can actually be hit.
+
+The repair is a change of variable and costs nothing. What the experimenter chooses is a
+setpoint; what arrives is a draw. One run at setpoint $s$ therefore supplies
+%
+\begin{equation}
+M(s) \;=\; \mathbb{E}_{x\sim p(\cdot\mid s)}\big[J(x)^{\mathsf T}J(x)\big],
+\label{eq:setpoint}
+\end{equation}
+%
+and every property this chapter relies on survives it: an expectation of information matrices is
+a matrix, $M(\xi)=\sum_i \xi_i M(s_i)$ is still linear in $\xi$, so the criterion is still
+concave and \eqref{eq:equivalence} still certifies. The certificate is identical. Only the
+answer moves.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+scatter & nominal peak, delivered & scatter-aware optimum, delivered & regret \\
+\midrule
+$\times\tfrac12$ & \SI{514}{\micro\metre} at $6.92$, $7.823$ & \SI{636}{\micro\metre} at $6.92$, $8.312$ & $0.489$ \\
+\textbf{measured} & \SI{514}{\micro\metre} at $6.92$, $7.740$ & \textbf{\SI{786}{\micro\metre} at $6.92$}, $8.859$ & $\mathbf{1.118}$ \\
+$\times 2$ & \SI{514}{\micro\metre} at $6.92$, $6.193$ & \SI{786}{\micro\metre} at $5.62$, $7.667$ & $1.474$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Both columns are scored against what actually happens --- the expectation --- so the
+difference is what ignoring the scatter costs rather than an accounting artifact. At the measured
+scatter the recommended bubble is \emph{half again larger}, \SI{786}{} against
+\SI{514}{\micro\metre}, and the regret is $1.118$ nats. For a whole certified batch the same
+comparison costs $0.982$: a measure built on the nominal information delivers $8.467$ where one
+built on \eqref{eq:setpoint} delivers $9.449$.
+
+\paragraph{Those widths were assumed, and they have since been measured.} The coefficients above
+come from a three-row table, and \eqref{eq:setpoint} was evaluated over independent log-normal
+draws --- a width, a shape and an independence assumption, none of them checked. All three are
+checkable against $437$ per-event $(R_{\max}, R_{\rm eq})$ pairs recorded in micrometres, before
+the normalisation that removes absolute size from every trace fitted here. The measured
+coefficients are $0.223$ and $0.067$ against the assumed $0.25$ and $0.06$, and the correlation
+between $\log R_{\max}$ and $\log s$ is $-0.14$: the widths hold and the independence is very
+nearly right. Resampling the measured pairs in place of the assumed law, on a common grid:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+law over the deviations & scatter-aware optimum & regret & support shared \\
+\midrule
+assumed log-normal & \SI{678}{\micro\metre} at $6.70$ & $0.434$ & $3$ of $5$ \\
+log-normal at the measured widths & \SI{678}{\micro\metre} at $6.70$ & $0.436$ & $3$ of $5$ \\
+measured pairs, shuffled & \SI{866}{\micro\metre} at $6.70$ & $0.334$ & $4$ of $5$ \\
+\textbf{measured pairs, joint} & \textbf{\SI{866}{\micro\metre} at $6.70$} & $\mathbf{0.267}$ & $5$ of $5$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The conclusion of this section survives and its arithmetic does not. Under every law
+the regret is real and positive and the recommendation moves, so the \emph{claim} never depended
+on the assumed distribution; but the assumed law overstates the regret by $63\%$ and places two
+of five certified settings where the measured law does not. Delivered information is nearly
+identical either way ($10.240$ against $10.208$ nats), so what the wrong law costs is
+misplacement rather than loss --- and since the settings are what a collaborator runs, that is
+the part worth getting right.
+
+One caveat belongs with this and not in a footnote: these $437$ events are polyacrylamide, at a
+mean $R_{\max}$ of \SI{359}{\micro\metre}, while the design they are applied to is gelatin at
+$277$ to \SI{312}{\micro\metre}. That a scatter \emph{law} transfers across materials is the
+standing assumption of \cref{sec:transfer} and is not something these events establish. What
+they do establish is that the widths and the independence assumed above were sound.
+
+Read that against the chapter's other effects. Choosing the geometry under the wrong noise model
+costs at most $1.34$ nats (\cref{sec:noisedesign}); restoring testability costs $0.01$ to $0.24$;
+the spread across robust batches is $0.21$. \emph{Ignoring that the setpoint is not the geometry
+costs about as much as the entire noise-model correction}, and unlike that correction it requires
+no new measurement and no new theory --- only averaging the information over a distribution that
+has already been measured.
+
+The direction is worth reading physically. Scatter pushes the recommendation \emph{up} in
+$R_{\max}$, because the information ridge is asymmetric: undershooting a small bubble loses more
+than overshooting a large one, so a setpoint with room beneath it is worth more than a sharper
+peak without. The batch spreads accordingly, putting $0.467$ of its runs at \SI{636}{} and
+$0.150$ at \SI{786}{\micro\metre}, with the small hard-driven corner kept at reduced weight.
+
+The scatter itself is measured rather than assumed, and swept at half and twice, under the
+standing caveat of \cref{sec:transfer}: whether a laser produces the same spread at a setpoint
+nobody has run is exactly the kind of transfer this chapter cannot verify from three records at
+one size.
+
+\paragraph{So should the scatter be paid to remove? No.}
+The obvious follow-on is an investment question: a steadier laser or a better-controlled
+nucleation site tightens the scatter, so how many nats does that buy? Priced on the same grid,
+sweeping the coefficient of variation with the other coordinate held at its measured value:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+$R_{\max}$ cv & best single setpoint & delivered & under an optimal measure \\
+\midrule
+$0$ (perfect) & \SI{531}{\micro\metre} & $9.100$ & $\mathbf{10.434}$ \\
+$0.10$ & \SI{576}{\micro\metre} & $9.124$ & $10.365$ \\
+$0.25$ (measured) & \SI{736}{\micro\metre} & $9.623$ & $10.242$ \\
+$0.50$ & \SI{678}{\micro\metre} & $9.760$ & $10.049$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The two columns disagree in \emph{sign}, and which one applies is the whole point. Run
+as a single setting, scatter \emph{helps} --- perfect control is worth $-0.523$ nats, because the
+laser's imprecision accidentally spreads a design that would otherwise be a point, and
+\cref{sec:measure} is an argument that spread designs beat points. Run as a measure, scatter
+hurts: perfect control is worth $+0.191$.
+
+The sign of the second column is not a measurement but a theorem. The reachable
+$\mathbb{E}[M]$ under any scatter is a convex combination of $\{M(x)\}$, hence inside the hull
+that \eqref{eq:equivalence} already optimises over, so a measure can emulate any scatter and
+cannot do worse. Only the \emph{magnitude} is informative --- and the magnitude is what settles
+the investment.
+
+$0.191$ nats is small --- the second-smallest entry in the price list of \cref{sec:survives},
+below even restoring testability, and a twentieth of the bubbles-against-frames split. Perfect
+control of the stretch is worth less still, $+0.100$, and is last.
+
+\emph{Account for the scatter; do not pay to remove it.} Designing as though the setpoint were
+exact costs about a nat, and fixing that is free. Making the bubbles actually alike costs an
+apparatus and returns a fifth of a nat, because a certified measure wants a spread anyway and is
+largely indifferent to who chooses it.
+
+\subsection*{Robust to the bias bound, which is the prior this chapter lacked}
+\label{sec:biasdesign}
+
+The limitation below --- information evaluated at a point estimate of $\theta$ --- offers its own
+repair, averaging over a prior, and this chapter never took it because there was no prior to
+average over. \Cref{eq:biasbound} supplies something better than a prior: a computed set
+containing the truth unless the unseen half of the discrepancy exceeds the seen half. On the
+\SI{15}{\celsius} record it is $\times1.58$ in $\mu$, $\times1.30$ in $g\alpha$ and $\times3.11$
+in $\lambda_1$.
+
+\emph{The bound reaches the design.} Across the nine corners of that box the best single geometry
+is one of \emph{five} distinct answers, running from \SI{50}{} to \SI{307}{\micro\metre} --- so
+the recommendation is not stable under the parameter uncertainty this document itself computes,
+and reporting it at the fit alone overstates what is known.
+
+Both robustifications keep the certificate, for the reason \cref{sec:setpoint} already used:
+averaging concave criteria is concave, and a pointwise minimum of concave criteria is concave.
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+design built on & settings & at the fit & average over the box & worst corner \\
+\midrule
+nominal, at the fit & $4$ & $\mathbf{10.951}$ & $10.708$ & $8.795$ \\
+Bayesian, $\max \mathbb{E}[\log\det]$ & $5$ & $10.536$ & $\mathbf{11.101}$ & $9.044$ \\
+maximin, $\max \min \log\det$ & $6$ & $9.779$ & $10.312$ & $\mathbf{9.464}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Each design is best in its own column, which is the check that the three criteria are
+being optimised rather than merely evaluated. Designing at the point estimate costs $0.393$ nats
+on average and $0.669$ in the worst case --- the same order as restoring testability ($0.24$) or
+controlling $R_{\max}$ perfectly ($0.19$), and well below the noise model ($1.34$) or the
+allocation ($3.9$).
+
+One honest qualification on the last row. The Bayesian design certifies at a gap of
+$10^{-9}$; the maximin does \emph{not} converge, stopping at a gap of $4.4$. A pointwise minimum
+is not smooth, and the subgradient iteration that \cref{sec:measure} relies on is not the right
+tool for it. Its value is a lower bound reached rather than an optimum proved, and it is reported
+as such --- the same distinction that section draws between an exhausted budget and a wrong
+answer.
+
+\paragraph{What this does not fix.}
+Three limitations, stated plainly. The information matrices are evaluated at a point estimate
+of $\theta$, so the design is locally optimal in the parameters though globally optimal in
+$\xi$ --- which \cref{sec:biasdesign} now prices and partly repairs, at $0.39$ to $0.67$ nats.
+
+The candidate set is still a grid, so the certificate proves optimality \emph{over that grid}.
+That scan has now been run, and it fails.
+
+\paragraph{The certificate does not reach past its own grid.} On the $224$-point grid the
+measure certifies exactly: $\max_x d(x,\xi^\star) = 4.000000$ against $p = 4$, at a gap of
+$8\times10^{-10}$. Evaluated on a grid eight times finer, the same measure gives
+%
+\begin{equation*}
+\max_x d(x,\xi^\star) = 69.56 \quad\text{against}\quad p = 4,
+\end{equation*}
+%
+exceeding the bound by $65.6$ at \SI{552}{\micro\metre} and stretch $17.82$. The measure is
+optimal among the settings it was offered and is \emph{not} optimal over the continuum.
+
+The exceedance is not numerical. It survives a hundredfold tightening of the solver tolerance
+--- $\lVert M\rVert = 1.0086\times10^{6}$ at $\text{rtol}=10^{-7}$ and at $10^{-9}$, identical to
+five digits --- and the trajectory itself varies smoothly through it, the collapse deepening
+monotonically from $0.0379$ to $0.0287$ across the feature. What spikes is the sensitivity, not
+the solve.
+
+It is, though, extremely narrow. Scanned in stretch at fixed radius, $d$ sits at $0.4$ to $0.9$
+almost everywhere and rises to $9.69$ at $17.80$ and $64.06$ at $17.82$, falling back to $0.52$
+by $18.00$. These are ridges a coarse grid steps over, where a small parameter change flips the
+post-collapse trajectory between qualitatively different histories.
+
+\emph{Averaging over the setpoint scatter helps and does not fix it.} Since \cref{sec:setpoint}
+establishes that a geometry is not a knob --- the stretch arrives with a coefficient of variation
+of $0.06$, wider than these ridges --- the candidate a design can actually ask for is
+$\mathbb{E}[M]$, and much of the spike averages out. The exceedance falls from $65.6$ to $8.4$.
+It does not reach zero, so the ridges are not merely information nobody can request; some part of
+them survives being asked for imprecisely.
+
+The consequence is a real limitation on this chapter's strongest claim, and it is the honest
+version of the caveat this list previously carried. \emph{As computed, every certified batch here
+is optimal over its candidate set and none is proved optimal over the continuum.} The scan says
+where to refine, and refining there does move the answer.
+
+\paragraph{Refined, the certificate very nearly reaches the continuum.} The vertex-direction step
+is the classical one --- add $\argmax_x d(x,\xi)$ and re-certify --- and the only care it needs
+here is that each round must be scanned against an \emph{independent} set. Refining until $d\le
+p$ on the set being refined proves nothing, since the optimiser guarantees that by construction.
+Scanning the midpoint lattice of the base grid instead, which no original candidate occupies,
+plus a zoom around the current support:
+
+\begin{center}
+\begin{tabular}{ccccl}
+\toprule
+round & candidates & $\max_x d$, independent scan & excess over $p$ & points above $p$ \\
+\midrule
+0 & $1840$ & $6.897$ & $2.90$ & $12$ \\
+1 & $2114$ & $4.045$ & $0.045$ & $5$ \\
+2 & $2181$ & $4.030$ & $0.030$ & $1$ \\
+3 & $2181$ & $\mathbf{4.017}$ & $\mathbf{0.017}$ & $1$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent From $65.6$ on the grid the measure was proved on, through $2.90$ on the eightfold
+grid, to $0.017$ --- a factor of nearly four thousand, monotone, with the violating set shrinking
+from twelve points to one. That last point is not a new ridge: it sits at
+\SI{1023}{\micro\metre} and stretch $6.70$ and moves by less than a micrometre per round toward
+a support point already at \SI{1023.6}{\micro\metre}, which is what the residual of a
+discretised vertex-direction method looks like. The support grows from four settings to six, and
+the \SI{937}{\micro\metre} ridge flagged above is now \emph{in} it, carrying
+weight $0.033$.
+
+So the qualifier stands as a statement about what was computed and not as a claim about the
+model: the certified batches of this chapter are optimal over their candidate sets, and the
+distance from there to the continuum is a refinement anyone can run, not a barrier.
+
+\paragraph{The compound front, which was previously not run.} It was blocked on an estimator
+rather than on theory: $\Phi_\beta$ is concave for every $\beta$, but the per-design log Bayes
+factor suffered the boundary pinning of \cref{sec:integral}. The linearised separation of
+\cref{sec:batch} --- the model difference orthogonal to the material span --- has no inner
+optimisation and no boundary to pin against, so it can play the utility.
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+$\beta$ & settings & gap & $\log\det M$ & separation & of each maximum \\
+\midrule
+$0$ & $4$ & $7\times10^{-10}$ & $\mathbf{31.92}$ & $179.4$ & $100\%$, $19.9\%$ \\
+$0.10$ & $3$ & $6\times10^{-10}$ & $24.45$ & $887.9$ & $76.6\%$, $98.3\%$ \\
+$0.50$ & $3$ & $1\times10^{-12}$ & $20.74$ & $902.1$ & $65.0\%$, $99.9\%$ \\
+$1$ & $1$ & $0$ & $18.82$ & $\mathbf{903.0}$ & $58.9\%$, $100\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Certified along the whole front. The trade is real rather than dissolved --- no
+$\beta$ attains both maxima --- but it is steeply asymmetric, and that is the practical finding:
+\emph{a tenth of a weight on discrimination buys $98.3\%$ of it for a quarter of the estimation}.
+A collaborator who wants both should take a small $\beta$, not a balanced one, and the support
+moves from four settings to three rather than collapsing to the single design $\beta = 1$ would
+give.
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.15]
+  \fill[gray!14] (0,0) -- (5.6,0) -- (7.3,1.7) -- (1.7,1.7) -- cycle;
+  \draw[gray!55] (0,0) -- (5.6,0) -- (7.3,1.7) -- (1.7,1.7) -- cycle;
+  \draw[-{Latex[length=2.4mm]},very thick,blue!70!black] (2.5,0.8) -- (4.2,3.5);
+  \draw[-{Latex[length=2mm]},thick,gray!80!black] (2.5,0.8) -- (4.0,0.8);
+  \draw[dashed,gray] (4.0,0.8) -- (4.2,3.5);
+  \draw[-{Latex[length=2mm]},very thick,red!75!black] (4.0,0.8) -- (4.18,3.2);
+  \draw[gray] (3.85,0.8) rectangle (4.0,0.95);
+  % labels, each with its own clear lane
+  \node[blue!70!black,anchor=south] at (4.2,3.62) {\footnotesize $\Delta = R_B - R_A$};
+  \node[gray!65,anchor=north west] at (6.0,-0.05) {\footnotesize $\operatorname{span}\partial R/\partial\theta$};
+  \node[gray!80!black,anchor=north] at (3.2,0.6) {\footnotesize absorbed by refitting};
+  \node[red!75!black,anchor=west,align=left] at (4.55,2.2)
+    {\footnotesize what survives --\\[-2pt]\footnotesize the only part\\[-2pt]\footnotesize a design can see};
+\end{tikzpicture}
+\caption{Why a model difference can be invisible at every design. Changing a model perturbs
+the trace by $\Delta = R_B - R_A$. The component lying in the span of the material
+sensitivities is reproduced by adjusting $g,\mu,\lambda_1,\alpha$ -- refitting absorbs it, and
+no experiment recovers it. Only the orthogonal remainder is evidence that the model changed.
+Measured on the \SI{15}{\celsius} record and reported in \cref{sec:axes}: the bubble-dynamics
+operator is $77.7\%$ absorbed, leaving under two noise units, which is why its ranking proved
+so fragile; the constitutive and thermal axes leave $8.1$ and $8.5$.}
+\label{fig:absorption}
+\end{figure}
+
+\section{One criterion for every question}
+\label{sec:gain}
+
+\cref{sec:batch} gives a recipe and \cref{sec:criteria} shows the criteria in it disagree.
+Both leave a question unanswered: the material is scored by $\log\det M$, the model label by a
+Schur complement, the initial radius by a separate study, and none of the three share a scale,
+so \emph{which} question a batch should serve cannot be asked. They are one quantity.
+
+\subsection*{The value of an experiment}
+
+What an experiment is worth is how much it moves your beliefs, and about \emph{what} is an
+argument rather than a fixed choice. Write $A$ for the quantity of interest --- parameters,
+a model label, the initial radius, the noise scale, any subset --- and the value of a design
+is the mutual information between the data and $A$,
+%
+\begin{equation}
+U_A(\xi) \;=\; \mathbb{E}_y\!\left[\operatorname{KL}\!\big(p(A \mid y,\xi)\,\|\,p(A)\big)\right]
+\;=\; I(A;Y \mid \xi) .
+\label{eq:gain}
+\end{equation}
+%
+For a Gaussian likelihood in prior-standardized coordinates --- the unit-cube scaling
+\cref{sec:prior} already uses, in which the prior covariance is the identity --- the posterior
+precision is $N = I + M(\xi)$ and \eqref{eq:gain} is available in closed form. Partitioning
+into the coordinates $A$ and the nuisance coordinates $B$,
+%
+\begin{equation}
+U_A(\xi) \;=\; \tfrac12 \log\det\Big[\,N_{AA} - N_{AB}N_{BB}^{-1}N_{BA}\,\Big],
+\label{eq:gainschur}
+\end{equation}
+%
+the Schur complement of everything you are not asking about. Every criterion in this document
+is \eqref{eq:gainschur} at a different $A$: all coordinates gives Bayesian D-optimality, the
+material block gives \cref{sec:criteria}'s $\log\det$, the mixing coordinates of
+\cref{sec:batch} give $D_s$-optimality, and \texttt{req\_scale} alone asks whether the initial
+radius is driving the conclusion. Answers in nats are comparable across those, and with
+weights $\pi_A$ they add, $\Phi(\xi) = \sum_A \pi_A U_A(\xi)$.
+
+\subsection*{The choice that was hiding in \texorpdfstring{$\log\det M$}{log det M}}
+
+That the criteria are one family also exposes a decision nobody made. For any partition,
+%
+\begin{equation}
+\log\det M \;=\; \log\det M_{\theta\theta} \;+\; \log\det S ,
+\qquad S = M_{\varepsilon\varepsilon} - M_{\varepsilon\theta}M_{\theta\theta}^{-1}M_{\theta\varepsilon},
+\label{eq:schursplit}
+\end{equation}
+%
+so maximizing $\log\det M$ over the augmented set, as \cref{sec:batch} does, is maximizing
+material log-volume \emph{plus} discrimination log-volume with equal weight. That is a defensible
+compromise and it is not neutral, which is what it had been taken to be.
+
+\subsection*{Three properties, and one that removes a failure}
+
+\eqref{eq:gainschur} is concave in $\xi$ for every $A$. The Schur complement has the variational
+form $u^{\mathsf T}Su = \min_v (v,u)^{\mathsf T}N(v,u)$, a pointwise minimum of functions linear
+in $N$, hence matrix-concave; $\log\det$ is concave and matrix-monotone, so the composition is
+concave, and $M(\xi)$ is linear in $\xi$. The equivalence theorem of \cref{sec:measure}
+therefore still applies. With $P = \big(\begin{smallmatrix} I_A \\ -N_{BB}^{-1}N_{BA}\end{smallmatrix}\big)$
+the envelope theorem gives the directional derivative, and $\xi^\star$ is optimal exactly when
+%
+\begin{equation}
+d(x,\xi^\star) = \tfrac12\operatorname{tr}\!\left[S^{-1}P^{\mathsf T}M(x)P\right]
+\;\le\; \tfrac12\Big(|A| - \operatorname{tr}\big[S^{-1}P^{\mathsf T}P\big]\Big)
+\quad \text{for all } x ,
+\label{eq:gaincert}
+\end{equation}
+%
+with equality on the support. The bound is computed rather than looked up --- it is $p$ for
+$\log\det$ and depends on $\xi$ here --- but it is still a proof and not a convergence report.
+
+The prior term $I$ in $N$ is what makes \eqref{eq:gainschur} finite when $M$ is singular. Under
+$\log\det M$ a design that cannot determine every parameter scores $-\infty$ and cannot be
+ranked at all, which is how $22$ of $48$ candidate geometries became unscorable in
+\cref{sec:integral}. Here such a design scores low, which is the truth about it.
+
+One caution follows from \eqref{eq:schursplit} being nonlinear: $S$ is not linear in $M$, so
+$\log\det S\big(\sum_i \xi_i M_i\big) \ne \sum_i \xi_i \log\det S(M_i)$. Scoring candidates one
+at a time and taking the best $N$ is therefore wrong --- a design that discriminates well alone
+but leaves $\theta$ loose has its advantage eaten when the material is refitted from the same
+batch, and only the Schur complement of the \emph{summed} information sees that.
+
+\section{From nats to bubbles}
+
+Nats say how much a batch teaches. They do not say whether it decides anything, which is what a
+collaborator with a fixed budget is asking. That has a closed form, and it is exact in the
+Gaussian-linear limit rather than asymptotic.
+
+Let $s$ be the per-run information about the coordinate separating two models, after everything
+else is fitted out. Information adds over independent runs, so $N$ runs give $S = Ns$. Writing
+$d$ for the component of the whitened model difference orthogonal to the material span, so that
+$S = \lVert d \rVert^2$ as in \cref{fig:absorption}, data generated under one model give a
+profiled log Bayes factor
+%
+\begin{equation}
+\Lambda \;=\; \tfrac12\big(\lVert d + n_\perp\rVert^2 - \lVert n_\perp\rVert^2\big)
+\;=\; \tfrac{S}{2} + d\cdot n_\perp ,
+\qquad\text{so}\qquad
+\Lambda \sim \mathcal{N}\!\left(\tfrac{S}{2},\, S\right) ,
+\label{eq:lambdalaw}
+\end{equation}
+%
+since $d \cdot n_\perp$ has variance $\lVert d\rVert^2 = S$. The experiment has not been run and
+its Bayes factor is unknown, but its \emph{distribution} is known before anyone books the
+laser. The chance of clearing $\delta$ nats in favour of the truth is
+$\Phi\big((S/2-\delta)/\sqrt{S}\big)$, and inverting for confidence $1-\alpha$ gives the budget
+%
+\begin{equation}
+N \;\ge\; \frac{\big(z_{1-\alpha} + \sqrt{z_{1-\alpha}^2 + 2\delta}\big)^2}{s} .
+\label{eq:runs}
+\end{equation}
+%
+At $\delta = 5$ nats and $95\%$ confidence the numerator is $27.14$. An $s$ of zero --- the
+difference wholly absorbed, the infinite variance of \cref{sec:axes} --- sends \eqref{eq:runs}
+to infinity, which is the statement that no experiment of this shape ever settles the question.
+
+The same unit serves the parameter question. After $N$ runs the posterior standard deviation of
+coordinate $k$ is $\big[(I + NM)^{-1}\big]_{kk}^{1/2}$ in prior-standardized coordinates, so
+``pin $g$ to a tenth of its prior width'' is also a number of bubbles. That shared denominator
+is what makes the two comparable; nats alone are not, because they measure different things
+about different objects.
+
+\section{Model error, and what no criterion reaches}
+
+Every $A$ above is a \emph{coordinate}. ``Is every model in the catalogue wrong?'' is not one,
+and \cref{sec:fitquality} answers it \emph{yes} on all three records. No column of the Jacobian
+reaches model inadequacy, and worse, \eqref{eq:gain} maximized freely walks away from the batch
+that could detect it: a criterion linear in $\xi$ is optimized by a single setting repeated $N$
+times, which has no pure error and no lack-of-fit numerator.
+
+Testability is therefore a \emph{constraint} on the batch, not a term in the objective:
+%
+\begin{equation}
+\max_\xi \;\sum_A \pi_A U_A(\xi)
+\quad\text{subject to}\quad
+\lvert\operatorname{supp}\xi\rvert \ge k > p, \qquad n_i \ge J \ge 2 .
+\label{eq:constrained}
+\end{equation}
+%
+The replication half is cheap and does nothing here: the number of settings is a property of
+the \emph{measure}, and apportionment only allocates runs within the support it is handed, so
+forcing three replicates on the operator design leaves the batch at two settings and
+$\mathrm{df} = -2$ still.
+
+The support half is a cardinality constraint and is not convex, so it cannot join the objective
+without forfeiting \eqref{eq:gaincert}. \texttt{pyimr.measure.constrained\_measure} buys most of
+the certificate back in two steps. Which settings to guarantee --- the set $\mathcal{K}$,
+of size $k$ --- is decided by the certificate itself: those the free solution already funds,
+then the candidates of largest sensitivity, the ones \eqref{eq:equivalence} shows the free
+problem came closest to wanting. Naming them is
+not enough, since an optimizer merely restricted to a larger candidate set reproduces the free
+optimum by leaving the new settings at zero and reports no cost at all; they are guaranteed
+instead by the substitution
+%
+\begin{equation}
+\xi = c\,\mathbf{1}_{\mathcal{K}} + (1 - kc)\,\eta ,
+\qquad c > 0, \quad kc < 1 ,
+\label{eq:floorsub}
+\end{equation}
+%
+which maps $\{\xi : \xi_i \ge c \ \forall i \in \mathcal{K}\}$ onto the whole simplex in $\eta$.
+The search is then exactly the one \eqref{eq:gaincert} already certifies, the floor holds by
+construction rather than by projection, and every candidate --- guaranteed or not --- still
+competes for the remaining mass $1 - kc$. What is certified is optimality \emph{among measures
+meeting the floor}, which is weaker than \eqref{eq:gaincert} and is reported as such.
+
+On the operator design the constraint is worth paying. The free batch takes two settings for
+$4.39$ nats; held to five it spreads over six geometries and $\mathrm{df} = +2$ for $0.10$ nats,
+and held to seven it reaches $\mathrm{df} = +3$ for $0.04$ --- both certified below $10^{-9}$.
+That seven costs less than five is not a paradox: the default floor is half an equal share, so
+asking for more settings also asks less of each, and the two demands are not nested. At a fixed
+$c$ they are, and the price rises with $k$ as it must.
+
+\subsection*{Unless it is made one}
+\label{sec:deltadesign}
+
+``No criterion in \cref{sec:design} takes model error as an argument'' is the sentence above,
+and it need not stand. \Cref{sec:gain} treats model inadequacy as unreachable because it is not a
+\emph{coordinate} --- no column of the Jacobian points at it --- which is why testability enters
+as the cardinality constraint \eqref{eq:constrained} rather than as anything optimized for. But
+\cref{sec:discrepancy} does not merely bound $\hat\delta$; it extracts it as a vector.
+
+Write $m(\theta) + \eta\,\hat\delta$ and treat $\eta$ exactly as \cref{sec:batch} treats the model
+label: one more column of $J$. Its variance after the material is fitted out,
+%
+\begin{equation}
+\operatorname{Var}(\eta) \;=\; \Big(\lVert d\rVert^2 - d^{\mathsf T} P d\Big)^{-1},
+\qquad P = J(J^{\mathsf T}J)^{-1}J^{\mathsf T},
+\label{eq:deltacoordinate}
+\end{equation}
+%
+is the part of the discrepancy a design can \emph{see} rather than absorb. The two uses point the
+same way, which is what makes it worth having: testing the model wants $\hat\delta$ visible, and
+keeping the parameters clean wants it unabsorbed, and both are the same angle.
+
+Carrying it to an unrun geometry needs the transfer of \cref{sec:noisedesign}, under the standing
+caveat of \cref{sec:transfer}, and the premise is checkable rather than assumed. Resampled onto a common $t/t_c$ grid, the three records'
+$\hat\delta$ overlap at $0.44$, $0.42$ and $0.81$ against $0.05$ for unrelated curves of that
+length --- the same test, and the same verdict, that justified transferring $\sigma$ by phase.
+
+Scoring \eqref{eq:deltacoordinate} at the four geometries \cref{sec:survives} put through two
+synthetic mismatches:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+geometry & $R_{\max}$ & stretch & visible share & $g\alpha$ err (thermal) & (two-mode) \\
+\midrule
+performed & \SI{277}{\micro\metre} & $7.09$ & $\mathbf{0.998}$ & $3.8\%$ & $5.0\%$ \\
+E-optimal & \SI{199}{\micro\metre} & $3.55$ & $0.972$ & $5.9\%$ & $4.9\%$ \\
+discrimination-optimal & \SI{100}{\micro\metre} & $20.0$ & $0.876$ & $\mathbf{37.1\%}$ & $\mathbf{60.7\%}$ \\
+measure support & \SI{60}{\micro\metre} & $18.0$ & $\mathbf{0.763}$ & $5.2\%$ & $43.5\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent A single measured $\hat\delta$ cannot know which mismatch is the real one, so the most
+it can predict is what the two have in common. It does: the rank correlation of visible share
+against the parameter error is $-0.40$ under thermal truth and $-0.60$ under two-mode truth, both
+of the predicted sign, from four points. That is weak evidence and it is the right amount to
+claim --- what it establishes is that the criterion is not refuted, not that it is calibrated.
+
+The criterion also disagrees with the one the chapter has been using, which is the reason to
+carry it: material $\log\det$ is largest at \SI{89}{\micro\metre} and stretch $20$, where
+$83.7\%$ of $\hat\delta$ is visible, while visibility is largest at \SI{1200}{\micro\metre} and
+stretch $20$ at $99.0\%$. The worst geometry on the grid hides two fifths of it.
+
+\section{What a certified batch delivers}
+
+Over the $227$ candidate geometries of \cref{sec:batch} at a budget of twelve, with the material
+held at the \SI{15}{\celsius} fit:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+batch optimized for & material (nats) & operator (nats) & settings & lack-of-fit df \\
+\midrule
+material & $\mathbf{19.51}$ & $3.78$ & $7$ & $+3$ \\
+operator & $17.03$ & $\mathbf{4.39}$ & $2$ & $-2$ \\
+portfolio, $1\!:\!4$ & $18.92$ & $4.24$ & $6$ & $+2$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent all three certified at gaps below $10^{-9}$. The geometry does move with the question
+--- the operator question wants \SI{785}{\micro\metre} at stretch $6.9$, which the
+material-optimal batch never visits --- but the portfolio buys $97\%$ of each for $3\%$, and is
+the only aggressive option that stays testable \emph{at this noise model}.
+
+That qualification is not decoration. Every number in the table takes
+$\sigma = 0.018\,R_{\max}$ at every sample, and \cref{sec:noisedesign} shows the records
+contradict it by two to three orders of magnitude within a single trace. Recomputed under the
+measured profiles the portfolio's six settings become four and its $\mathrm{df}$ becomes zero on
+two of the three, so the last clause of the paragraph above holds only under the flat scale that
+motivated it. The repair costs two tenths of a percent and is given there, along with the batch
+this document actually recommends.
+
+A note on the search. The multiplicative algorithm of \cref{sec:measure} relies on
+$\operatorname{tr}[GM(\xi)]$ being the constant $p$, which holds for $\log\det$ and for nothing
+else; on the operator design it stalls at a gap of $0.155$. It reports itself uncertified, which
+is the certificate working, but mirror descent on the simplex is what converges here, to
+$1.8\times10^{-10}$ and a higher value.
+
+\subsection*{What all of this is worth against correlated noise}
+
+Every number above is information, and \cref{sec:latent} shows this likelihood counts more of it
+than it has. The correction belongs here rather than as a caveat, because it enters
+\eqref{eq:runs} directly: $s$ falls, and the required budget rises by the same factor.
+
+Replacing independent samples with the exponential covariance
+$\Sigma_{ij} = \sigma_i\sigma_j e^{-\lvert t_i-t_j\rvert/\tau}$ makes the whitened information
+$J^{\mathsf T}\Sigma^{-1}J$, and everything above inherits it unchanged --- the criterion, the
+certificate and \eqref{eq:runs} are all statements about $M$, whatever $M$ was computed from.
+The effect is not a single deflation. Measured at $\rho = 0.908$: a constant offset loses a
+factor of $0.053$, a smooth half-cycle $0.049$, a five-cycle oscillation $0.176$, while
+point-to-point jitter is \emph{amplified} $20.7$-fold. Model differences are smooth, so the
+deflation is what applies to every margin in this document, but it is a fact about the shape of
+those differences rather than a property of the likelihood.
+
+\paragraph{Applied rather than quoted, it changes neither the design nor, here, its sign.}
+The paragraph above is a statement about idealized shapes. Recomputing every geometry with
+$M = J^{\mathsf T}\Sigma^{-1}J$ at $\tau/t_c = 0.292$ --- the correlation length transferred by
+phase, for the reason \cref{sec:noisedesign} gives for $\sigma$ and under
+\cref{sec:transfer}'s caveat --- settles what it does to the
+answer, and the answer is two negatives and one positive.
+
+The recommended geometry does not move, under any of the three measured noise profiles: the
+diagonal and correlated likelihoods pick the same design in all three cases. So the batches of
+this chapter are not misdirected by the likelihood they were computed under, which is the more
+important of the two questions and the one the deflation figures leave open.
+
+Nor is the operator question deflated. The discrimination coordinate is \emph{amplified}, by a
+median of $\times 3.23$, $\times 2.85$ and $\times 2.51$ across the three profiles, over a range
+running from $\times 0.52$ to $\times 10.4$. There is no contradiction with the figures above:
+those are the deflations of a constant offset and a smooth half-cycle, and the operator
+differences on this grid are not smooth enough to sit there.
+
+The mechanism, however, is exactly the one the figures imply, and that is the positive result.
+Ranked against the fraction of each difference's energy above eight cycles across the record, the
+amplification correlates at $+0.66$, $+0.64$ and $+0.65$. A correlated likelihood pays for a
+difference that is \emph{fast} and charges for one that is smooth, so which feature of a design
+is worth buying does change even where the ranking does not.
+
+\section{What the design is worth}
+\label{sec:survives}
+
+The certified measure of \cref{sec:design} is a theorem about a criterion. What it is
+worth depends on which variable that criterion is allowed to move, and the geometry
+everything above optimises turns out not to be the important one.
+
+Every effect this chapter prices is in nats of the same posterior, so they can be ranked on one
+axis. Doing that once, before the two largest are derived, is the point of this section:
+
+\begin{center}
+\begin{tabular}{lcl}
+\toprule
+what it buys & nats & where \\
+\midrule
+splitting a frame budget between bubbles and samples & $\mathbf{3.40}$--$\mathbf{3.96}$
+  & \cref{sec:allocation} \\
+choosing the geometry under the measured noise model & $1.34$ & \cref{sec:noisedesign} \\
+accounting for the scatter in the setpoint & $1.118$ & \cref{sec:setpoint} \\
+designing against the bias bound rather than a fit & $0.39$--$0.67$ & \cref{sec:biasdesign} \\
+restoring a testable batch & $0.01$--$0.24$ & \eqref{eq:constrained} \\
+perfect control of $R_{\max}$ & $0.191$ & \cref{sec:setpoint} \\
+perfect control of the stretch & $0.100$ & \cref{sec:setpoint} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The ordering is the recommendation. The top entry is the one variable no batch in this
+chapter was allowed to move, and it is worth more than everything below it combined; the bottom
+two are the ones that cost an apparatus. The rest of this section derives the top two, in that
+order.
+
+\subsection*{Frames are a design variable, and there are far too many of them}
+
+\Cref{sec:limitations} reports $201$ samples carrying the information of about ten. Redundancy
+is a design variable: a camera trades frame rate against window length, against exposure, and
+against how many bubbles fit in a session. Scoring frames by $\log\det J^{\mathsf T}J$ at the
+fitted qSLS, with the same number of observations spent each way:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+observations & uniform & optimally placed & gain \\
+\midrule
+$201$ & $18.54$ & $25.72$ & $6.0\times$ \\
+$50$ & $11.73$ & $20.15$ & $8.2\times$ \\
+$12$ & $5.98$ & $14.42$ & $8.3\times$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The D-optimal measure over the $201$ candidate times is certified at a gap of
+$10^{-10}$ on \emph{six} support points. Fifty observations placed on those six carry more
+information than all $201$ spread uniformly.
+
+That is a measurement of slack, not a recommendation. A design on six distinct times leaves no
+degrees of freedom to notice the model is wrong, and the lack-of-fit test above is exactly what
+those degrees of freedom buy. The honest reading is that frames are cheap relative to their
+information, so the camera should be traded for something scarce --- bubbles, or window, or
+the replication that makes \eqref{eq:lackoffit} possible.
+
+\subsection*{Bubbles against frames, priced}
+\label{sec:allocation}
+
+That trade can now be made quantitative, because \cref{sec:latent} measures $\Sigma$. Every
+batch in this document is chosen over \emph{geometries}, with the number of trials $J$ and the
+samples per trial $N$ fixed at whatever the records happened to use. Under independent noise
+that omission is harmless --- information is proportional to $JN$ and only the product matters.
+Under trial-to-trial variation it is not, and the asymmetry is exact. Averaging $J$ trials of an
+$N$-sample trace and applying the Woodbury identity to \eqref{eq:hierarchical},
+%
+\begin{equation}
+F(J, N) \;=\; J\left(\Sigma + F_N^{-1}\right)^{-1},
+\qquad F_N \;=\; G^{\mathsf T}\Sigma_\varepsilon(N)^{-1}G ,
+\label{eq:allocation}
+\end{equation}
+%
+with $F_N$ the information a single $N$-sample trace supplies. Trials enter linearly and never
+saturate. Samples enter only through $F_N$, and as $N \to \infty$ the bracket tends to $\Sigma$,
+so $F \to J\Sigma^{-1}$ and further frames buy \emph{nothing}. Past a point, more samples measure
+one bubble ever more precisely rather than the population.
+
+At a fixed frame budget $S = JN$ this bites: $F = (S/N)(\Sigma + F_N^{-1})^{-1}$, and once
+$F_N^{-1}$ is small against $\Sigma$ the prefactor $S/N$ is all that survives, and it \emph{falls}
+with $N$. Measured on the records, at each one's own total:
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+record & as run & best split at the same frames & gain \\
+\midrule
+\SI{15}{\celsius} & $J=18$, $N=201$ & $J=72$, $N=50$ & $+3.93$ nats \\
+\SI{23}{\celsius} & $J=14$, $N=192$ & $J=56$, $N=48$ & $+3.96$ nats \\
+\SI{33}{\celsius} & $J=7$, $N=198$ & $J=28$, $N=49$ & $+3.40$ nats \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Doubling the samples buys $0.035$ to $0.188$ nats. Four times the bubbles at a quarter
+the frames each, for the same total, buys three and a half to four.
+
+That number should be read against every other design effect in this document. Choosing the
+geometry under the wrong noise model costs at most $1.34$ nats (\cref{sec:noisedesign});
+restoring testability costs $0.01$ to $0.24$; the spread across robust and per-record batches is
+$0.21$. \textbf{The allocation nobody has been optimizing is worth three to ten times any of
+them}, and it is the one variable the batch optimization of \cref{sec:batch} has never been
+allowed to move.
+
+\paragraph{Is the gain the clock rather than the material?} It rests entirely on
+$\Sigma_\theta$ being non-zero --- as $\Sigma_\theta \to 0$, \eqref{eq:allocation} becomes
+$JF_N$, only the product $JN$ matters, and there is nothing to allocate. And \cref{sec:latent}
+has since shown a quarter of the trial variance to be a clock error rather than a material
+difference. $\Sigma_\theta$ was estimated by fitting each trial separately, so whatever of that
+the parameters could absorb, they did.
+
+Rescaling every trial onto the record's median collapse time --- a processing change costing
+nothing --- and refitting gives a $\Sigma_\theta$ with the timing taken out:
+
+\begin{center}
+\begin{tabular}{lccccccc}
+\toprule
+record & $J$ & $\mu$ raw & aligned & $g\alpha$ raw & aligned & $\lambda_1$ raw & aligned \\
+\midrule
+\SI{15}{\celsius} & $18$ & $14.1\%$ & $14.9\%$ & $31.5\%$ & $\mathbf{13.2\%}$ & $51.0\%$ & $93.8\%$ \\
+\SI{23}{\celsius} & $14$ & $29.2\%$ & $30.3\%$ & $18.4\%$ & $35.9\%$ & $46.3\%$ & $65.5\%$ \\
+\SI{33}{\celsius} & $7$ & $20.8\%$ & $20.4\%$ & $53.4\%$ & $52.9\%$ & $86.0\%$ & $79.3\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent and the allocation recomputed on it moves by $+0.589$, $+0.043$ and $-0.416$ nats
+against gains of $5.78$, $5.67$ and $5.35$. \emph{The recommendation survives}: the
+contamination is at most a tenth of the effect on one record, nothing on another, and of the
+wrong sign on the third.
+
+The test is weaker than it looks, and the $\Sigma$ table says why. Alignment mostly \emph{raises}
+the spread rather than lowering it --- $\lambda_1$ at \SI{15}{\celsius} goes from $51\%$ to
+$94\%$ --- because rescaling a trace's clock and resampling it distorts the trace in ways the
+material parameters then have to absorb. Only $g\alpha$ at \SI{15}{\celsius} behaves as the
+hypothesis predicts. So this does not support the contamination reading, and it is not clean
+enough to refute it either; what it does establish is that the allocation recommendation is not
+obviously an artifact of the clock, which is what it was asked.
+
+Three caveats, and they do not cancel. The trials column of \eqref{eq:allocation} gains exactly
+$p\log 2$ per doubling because $F$ is linear in $J$ --- that is arithmetic, and the measurement
+is the sample column beside it. $F_N$ is scaled linearly in $N$ here, as though samples within a
+trace were independent; \cref{sec:limitations} measures $N_{\rm eff}$ near ten of $201$, so the
+true $F_N$ is flatter still and cutting $N$ costs \emph{less} than this says --- conservative in
+direction, but not to be pushed past $N \approx N_{\rm eff}$, where the collapse stops being
+resolved. And $N$ is not a free dial: frame rate and window length set it, so a smaller $N$ means
+a slower camera or a shorter record.
+
+\paragraph{It folds into the certified problem, once the candidates are priced.}
+This section previously stopped here, on the grounds that folding the split into the geometry
+optimization needs $\Sigma$ at a geometry nobody has run. It folds in exactly. Let a candidate be
+a \emph{pair} $(x, N)$ --- a geometry and a number of samples per trace --- and let $\xi$
+allocate \emph{trials} rather than runs. Then \eqref{eq:allocation} gives
+%
+\begin{equation}
+F \;=\; \sum_i J_i\big(\Sigma + F_{N_i}(x_i)^{-1}\big)^{-1} \;=\; J\sum_i \xi_i M_i ,
+\label{eq:pairedinformation}
+\end{equation}
+%
+still linear in $\xi$, so $\log\det$ is still concave and \cref{eq:equivalence} still applies.
+What breaks is the tacit assumption that candidates cost the same: an $N$-sample trace costs $N$
+frames. Normalizing by cost rather than by count, $\sum_i \xi_i c_i = 1$, ranges $\xi$ over the
+set with vertices $e_i/c_i$, which is convex; the substitution $\eta_i = \xi_i c_i$ maps it onto
+the standard simplex with $M(\xi) = \sum_i \eta_i (M_i/c_i)$. So the search is the one
+\texttt{optimal\_measure} already certifies, run on the matrices divided by their prices, and the
+certificate returns in its cost-normalized form,
+%
+\begin{equation}
+\xi^\star \text{ is optimal} \iff
+\operatorname{tr}\!\left[M(\xi^\star)^{-1}M(x)\right]\big/ c_x \;\le\; p \quad\text{for all } x,
+\label{eq:costcert}
+\end{equation}
+%
+with equality on the support: a candidate earns runs when its information \emph{per unit price}
+clears the bar. \texttt{pyimr.measure.budgeted\_measure} is this, and it composes with the
+cardinality floor of \eqref{eq:floorsub} because both are substitutions in the same $\eta$.
+
+Measured under \eqref{eq:pairedinformation} and certified by \eqref{eq:costcert}, on the
+\SI{15}{\celsius} record at its own $3618$ frames, against the geometry-only formulation with
+$N$ pinned at $201$:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+one bubble costs & joint (nats) & geometry only & gained & $N$ funded \\
+\midrule
+$0$ frames & $27.70$ & $17.72$ & $\mathbf{+9.99}$ & $6$ \\
+$25$ frames & $22.78$ & $17.37$ & $+5.41$ & $6$ \\
+$100$ frames & $19.18$ & $16.51$ & $+2.67$ & $12$ \\
+$400$ frames & $15.33$ & $14.43$ & $+0.90$ & $25$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent all certified below $10^{-9}$. The price of one bubble against one frame is not
+knowable from here, so it is swept; the gain exceeds the $1.34$ nats \cref{sec:noisedesign}
+attributes to choosing the geometry at every price below about $400$ frames a bubble. Holding the
+batch to five settings, so \eqref{eq:lackoffit} keeps a numerator, costs $0.008$ to $0.034$.
+
+$\Sigma$ is the assumption, and it is both weaker and less load-bearing than the paragraph above
+assumed --- though it inherits the standing caveat of \cref{sec:transfer} like everything else
+here. Weaker, because $\Sigma$ is a population covariance of \emph{material} parameters --- a
+property of the gel and of how repeatably the laser nucleates, not of how large the bubble is ---
+and the three records measuring it differ in \emph{temperature}, not geometry, sitting at $277$,
+$298$ and \SI{312}{\micro\metre}. There is no evidence of geometry dependence because geometry
+was never varied. Less load-bearing, because swept over $\times\tfrac12$ to $\times2$ the
+recommended $N$ moves once, from $12$ to $8$.
+
+What does bind is validity. At the two cheapest bubble prices $N$ pins at the bottom of the grid,
+and that is a limit of the model rather than an optimum: $F_N$ is scaled linearly in $N$ here
+while $N_{\rm eff}$ is near ten of $201$, so below that the linear form claims resolution the
+record does not have.
+
+\subsection*{Nor do they survive the noise model}
+\label{sec:noisedesign}
+
+Every Fisher matrix, expected gain and batch in this chapter is built on a single number:
+$\sigma = 0.018\,R_{\max}$ at every sample. Fitting has never used it --- the likelihood of
+\cref{sec:beta} takes the per-sample spread --- so this is a gap between the two halves of this
+document rather than an error inside either. The records disagree with the constant by two to
+three orders of magnitude \emph{within one trace}: $124\times$, $882\times$ and $1316\times$
+between the smallest and largest $\sigma_i$, around medians of $0.018$ to $0.023$.
+
+At the same Jacobian, the constant overstates $\log\det F$ by $1.3$ to $2.2$ nats and understates
+each parameter's standard deviation by up to a factor of two. What matters more is that it
+changes the answer. Transferring each record's measured profile to a candidate geometry by phase
+--- reading $\sigma$ as a function of $t/t_c$, which \cref{sec:latent} justifies by showing the
+profile is dynamical rather than instrumental --- the single best geometry moves from
+\SI{514}{\micro\metre} at stretch $6.9$ to \SI{416}{\micro\metre} at $10.9$, and the constant's
+choice gives up as much as $1.34$ nats of $8.89$, fifteen percent.
+
+The transfer is the assumption here, so it was tested rather than asserted. Under a raw
+per-sample profile the records split, \SI{15}{\celsius} keeping the constant's geometry. Median-
+filtering the spread before transferring --- a standard deviation from seven to eighteen trials
+carries $17$ to $29\%$ relative error and should not be interpolated raw --- makes all three
+records agree on \SI{416}{\micro\metre} at $10.9$, and none agrees with the constant. The
+disagreement that survives is with the flat scale, not among the records, which is the opposite
+of what a transfer artifact looks like. Transferring by absolute time instead picks a different
+geometry again and is wrong for a statable reason: $t_c$ spans a factor of twenty-four across
+the candidates, so the same clock time lands at a different point of the collapse.
+
+\paragraph{Testability is what it really costs.}
+The portfolio of \cref{sec:gain} spends twelve runs over six geometries and carries
+$\mathrm{df} = +2$. Under two of the three measured profiles it spreads over \emph{four} and
+$\mathrm{df} = 0$: the lack-of-fit test has no power at all. So \eqref{eq:constrained} is not a
+formality the portfolio satisfies unaided, and the floor has to be imposed. Holding the measure
+to five settings with \texttt{constrained\_measure} restores $\mathrm{df} = +1$ for $0.010$ and
+$0.084$ nats of $36.5$ --- two tenths of one percent --- and every constrained measure is
+certified under its floor.
+
+\paragraph{One batch, chosen against the hardest case.}
+Three profiles give three batches, and a recommendation has to be one. Averaging the gain across
+profiles is the move \cref{sec:gain} already makes across questions, and it fails here: the
+weighted batch has the \emph{worst} worst case of the five compared, $0.211$ nats behind, below
+the flat-scale batch it was meant to improve on. Maximizing an average does not maximize a
+minimum. What works needs no machinery --- one profile binds for every batch, so the worst case
+is always that column and the maximin answer is the argmax under it. When one member of a family
+is uniformly hardest, robust design is design against the hardest member.
+
+The batches differ by $0.211$ nats of $33.4$, six tenths of a percent, so information barely
+separates them; settings run from five to eight and $\mathrm{df}$ from $+1$ to $+4$, so
+testability does. The batch recommended here wins on both:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+$R_{\max}$ (\si{\micro\metre}) & stretch & runs \\
+\midrule
+$50$ & $20.0$ & $1$ \\
+$272$ & $17.4$ & $1$ \\
+$416$ & $10.9$ & $2$ \\
+$514$ & $5.6$ & $2$ \\
+$514$ & $6.9$ & $1$ \\
+$636$ & $5.6$ & $1$ \\
+$786$ & $6.9$ & $1$ \\
+$1200$ & $6.9$ & $3$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent eight settings, $\mathrm{df} = +4$. Read it with \cref{sec:allocation}: how the twelve
+runs are split between bubbles and frames is worth more than which geometries they visit.
+
+\section{Choosing the next \texorpdfstring{$N$}{N} experiments}
+\label{sec:batch}
+
+Everything above scores designs. None of it answers the question a collaborator actually
+asks: \emph{we can run $N$ more bubbles, what should they be?} This section is that recipe. It
+is five steps, four of which are already derived above and one of which is new.
+
+\subsection*{Step 0: ask which questions are still open}
+
+A batch that separates models the records have already separated buys nothing. Given the log
+evidence $\log Z_m$ of each rival on the data in hand, write the margin against the best,
+$\Delta_m = \log Z_m - \max_k \log Z_k$, and call a rival \emph{decided} when
+$\Delta_m < -\delta$ for a threshold $\delta$ we take as five nats. Survivors carry the
+posterior they have earned,
+%
+\begin{equation}
+w_m = \frac{e^{\Delta_m}}{\sum_{k \text{ live}} e^{\Delta_k}} ,
+\qquad w_m = 0 \text{ for decided } m .
+\label{eq:screen}
+\end{equation}
+
+This step does more than save runs. The criterion below is \emph{local} --- it linearizes the
+model difference --- which is the right approximation for rivals that are close and the wrong
+one for rivals far apart. But rivals far apart are easy to separate and are exactly the ones
+\eqref{eq:screen} decides. What survives screening is the close pairs, which is the regime the
+linearization is valid in, so the two failure modes cancel rather than compound.
+
+\subsection*{Step 1: make the model choice a parameter}
+
+For a live rival $m$ against the incumbent, write
+$R(\theta,\varepsilon_m) = (1-\varepsilon_m) R_{\text{inc}}(\theta) + \varepsilon_m R_m(\theta)$,
+so that $\partial R/\partial\varepsilon_m = R_m - R_{\text{inc}}$ at $\varepsilon_m = 0$. The
+model question becomes one more column of the Jacobian. With the material sensitivities
+whitened by the measurement deviation, the augmented Jacobian at a candidate setting $x$ is
+%
+\begin{equation}
+\tilde J(x) = \Big[\; \underbrace{\sigma^{-1}\partial R/\partial\theta}_{p \text{ columns}}
+ \;\Big|\; \underbrace{\sqrt{w_1}\,\sigma^{-1}\Delta_1 \;\cdots\; \sqrt{w_q}\,\sigma^{-1}\Delta_q}_{q \text{ rivals}} \;\Big],
+\qquad M(x) = \tilde J(x)^{\mathsf T} \tilde J(x) .
+\label{eq:augmented}
+\end{equation}
+%
+The $\sqrt{w_m}$ is what makes \eqref{eq:screen} bite: a rival at a tenth of the posterior
+contributes a tenth of the information about its own coordinate, and a decided rival
+contributes none.
+
+Nothing is sampled here. This is the point at which an expected log Bayes factor would
+normally be estimated, and \cref{sec:integral} explains why that estimator fails on records
+this long --- the effective sample size collapses to one. The derivative is exact, costs one
+Jacobian, and needs no prior on the rival, which also removes the prior-placement trap of
+\cref{sec:design}: only the difference direction enters, never the rival's own parameters.
+
+\subsection*{Step 2: optimize over measures, not over settings}
+
+A batch is a measure. Let $\xi$ put weight $\xi_i$ on candidate $x_i$; the information is
+$M(\xi) = \sum_i \xi_i M(x_i)$, \emph{linear} in $\xi$, so $\log\det M(\xi)$ is concave and
+%
+\begin{equation}
+\xi^\star = \argmax_{\xi} \; \log\det M(\xi)
+\label{eq:batchcriterion}
+\end{equation}
+%
+has no local optima. Because $M$ carries both blocks, \eqref{eq:batchcriterion} balances
+estimating the material against determining which model produced the trace without any
+weighting parameter to choose.
+
+This is deliberately not the compound criterion of \cref{sec:design}. That form blends
+$\log\det$ with a utility, and the blend is concave only because the utility is \emph{linear}
+in $\xi$. The natural discrimination utility --- the posterior variance of $\varepsilon$ --- is
+not linear, so blending it would forfeit the certificate. Putting $\varepsilon$ inside the
+matrix keeps one concave criterion and the proof that comes with it.
+
+\subsection*{Step 3: certify}
+
+By Kiefer--Wolfowitz, $\xi^\star$ solves \eqref{eq:batchcriterion} exactly when no candidate
+setting offers an uphill direction:
+%
+\begin{equation}
+d(x,\xi^\star) = \operatorname{tr}\!\left[M(\xi^\star)^{-1} M(x)\right] \le p + q
+\quad\text{for all } x,
+\end{equation}
+%
+with equality on the support. The gap $\max_x d(x,\xi^\star) - (p+q)$ is a proof, not a
+convergence report, and it is what distinguishes this from every single-design search in this
+document.
+
+\subsection*{Step 4: spend the budget}
+
+$\xi^\star$ is a measure and the experiment runs integers. For a budget of $N$, apportion by
+efficient rounding \citep{pukelsheim1992efficient}: give every support point one run and
+allocate the rest by the rule that maximizes $\min_i n_i/(N\xi^\star_i)$, so no support point
+is rounded away. The rule carries no guarantee at small $N$, which is the regime here, so the
+loss is \emph{measured} rather than assumed:
+%
+\begin{equation}
+\text{D-efficiency} = \left(\frac{\det M(n/N)}{\det M(\xi^\star)}\right)^{1/(p+q)} .
+\end{equation}
+
+What the batch buys is then read off the inverse. The variance of the coordinate that says
+which model produced the trace, after the material has absorbed everything it can, is the
+Schur complement
+%
+\begin{equation}
+\operatorname{Var}(\varepsilon_m) =
+\Big[\big(M_{\varepsilon\varepsilon} - M_{\varepsilon\theta} M_{\theta\theta}^{-1} M_{\theta\varepsilon}\big)^{-1}\Big]_{mm} ,
+\label{eq:postmaterial}
+\end{equation}
+%
+and an infinite entry is the statement that no design separates that pair at all --- the
+difference lies entirely in the span of $\partial R/\partial\theta$ and refitting reproduces it.
+
+\subsection*{The answer for these records}
+
+Screening \eqref{eq:screen} on the operator axis leaves five live rivals against
+Gilmore/Mie--Gr\"uneisen. Over $48$ candidate geometries spanning
+\SIrange{50}{1200}{\micro\metre} and stretch $3$ to $20$, \eqref{eq:batchcriterion} certifies at
+a gap of $10^{-9}$ on five support points, and a budget of $N=12$ apportions to
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+$R_{\max}$ & stretch & runs \\
+\midrule
+\SI{1200}{\micro\metre} & $9.8$ & $6$ \\
+\SI{1200}{\micro\metre} & $6.4$ & $3$ \\
+\SI{307}{\micro\metre} & $16.6$ & $1$ \\
+\SI{50}{\micro\metre} & $20.0$ & $1$ \\
+\SI{484}{\micro\metre} & $6.4$ & $1$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent at $99.6\%$ of the measure's own efficiency. Against spending all twelve at the
+geometry already performed, \eqref{eq:postmaterial} falls by $16.0$, $17.7$ and $9.3$ times for
+Gilmore/Tait, Keller enthalpy/Tait and Keller enthalpy/Mie--Gr\"uneisen respectively.
+
+Two caveats travel with that table. Every design that integrates is scorable here, where the
+sampled criterion could rank only $26$ of the same $48$ --- but the criterion is still
+evaluated at one material and one incumbent, so it is locally optimal in exactly the sense
+\cref{sec:survives} shows can mislead under model error. And the screening that produced the
+rival list rests on margins computed under an independent likelihood; \cref{sec:screening}
+shows that deflating them by $N/N_{\rm eff}$ changes which rivals are live at all.
+
+\section{Which questions are open}
+\label{sec:screening}
+
+Step 0 of \cref{sec:batch} asks which rivals the records have already decided. Run on this
+package's three axes, the answer is stark and then immediately contingent.
+
+At face value almost nothing is still in question. Of seventeen constitutive candidates, one
+is live on every record; the rest trail by up to $4573$ nats. Of the six operators scored, two
+survive on every record. Each record admits a single thermal treatment.
+
+That reading would mean the design of \cref{sec:batch} is aimed at a question already settled,
+and by a wide margin. It does not survive the likelihood.
+
+Every log evidence in this document assumes the residuals are independent, and
+\cref{sec:limitations} measures $N_{\rm eff}$ near $10$ of $201$. Evidence differences scale
+with the count of independent observations, so each margin is inflated by roughly
+$N/N_{\rm eff}$. Deflating by that factor and re-screening:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+axis & live at face value & live deflated by $N/N_{\rm eff}$ \\
+\midrule
+constitutive (17 candidates) & $1$ & $2$ \\
+bubble dynamics (6 operators) & $2$--$5$ & $5$--$6$ \\
+thermal treatment (3) & $1$ & $3$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent SLS returns, five or six operators return, and every thermal treatment returns.
+
+Screening is where this matters most, and the reason is structural rather than numerical.
+Elsewhere the correlation inflates a quantity we report and compare --- an evidence, a
+$\chi^2/N$ --- and the ranking survives because every model is inflated alike.
+\Cref{sec:limitations} says exactly that: the ranking survives, the absolute claim does not.
+But a screen converts a margin into a \emph{yes or no}, and a twentyfold factor moves margins
+across a threshold wholesale. Here the inflation does not cancel, because the comparison is no
+longer between models but between a margin and a constant.
+
+So which model questions are open is at present undetermined --- and undetermined by the
+likelihood rather than by anything about the models.
+
+\paragraph{But the design need not wait for it.} The reading above makes the correlated
+likelihood a precondition for the design work, and it is not one. What is fragile is the
+\emph{threshold}, not the deflation: elsewhere every model is inflated alike and the ranking
+survives, while \eqref{eq:screen} compares a margin to a constant, and a factor of twenty moves
+margins across a constant wholesale.
+
+\Cref{sec:noisedesign} met this shape of problem once already and its finding is the recipe ---
+averaging over a family gave the worst worst case of the five batches compared, and maximizing
+against the hardest member won on every count. Here the family is the one-parameter deflation
+$N/N_{\rm eff} \in [1, 25]$ and the hardest member is the largest, since it revives the most
+rivals. Scoring each batch by the share of the genuinely live questions it funds, under both
+readings of the truth:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+axis & batch designed at face value & batch designed at full deflation \\
+\midrule
+constitutive & $0.978$ & $\mathbf{1.000}$ \\
+bubble dynamics & $0.595$ & $\mathbf{1.000}$ \\
+thermal treatment & $0.410$ & $\mathbf{1.000}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent worst case over the two truths. The maximin batch has none: it funds every live
+question whichever reading is right. The face-value batch funds two fifths of the thermal
+questions if the deflation is real.
+
+The asymmetry is why, and it is not an artifact of the scoring. A batch designed at full
+deflation and met by a face-value truth spends $0.595$ of its effort on rivals that were already
+decided --- wasted, and recoverable by simply not believing the answer about them. A batch
+designed at face value and met by a deflated truth never asks about the rivals it wrote off, and
+no amount of later analysis recovers a question that was never funded. Wasted effort and an
+unasked question are not symmetric costs, and the maximin choice is the one that trades the
+first for the second.
+
+\section{Temperature dependence}
+
+The most informative result is not any single number but a trend
+(\Cref{fig:trend}). The advantage that the stiffening term buys over pure relaxation
+shrinks monotonically as the gel warms: the gap between \texttt{SLS} and \texttt{qSLS}
+falls from $2.94$ versus $1.35$ at \SI{15}{\celsius} to $1.41$ versus $1.23$ at
+\SI{33}{\celsius}. A warmer, softer gel needs less strain-stiffening to explain its
+record. Because this is a trend across three independent datasets rather than a single
+fitted value, it is harder to attribute to a fitting artifact than any individual
+$\chi^2$.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.5\textwidth]{fig_trend.pdf}
+\caption{What the stiffening term buys, against temperature. The advantage of
+\texttt{qSLS} over \texttt{SLS} narrows as the gel warms.}
+\label{fig:trend}
+\end{figure}
+
+\section{Conclusions}
+
+We have treated the model comparison in inertial microcavitation rheometry as the object of
+study rather than a step toward a parameter value. Ranking by evidence in coordinates the
+records can answer, three findings hold.
+
+The shear modulus is not identified separately from the stiffening exponent, so a reported
+modulus is a statement about the prior box -- and \cref{sec:discrepancy} shows this is not a
+bound that can be widened away, since releasing one wall merely slides the fit onto another. The bubble-dynamics operator assumed throughout
+this literature is beaten on every record. And a correlated residual that has been read as
+constitutive model error survives every constitutive, observational and operator change tested
+here.
+
+Two of those findings needed qualifying once the equilibrium radius was fitted rather than
+asserted. Compressibility is required on every record at every prior width, by $74$ to $179$
+nats. Gilmore still beats the pressure form at \SI{15}{\celsius}. But at \SI{23}{\celsius} and
+\SI{33}{\celsius} the operator margins collapse to under a nat, so those records never
+discriminated operators at all -- pinning $R_{\mathrm{eq}}$ is what made it appear they did.
+The fit wants $R_{\mathrm{eq}}$ \SIrange{3}{11}{\percent} larger than inferred, consistently
+across six operators and three records, and we cannot yet explain the trend with temperature.
+
+On the design side the useful conclusion is about what to optimize rather than what the optimum
+is. The certified formulation was applied to the geometry, which its own numbers rank last:
+pricing the candidates so the bubbles-against-frames split enters the same convex problem buys
+$0.9$ to $10$ nats against at most $1.3$ for the geometry, and the certificate survives the
+change intact because normalizing by cost is the same simplex in different coordinates. Three
+further questions the chapter raised are now answered, and two of the answers are negative. The
+screening cliff \cref{sec:screening} calls a precondition is removed by a maximin over the
+deflation, at no worst-case cost. Staging a budget is worth nothing, because one bubble at a
+geometry chosen for the operator question settles every live rival --- which says the operator
+margins reported here are small for want of a geometry, not for want of runs. And the
+temperature dependence cannot be identified at all without varying temperature, which no design
+in this literature does.
+
+What remains genuinely open is the one thing a criterion still cannot take as an argument: which
+physics is missing. \Cref{sec:deltadesign} gets as far as the measured $\hat\delta$ allows, and
+the transfer it rests on is supported rather than established.
+
+\subsection{Limitations of this work}
+\label{sec:limitations}
+
+\paragraph{The \SI{33}{\celsius} correlated fits are not usable.}
+\label{sec:33anomaly}
+Recomputing the operator evidences with $\Sigma$ in the likelihood behaves on two records and
+not on the third. At \SI{15}{} and \SI{23}{\celsius} the compressible operators collapse to
+within a third of a nat of each other and Rayleigh--Plesset lands a few nats below, which is a
+sensible picture of data that cannot order six similar equations. At \SI{33}{\celsius} the same
+computation puts Rayleigh--Plesset at $-1.1\times10^{4}$ to $-2.8\times10^{4}$ and separates two
+compressible operators by $200$ to $550$ nats.
+
+Three orders of magnitude out of family with the other two records is not a physical result. The
+mechanism is visible in the construction: whitening by an exponential covariance amplifies
+whatever fine structure a residual has by about $1/(1-\rho^2)$, and a residual with a little
+high-frequency content left in it therefore produces an enormous $\chi^2$ that says more about
+the conditioning of $\Sigma$ than about the model. The record with the fewest trials --- seven
+against eighteen --- has the noisiest spread and so the least reliable whitening. These numbers
+are reported here so they are not mistaken for evidence, and excluded from every conclusion.
+
+\paragraph{The dropped points are outside the model, not outside the solver.}
+Roughly one point in six of the winner's parameter box cannot be integrated, and that is not
+a numerical shortcoming. In that region the model expands to $R/R_0 = 2132$ after its collapse
+-- identically at relative tolerances of $10^{-3}$, $10^{-4}$ and $10^{-5}$. So it is a
+converged property of the equations, not an artifact. The bubble begins at its maximum radius
+and its energy is finite, so growth of that size is the constitutive model failing. Refusing
+those points is the correct outcome.
+
+The count of admissible points is pinned near $1958$ of $2401$ sampled whatever the settings.
+Looser tolerances and a $20\times$ step budget convert failures into runaways, never into
+usable solves. This corrects an earlier reading of the same failures as a stiffness problem.
+The dropped points cannot be recovered by numerical effort, and no claim about the winner's
+fit should be made in that region.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.58\textwidth]{fig_failure_map.pdf}
+\caption{Where the winner can be integrated, at the fitted modulus and viscosity. Failure is
+governed principally by the stiffening, and the threshold falls to its lowest where the
+relaxation time is comparable to the bubble's own period -- but it is a boundary that moves,
+not an isolated band.}
+\label{fig:failure}
+\end{figure}
+
+\paragraph{The ranking survives; the parameter estimates do not.}
+Independent sequential Monte Carlo runs give the winner $2173.55 \pm 0.19$ in log evidence
+against $2071.90 \pm 0.38$ for the relaxation-only model -- a gap of $101.6$ against
+run-to-run noise near $0.4$, so the comparison is resolved by a wide margin. The tensor grid
+cannot say this on its own: it returns a single number with no uncertainty.
+
+The same grid cannot estimate parameters. Refining it from $12$ to $20$ points per axis moves
+the log evidence by $17.3$, and moves the best-fit point from $g = 658$, $\alpha = 1.52$ to
+$g = 144$, $\alpha = 8.86$. The best cell is simply whichever node lands nearest the ridge.
+
+Refinement cannot fix this. The posterior standard deviations are $0.0018$, $0.0025$, $0.0055$
+and $0.078$ in unit coordinates, against a grid spacing of $0.053$. The posterior therefore
+occupies about $10^{-7}$ of the prior volume, and a uniform grid would need of order $10^{10}$
+points. Discretization error of $17.3$ sits well inside the $101.6$ gap, so the ranking is
+safe; the reported best-fit parameters are not.
+\Cref{fig:coverage} shows which models lose points.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.5\textwidth]{fig_coverage.pdf}
+\caption{Fraction of each model's parameter grid that could not be integrated. Models not
+shown lost no points.}
+\label{fig:coverage}
+\end{figure}
+
+\paragraph{Consequences for the numbers reported here.}
+Three methods that resolve the posterior -- sampling, a refined grid, and continuous
+optimization -- agree that $g$ lies near $10^2$\,Pa. The coarse grid used for the ranking
+reports $2154$\,Pa. The ranking does not depend on this; any material property quoted from the
+grid does.
+
+A modulus that size is also implausibly soft for gelatin. That is the degeneracy above making
+itself felt: the fit buys a lower residual by trading modulus against stiffening, along a
+direction the data barely constrain.
+
+\paragraph{One candidate was never genuinely exercised.}
+The Gent solid appears in the comparison but cannot be tested on these records. Its energy
+diverges as $I_1 - 3 \to J_m$, and a Gent solid soft enough to be distinguishable from
+Neo-Hookean predicts a collapse it cannot sustain, so it locks up. Where it does
+integrate, it differs from Neo-Hookean by $1.7\times10^{-4}$ of $R_{\max}$ against
+measurement noise near $2\times10^{-2}$ -- two orders of magnitude below what the data can
+resolve. Any statement about strain-stiffening laws here excludes it.
+
+\appendix
+
+
+\section{How the design criterion was arrived at}
+\label{sec:genealogy}
+
+The criterion of \cref{sec:gain} replaced two earlier formulations. Both are
+recorded here: they are correct, and the reasons they were set aside are the
+reasons the present form looks the way it does.
+
 \subsection*{Discrimination as an integral rather than a minimum}
 \label{sec:integral}
 
-Everything above scores a design by $T$, defined through a \emph{global minimum} over the
-rival's parameters. That definition is the trouble in the previous subsection, and the trouble
-is structural rather than computational. Here we replace the minimum with an integral, say why
+At this stage the design results of \cref{sec:design} scored a design by $T$, defined through a
+\emph{global minimum} over the rival's parameters. That definition is the trouble, and the
+trouble is structural rather than computational. Here we replace the minimum with an integral, say why
 that is more robust, and report what it gives.
 
 \paragraph{The model label is a parameter.}
@@ -2925,998 +4418,9 @@ other allocation does better.}
 \label{fig:multiplicative}
 \end{figure}
 
-\subsection*{Designing over measures, and certifying the answer}
-\label{sec:measure}
 
-Every design result above shares a defect that no amount of care in computing them repairs:
-each is the output of a search over a single design point, that search is not convex, and
-nothing in its output distinguishes a good answer from a bad one. The evidence that this is
-not hypothetical is in the preceding subsections. A surrogate search recovered $16\%$ of the
-best conditioning actually available and reported the result without qualification; a dense
-grid over a criterion whose inner minimization was unreliable produced a front that was
-precise and wrong. Both look exactly like success.
-
-The classical formulation removes the defect rather than mitigating it.
-
-\paragraph{Designs as measures.}
-Instead of choosing one design $x$ from a candidate set $\mathcal{X}$, choose a probability
-measure $\xi$ on $\mathcal{X}$: run a fraction $\xi_i$ of the bubbles at setting $x_i$. This
-is not an abstraction imposed for mathematical convenience -- it is what an experimenter
-with a run budget does anyway, and it is strictly more expressive, since a single design is
-the special case of a measure concentrated on one point. The information available from a
-run allocated by $\xi$ is the average
-%
-\begin{equation}
-M(\xi) \;=\; \sum_i \xi_i\, M(x_i),
-\qquad
-M(x) = J(x)^{\mathsf T}J(x),
-\label{eq:measure-information}
-\end{equation}
-%
-because information from independent runs adds and $\xi$ says how many of each to take.
-
-The consequence is the whole point: $M(\xi)$ is \emph{linear} in $\xi$.
-
-\paragraph{Concavity, and why the first-order condition is enough.}
-$\log\det$ is concave on the positive-definite cone, and the composition of a concave
-function with a linear map is concave, so $\Phi(\xi) = \log\det M(\xi)$ is concave on the
-simplex -- a convex set. A concave function on a convex set has no local maximum that is
-not global, and its first-order condition is not merely necessary but sufficient. Every
-pathology this study ran into -- wrong basins, surrogate blind spots, answers that improve
-whenever the optimizer does -- is a symptom of non-convexity, and none of them can occur
-here.
-
-The same holds for $\Phi_A = -\operatorname{tr}M(\xi)^{-1}$ and $\Phi_E =
-\lambda_{\min}(M(\xi))$, and for any non-negative combination of concave criteria.
-
-\paragraph{The directional derivative.}
-Move mass $\alpha$ from $\xi$ toward the single design $x$, giving
-$\xi_\alpha = (1-\alpha)\xi + \alpha\,\delta_x$. By linearity
-$M(\xi_\alpha) = (1-\alpha)M(\xi) + \alpha M(x)$, and using
-$\partial \log\det A = \operatorname{tr}(A^{-1}\partial A)$,
-%
-\begin{equation}
-\phi(x,\xi) \;\equiv\; \left.\frac{\partial}{\partial\alpha}\log\det M(\xi_\alpha)\right|_{\alpha=0}
-= \operatorname{tr}\!\left[M(\xi)^{-1}M(x)\right] - p .
-\label{eq:directional}
-\end{equation}
-%
-For a linear utility $u$ averaging over the design, the same construction gives
-$\phi_u(x,\xi) = u_x - u^{\mathsf T}\xi$.
-
-\paragraph{The General Equivalence Theorem.}
-Since $\Phi$ is concave and the simplex is the convex hull of its vertices $\delta_x$, the
-measure $\xi^\star$ maximizes $\Phi$ if and only if no vertex direction ascends:
-%
-\begin{equation}
-\boxed{\;
-\xi^\star \text{ is D-optimal}
-\iff
-d(x,\xi^\star) \equiv \operatorname{tr}\!\left[M(\xi^\star)^{-1}M(x)\right] \le p
-\quad\text{for all } x\in\mathcal{X},
-\;}
-\label{eq:equivalence}
-\end{equation}
-%
-with equality at every support point of $\xi^\star$. This is the theorem of Kiefer and
-Wolfowitz~\citep{kiefer1960equivalence}, and it is what this section exists to obtain: a
-quantity computed from a candidate answer that \emph{proves} the answer optimal. The gap
-$\max_x d(x,\xi) - p$ is a certificate, not a convergence report.
-
-Two further facts come free. Equality puts the support exactly where $d(x,\xi^\star)$ is
-largest, so the optimal design runs at the settings of greatest standardized prediction
-variance. D-optimality and G-optimality coincide.
-And by Carath\'eodory's theorem applied to the convex hull of the $M(x)$, an optimal measure
-supported on at most $p(p+1)/2 + 1$ points always exists: at most $11$ here.
-
-\paragraph{Computing it.}
-The implementation uses the multiplicative algorithm of Silvey, Titterington and
-Torsney~\citep{silvey1978algorithm},
-%
-\begin{equation}
-\xi_i \;\longleftarrow\; \frac{\xi_i\,F_i}{\sum_j \xi_j F_j},
-\qquad
-F_i = \operatorname{tr}\!\left[M(\xi)^{-1}M(x_i)\right]
-\;\;\text{for}\;\; \Phi = \log\det,
-\label{eq:multiplicative}
-\end{equation}
-%
-which stays on the simplex by construction: weights remain non-negative and normalized
-without projection, and the criterion rises at each step. Note that
-$\sum_i \xi_i F_i = p$ identically, so~\eqref{eq:multiplicative} moves mass toward designs
-whose $d(x,\xi)$ exceeds $p$, which is precisely the set that~\eqref{eq:equivalence} says
-must be empty at the optimum. The update and the certificate are the same quantity.
-
-Vertex-direction steps with a line search were tried first and cannot converge here. The step
-required near the optimum falls below any fixed search grid, and the iteration stalls with a
-positive gap.
-
-Convergence of~\eqref{eq:multiplicative} degrades as candidates crowd together. A design just
-off the support is nearly as good as one on it, and its weight decays in proportion.
-Certifying a parabola on $[-1,1]$ took $6400$ iterations over $51$ candidates, $25\,000$ over
-$101$, and $329\,000$ over $401$ -- with the criterion value correct to six figures long
-before any of those.
-
-An exhausted budget therefore yields a converged value without a proof. That is a different
-thing from a wrong answer, and the reported gap distinguishes them.
-
-\paragraph{The certified design for these records.}
-Over $480$ candidates spanning $R_{\max} \in [50, 1200]\,\mu$m and stretch $[3, 20]$, with
-$M(x) = J^{\mathsf T}J$ for the four qSLS parameters at the posterior median, the algorithm
-certifies at a gap of $9\times10^{-10}$ in $1406$ iterations:
-$\max_x \operatorname{tr}[M^{-1}M(x)] = 4.00000000$ against $p = 4$. The optimal measure is
-
-\begin{center}
-\begin{tabular}{lcc}
-\toprule
-$R_{\max}$ & stretch & weight \\
-\midrule
-$1015\,\mu$m & $6.70$ & $0.470$ \\
-$161\,\mu$m  & $19.26$ & $0.303$ \\
-$50\,\mu$m   & $17.78$ & $0.227$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-against a best single design of $1015\,\mu$m at stretch $6.70$. The measure exceeds it by
-$6.99$ in $\log\det$, a D-efficiency ratio of $\exp(6.99/4) = 5.74$; equivalently the
-confidence ellipsoid is $\exp(6.99/2) \approx 33$ times smaller in volume, and a typical
-parameter's interval is $\exp(6.99/8) = 2.4$ times tighter. No single design can match it,
-and this is not a claim about the search: \eqref{eq:equivalence} certifies that none exists.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{fig_certificate.pdf}
-\caption{The equivalence-theorem certificate. Left: the sensitivity
-$d(x,\xi^\star)=\operatorname{tr}[M(\xi^\star)^{-1}M(x)]$ over the design plane, with the
-three support points circled and labeled by weight; the dashed contour is the level $p=4$.
-Right: the same values sorted. No design exceeds the bound and the support attains it
-exactly, which is the proof -- $\max_x d = 4.00000000$ against $p=4$, gap
-$9\times10^{-10}$. Nothing analogous exists for the single-design searches elsewhere in
-this document.}
-\label{fig:certificate}
-\end{figure}
-
-\paragraph{The mixture is the resolution of the conflict.}
-The support is worth reading physically. Nearly half the runs go to a large, gently driven
-bubble and the rest to small, hard-driven ones -- the two corners the earlier subsections
-found pulling in opposite directions. Separating $g$ from $\alpha$ wants a gentle collapse,
-because the distinguishing term of $Z_e$ decays as $\lambda^{-4}$; exciting the relaxation
-mode wants a fast one.
-
-A single design must choose between them. A measure need not. So the trade-off that motivated
-the Pareto front dissolves once the design space is the one the experiment actually admits --
-the front was answering a question made hard by an artificial restriction.
-
-\paragraph{Discrimination in the same frame.}
-Log evidence is additive over independent experiments, so an expected log Bayes factor per
-run is linear in $\xi$ and therefore concave. The compound criterion
-%
-\begin{equation}
-\Phi_\beta(\xi) = (1-\beta)\log\det M(\xi) + \beta\, u^{\mathsf T}\xi,
-\qquad \beta \in [0,1],
-\label{eq:compound}
-\end{equation}
-%
-is then concave for every $\beta$ and inherits the certificate unchanged. Its directional
-derivative is the matching combination of~\eqref{eq:directional} and $u_x - u^{\mathsf T}\xi$.
-This is the compound-criterion construction of Atkinson and of Cook and
-Wong~\citep{atkinson2008dt,cook1994equivalence} -- the principled form of the trade this study
-otherwise handled by search.
-
-Sweeping $\beta$ traces the Pareto front, and each criterion being concave in $\xi$ makes that
-front convex. This is why the classical literature scalarizes with weighted sums where this
-study needed a Chebyshev form. The non-convexity that forced the elaborate scalarization was
-an artifact of optimizing over a single design point.
-
-\paragraph{Temperature is the only axis on the table that rotates rather than amplifies.}
-\Cref{sec:criteria} proves that a design change which merely amplifies signal sends
-$F \to sF$, leaving $\kappa$ untouched, so degeneracy can only be removed by a design that
-rotates the eigenvectors. Every candidate in this chapter is $(R_{\max}, \text{stretch})$, and
-both are drive settings. Temperature is not: it moves the material's own $g\alpha$, it costs
-nothing but a bath, and it has never been a design variable here.
-
-The obstruction is that each temperature has its own parameters, so three records at three
-temperatures are three separate fits with nothing to design \emph{for}. Temperature becomes an
-axis only under a model that shares parameters across it, and the weakest such model that is
-still physics is Arrhenius, $\log\theta_a(T) = c_a + b_a(1/T - 1/T_{\rm ref})$: two coefficients
-per axis, six in all, with the chain rule turning a trace's sensitivity to $\log\theta_a$ into
-sensitivities to $(c_a, b_a)$, the second scaled by $(1/T - 1/T_{\rm ref})$.
-
-Under that model the comparison is not close, and not subtle. \emph{With temperature held, the
-six-parameter information is singular and the design is refused.} That is near-tautological once
-stated --- a slope cannot be measured at one point, so the $b_a$ columns are exact multiples of
-the $c_a$ columns and the rank is three, not six --- and it is exactly the abstract claim of
-\cref{sec:criteria} made concrete: no optimization over geometry, at any budget, identifies the
-temperature dependence. Only varying temperature does. Freeing it certifies at a gap of
-$8\times10^{-10}$ on six settings spanning \SIrange{12}{36}{\celsius}, with $\log\det = 5.15$ and
-$\kappa = 2.8\times10^{9}$ where the held design has no finite $\kappa$ at all.
-
-This is the most conditional result in the chapter and is reported as such. Three temperatures
-fitting six coefficients leaves one residual degree of freedom per axis, so the Arrhenius form is
-assumed rather than tested; its residuals, $\pm0.005$ in $\log\mu$, $\pm0.05$ in $\log g\alpha$
-and $\pm0.13$ in $\log\lambda_1$, are a consistency note and nothing more.
-
-\subsection*{The setpoint is not the geometry}
-\label{sec:setpoint}
-
-Every design in this chapter names a target and treats it as a knob: \SI{416}{\micro\metre} at
-stretch $10.9$, \SI{1015}{\micro\metre} at $6.7$, a batch of eight settings. The acquisition data
-says it is not a knob. Per event, $R_{\max}$ has a coefficient of variation of $0.25$, $0.28$ and
-$0.23$, and the stretch a further $0.05$ to $0.07$. A quarter is not a tolerance --- it is the
-difference between \SI{400}{} and \SI{500}{\micro\metre}, and it means a certified optimum sitting
-on a ridge is worth only what can actually be hit.
-
-The repair is a change of variable and costs nothing. What the experimenter chooses is a
-setpoint; what arrives is a draw. One run at setpoint $s$ therefore supplies
-%
-\begin{equation}
-M(s) \;=\; \mathbb{E}_{x\sim p(\cdot\mid s)}\big[J(x)^{\mathsf T}J(x)\big],
-\label{eq:setpoint}
-\end{equation}
-%
-and every property this chapter relies on survives it: an expectation of information matrices is
-a matrix, $M(\xi)=\sum_i \xi_i M(s_i)$ is still linear in $\xi$, so the criterion is still
-concave and \eqref{eq:equivalence} still certifies. The certificate is identical. Only the
-answer moves.
-
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-scatter & nominal peak, delivered & scatter-aware optimum, delivered & regret \\
-\midrule
-$\times\tfrac12$ & \SI{514}{\micro\metre} at $6.92$, $7.823$ & \SI{636}{\micro\metre} at $6.92$, $8.312$ & $0.489$ \\
-\textbf{measured} & \SI{514}{\micro\metre} at $6.92$, $7.740$ & \textbf{\SI{786}{\micro\metre} at $6.92$}, $8.859$ & $\mathbf{1.118}$ \\
-$\times 2$ & \SI{514}{\micro\metre} at $6.92$, $6.193$ & \SI{786}{\micro\metre} at $5.62$, $7.667$ & $1.474$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent Both columns are scored against what actually happens --- the expectation --- so the
-difference is what ignoring the scatter costs rather than an accounting artifact. At the measured
-scatter the recommended bubble is \emph{half again larger}, \SI{786}{} against
-\SI{514}{\micro\metre}, and the regret is $1.118$ nats. For a whole certified batch the same
-comparison costs $0.982$: a measure built on the nominal information delivers $8.467$ where one
-built on \eqref{eq:setpoint} delivers $9.449$.
-
-\paragraph{Those widths were assumed, and they have since been measured.} The coefficients above
-come from a three-row table, and \eqref{eq:setpoint} was evaluated over independent log-normal
-draws --- a width, a shape and an independence assumption, none of them checked. All three are
-checkable against $437$ per-event $(R_{\max}, R_{\rm eq})$ pairs recorded in micrometres, before
-the normalisation that removes absolute size from every trace fitted here. The measured
-coefficients are $0.223$ and $0.067$ against the assumed $0.25$ and $0.06$, and the correlation
-between $\log R_{\max}$ and $\log s$ is $-0.14$: the widths hold and the independence is very
-nearly right. Resampling the measured pairs in place of the assumed law, on a common grid:
-
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-law over the deviations & scatter-aware optimum & regret & support shared \\
-\midrule
-assumed log-normal & \SI{678}{\micro\metre} at $6.70$ & $0.434$ & $3$ of $5$ \\
-log-normal at the measured widths & \SI{678}{\micro\metre} at $6.70$ & $0.436$ & $3$ of $5$ \\
-measured pairs, shuffled & \SI{866}{\micro\metre} at $6.70$ & $0.334$ & $4$ of $5$ \\
-\textbf{measured pairs, joint} & \textbf{\SI{866}{\micro\metre} at $6.70$} & $\mathbf{0.267}$ & $5$ of $5$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent The conclusion of this section survives and its arithmetic does not. Under every law
-the regret is real and positive and the recommendation moves, so the \emph{claim} never depended
-on the assumed distribution; but the assumed law overstates the regret by $63\%$ and places two
-of five certified settings where the measured law does not. Delivered information is nearly
-identical either way ($10.240$ against $10.208$ nats), so what the wrong law costs is
-misplacement rather than loss --- and since the settings are what a collaborator runs, that is
-the part worth getting right.
-
-One caveat belongs with this and not in a footnote: these $437$ events are polyacrylamide, at a
-mean $R_{\max}$ of \SI{359}{\micro\metre}, while the design they are applied to is gelatin at
-$277$ to \SI{312}{\micro\metre}. That a scatter \emph{law} transfers across materials is the
-standing assumption of \cref{sec:transfer} and is not something these events establish. What
-they do establish is that the widths and the independence assumed above were sound.
-
-Read that against the chapter's other effects. Choosing the geometry under the wrong noise model
-costs at most $1.34$ nats (\cref{sec:noisedesign}); restoring testability costs $0.01$ to $0.24$;
-the spread across robust batches is $0.21$. \emph{Ignoring that the setpoint is not the geometry
-costs about as much as the entire noise-model correction}, and unlike that correction it requires
-no new measurement and no new theory --- only averaging the information over a distribution that
-has already been measured.
-
-The direction is worth reading physically. Scatter pushes the recommendation \emph{up} in
-$R_{\max}$, because the information ridge is asymmetric: undershooting a small bubble loses more
-than overshooting a large one, so a setpoint with room beneath it is worth more than a sharper
-peak without. The batch spreads accordingly, putting $0.467$ of its runs at \SI{636}{} and
-$0.150$ at \SI{786}{\micro\metre}, with the small hard-driven corner kept at reduced weight.
-
-The scatter itself is measured rather than assumed, and swept at half and twice, under the
-standing caveat of \cref{sec:transfer}: whether a laser produces the same spread at a setpoint
-nobody has run is exactly the kind of transfer this chapter cannot verify from three records at
-one size.
-
-\paragraph{So should the scatter be paid to remove? No.}
-The obvious follow-on is an investment question: a steadier laser or a better-controlled
-nucleation site tightens the scatter, so how many nats does that buy? Priced on the same grid,
-sweeping the coefficient of variation with the other coordinate held at its measured value:
-
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-$R_{\max}$ cv & best single setpoint & delivered & under an optimal measure \\
-\midrule
-$0$ (perfect) & \SI{531}{\micro\metre} & $9.100$ & $\mathbf{10.434}$ \\
-$0.10$ & \SI{576}{\micro\metre} & $9.124$ & $10.365$ \\
-$0.25$ (measured) & \SI{736}{\micro\metre} & $9.623$ & $10.242$ \\
-$0.50$ & \SI{678}{\micro\metre} & $9.760$ & $10.049$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent The two columns disagree in \emph{sign}, and which one applies is the whole point. Run
-as a single setting, scatter \emph{helps} --- perfect control is worth $-0.523$ nats, because the
-laser's imprecision accidentally spreads a design that would otherwise be a point, and
-\cref{sec:measure} is an argument that spread designs beat points. Run as a measure, scatter
-hurts: perfect control is worth $+0.191$.
-
-The sign of the second column is not a measurement but a theorem. The reachable
-$\mathbb{E}[M]$ under any scatter is a convex combination of $\{M(x)\}$, hence inside the hull
-that \eqref{eq:equivalence} already optimises over, so a measure can emulate any scatter and
-cannot do worse. Only the \emph{magnitude} is informative --- and the magnitude is what settles
-the investment.
-
-$0.191$ nats is small. It is less than restoring testability ($0.24$), a seventh of choosing the
-geometry under the right noise model ($1.34$), a sixth of merely accounting for the scatter
-(\cref{sec:setpoint}, $1.118$), and a twentieth of the bubbles-against-frames split
-(\cref{sec:allocation}, $3.93$). Perfect control of the stretch is worth less still, $+0.100$.
-
-\emph{Account for the scatter; do not pay to remove it.} Designing as though the setpoint were
-exact costs about a nat, and fixing that is free. Making the bubbles actually alike costs an
-apparatus and returns a fifth of a nat, because a certified measure wants a spread anyway and is
-largely indifferent to who chooses it.
-
-\subsection*{Robust to the bias bound, which is the prior this chapter lacked}
-\label{sec:biasdesign}
-
-The limitation below --- information evaluated at a point estimate of $\theta$ --- offers its own
-repair, averaging over a prior, and this chapter never took it because there was no prior to
-average over. \Cref{eq:biasbound} supplies something better than a prior: a computed set
-containing the truth unless the unseen half of the discrepancy exceeds the seen half. On the
-\SI{15}{\celsius} record it is $\times1.58$ in $\mu$, $\times1.30$ in $g\alpha$ and $\times3.11$
-in $\lambda_1$.
-
-\emph{The bound reaches the design.} Across the nine corners of that box the best single geometry
-is one of \emph{five} distinct answers, running from \SI{50}{} to \SI{307}{\micro\metre} --- so
-the recommendation is not stable under the parameter uncertainty this document itself computes,
-and reporting it at the fit alone overstates what is known.
-
-Both robustifications keep the certificate, for the reason \cref{sec:setpoint} already used:
-averaging concave criteria is concave, and a pointwise minimum of concave criteria is concave.
-
-\begin{center}
-\begin{tabular}{lcccc}
-\toprule
-design built on & settings & at the fit & average over the box & worst corner \\
-\midrule
-nominal, at the fit & $4$ & $\mathbf{10.951}$ & $10.708$ & $8.795$ \\
-Bayesian, $\max \mathbb{E}[\log\det]$ & $5$ & $10.536$ & $\mathbf{11.101}$ & $9.044$ \\
-maximin, $\max \min \log\det$ & $6$ & $9.779$ & $10.312$ & $\mathbf{9.464}$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent Each design is best in its own column, which is the check that the three criteria are
-being optimised rather than merely evaluated. Designing at the point estimate costs $0.393$ nats
-on average and $0.669$ in the worst case --- the same order as restoring testability ($0.24$) or
-controlling $R_{\max}$ perfectly ($0.19$), and well below the noise model ($1.34$) or the
-allocation ($3.9$).
-
-One honest qualification on the last row. The Bayesian design certifies at a gap of
-$10^{-9}$; the maximin does \emph{not} converge, stopping at a gap of $4.4$. A pointwise minimum
-is not smooth, and the subgradient iteration that \cref{sec:measure} relies on is not the right
-tool for it. Its value is a lower bound reached rather than an optimum proved, and it is reported
-as such --- the same distinction that section draws between an exhausted budget and a wrong
-answer.
-
-\paragraph{What this does not fix.}
-Three limitations, stated plainly. The information matrices are evaluated at a point estimate
-of $\theta$, so the design is locally optimal in the parameters though globally optimal in
-$\xi$ --- which \cref{sec:biasdesign} now prices and partly repairs, at $0.39$ to $0.67$ nats.
-
-The candidate set is still a grid, so the certificate proves optimality \emph{over that grid}.
-That scan has now been run, and it fails.
-
-\paragraph{The certificate does not reach past its own grid.} On the $224$-point grid the
-measure certifies exactly: $\max_x d(x,\xi^\star) = 4.000000$ against $p = 4$, at a gap of
-$8\times10^{-10}$. Evaluated on a grid eight times finer, the same measure gives
-%
-\begin{equation*}
-\max_x d(x,\xi^\star) = 69.56 \quad\text{against}\quad p = 4,
-\end{equation*}
-%
-exceeding the bound by $65.6$ at \SI{552}{\micro\metre} and stretch $17.82$. The measure is
-optimal among the settings it was offered and is \emph{not} optimal over the continuum.
-
-The exceedance is not numerical. It survives a hundredfold tightening of the solver tolerance
---- $\lVert M\rVert = 1.0086\times10^{6}$ at $\text{rtol}=10^{-7}$ and at $10^{-9}$, identical to
-five digits --- and the trajectory itself varies smoothly through it, the collapse deepening
-monotonically from $0.0379$ to $0.0287$ across the feature. What spikes is the sensitivity, not
-the solve.
-
-It is, though, extremely narrow. Scanned in stretch at fixed radius, $d$ sits at $0.4$ to $0.9$
-almost everywhere and rises to $9.69$ at $17.80$ and $64.06$ at $17.82$, falling back to $0.52$
-by $18.00$. These are ridges a coarse grid steps over, where a small parameter change flips the
-post-collapse trajectory between qualitatively different histories.
-
-\emph{Averaging over the setpoint scatter helps and does not fix it.} Since \cref{sec:setpoint}
-establishes that a geometry is not a knob --- the stretch arrives with a coefficient of variation
-of $0.06$, wider than these ridges --- the candidate a design can actually ask for is
-$\mathbb{E}[M]$, and much of the spike averages out. The exceedance falls from $65.6$ to $8.4$.
-It does not reach zero, so the ridges are not merely information nobody can request; some part of
-them survives being asked for imprecisely.
-
-The consequence is a genuine limitation on this chapter's strongest claim, and it is the honest
-version of the caveat this list previously carried. \emph{Every certified batch here is optimal
-over its candidate set and none is proved optimal over the continuum.} The scan says where to
-refine --- around \SI{550}{\micro\metre} at high stretch --- and refining there will move the
-answer.
-
-\paragraph{The compound front, which was previously not run.} It was blocked on an estimator
-rather than on theory: $\Phi_\beta$ is concave for every $\beta$, but the per-design log Bayes
-factor suffered the boundary pinning of \cref{sec:integral}. The linearised separation of
-\cref{sec:batch} --- the model difference orthogonal to the material span --- has no inner
-optimisation and no boundary to pin against, so it can play the utility.
-
-\begin{center}
-\begin{tabular}{lccccc}
-\toprule
-$\beta$ & settings & gap & $\log\det M$ & separation & of each maximum \\
-\midrule
-$0$ & $4$ & $7\times10^{-10}$ & $\mathbf{31.92}$ & $179.4$ & $100\%$, $19.9\%$ \\
-$0.10$ & $3$ & $6\times10^{-10}$ & $24.45$ & $887.9$ & $76.6\%$, $98.3\%$ \\
-$0.50$ & $3$ & $1\times10^{-12}$ & $20.74$ & $902.1$ & $65.0\%$, $99.9\%$ \\
-$1$ & $1$ & $0$ & $18.82$ & $\mathbf{903.0}$ & $58.9\%$, $100\%$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent Certified along the whole front. The trade is real rather than dissolved --- no
-$\beta$ attains both maxima --- but it is steeply asymmetric, and that is the practical finding:
-\emph{a tenth of a weight on discrimination buys $98.3\%$ of it for a quarter of the estimation}.
-A collaborator who wants both should take a small $\beta$, not a balanced one, and the support
-moves from four settings to three rather than collapsing to the single design $\beta = 1$ would
-give.
-
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}[scale=1.15]
-  \fill[gray!14] (0,0) -- (5.6,0) -- (7.3,1.7) -- (1.7,1.7) -- cycle;
-  \draw[gray!55] (0,0) -- (5.6,0) -- (7.3,1.7) -- (1.7,1.7) -- cycle;
-  \draw[-{Latex[length=2.4mm]},very thick,blue!70!black] (2.5,0.8) -- (4.2,3.5);
-  \draw[-{Latex[length=2mm]},thick,gray!80!black] (2.5,0.8) -- (4.0,0.8);
-  \draw[dashed,gray] (4.0,0.8) -- (4.2,3.5);
-  \draw[-{Latex[length=2mm]},very thick,red!75!black] (4.0,0.8) -- (4.18,3.2);
-  \draw[gray] (3.85,0.8) rectangle (4.0,0.95);
-  % labels, each with its own clear lane
-  \node[blue!70!black,anchor=south] at (4.2,3.62) {\footnotesize $\Delta = R_B - R_A$};
-  \node[gray!65,anchor=north west] at (6.0,-0.05) {\footnotesize $\operatorname{span}\partial R/\partial\theta$};
-  \node[gray!80!black,anchor=north] at (3.2,0.6) {\footnotesize absorbed by refitting};
-  \node[red!75!black,anchor=west,align=left] at (4.55,2.2)
-    {\footnotesize what survives --\\[-2pt]\footnotesize the only part\\[-2pt]\footnotesize a design can see};
-\end{tikzpicture}
-\caption{Why a model difference can be invisible at every design. Changing a model perturbs
-the trace by $\Delta = R_B - R_A$. The component lying in the span of the material
-sensitivities is reproduced by adjusting $g,\mu,\lambda_1,\alpha$ -- refitting absorbs it, and
-no experiment recovers it. Only the orthogonal remainder is evidence that the model changed.
-Measured on the \SI{15}{\celsius} record and reported in \cref{sec:axes}: the bubble-dynamics
-operator is $77.7\%$ absorbed, leaving under two noise units, which is why its ranking proved
-so fragile; the constitutive and thermal axes leave $8.1$ and $8.5$.}
-\label{fig:absorption}
-\end{figure}
-
-\section{One criterion, and what a budget buys}
-\label{sec:gain}
-
-\cref{sec:batch} gives a recipe and \cref{sec:criteria} shows the criteria in it disagree.
-Both leave a question unanswered: the material is scored by $\log\det M$, the model label by a
-Schur complement, the initial radius by a separate study, and none of the three share a scale,
-so \emph{which} question a batch should serve cannot be asked. They are one quantity.
-
-\subsection*{The value of an experiment}
-
-What an experiment is worth is how much it moves your beliefs, and about \emph{what} is an
-argument rather than a fixed choice. Write $A$ for the quantity of interest --- parameters,
-a model label, the initial radius, the noise scale, any subset --- and the value of a design
-is the mutual information between the data and $A$,
-%
-\begin{equation}
-U_A(\xi) \;=\; \mathbb{E}_y\!\left[\operatorname{KL}\!\big(p(A \mid y,\xi)\,\|\,p(A)\big)\right]
-\;=\; I(A;Y \mid \xi) .
-\label{eq:gain}
-\end{equation}
-%
-For a Gaussian likelihood in prior-standardized coordinates --- the unit-cube scaling
-\cref{sec:prior} already uses, in which the prior covariance is the identity --- the posterior
-precision is $N = I + M(\xi)$ and \eqref{eq:gain} is available in closed form. Partitioning
-into the coordinates $A$ and the nuisance coordinates $B$,
-%
-\begin{equation}
-U_A(\xi) \;=\; \tfrac12 \log\det\Big[\,N_{AA} - N_{AB}N_{BB}^{-1}N_{BA}\,\Big],
-\label{eq:gainschur}
-\end{equation}
-%
-the Schur complement of everything you are not asking about. Every criterion in this document
-is \eqref{eq:gainschur} at a different $A$: all coordinates gives Bayesian D-optimality, the
-material block gives \cref{sec:criteria}'s $\log\det$, the mixing coordinates of
-\cref{sec:batch} give $D_s$-optimality, and \texttt{req\_scale} alone asks whether the initial
-radius is driving the conclusion. Answers in nats are comparable across those, and with
-weights $\pi_A$ they add, $\Phi(\xi) = \sum_A \pi_A U_A(\xi)$.
-
-\subsection*{The choice that was hiding in \texorpdfstring{$\log\det M$}{log det M}}
-
-That the criteria are one family also exposes a decision nobody made. For any partition,
-%
-\begin{equation}
-\log\det M \;=\; \log\det M_{\theta\theta} \;+\; \log\det S ,
-\qquad S = M_{\varepsilon\varepsilon} - M_{\varepsilon\theta}M_{\theta\theta}^{-1}M_{\theta\varepsilon},
-\label{eq:schursplit}
-\end{equation}
-%
-so maximizing $\log\det M$ over the augmented set, as \cref{sec:batch} does, is maximizing
-material log-volume \emph{plus} discrimination log-volume with equal weight. That is a defensible
-compromise and it is not neutral, which is what it had been taken to be.
-
-\subsection*{Three properties, and one that removes a failure}
-
-\eqref{eq:gainschur} is concave in $\xi$ for every $A$. The Schur complement has the variational
-form $u^{\mathsf T}Su = \min_v (v,u)^{\mathsf T}N(v,u)$, a pointwise minimum of functions linear
-in $N$, hence matrix-concave; $\log\det$ is concave and matrix-monotone, so the composition is
-concave, and $M(\xi)$ is linear in $\xi$. The equivalence theorem of \cref{sec:measure}
-therefore still applies. With $P = \big(\begin{smallmatrix} I_A \\ -N_{BB}^{-1}N_{BA}\end{smallmatrix}\big)$
-the envelope theorem gives the directional derivative, and $\xi^\star$ is optimal exactly when
-%
-\begin{equation}
-d(x,\xi^\star) = \tfrac12\operatorname{tr}\!\left[S^{-1}P^{\mathsf T}M(x)P\right]
-\;\le\; \tfrac12\Big(|A| - \operatorname{tr}\big[S^{-1}P^{\mathsf T}P\big]\Big)
-\quad \text{for all } x ,
-\label{eq:gaincert}
-\end{equation}
-%
-with equality on the support. The bound is computed rather than looked up --- it is $p$ for
-$\log\det$ and depends on $\xi$ here --- but it is still a proof and not a convergence report.
-
-The prior term $I$ in $N$ is what makes \eqref{eq:gainschur} finite when $M$ is singular. Under
-$\log\det M$ a design that cannot determine every parameter scores $-\infty$ and cannot be
-ranked at all, which is how $22$ of $48$ candidate geometries became unscorable in
-\cref{sec:integral}. Here such a design scores low, which is the truth about it.
-
-One caution follows from \eqref{eq:schursplit} being nonlinear: $S$ is not linear in $M$, so
-$\log\det S\big(\sum_i \xi_i M_i\big) \ne \sum_i \xi_i \log\det S(M_i)$. Scoring candidates one
-at a time and taking the best $N$ is therefore wrong --- a design that discriminates well alone
-but leaves $\theta$ loose has its advantage eaten when the material is refitted from the same
-batch, and only the Schur complement of the \emph{summed} information sees that.
-
-\subsection*{Will it settle? A budget in bubbles}
-
-Nats say how much a batch teaches. They do not say whether it decides anything, which is what a
-collaborator with a fixed budget is asking. That has a closed form, and it is exact in the
-Gaussian-linear limit rather than asymptotic.
-
-Let $s$ be the per-run information about the coordinate separating two models, after everything
-else is fitted out. Information adds over independent runs, so $N$ runs give $S = Ns$. Writing
-$d$ for the component of the whitened model difference orthogonal to the material span, so that
-$S = \lVert d \rVert^2$ as in \cref{fig:absorption}, data generated under one model give a
-profiled log Bayes factor
-%
-\begin{equation}
-\Lambda \;=\; \tfrac12\big(\lVert d + n_\perp\rVert^2 - \lVert n_\perp\rVert^2\big)
-\;=\; \tfrac{S}{2} + d\cdot n_\perp ,
-\qquad\text{so}\qquad
-\Lambda \sim \mathcal{N}\!\left(\tfrac{S}{2},\, S\right) ,
-\label{eq:lambdalaw}
-\end{equation}
-%
-since $d \cdot n_\perp$ has variance $\lVert d\rVert^2 = S$. The experiment has not been run and
-its Bayes factor is unknown, but its \emph{distribution} is known before anyone books the
-laser. The chance of clearing $\delta$ nats in favour of the truth is
-$\Phi\big((S/2-\delta)/\sqrt{S}\big)$, and inverting for confidence $1-\alpha$ gives the budget
-%
-\begin{equation}
-N \;\ge\; \frac{\big(z_{1-\alpha} + \sqrt{z_{1-\alpha}^2 + 2\delta}\big)^2}{s} .
-\label{eq:runs}
-\end{equation}
-%
-At $\delta = 5$ nats and $95\%$ confidence the numerator is $27.14$. An $s$ of zero --- the
-difference wholly absorbed, the infinite variance of \cref{sec:axes} --- sends \eqref{eq:runs}
-to infinity, which is the statement that no experiment of this shape ever settles the question.
-
-The same unit serves the parameter question. After $N$ runs the posterior standard deviation of
-coordinate $k$ is $\big[(I + NM)^{-1}\big]_{kk}^{1/2}$ in prior-standardized coordinates, so
-``pin $g$ to a tenth of its prior width'' is also a number of bubbles. That shared denominator
-is what makes the two comparable; nats alone are not, because they measure different things
-about different objects.
-
-\subsection*{What the criterion cannot reach}
-
-Every $A$ above is a \emph{coordinate}. ``Is every model in the catalogue wrong?'' is not one,
-and \cref{sec:fitquality} answers it \emph{yes} on all three records. No column of the Jacobian
-reaches model inadequacy, and worse, \eqref{eq:gain} maximized freely walks away from the batch
-that could detect it: a criterion linear in $\xi$ is optimized by a single setting repeated $N$
-times, which has no pure error and no lack-of-fit numerator.
-
-Testability is therefore a \emph{constraint} on the batch, not a term in the objective:
-%
-\begin{equation}
-\max_\xi \;\sum_A \pi_A U_A(\xi)
-\quad\text{subject to}\quad
-\lvert\operatorname{supp}\xi\rvert \ge k > p, \qquad n_i \ge J \ge 2 .
-\label{eq:constrained}
-\end{equation}
-%
-The replication half is cheap and does nothing here: the number of settings is a property of
-the \emph{measure}, and apportionment only allocates runs within the support it is handed, so
-forcing three replicates on the operator design leaves the batch at two settings and
-$\mathrm{df} = -2$ still.
-
-The support half is a cardinality constraint and is not convex, so it cannot join the objective
-without forfeiting \eqref{eq:gaincert}. \texttt{pyimr.measure.constrained\_measure} buys most of
-the certificate back in two steps. Which settings to guarantee --- the set $\mathcal{K}$,
-of size $k$ --- is decided by the certificate itself: those the free solution already funds,
-then the candidates of largest sensitivity, the ones \eqref{eq:equivalence} shows the free
-problem came closest to wanting. Naming them is
-not enough, since an optimizer merely restricted to a larger candidate set reproduces the free
-optimum by leaving the new settings at zero and reports no cost at all; they are guaranteed
-instead by the substitution
-%
-\begin{equation}
-\xi = c\,\mathbf{1}_{\mathcal{K}} + (1 - kc)\,\eta ,
-\qquad c > 0, \quad kc < 1 ,
-\label{eq:floorsub}
-\end{equation}
-%
-which maps $\{\xi : \xi_i \ge c \ \forall i \in \mathcal{K}\}$ onto the whole simplex in $\eta$.
-The search is then exactly the one \eqref{eq:gaincert} already certifies, the floor holds by
-construction rather than by projection, and every candidate --- guaranteed or not --- still
-competes for the remaining mass $1 - kc$. What is certified is optimality \emph{among measures
-meeting the floor}, which is weaker than \eqref{eq:gaincert} and is reported as such.
-
-On the operator design the constraint is worth paying. The free batch takes two settings for
-$4.39$ nats; held to five it spreads over six geometries and $\mathrm{df} = +2$ for $0.10$ nats,
-and held to seven it reaches $\mathrm{df} = +3$ for $0.04$ --- both certified below $10^{-9}$.
-That seven costs less than five is not a paradox: the default floor is half an equal share, so
-asking for more settings also asks less of each, and the two demands are not nested. At a fixed
-$c$ they are, and the price rises with $k$ as it must.
-
-\subsection*{The answer for these records}
-
-Over the $227$ candidate geometries of \cref{sec:batch} at a budget of twelve, with the material
-held at the \SI{15}{\celsius} fit:
-
-\begin{center}
-\begin{tabular}{lccccc}
-\toprule
-batch optimized for & material (nats) & operator (nats) & settings & lack-of-fit df \\
-\midrule
-material & $\mathbf{19.51}$ & $3.78$ & $7$ & $+3$ \\
-operator & $17.03$ & $\mathbf{4.39}$ & $2$ & $-2$ \\
-portfolio, $1\!:\!4$ & $18.92$ & $4.24$ & $6$ & $+2$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent all three certified at gaps below $10^{-9}$. The geometry does move with the question
---- the operator question wants \SI{785}{\micro\metre} at stretch $6.9$, which the
-material-optimal batch never visits --- but the portfolio buys $97\%$ of each for $3\%$, and is
-the only aggressive option that stays testable \emph{at this noise model}.
-
-That qualification is not decoration. Every number in the table takes
-$\sigma = 0.018\,R_{\max}$ at every sample, and \cref{sec:noisedesign} shows the records
-contradict it by two to three orders of magnitude within a single trace. Recomputed under the
-measured profiles the portfolio's six settings become four and its $\mathrm{df}$ becomes zero on
-two of the three, so the last clause of the paragraph above holds only under the flat scale that
-motivated it. The repair costs two tenths of a percent and is given there, along with the batch
-this document actually recommends.
-
-A note on the search. The multiplicative algorithm of \cref{sec:measure} relies on
-$\operatorname{tr}[GM(\xi)]$ being the constant $p$, which holds for $\log\det$ and for nothing
-else; on the operator design it stalls at a gap of $0.155$. It reports itself uncertified, which
-is the certificate working, but mirror descent on the simplex is what converges here, to
-$1.8\times10^{-10}$ and a higher value.
-
-\subsection*{What all of this is worth against correlated noise}
-
-Every number above is information, and \cref{sec:latent} shows this likelihood counts more of it
-than it has. The correction belongs here rather than as a caveat, because it enters
-\eqref{eq:runs} directly: $s$ falls, and the required budget rises by the same factor.
-
-Replacing independent samples with the exponential covariance
-$\Sigma_{ij} = \sigma_i\sigma_j e^{-\lvert t_i-t_j\rvert/\tau}$ makes the whitened information
-$J^{\mathsf T}\Sigma^{-1}J$, and everything above inherits it unchanged --- the criterion, the
-certificate and \eqref{eq:runs} are all statements about $M$, whatever $M$ was computed from.
-The effect is not a single deflation. Measured at $\rho = 0.908$: a constant offset loses a
-factor of $0.053$, a smooth half-cycle $0.049$, a five-cycle oscillation $0.176$, while
-point-to-point jitter is \emph{amplified} $20.7$-fold. Model differences are smooth, so the
-deflation is what applies to every margin in this document, but it is a fact about the shape of
-those differences rather than a property of the likelihood.
-
-\paragraph{Applied rather than quoted, it changes neither the design nor, here, its sign.}
-The paragraph above is a statement about idealized shapes. Recomputing every geometry with
-$M = J^{\mathsf T}\Sigma^{-1}J$ at $\tau/t_c = 0.292$ --- the correlation length transferred by
-phase, for the reason \cref{sec:noisedesign} gives for $\sigma$ and under
-\cref{sec:transfer}'s caveat --- settles what it does to the
-answer, and the answer is two negatives and one positive.
-
-The recommended geometry does not move, under any of the three measured noise profiles: the
-diagonal and correlated likelihoods pick the same design in all three cases. So the batches of
-this chapter are not misdirected by the likelihood they were computed under, which is the more
-important of the two questions and the one the deflation figures leave open.
-
-Nor is the operator question deflated. The discrimination coordinate is \emph{amplified}, by a
-median of $\times 3.23$, $\times 2.85$ and $\times 2.51$ across the three profiles, over a range
-running from $\times 0.52$ to $\times 10.4$. There is no contradiction with the figures above:
-those are the deflations of a constant offset and a smooth half-cycle, and the operator
-differences on this grid are not smooth enough to sit there.
-
-The mechanism, however, is exactly the one the figures imply, and that is the positive result.
-Ranked against the fraction of each difference's energy above eight cycles across the record, the
-amplification correlates at $+0.66$, $+0.64$ and $+0.65$. A correlated likelihood pays for a
-difference that is \emph{fast} and charges for one that is smooth, so which feature of a design
-is worth buying does change even where the ranking does not.
-
-\section{Choosing the next \texorpdfstring{$N$}{N} experiments}
-\label{sec:batch}
-
-Everything above scores designs. None of it answers the question a collaborator actually
-asks: \emph{we can run $N$ more bubbles, what should they be?} This section is that recipe. It
-is five steps, four of which are already derived above and one of which is new.
-
-\subsection*{Step 0: ask which questions are still open}
-
-A batch that separates models the records have already separated buys nothing. Given the log
-evidence $\log Z_m$ of each rival on the data in hand, write the margin against the best,
-$\Delta_m = \log Z_m - \max_k \log Z_k$, and call a rival \emph{decided} when
-$\Delta_m < -\delta$ for a threshold $\delta$ we take as five nats. Survivors carry the
-posterior they have earned,
-%
-\begin{equation}
-w_m = \frac{e^{\Delta_m}}{\sum_{k \text{ live}} e^{\Delta_k}} ,
-\qquad w_m = 0 \text{ for decided } m .
-\label{eq:screen}
-\end{equation}
-
-This step does more than save runs. The criterion below is \emph{local} --- it linearizes the
-model difference --- which is the right approximation for rivals that are close and the wrong
-one for rivals far apart. But rivals far apart are easy to separate and are exactly the ones
-\eqref{eq:screen} decides. What survives screening is the close pairs, which is the regime the
-linearization is valid in, so the two failure modes cancel rather than compound.
-
-\subsection*{Step 1: make the model choice a parameter}
-
-For a live rival $m$ against the incumbent, write
-$R(\theta,\varepsilon_m) = (1-\varepsilon_m) R_{\text{inc}}(\theta) + \varepsilon_m R_m(\theta)$,
-so that $\partial R/\partial\varepsilon_m = R_m - R_{\text{inc}}$ at $\varepsilon_m = 0$. The
-model question becomes one more column of the Jacobian. With the material sensitivities
-whitened by the measurement deviation, the augmented Jacobian at a candidate setting $x$ is
-%
-\begin{equation}
-\tilde J(x) = \Big[\; \underbrace{\sigma^{-1}\partial R/\partial\theta}_{p \text{ columns}}
- \;\Big|\; \underbrace{\sqrt{w_1}\,\sigma^{-1}\Delta_1 \;\cdots\; \sqrt{w_q}\,\sigma^{-1}\Delta_q}_{q \text{ rivals}} \;\Big],
-\qquad M(x) = \tilde J(x)^{\mathsf T} \tilde J(x) .
-\label{eq:augmented}
-\end{equation}
-%
-The $\sqrt{w_m}$ is what makes \eqref{eq:screen} bite: a rival at a tenth of the posterior
-contributes a tenth of the information about its own coordinate, and a decided rival
-contributes none.
-
-Nothing is sampled here. This is the point at which an expected log Bayes factor would
-normally be estimated, and \cref{sec:integral} explains why that estimator fails on records
-this long --- the effective sample size collapses to one. The derivative is exact, costs one
-Jacobian, and needs no prior on the rival, which also removes the prior-placement trap of
-\cref{sec:design}: only the difference direction enters, never the rival's own parameters.
-
-\subsection*{Step 2: optimize over measures, not over settings}
-
-A batch is a measure. Let $\xi$ put weight $\xi_i$ on candidate $x_i$; the information is
-$M(\xi) = \sum_i \xi_i M(x_i)$, \emph{linear} in $\xi$, so $\log\det M(\xi)$ is concave and
-%
-\begin{equation}
-\xi^\star = \argmax_{\xi} \; \log\det M(\xi)
-\label{eq:batchcriterion}
-\end{equation}
-%
-has no local optima. Because $M$ carries both blocks, \eqref{eq:batchcriterion} balances
-estimating the material against determining which model produced the trace without any
-weighting parameter to choose.
-
-This is deliberately not the compound criterion of \cref{sec:design}. That form blends
-$\log\det$ with a utility, and the blend is concave only because the utility is \emph{linear}
-in $\xi$. The natural discrimination utility --- the posterior variance of $\varepsilon$ --- is
-not linear, so blending it would forfeit the certificate. Putting $\varepsilon$ inside the
-matrix keeps one concave criterion and the proof that comes with it.
-
-\subsection*{Step 3: certify}
-
-By Kiefer--Wolfowitz, $\xi^\star$ solves \eqref{eq:batchcriterion} exactly when no candidate
-setting offers an uphill direction:
-%
-\begin{equation}
-d(x,\xi^\star) = \operatorname{tr}\!\left[M(\xi^\star)^{-1} M(x)\right] \le p + q
-\quad\text{for all } x,
-\end{equation}
-%
-with equality on the support. The gap $\max_x d(x,\xi^\star) - (p+q)$ is a proof, not a
-convergence report, and it is what distinguishes this from every single-design search in this
-document.
-
-\subsection*{Step 4: spend the budget}
-
-$\xi^\star$ is a measure and the experiment runs integers. For a budget of $N$, apportion by
-efficient rounding \citep{pukelsheim1992efficient}: give every support point one run and
-allocate the rest by the rule that maximizes $\min_i n_i/(N\xi^\star_i)$, so no support point
-is rounded away. The rule carries no guarantee at small $N$, which is the regime here, so the
-loss is \emph{measured} rather than assumed:
-%
-\begin{equation}
-\text{D-efficiency} = \left(\frac{\det M(n/N)}{\det M(\xi^\star)}\right)^{1/(p+q)} .
-\end{equation}
-
-What the batch buys is then read off the inverse. The variance of the coordinate that says
-which model produced the trace, after the material has absorbed everything it can, is the
-Schur complement
-%
-\begin{equation}
-\operatorname{Var}(\varepsilon_m) =
-\Big[\big(M_{\varepsilon\varepsilon} - M_{\varepsilon\theta} M_{\theta\theta}^{-1} M_{\theta\varepsilon}\big)^{-1}\Big]_{mm} ,
-\label{eq:postmaterial}
-\end{equation}
-%
-and an infinite entry is the statement that no design separates that pair at all --- the
-difference lies entirely in the span of $\partial R/\partial\theta$ and refitting reproduces it.
-
-\subsection*{The answer for these records}
-
-Screening \eqref{eq:screen} on the operator axis leaves five live rivals against
-Gilmore/Mie--Gr\"uneisen. Over $48$ candidate geometries spanning
-\SIrange{50}{1200}{\micro\metre} and stretch $3$ to $20$, \eqref{eq:batchcriterion} certifies at
-a gap of $10^{-9}$ on five support points, and a budget of $N=12$ apportions to
-
-\begin{center}
-\begin{tabular}{lcc}
-\toprule
-$R_{\max}$ & stretch & runs \\
-\midrule
-\SI{1200}{\micro\metre} & $9.8$ & $6$ \\
-\SI{1200}{\micro\metre} & $6.4$ & $3$ \\
-\SI{307}{\micro\metre} & $16.6$ & $1$ \\
-\SI{50}{\micro\metre} & $20.0$ & $1$ \\
-\SI{484}{\micro\metre} & $6.4$ & $1$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent at $99.6\%$ of the measure's own efficiency. Against spending all twelve at the
-geometry already performed, \eqref{eq:postmaterial} falls by $16.0$, $17.7$ and $9.3$ times for
-Gilmore/Tait, Keller enthalpy/Tait and Keller enthalpy/Mie--Gr\"uneisen respectively.
-
-Two caveats travel with that table. Every design that integrates is scorable here, where the
-sampled criterion could rank only $26$ of the same $48$ --- but the criterion is still
-evaluated at one material and one incumbent, so it is locally optimal in exactly the sense
-\cref{sec:survives} shows can mislead under model error. And the screening that produced the
-rival list rests on margins computed under an independent likelihood; \cref{sec:screening}
-shows that deflating them by $N/N_{\rm eff}$ changes which rivals are live at all.
-
-\subsection*{Staging the budget buys nothing, and why that is worth reporting}
-
-Everything above commits all twelve runs before any is taken, which is the wrong default when
-\cref{sec:screening} says the rival list itself is uncertain. \Cref{eq:lambdalaw} prices the
-alternative without any new machinery: the log Bayes factor of a stage of $N_1$ runs is
-$\mathcal{N}(N_1 s_m/2,\, N_1 s_m)$ before anyone books the laser, so the batch can be simulated,
-re-screened at the same five nats, re-certified for the survivors, and finished.
-
-Swept over budgets of $2$ to $12$ and every split of each, the gain is $+0.000$ rivals at every
-split. The reason is visible one column left: the one-shot arm already decides all four live
-operator rivals at a budget of \emph{two}, at \SI{971}{\micro\metre} and stretch $5.62$. There is
-nothing for a second stage to reallocate.
-
-That is a statement about the geometry rather than about staging, and it is the useful part. The
-operator margins this document reports from the records are small --- under a nat at
-\SI{23}{} and \SI{33}{\celsius} once $R_{\rm eq}$ floats (\cref{sec:reqprior}) --- because the
-records sit at \SI{277}{\micro\metre} and stretch $7.09$, not because the question is hard. At a
-geometry chosen for it, one bubble settles it.
-
-Two things had to be fixed before this number meant anything, and both are worth naming because
-both looked like results. Run without Step $0$, the rival list includes Rayleigh--Plesset, whose
-separation from the compressible operators spans eleven decades and saturates every budget ---
-compressibility is not in doubt, by $74$ to $182$ nats, and screening is what removes it. And the
-constitutive axis has no live rival at \SI{15}{\celsius} at all: SLS trails by $1496$ nats, or
-$74$ deflated, so a test that appeared to run on it was matching \texttt{SLS} as a substring of
-\texttt{qSLS} and scoring the incumbent against itself.
-
-\section{Which questions are open}
-\label{sec:screening}
-
-Step 0 of \cref{sec:batch} asks which rivals the records have already decided. Run on this
-package's three axes, the answer is stark and then immediately contingent.
-
-At face value almost nothing is still in question. Of seventeen constitutive candidates, one
-is live on every record; the rest trail by up to $4573$ nats. Of the six operators scored, two
-survive on every record. Each record admits a single thermal treatment.
-
-That reading would mean the design of \cref{sec:batch} is aimed at a question already settled,
-and by a wide margin. It does not survive the likelihood.
-
-Every log evidence in this document assumes the residuals are independent, and
-\cref{sec:limitations} measures $N_{\rm eff}$ near $10$ of $201$. Evidence differences scale
-with the count of independent observations, so each margin is inflated by roughly
-$N/N_{\rm eff}$. Deflating by that factor and re-screening:
-
-\begin{center}
-\begin{tabular}{lcc}
-\toprule
-axis & live at face value & live deflated by $N/N_{\rm eff}$ \\
-\midrule
-constitutive (17 candidates) & $1$ & $2$ \\
-bubble dynamics (6 operators) & $2$--$5$ & $5$--$6$ \\
-thermal treatment (3) & $1$ & $3$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent SLS returns, five or six operators return, and every thermal treatment returns.
-
-Screening is where this matters most, and the reason is structural rather than numerical.
-Elsewhere the correlation inflates a quantity we report and compare --- an evidence, a
-$\chi^2/N$ --- and the ranking survives because every model is inflated alike.
-\Cref{sec:limitations} says exactly that: the ranking survives, the absolute claim does not.
-But a screen converts a margin into a \emph{yes or no}, and a twentyfold factor moves margins
-across a threshold wholesale. Here the inflation does not cancel, because the comparison is no
-longer between models but between a margin and a constant.
-
-So which model questions are open is at present undetermined --- and undetermined by the
-likelihood rather than by anything about the models.
-
-\paragraph{But the design need not wait for it.} The reading above makes the correlated
-likelihood a precondition for the design work, and it is not one. What is fragile is the
-\emph{threshold}, not the deflation: elsewhere every model is inflated alike and the ranking
-survives, while \eqref{eq:screen} compares a margin to a constant, and a factor of twenty moves
-margins across a constant wholesale.
-
-\Cref{sec:noisedesign} met this shape of problem once already and its finding is the recipe ---
-averaging over a family gave the worst worst case of the five batches compared, and maximizing
-against the hardest member won on every count. Here the family is the one-parameter deflation
-$N/N_{\rm eff} \in [1, 25]$ and the hardest member is the largest, since it revives the most
-rivals. Scoring each batch by the share of the genuinely live questions it funds, under both
-readings of the truth:
-
-\begin{center}
-\begin{tabular}{lcc}
-\toprule
-axis & batch designed at face value & batch designed at full deflation \\
-\midrule
-constitutive & $0.978$ & $\mathbf{1.000}$ \\
-bubble dynamics & $0.595$ & $\mathbf{1.000}$ \\
-thermal treatment & $0.410$ & $\mathbf{1.000}$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent worst case over the two truths. The maximin batch has none: it funds every live
-question whichever reading is right. The face-value batch funds two fifths of the thermal
-questions if the deflation is real.
-
-The asymmetry is why, and it is not an artifact of the scoring. A batch designed at full
-deflation and met by a face-value truth spends $0.595$ of its effort on rivals that were already
-decided --- wasted, and recoverable by simply not believing the answer about them. A batch
-designed at face value and met by a deflated truth never asks about the rivals it wrote off, and
-no amount of later analysis recovers a question that was never funded. Wasted effort and an
-unasked question are not symmetric costs, and the maximin choice is the one that trades the
-first for the second.
-
-\section{What the design survives}
-\label{sec:survives}
-
-The certified measure of \cref{sec:design} is a theorem. Three things stand between it and an
-experiment somebody can run, and each is measurable rather than arguable.
+\section{Supporting checks}
+\label{sec:supporting}
 
 \subsection*{A measure assigns weights; an experiment runs integers}
 
@@ -3931,261 +4435,6 @@ divisible by four lose nothing, and six runs give $2/2/1/1$ at an efficiency of 
 is $\left[(2/6)^2(1/6)^2/(1/4)^4\right]^{1/4}$ exactly. The rule earns its complexity on
 awkward budgets --- at weights $0.7/0.2/0.1$ and four runs, proportional rounding gives
 $3/1/0$, dropping a support point and leaving the information matrix singular.
-
-\subsection*{Frames are a design variable, and there are far too many of them}
-
-\Cref{sec:limitations} reports $201$ samples carrying the information of about ten. Redundancy
-is a design variable: a camera trades frame rate against window length, against exposure, and
-against how many bubbles fit in a session. Scoring frames by $\log\det J^{\mathsf T}J$ at the
-fitted qSLS, with the same number of observations spent each way:
-
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-observations & uniform & optimally placed & gain \\
-\midrule
-$201$ & $18.54$ & $25.72$ & $6.0\times$ \\
-$50$ & $11.73$ & $20.15$ & $8.2\times$ \\
-$12$ & $5.98$ & $14.42$ & $8.3\times$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent The D-optimal measure over the $201$ candidate times is certified at a gap of
-$10^{-10}$ on \emph{six} support points. Fifty observations placed on those six carry more
-information than all $201$ spread uniformly.
-
-That is a measurement of slack, not a recommendation. A design on six distinct times leaves no
-degrees of freedom to notice the model is wrong, and the lack-of-fit test above is exactly what
-those degrees of freedom buy. The honest reading is that frames are cheap relative to their
-information, so the camera should be traded for something scarce --- bubbles, or window, or
-the replication that makes \eqref{eq:lackoffit} possible.
-
-\subsection*{Bubbles against frames, priced}
-\label{sec:allocation}
-
-That trade can now be made quantitative, because \cref{sec:latent} measures $\Sigma$. Every
-batch in this document is chosen over \emph{geometries}, with the number of trials $J$ and the
-samples per trial $N$ fixed at whatever the records happened to use. Under independent noise
-that omission is harmless --- information is proportional to $JN$ and only the product matters.
-Under trial-to-trial variation it is not, and the asymmetry is exact. Averaging $J$ trials of an
-$N$-sample trace and applying the Woodbury identity to \eqref{eq:hierarchical},
-%
-\begin{equation}
-F(J, N) \;=\; J\left(\Sigma + F_N^{-1}\right)^{-1},
-\qquad F_N \;=\; G^{\mathsf T}\Sigma_\varepsilon(N)^{-1}G ,
-\label{eq:allocation}
-\end{equation}
-%
-with $F_N$ the information a single $N$-sample trace supplies. Trials enter linearly and never
-saturate. Samples enter only through $F_N$, and as $N \to \infty$ the bracket tends to $\Sigma$,
-so $F \to J\Sigma^{-1}$ and further frames buy \emph{nothing}. Past a point, more samples measure
-one bubble ever more precisely rather than the population.
-
-At a fixed frame budget $S = JN$ this bites: $F = (S/N)(\Sigma + F_N^{-1})^{-1}$, and once
-$F_N^{-1}$ is small against $\Sigma$ the prefactor $S/N$ is all that survives, and it \emph{falls}
-with $N$. Measured on the records, at each one's own total:
-
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-record & as run & best split at the same frames & gain \\
-\midrule
-\SI{15}{\celsius} & $J=18$, $N=201$ & $J=72$, $N=50$ & $+3.93$ nats \\
-\SI{23}{\celsius} & $J=14$, $N=192$ & $J=56$, $N=48$ & $+3.96$ nats \\
-\SI{33}{\celsius} & $J=7$, $N=198$ & $J=28$, $N=49$ & $+3.40$ nats \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent Doubling the samples buys $0.035$ to $0.188$ nats. Four times the bubbles at a quarter
-the frames each, for the same total, buys three and a half to four.
-
-That number should be read against every other design effect in this document. Choosing the
-geometry under the wrong noise model costs at most $1.34$ nats (\cref{sec:noisedesign});
-restoring testability costs $0.01$ to $0.24$; the spread across robust and per-record batches is
-$0.21$. \textbf{The allocation nobody has been optimizing is worth three to ten times any of
-them}, and it is the one variable the batch optimization of \cref{sec:batch} has never been
-allowed to move.
-
-\paragraph{Is the gain the clock rather than the material?} It rests entirely on
-$\Sigma_\theta$ being non-zero --- as $\Sigma_\theta \to 0$, \eqref{eq:allocation} becomes
-$JF_N$, only the product $JN$ matters, and there is nothing to allocate. And \cref{sec:latent}
-has since shown a quarter of the trial variance to be a clock error rather than a material
-difference. $\Sigma_\theta$ was estimated by fitting each trial separately, so whatever of that
-the parameters could absorb, they did.
-
-Rescaling every trial onto the record's median collapse time --- a processing change costing
-nothing --- and refitting gives a $\Sigma_\theta$ with the timing taken out:
-
-\begin{center}
-\begin{tabular}{lccccccc}
-\toprule
-record & $J$ & $\mu$ raw & aligned & $g\alpha$ raw & aligned & $\lambda_1$ raw & aligned \\
-\midrule
-\SI{15}{\celsius} & $18$ & $14.1\%$ & $14.9\%$ & $31.5\%$ & $\mathbf{13.2\%}$ & $51.0\%$ & $93.8\%$ \\
-\SI{23}{\celsius} & $14$ & $29.2\%$ & $30.3\%$ & $18.4\%$ & $35.9\%$ & $46.3\%$ & $65.5\%$ \\
-\SI{33}{\celsius} & $7$ & $20.8\%$ & $20.4\%$ & $53.4\%$ & $52.9\%$ & $86.0\%$ & $79.3\%$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent and the allocation recomputed on it moves by $+0.589$, $+0.043$ and $-0.416$ nats
-against gains of $5.78$, $5.67$ and $5.35$. \emph{The recommendation survives}: the
-contamination is at most a tenth of the effect on one record, nothing on another, and of the
-wrong sign on the third.
-
-The test is weaker than it looks, and the $\Sigma$ table says why. Alignment mostly \emph{raises}
-the spread rather than lowering it --- $\lambda_1$ at \SI{15}{\celsius} goes from $51\%$ to
-$94\%$ --- because rescaling a trace's clock and resampling it distorts the trace in ways the
-material parameters then have to absorb. Only $g\alpha$ at \SI{15}{\celsius} behaves as the
-hypothesis predicts. So this does not support the contamination reading, and it is not clean
-enough to refute it either; what it does establish is that the allocation recommendation is not
-obviously an artifact of the clock, which is what it was asked.
-
-Three caveats, and they do not cancel. The trials column of \eqref{eq:allocation} gains exactly
-$p\log 2$ per doubling because $F$ is linear in $J$ --- that is arithmetic, and the measurement
-is the sample column beside it. $F_N$ is scaled linearly in $N$ here, as though samples within a
-trace were independent; \cref{sec:limitations} measures $N_{\rm eff}$ near ten of $201$, so the
-true $F_N$ is flatter still and cutting $N$ costs \emph{less} than this says --- conservative in
-direction, but not to be pushed past $N \approx N_{\rm eff}$, where the collapse stops being
-resolved. And $N$ is not a free dial: frame rate and window length set it, so a smaller $N$ means
-a slower camera or a shorter record.
-
-\paragraph{It folds into the certified problem, once the candidates are priced.}
-This section previously stopped here, on the grounds that folding the split into the geometry
-optimization needs $\Sigma$ at a geometry nobody has run. It folds in exactly. Let a candidate be
-a \emph{pair} $(x, N)$ --- a geometry and a number of samples per trace --- and let $\xi$
-allocate \emph{trials} rather than runs. Then \eqref{eq:allocation} gives
-%
-\begin{equation}
-F \;=\; \sum_i J_i\big(\Sigma + F_{N_i}(x_i)^{-1}\big)^{-1} \;=\; J\sum_i \xi_i M_i ,
-\label{eq:pairedinformation}
-\end{equation}
-%
-still linear in $\xi$, so $\log\det$ is still concave and \cref{eq:equivalence} still applies.
-What breaks is the tacit assumption that candidates cost the same: an $N$-sample trace costs $N$
-frames. Normalizing by cost rather than by count, $\sum_i \xi_i c_i = 1$, ranges $\xi$ over the
-set with vertices $e_i/c_i$, which is convex; the substitution $\eta_i = \xi_i c_i$ maps it onto
-the standard simplex with $M(\xi) = \sum_i \eta_i (M_i/c_i)$. So the search is the one
-\texttt{optimal\_measure} already certifies, run on the matrices divided by their prices, and the
-certificate returns in its cost-normalized form,
-%
-\begin{equation}
-\xi^\star \text{ is optimal} \iff
-\operatorname{tr}\!\left[M(\xi^\star)^{-1}M(x)\right]\big/ c_x \;\le\; p \quad\text{for all } x,
-\label{eq:costcert}
-\end{equation}
-%
-with equality on the support: a candidate earns runs when its information \emph{per unit price}
-clears the bar. \texttt{pyimr.measure.budgeted\_measure} is this, and it composes with the
-cardinality floor of \eqref{eq:floorsub} because both are substitutions in the same $\eta$.
-
-Measured under \eqref{eq:pairedinformation} and certified by \eqref{eq:costcert}, on the
-\SI{15}{\celsius} record at its own $3618$ frames, against the geometry-only formulation with
-$N$ pinned at $201$:
-
-\begin{center}
-\begin{tabular}{lcccc}
-\toprule
-one bubble costs & joint (nats) & geometry only & gained & $N$ funded \\
-\midrule
-$0$ frames & $27.70$ & $17.72$ & $\mathbf{+9.99}$ & $6$ \\
-$25$ frames & $22.78$ & $17.37$ & $+5.41$ & $6$ \\
-$100$ frames & $19.18$ & $16.51$ & $+2.67$ & $12$ \\
-$400$ frames & $15.33$ & $14.43$ & $+0.90$ & $25$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent all certified below $10^{-9}$. The price of one bubble against one frame is not
-knowable from here, so it is swept; the gain exceeds the $1.34$ nats \cref{sec:noisedesign}
-attributes to choosing the geometry at every price below about $400$ frames a bubble. Holding the
-batch to five settings, so \eqref{eq:lackoffit} keeps a numerator, costs $0.008$ to $0.034$.
-
-$\Sigma$ is the assumption, and it is both weaker and less load-bearing than the paragraph above
-assumed --- though it inherits the standing caveat of \cref{sec:transfer} like everything else
-here. Weaker, because $\Sigma$ is a population covariance of \emph{material} parameters --- a
-property of the gel and of how repeatably the laser nucleates, not of how large the bubble is ---
-and the three records measuring it differ in \emph{temperature}, not geometry, sitting at $277$,
-$298$ and \SI{312}{\micro\metre}. There is no evidence of geometry dependence because geometry
-was never varied. Less load-bearing, because swept over $\times\tfrac12$ to $\times2$ the
-recommended $N$ moves once, from $12$ to $8$.
-
-What does bind is validity. At the two cheapest bubble prices $N$ pins at the bottom of the grid,
-and that is a limit of the model rather than an optimum: $F_N$ is scaled linearly in $N$ here
-while $N_{\rm eff}$ is near ten of $201$, so below that the linear form claims resolution the
-record does not have.
-
-\subsection*{Nor do they survive the noise model}
-\label{sec:noisedesign}
-
-Every Fisher matrix, expected gain and batch in this chapter is built on a single number:
-$\sigma = 0.018\,R_{\max}$ at every sample. Fitting has never used it --- the likelihood of
-\cref{sec:beta} takes the per-sample spread --- so this is a gap between the two halves of this
-document rather than an error inside either. The records disagree with the constant by two to
-three orders of magnitude \emph{within one trace}: $124\times$, $882\times$ and $1316\times$
-between the smallest and largest $\sigma_i$, around medians of $0.018$ to $0.023$.
-
-At the same Jacobian, the constant overstates $\log\det F$ by $1.3$ to $2.2$ nats and understates
-each parameter's standard deviation by up to a factor of two. What matters more is that it
-changes the answer. Transferring each record's measured profile to a candidate geometry by phase
---- reading $\sigma$ as a function of $t/t_c$, which \cref{sec:latent} justifies by showing the
-profile is dynamical rather than instrumental --- the single best geometry moves from
-\SI{514}{\micro\metre} at stretch $6.9$ to \SI{416}{\micro\metre} at $10.9$, and the constant's
-choice gives up as much as $1.34$ nats of $8.89$, fifteen percent.
-
-The transfer is the assumption here, so it was tested rather than asserted. Under a raw
-per-sample profile the records split, \SI{15}{\celsius} keeping the constant's geometry. Median-
-filtering the spread before transferring --- a standard deviation from seven to eighteen trials
-carries $17$ to $29\%$ relative error and should not be interpolated raw --- makes all three
-records agree on \SI{416}{\micro\metre} at $10.9$, and none agrees with the constant. The
-disagreement that survives is with the flat scale, not among the records, which is the opposite
-of what a transfer artifact looks like. Transferring by absolute time instead picks a different
-geometry again and is wrong for a statable reason: $t_c$ spans a factor of twenty-four across
-the candidates, so the same clock time lands at a different point of the collapse.
-
-\paragraph{Testability is what it really costs.}
-The portfolio of \cref{sec:gain} spends twelve runs over six geometries and carries
-$\mathrm{df} = +2$. Under two of the three measured profiles it spreads over \emph{four} and
-$\mathrm{df} = 0$: the lack-of-fit test has no power at all. So \eqref{eq:constrained} is not a
-formality the portfolio satisfies unaided, and the floor has to be imposed. Holding the measure
-to five settings with \texttt{constrained\_measure} restores $\mathrm{df} = +1$ for $0.010$ and
-$0.084$ nats of $36.5$ --- two tenths of one percent --- and every constrained measure is
-certified under its floor.
-
-\paragraph{One batch, chosen against the hardest case.}
-Three profiles give three batches, and a recommendation has to be one. Averaging the gain across
-profiles is the move \cref{sec:gain} already makes across questions, and it fails here: the
-weighted batch has the \emph{worst} worst case of the five compared, $0.211$ nats behind, below
-the flat-scale batch it was meant to improve on. Maximizing an average does not maximize a
-minimum. What works needs no machinery --- one profile binds for every batch, so the worst case
-is always that column and the maximin answer is the argmax under it. When one member of a family
-is uniformly hardest, robust design is design against the hardest member.
-
-The batches differ by $0.211$ nats of $33.4$, six tenths of a percent, so information barely
-separates them; settings run from five to eight and $\mathrm{df}$ from $+1$ to $+4$, so
-testability does. The batch recommended here wins on both:
-
-\begin{center}
-\begin{tabular}{lcc}
-\toprule
-$R_{\max}$ (\si{\micro\metre}) & stretch & runs \\
-\midrule
-$50$ & $20.0$ & $1$ \\
-$272$ & $17.4$ & $1$ \\
-$416$ & $10.9$ & $2$ \\
-$514$ & $5.6$ & $2$ \\
-$514$ & $6.9$ & $1$ \\
-$636$ & $5.6$ & $1$ \\
-$786$ & $6.9$ & $1$ \\
-$1200$ & $6.9$ & $3$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent eight settings, $\mathrm{df} = +4$. Read it with \cref{sec:allocation}: how the twelve
-runs are split between bubbles and frames is worth more than which geometries they visit.
 
 \subsection*{The recommended geometries do not survive model error}
 
@@ -4245,205 +4494,33 @@ often where it is most \emph{wrong}: the thermal mismatch grows from $0.53$ nois
 performed geometry to $1.24$ at the E-optimal one, and the fitted parameters absorb it. That
 mechanism is general. Which geometry it punishes is not.
 
-\subsection*{Making the discrepancy a coordinate}
-\label{sec:deltadesign}
+\subsection*{Staging the budget buys nothing, and why that is worth reporting}
 
-``No criterion in \cref{sec:design} takes model error as an argument'' is the sentence above,
-and it need not stand. \Cref{sec:gain} treats model inadequacy as unreachable because it is not a
-\emph{coordinate} --- no column of the Jacobian points at it --- which is why testability enters
-as the cardinality constraint \eqref{eq:constrained} rather than as anything optimized for. But
-\cref{sec:discrepancy} does not merely bound $\hat\delta$; it extracts it as a vector.
+The recipe of \cref{sec:batch} commits all twelve runs before any is taken, which is the wrong
+default when
+\cref{sec:screening} says the rival list itself is uncertain. \Cref{eq:lambdalaw} prices the
+alternative without any new machinery: the log Bayes factor of a stage of $N_1$ runs is
+$\mathcal{N}(N_1 s_m/2,\, N_1 s_m)$ before anyone books the laser, so the batch can be simulated,
+re-screened at the same five nats, re-certified for the survivors, and finished.
 
-Write $m(\theta) + \eta\,\hat\delta$ and treat $\eta$ exactly as \cref{sec:batch} treats the model
-label: one more column of $J$. Its variance after the material is fitted out,
-%
-\begin{equation}
-\operatorname{Var}(\eta) \;=\; \Big(\lVert d\rVert^2 - d^{\mathsf T} P d\Big)^{-1},
-\qquad P = J(J^{\mathsf T}J)^{-1}J^{\mathsf T},
-\label{eq:deltacoordinate}
-\end{equation}
-%
-is the part of the discrepancy a design can \emph{see} rather than absorb. The two uses point the
-same way, which is what makes it worth having: testing the model wants $\hat\delta$ visible, and
-keeping the parameters clean wants it unabsorbed, and both are the same angle.
+Swept over budgets of $2$ to $12$ and every split of each, the gain is $+0.000$ rivals at every
+split. The reason is visible one column left: the one-shot arm already decides all four live
+operator rivals at a budget of \emph{two}, at \SI{971}{\micro\metre} and stretch $5.62$. There is
+nothing for a second stage to reallocate.
 
-Carrying it to an unrun geometry needs the transfer of \cref{sec:noisedesign}, under the standing
-caveat of \cref{sec:transfer}, and the premise is checkable rather than assumed. Resampled onto a common $t/t_c$ grid, the three records'
-$\hat\delta$ overlap at $0.44$, $0.42$ and $0.81$ against $0.05$ for unrelated curves of that
-length --- the same test, and the same verdict, that justified transferring $\sigma$ by phase.
+That is a statement about the geometry rather than about staging, and it is the useful part. The
+operator margins this document reports from the records are small --- under a nat at
+\SI{23}{} and \SI{33}{\celsius} once $R_{\rm eq}$ floats (\cref{sec:reqprior}) --- because the
+records sit at \SI{277}{\micro\metre} and stretch $7.09$, not because the question is hard. At a
+geometry chosen for it, one bubble settles it.
 
-Scoring \eqref{eq:deltacoordinate} at the four geometries \cref{sec:survives} put through two
-synthetic mismatches:
-
-\begin{center}
-\begin{tabular}{lccccc}
-\toprule
-geometry & $R_{\max}$ & stretch & visible share & $g\alpha$ err (thermal) & (two-mode) \\
-\midrule
-performed & \SI{277}{\micro\metre} & $7.09$ & $\mathbf{0.998}$ & $3.8\%$ & $5.0\%$ \\
-E-optimal & \SI{199}{\micro\metre} & $3.55$ & $0.972$ & $5.9\%$ & $4.9\%$ \\
-discrimination-optimal & \SI{100}{\micro\metre} & $20.0$ & $0.876$ & $\mathbf{37.1\%}$ & $\mathbf{60.7\%}$ \\
-measure support & \SI{60}{\micro\metre} & $18.0$ & $\mathbf{0.763}$ & $5.2\%$ & $43.5\%$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent A single measured $\hat\delta$ cannot know which mismatch is the real one, so the most
-it can predict is what the two have in common. It does: the rank correlation of visible share
-against the parameter error is $-0.40$ under thermal truth and $-0.60$ under two-mode truth, both
-of the predicted sign, from four points. That is weak evidence and it is the right amount to
-claim --- what it establishes is that the criterion is not refuted, not that it is calibrated.
-
-The criterion also disagrees with the one the chapter has been using, which is the reason to
-carry it: material $\log\det$ is largest at \SI{89}{\micro\metre} and stretch $20$, where
-$83.7\%$ of $\hat\delta$ is visible, while visibility is largest at \SI{1200}{\micro\metre} and
-stretch $20$ at $99.0\%$. The worst geometry on the grid hides two fifths of it.
-
-\section{Temperature dependence}
-
-The most informative result is not any single number but a trend
-(\Cref{fig:trend}). The advantage that the stiffening term buys over pure relaxation
-shrinks monotonically as the gel warms: the gap between \texttt{SLS} and \texttt{qSLS}
-falls from $2.94$ versus $1.35$ at \SI{15}{\celsius} to $1.41$ versus $1.23$ at
-\SI{33}{\celsius}. A warmer, softer gel needs less strain-stiffening to explain its
-record. Because this is a trend across three independent datasets rather than a single
-fitted value, it is harder to attribute to a fitting artifact than any individual
-$\chi^2$.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.5\textwidth]{fig_trend.pdf}
-\caption{What the stiffening term buys, against temperature. The advantage of
-\texttt{qSLS} over \texttt{SLS} narrows as the gel warms.}
-\label{fig:trend}
-\end{figure}
-
-\section{Conclusions}
-
-We have treated the model comparison in inertial microcavitation rheometry as the object of
-study rather than a step toward a parameter value. Ranking by evidence in coordinates the
-records can answer, three findings hold.
-
-The shear modulus is not identified separately from the stiffening exponent, so a reported
-modulus is a statement about the prior box -- and \cref{sec:discrepancy} shows this is not a
-bound that can be widened away, since releasing one wall merely slides the fit onto another. The bubble-dynamics operator assumed throughout
-this literature is beaten on every record. And a correlated residual that has been read as
-constitutive model error survives every constitutive, observational and operator change tested
-here.
-
-Two of those findings needed qualifying once the equilibrium radius was fitted rather than
-asserted. Compressibility is required on every record at every prior width, by $74$ to $179$
-nats. Gilmore still beats the pressure form at \SI{15}{\celsius}. But at \SI{23}{\celsius} and
-\SI{33}{\celsius} the operator margins collapse to under a nat, so those records never
-discriminated operators at all -- pinning $R_{\mathrm{eq}}$ is what made it appear they did.
-The fit wants $R_{\mathrm{eq}}$ \SIrange{3}{11}{\percent} larger than inferred, consistently
-across six operators and three records, and we cannot yet explain the trend with temperature.
-
-On the design side the useful conclusion is about what to optimize rather than what the optimum
-is. The certified formulation was applied to the geometry, which its own numbers rank last:
-pricing the candidates so the bubbles-against-frames split enters the same convex problem buys
-$0.9$ to $10$ nats against at most $1.3$ for the geometry, and the certificate survives the
-change intact because normalizing by cost is the same simplex in different coordinates. Three
-further questions the chapter raised are now answered, and two of the answers are negative. The
-screening cliff \cref{sec:screening} calls a precondition is removed by a maximin over the
-deflation, at no worst-case cost. Staging a budget is worth nothing, because one bubble at a
-geometry chosen for the operator question settles every live rival --- which says the operator
-margins reported here are small for want of a geometry, not for want of runs. And the
-temperature dependence cannot be identified at all without varying temperature, which no design
-in this literature does.
-
-What remains genuinely open is the one thing a criterion still cannot take as an argument: which
-physics is missing. \Cref{sec:deltadesign} gets as far as the measured $\hat\delta$ allows, and
-the transfer it rests on is supported rather than established.
-
-\subsection{Limitations of this work}
-\label{sec:limitations}
-
-\paragraph{The \SI{33}{\celsius} correlated fits are not usable.}
-\label{sec:33anomaly}
-Recomputing the operator evidences with $\Sigma$ in the likelihood behaves on two records and
-not on the third. At \SI{15}{} and \SI{23}{\celsius} the compressible operators collapse to
-within a third of a nat of each other and Rayleigh--Plesset lands a few nats below, which is a
-sensible picture of data that cannot order six similar equations. At \SI{33}{\celsius} the same
-computation puts Rayleigh--Plesset at $-1.1\times10^{4}$ to $-2.8\times10^{4}$ and separates two
-compressible operators by $200$ to $550$ nats.
-
-Three orders of magnitude out of family with the other two records is not a physical result. The
-mechanism is visible in the construction: whitening by an exponential covariance amplifies
-whatever fine structure a residual has by about $1/(1-\rho^2)$, and a residual with a little
-high-frequency content left in it therefore produces an enormous $\chi^2$ that says more about
-the conditioning of $\Sigma$ than about the model. The record with the fewest trials --- seven
-against eighteen --- has the noisiest spread and so the least reliable whitening. These numbers
-are reported here so they are not mistaken for evidence, and excluded from every conclusion.
-
-\paragraph{The dropped points are outside the model, not outside the solver.}
-Roughly one point in six of the winner's parameter box cannot be integrated, and that is not
-a numerical shortcoming. In that region the model expands to $R/R_0 = 2132$ after its collapse
--- identically at relative tolerances of $10^{-3}$, $10^{-4}$ and $10^{-5}$. So it is a
-converged property of the equations, not an artifact. The bubble begins at its maximum radius
-and its energy is finite, so growth of that size is the constitutive model failing. Refusing
-those points is the correct outcome.
-
-The count of admissible points is pinned near $1958$ of $2401$ sampled whatever the settings.
-Looser tolerances and a $20\times$ step budget convert failures into runaways, never into
-usable solves. This corrects an earlier reading of the same failures as a stiffness problem.
-The dropped points cannot be recovered by numerical effort, and no claim about the winner's
-fit should be made in that region.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.58\textwidth]{fig_failure_map.pdf}
-\caption{Where the winner can be integrated, at the fitted modulus and viscosity. Failure is
-governed principally by the stiffening, and the threshold falls to its lowest where the
-relaxation time is comparable to the bubble's own period -- but it is a boundary that moves,
-not an isolated band.}
-\label{fig:failure}
-\end{figure}
-
-\paragraph{The ranking survives; the parameter estimates do not.}
-Independent sequential Monte Carlo runs give the winner $2173.55 \pm 0.19$ in log evidence
-against $2071.90 \pm 0.38$ for the relaxation-only model -- a gap of $101.6$ against
-run-to-run noise near $0.4$, so the comparison is resolved by a wide margin. The tensor grid
-cannot say this on its own: it returns a single number with no uncertainty.
-
-The same grid cannot estimate parameters. Refining it from $12$ to $20$ points per axis moves
-the log evidence by $17.3$, and moves the best-fit point from $g = 658$, $\alpha = 1.52$ to
-$g = 144$, $\alpha = 8.86$. The best cell is simply whichever node lands nearest the ridge.
-
-Refinement cannot fix this. The posterior standard deviations are $0.0018$, $0.0025$, $0.0055$
-and $0.078$ in unit coordinates, against a grid spacing of $0.053$. The posterior therefore
-occupies about $10^{-7}$ of the prior volume, and a uniform grid would need of order $10^{10}$
-points. Discretization error of $17.3$ sits well inside the $101.6$ gap, so the ranking is
-safe; the reported best-fit parameters are not.
-\Cref{fig:coverage} shows which models lose points.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.5\textwidth]{fig_coverage.pdf}
-\caption{Fraction of each model's parameter grid that could not be integrated. Models not
-shown lost no points.}
-\label{fig:coverage}
-\end{figure}
-
-\paragraph{Consequences for the numbers reported here.}
-Three methods that resolve the posterior -- sampling, a refined grid, and continuous
-optimization -- agree that $g$ lies near $10^2$\,Pa. The coarse grid used for the ranking
-reports $2154$\,Pa. The ranking does not depend on this; any material property quoted from the
-grid does.
-
-A modulus that size is also implausibly soft for gelatin. That is the degeneracy above making
-itself felt: the fit buys a lower residual by trading modulus against stiffening, along a
-direction the data barely constrain.
-
-\paragraph{One candidate was never genuinely exercised.}
-The Gent solid appears in the comparison but cannot be tested on these records. Its energy
-diverges as $I_1 - 3 \to J_m$, and a Gent solid soft enough to be distinguishable from
-Neo-Hookean predicts a collapse it cannot sustain, so it locks up. Where it does
-integrate, it differs from Neo-Hookean by $1.7\times10^{-4}$ of $R_{\max}$ against
-measurement noise near $2\times10^{-2}$ -- two orders of magnitude below what the data can
-resolve. Any statement about strain-stiffening laws here excludes it.
-
-\appendix
+Two things had to be fixed before this number meant anything, and both are worth naming because
+both looked like results. Run without Step $0$, the rival list includes Rayleigh--Plesset, whose
+separation from the compressible operators spans eleven decades and saturates every budget ---
+compressibility is not in doubt, by $74$ to $182$ nats, and screening is what removes it. And the
+constitutive axis has no live rival at \SI{15}{\celsius} at all: SLS trails by $1496$ nats, or
+$74$ deflated, so a test that appeared to run on it was matching \texttt{SLS} as a substring of
+\texttt{qSLS} and scoring the incumbent against itself.
 
 \section{Statistical background}
 \label{app:background}

@@ -1,0 +1,43 @@
+{
+ "settings": 27,
+ "winner": "qSLS",
+ "records": {
+  "gelatin_15C": {
+   "held": 27,
+   "of": 27,
+   "tightest": {
+    "margin": 7099.73575588149,
+    "floor": 0.05,
+    "steepness": 0.5,
+    "threshold": 30000.0,
+    "best": "qSLS",
+    "runner_up": "SLS"
+   }
+  },
+  "gelatin_23C": {
+   "held": 27,
+   "of": 27,
+   "tightest": {
+    "margin": 1293.8603047007446,
+    "floor": 0.05,
+    "steepness": 0.5,
+    "threshold": 30000.0,
+    "best": "qSLS",
+    "runner_up": "SLS"
+   }
+  },
+  "gelatin_33C": {
+   "held": 27,
+   "of": 27,
+   "tightest": {
+    "margin": 320.24695763521436,
+    "floor": 0.05,
+    "steepness": 0.5,
+    "threshold": 30000.0,
+    "best": "qSLS",
+    "runner_up": "SLS"
+   }
+  }
+ },
+ "unanimous": true
+}

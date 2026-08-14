@@ -47,10 +47,13 @@ For the second, scoring by parameter precision and by model discrimination gives
 disagree, and both prove delicate: a criterion defined by an inner minimum is multimodal here,
 and every improvement to the optimizer lowers it. Reformulating over design \emph{measures}
 rather than single designs makes the problem convex, and the Kiefer--Wolfowitz equivalence
-theorem then certifies the answer -- over the candidate set. That qualifier is load-bearing. On a
-grid eight times finer the sensitivity reaches $69.6$ against a bound of $4$, and refining the
-candidate set to that grid reduces the excess to $2.9$ without removing it: the optimum is
-provably best among the settings offered, not over the continuum.
+theorem then certifies the answer -- over the candidate set, a qualifier that turns out to be
+load-bearing and then repayable. On a grid eight times finer the sensitivity reaches $69.6$
+against a bound of $4$, so the certified optimum is at first provably best only among the
+settings it was offered. Refining the candidate set where the scan flags, and rescanning an
+independent set each round, drives the excess to $0.017$ -- four tenths of a percent of the
+bound, from a single point converging on one already in the support. The gap is discretisation
+and closes; it is not an obstruction.
 
 What the certified problem is worth depends on which variable it optimizes, and the geometry
 everything else optimizes is not the important one. Pricing the candidates -- a trace of $N$
@@ -3009,11 +3012,43 @@ $\mathbb{E}[M]$, and much of the spike averages out. The exceedance falls from $
 It does not reach zero, so the ridges are not merely information nobody can request; some part of
 them survives being asked for imprecisely.
 
-The consequence is a genuine limitation on this chapter's strongest claim, and it is the honest
-version of the caveat this list previously carried. \emph{Every certified batch here is optimal
-over its candidate set and none is proved optimal over the continuum.} The scan says where to
-refine --- around \SI{550}{\micro\metre} at high stretch --- and refining there will move the
-answer.
+The consequence is a real limitation on this chapter's strongest claim, and it is the honest
+version of the caveat this list previously carried. \emph{As computed, every certified batch here
+is optimal over its candidate set and none is proved optimal over the continuum.} The scan says
+where to refine, and refining there does move the answer.
+
+\paragraph{Refined, the certificate very nearly reaches the continuum.} The vertex-direction step
+is the classical one --- add $\argmax_x d(x,\xi)$ and re-certify --- and the only care it needs
+here is that each round must be scanned against an \emph{independent} set. Refining until $d\le
+p$ on the set being refined proves nothing, since the optimiser guarantees that by construction.
+Scanning the midpoint lattice of the base grid instead, which no original candidate occupies,
+plus a zoom around the current support:
+
+\begin{center}
+\begin{tabular}{ccccl}
+\toprule
+round & candidates & $\max_x d$, independent scan & excess over $p$ & points above $p$ \\
+\midrule
+0 & $1840$ & $6.897$ & $2.90$ & $12$ \\
+1 & $2114$ & $4.045$ & $0.045$ & $5$ \\
+2 & $2181$ & $4.030$ & $0.030$ & $1$ \\
+3 & $2181$ & $\mathbf{4.017}$ & $\mathbf{0.017}$ & $1$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent From $65.6$ on the grid the measure was proved on, through $2.90$ on the eightfold
+grid, to $0.017$ --- a factor of nearly four thousand, monotone, with the violating set shrinking
+from twelve points to one. That last point is not a new ridge: it sits at
+\SI{1023}{\micro\metre} and stretch $6.70$ and moves by less than a micrometre per round toward
+a support point already at \SI{1023.6}{\micro\metre}, which is what the residual of a
+discretised vertex-direction method looks like. The support grows from four settings to six, and
+the \SI{937}{\micro\metre} ridge flagged above is now \emph{in} it, carrying
+weight $0.033$.
+
+So the qualifier stands as a statement about what was computed and not as a claim about the
+model: the certified batches of this chapter are optimal over their candidate sets, and the
+distance from there to the continuum is a refinement anyone can run, not a barrier.
 
 \paragraph{The compound front, which was previously not run.} It was blocked on an estimator
 rather than on theory: $\Phi_\beta$ is concave for every $\beta$, but the per-design log Bayes

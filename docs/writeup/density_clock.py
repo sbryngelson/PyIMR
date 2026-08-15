@@ -187,7 +187,7 @@ def main():
     print(f"  {'':>12s}  u0 = " + np.array2string(np.array([u["u0"] for _, u in velocity]),
                                                   precision=4))
   summary["verdicts"] = verdicts
-  print(f"\n  published u0 = " + np.array2string(
+  print("\n  published u0 = " + np.array2string(
     np.array([summary["records"][d]["u0_shift"][base]["u0"] for d in records.DATASETS]),
     precision=4))
   print("\n  A mechanism that produced the inward velocity would both remove it and improve the")

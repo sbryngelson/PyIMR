@@ -11,8 +11,8 @@
 \setlength{\intextsep}{10pt plus 2pt minus 2pt}
 \setlength{\abovecaptionskip}{6pt}
 
-\title{Which constitutive model do cavitation records prefer,\\
-and what experiment would settle it?}
+\title{What inertial microcavitation records cannot settle,\\
+and how to design the experiment that would}
 \author{Spencer H. Bryngelson}
 \date{\today}
 
@@ -22,53 +22,51 @@ and what experiment would settle it?}
 \maketitle
 
 \begin{abstract}
-We ask two questions of laser-induced cavitation records in gelatin at three temperatures: which
-constitutive model the data prefer, and what experiment would settle the question better. The
-second turns out to be the harder one, and most of this paper is about it.
+Inertial microcavitation rheometry infers a material's mechanical response from the radius history
+of one collapsing bubble, and reports the fitted stiffness and viscosity as material properties.
+We ask what those reports actually support, and what experiment would turn them into
+measurements. The second question is the harder one and is what most of this paper is about.
 
-For the first, Bayesian model selection over seventeen candidates, with a noise scale measured
-from trial-to-trial spread and a prior that prices a model down where it merely reproduces a
-simpler one it contains. A quadratic Zener solid -- strain-stiffening elasticity \emph{and}
-stress relaxation -- wins at every temperature, reaching $\chi^2/N = 1.23$ to $1.35$ on the
-selection grid and $0.96$ refitted to its true optimum at \SI{15}{\celsius} --- figures that
-overstate the agreement, for a reason given below and worth carrying from here. Neither ingredient
-suffices alone: relaxation without stiffening reaches $1.98$, and both memoryless candidates land
-at $20$, where they fit each other to one part in a thousand. The stiffening term does no work at
-all without a relaxation mode to act on, and its advantage collapses as the gel warms -- the
-clearest physical signal in the comparison, though one carried by three temperatures with $18$,
-$14$ and $7$ trials, which makes it suggestive rather than established.
+The first has three answers and all are negative. The likelihood depends on the product
+$g\alpha$ alone, so a reported shear modulus is a statement about where the prior box cuts a
+ridge --- moving the box swings the model ranking by fifty nats. A residual near the measurement
+scatter is not adequacy: lag-one autocorrelation is $0.918$, the $201$ samples carry the
+information of about ten, and a replicated lack-of-fit test rejects every candidate on every
+record. And the parameters carry a model-form error budget that no amount of data of this kind
+can remove, one to two orders of magnitude wider than the posterior: the identified modulus could
+be wrong by \SIrange{30}{57}{\percent} and the relaxation time by a factor of three to four.
 
-We report the limitations plainly. The residuals are ceilings rather than estimates, because the
-winning model's best-fitting region is partly unintegrable, and a good $\chi^2/N$ overstates how
-well the model does: the residual has lag-one autocorrelation $0.918$, so the $201$ samples carry
-the information of about ten independent ones, and what remains is structure the model lacks
-rather than noise it failed to average away. The ranking survives this -- a $3\%$ change under a
-correlated likelihood -- but the absolute claim does not.
+The contribution is the repair. Scoring a single design by parameter precision or by model
+discrimination gives criteria that disagree and that are both delicate --- a criterion defined by
+an inner minimum is multimodal here, and every improvement to the optimizer lowers it. Posing the
+problem over design \emph{measures} instead makes it convex, and the Kiefer--Wolfowitz
+equivalence theorem then \emph{certifies} the answer rather than reporting that a search stopped.
+One criterion covers every question the experiment can ask --- material parameters, the model
+label, the initial radius --- as the same expected information gain at different partitions, so
+answers in nats are comparable across them. Four extensions keep the certificate: averaging the
+information over the scatter a setpoint actually delivers, normalising candidates by what they
+cost, averaging over a computed model-error bound rather than a point estimate, and making the
+measured discrepancy a coordinate the design can see.
 
-For the second, scoring by parameter precision and by model discrimination gives criteria that
-disagree, and both prove delicate: a criterion defined by an inner minimum is multimodal here,
-and every improvement to the optimizer lowers it. Reformulating over design \emph{measures}
-rather than single designs makes the problem convex, and the Kiefer--Wolfowitz equivalence
-theorem then certifies the answer -- over the candidate set, a qualifier that turns out to be
-load-bearing and then repayable. On a grid eight times finer the sensitivity reaches $69.6$
-against a bound of $4$, so the certified optimum is at first provably best only among the
-settings it was offered. Refining the candidate set where the scan flags, and rescanning an
-independent set each round, drives the excess to $0.017$ -- four tenths of a percent of the
-bound, from a single point converging on one already in the support, and falling by about two
-fifths per round. That is how discretisation behaves rather than an obstruction, though the
-sequence was stopped at four rounds and not run to its limit.
+What that machinery finds is that the variable everyone optimises is the wrong one. Pricing the
+candidates --- a trace of $N$ samples costs $N$ frames --- puts the split between bubbles and
+frames inside the certified problem, and that split is worth $+3.4$ to $+4.0$ nats against at
+most $1.34$ for the geometry. A geometry is not a knob, and designing as though it were costs
+about a nat, on scatter widths confirmed against $437$ per-event radii. Designing against the
+bias bound rather than the fit is worth $0.39$ to $0.67$. The temperature dependence closes
+nothing at any budget or geometry: with temperature held, the information is singular and the
+design is refused. Judged by the criterion, the experiments analysed here are near the best
+possible for the hardest of the three model axes and $24$ to $41$ times worse than the best for
+the two easiest.
 
-What the certified problem is worth depends on which variable it optimizes, and the geometry
-everything else optimizes is not the important one. Pricing the candidates -- a trace of $N$
-samples costs $N$ frames -- puts the split between bubbles and frames inside the certified
-problem, and that split is worth $+3.4$ to $+4.0$ nats against at most $1.34$ for the geometry
---- and it survives the discovery that a quarter of the between-trial scatter it rests on is a
-clock error rather than a material one.
-Two further corrections move the recommendation rather than its error bar: a geometry is not a
-knob, and designing as though it were costs about a nat, on scatter widths confirmed here against
-$437$ per-event radii; and averaging over a computed model-error bound rather than a point
-estimate is worth $0.39$ to $0.67$. The temperature dependence closes nothing -- with temperature
-held it is structurally unidentifiable, at any budget and any geometry.
+The model comparison is the worked example that supplies those inputs and is reported as such. A
+quadratic Zener solid --- strain-stiffening elasticity \emph{and} stress relaxation --- is the
+best-fitting candidate at every temperature and under every perturbation we applied, including a
+pre-registered sweep of the noise weights and four constructions of the fit target. Neither
+ingredient suffices alone. But the margins that make it look decisive do not survive the
+effective sample size the same records imply, and the bubble-dynamics operator held fixed
+throughout this literature is beaten on every record while being ordered by none of them once the
+residual correlation is taken seriously.
 \end{abstract}
 
 \noindent\textbf{Keywords:} inertial microcavitation rheometry; model selection; Bayesian evidence; identifiability; optimal experimental design
@@ -86,29 +84,48 @@ bubble-dynamics equation is assumed, thermal transport is included or neglected,
 resulting parameters are reported as material properties. Each choice conditions the answer,
 and the conditioning is seldom quantified.
 
-We take the model comparison itself as the object of study. Candidate models are ranked by
-Bayesian evidence rather than by fit, since the candidates nest and best fit therefore selects
-the most flexible one~\citep{freund2015quantitative}. We then ask what the records can settle,
-which turns out to be considerably less than the reported parameters suggest.
+This paper asks what a record of this kind can support, finds that it is considerably less than
+the reported parameters suggest, and then spends most of its length on the question that follows:
+what experiment would make those parameters measurements. The diagnosis is the motivation; the
+design is the contribution.
 
-Three results follow. First, the likelihood depends on the product $g\alpha$ alone. The shear
-modulus is then set by where the prior box cuts a ridge, not by the data, and moving the box
-swings the model ranking by fifty nats.
+\paragraph{What the records do not support.} Three limits, each measured rather than asserted.
+The likelihood depends on the product $g\alpha$ alone, so a reported shear modulus is set by
+where the prior box cuts a ridge rather than by the data, and moving the box swings the model
+ranking by fifty nats (\cref{sec:identifiability}). A residual at the measurement scatter is not
+statistical adequacy: the residual autocorrelation is $0.918$, the $201$ samples carry the
+information of about ten, and a replicated lack-of-fit test rejects every candidate on every
+record (\cref{sec:fitquality}). And because every candidate is rejected, the fitted parameters
+carry a model-form error budget that no data of this kind can remove --- one to two orders of
+magnitude wider than the posterior, and computable as a bound rather than left as a worry
+(\cref{sec:discrepancy}).
 
-Second, the bubble-dynamics operator -- held fixed at Keller--Miksis in every published
-comparison we are aware of -- is beaten on all three records by Gilmore/Tait. Third, the
-correlated residual that motivates richer constitutive models survives everything we tried
-against it: a second relaxation time, a rate-dependent one, fitting individual trials, and all
-six operators.
+\paragraph{What would fix it.} Treat the choice of model as one more unknown to be fitted, and a
+single calculation says both how well an experiment separates the models and how well it pins the
+material. Pose that calculation over design \emph{measures} rather than single settings and it
+becomes convex, so the Kiefer--Wolfowitz equivalence theorem~\citep{kiefer1960equivalence}
+certifies the answer --- a proof that no better design exists, which is unusual in this
+literature and is what the rest of the machinery is built to preserve. Four extensions keep it:
+the setpoint is not the geometry, candidates do not cost the same, the parameters carry the bias
+bound above, and the measured discrepancy can be made a coordinate the design sees
+(\crefrange{sec:design}{sec:survives}).
 
-We also ask what experiment would settle the question. Treat the choice of model as one more
-unknown to be fitted, and one calculation says both how well an experiment separates the
-models and how well it pins the material. The answer comes with a proof of optimality --
-unusual for a design calculation, and following from a classical
-result~\citep{kiefer1960equivalence}.
+\paragraph{What it finds.} The variable this literature optimises is not the important one.
+Splitting a frame budget between bubbles and samples is worth $+3.4$ to $+4.0$ nats against at
+most $1.34$ for the geometry, and it has never been a design variable. Temperature dependence
+cannot be identified at any budget without varying temperature, which no design in this
+literature does. Judged by the criterion, the experiments analysed here are near the best
+possible for the hardest of the three model axes and $24$ to $41$ times worse than the best for
+the two easiest.
 
-Judged that way, the experiments analyzed here are near the best possible for the hardest of
-the three choices, and $24$ to $41$ times worse than the best for the two easiest.
+\paragraph{The comparison, as worked example.} Ranking the candidates supplies what the design
+needs --- the identified coordinates, the noise profile, the between-trial covariance and the
+discrepancy vector --- and is reported for that purpose. A quadratic Zener solid wins at every
+temperature and under every perturbation applied to it. The bubble-dynamics operator held fixed
+at Keller--Miksis throughout this literature is beaten on every record, though \cref{sec:operator}
+finds the six operators are not ordered by these data once the residual correlation is taken
+seriously, and \cref{sec:screening} finds that which questions are open at all is undetermined by
+the same argument. That is the case for the design rather than an aside from it.
 
 
 \begin{figure}[t]
@@ -136,6 +153,13 @@ be answered. Ranking on goodness of fit alone does not work here, because a mode
 parameters always fits at least as well as the simpler model inside it.}
 \label{fig:pipeline}
 \end{figure}
+
+\part{What these records support}
+
+\noindent The design of \cref{part:design} needs four things this part measures: the
+coordinates the data can answer in, the noise profile, the covariance between trials, and the
+discrepancy vector. Each is a negative result about the records in its own right, and each is
+an input there. The comparison those measurements came out of is \cref{part:case}.
 
 \section{Records and noise model}
 \label{sec:records}
@@ -760,62 +784,20 @@ identified parameter from a prior-driven one.}
 \label{fig:identifiability}
 \end{figure}
 
-\section{Results}
+\section{What the fits actually support}
 
-\cref{tab:fits} and \Cref{fig:fits} give the outcome. The quadratic Zener model
-\texttt{qSLS} -- strain-stiffening elasticity with stress relaxation -- wins at every
-temperature. The ordering beneath it separates into three tiers: models with both
-ingredients, models with relaxation only, and memoryless models.
-
-\begin{table}[htbp]
-\centering
-\caption{Best $\chi^2/N$ \emph{on the selection grid} by model class -- the best node, not the best fit; \cref{sec:fitquality} refits and reaches $0.962$ for qSLS at \SI{15}{\celsius}. Values near $1$ indicate a fit within
-experimental repeatability.}
-\label{tab:fits}
-\begin{tabular}{lccc}
-\toprule
-& \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
-\midrule
-\texttt{qSLS} (stiffening $+$ relaxation) & \textbf{1.35} & \textbf{1.33} & \textbf{1.23} \\
-\texttt{SLS} (relaxation, linear elasticity) & 2.94 & 1.85 & 1.41 \\
-viscoelastic fluids & 5.3--5.7 & 4.5--4.7 & 1.9--2.1 \\
-memoryless & 12.6--16.7 & -- & -- \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{fig_fits.pdf}
-\caption{Best $\chi^2/N$ on the selection grid for every candidate, all three temperatures, logarithmic scale.
-The dashed line is the measurement-noise floor.}
-\label{fig:fits}
-\end{figure}
-
-\Cref{fig:winner} overlays the winning model on the data it was selected against.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{fig_winner.pdf}
-\caption{The selected model against the measured band it was fitted to.}
-\label{fig:winner}
-\end{figure}
-
-\subsection{Reading the posteriors}
-
-The model posteriors saturate. The winner takes essentially all the mass and the runners-up
-are reported as $10^{-29}$ or smaller. Do not read these magnitudes literally.
-
-Evidence differences scale with sample count. With roughly $3600$ samples, a modest
-per-sample difference in fit compounds into an astronomical Bayes factor. The defensible
-reading is ordinal: the winner is decisive and the ordering means something, the magnitudes
-do not. Quote the residual $\chi^2/N$. \Cref{sec:nats} sets out which normalisation each
-reported log evidence uses, and why numbers from different sections must not be differenced.
+A candidate that wins is not the same as a candidate that is adequate, and the difference is
+where the inputs to \cref{part:design} come from. This section measures three things and each is
+used later as much as it is reported here: how much a residual near the measurement scatter
+actually entitles one to claim, what the between-trial spread is made of --- which is the
+covariance $\Sigma$ that \cref{sec:allocation} designs against --- and whether a richer
+relaxation spectrum is the missing physics, which it is not. The ranking that produced these fits
+is \cref{part:case}.
 
 \subsection{How good are the fits, really?}
 \label{sec:fitquality}
 
-The table above reports the best $\chi^2/N$ found on the evaluation grid. Two questions
+\Cref{tab:fits} reports the best $\chi^2/N$ found on the evaluation grid. Two questions
 follow, with different answers. How well does the winning model fit? And how much does a good
 $\chi^2/N$ entitle us to claim?
 
@@ -1575,290 +1557,6 @@ correlation in place. That is evidence about where to look next -- the residual 
 concentrated in the first collapse, where sphericity and the far-field boundary are least
 secure -- and it is more useful than a small positive margin would have been.
 
-\section{The bubble-dynamics operator}
-\label{sec:operator}
-
-Every comparison above varies the material and holds the bubble-dynamics equation at
-Keller--Miksis. That is an assumption. With the material at its fit, changing only the
-operator moves the trace by four to fourteen times the median noise, which exceeds any
-constitutive difference measured here.
-
-The operators are not candidate materials, so they are compared differently. We hold the
-candidate fixed and vary the forward solve. The parameter space is then identical across the
-set, the Occam terms cancel, and the difference in $\log Z$ is a Bayes factor between
-operators.
-
-\subsection{What the operators are}
-\label{sec:operators}
-
-The set is a product of two choices rather than a list of equations, and reading it as a list
-hid a defect. The enthalpy forms share one equation: they differ only in which equation of
-state supplies the wall enthalpy and whether the sound speed is the constant $c_\infty$ or the
-local wall value. The name \emph{Keller--Miksis} was doing double duty, standing for both the
-pressure form and the constant-sound-speed enthalpy form, which are different equations.
-
-Separating the axes gives four dynamics that need an equation of state and two that do not:
-
-\begin{center}
-\begin{tabular}{lll}
-\toprule
-dynamics & order & closure \\
-\midrule
-Rayleigh--Plesset & incompressible & none \\
-Keller--Miksis & $O(M)$, pressure form & none \\
-Keller enthalpy & $O(M)$, enthalpy form, $\lambda=0$ & Tait, Mie--Gr\"uneisen or NASG \\
-Herring & $O(M)$, enthalpy form, $\lambda=1$ & Tait, Mie--Gr\"uneisen or NASG \\
-Gilmore & Kirkwood--Bethe, local $c$ & Tait, Mie--Gr\"uneisen or NASG \\
-Lezzi--Prosperetti & $O(M^2)$, implicit in $\ddot R$ & Tait, Mie--Gr\"uneisen or NASG \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent Fourteen operators, of which six were available when the results below were
-computed. Keller enthalpy and Herring are the $\lambda=0$ and $\lambda=1$ members of the
-one-parameter family of \citet{prosperetti1986bubble}, not two theories; NASG~\citep{lemetayer2016noble} adds the
-covolume Tait lacks and reduces to Tait exactly at zero covolume.
-
-\paragraph{The second-order equation, and two typos in reading it.} Equation 8.7 of
-\citet{lezzi1987bubble} is the only member here that is not first order in the Mach number, and
-the only one implicit in the acceleration: an $R^2\ddot R^2/c^2$ term makes it quadratic, so it
-is solved rather than divided, on the branch that stays finite as $c\to\infty$. It is used at
-the authors' own recommended $(\lambda,\theta) = (0.5, 0)$.
-
-A secondary source we worked from first prints two errors in the pair, and both were caught
-before implementation --- the first because $\lambda=0$ must reduce to the Keller form, the
-second because the term multiplying $\dot h_B$ is dimensionally impossible as printed. Neither
-is a criticism of that paper so much as an argument for reading the source: coefficients are
-exactly the thing a transcription loses.
-
-The same equation carries a group of $O(M^2)$ far-field terms that vanish only for a steady
-drive. This implementation drops them and \emph{refuses} a time-varying one, rather than
-quietly losing the order the equation exists to supply.
-
-\paragraph{Validating a coefficient no asymptotic argument reaches.} Members of a family agree
-to one order beyond the family's accuracy, so varying $\lambda$ or $\theta$ tests only the
-terms they multiply --- and the constants $14/5$ and $16/15$ multiply neither. With no
-compressible reference solver available, the gate is direct: take the acceleration the solver
-returns, substitute it into 8.7 transcribed independently, and require the residual to vanish.
-It does, to $10^{-11}$, and six mutations of the coefficients each break it.
-
-That gate exists because a weaker one passed. The first check on the first-order family --- that
-its members agree to $O(M^2)$ --- gave the right ratios and survived a deliberate error, since
-members agree at that order for \emph{any} constant in the $\dot R^2$ coefficient. The test
-that works compares against the independently written pressure form, which has no free constant
-in it, and it needs the sound speed raised together with the equation of state or the two forms
-describe different liquids.
-
-\paragraph{The prior box sets the answer.} Scored with the bounds of \cref{sec:prior},
-Keller enthalpy/Mie--Gr\"uneisen ranks first at $+4.02$ nats and Gilmore/Tait second to last at
-$-27.66$. Three of the six fits sit on $g=10^2$ or $\lambda_1=10^{-7}$, their own floors.
-Widening the box to $g\in(10^0,10^6)$ and $\lambda_1\in(10^{-9},10^{-2})$ reverses the
-ranking: Gilmore/Tait leads at $+21.93$ and Keller enthalpy/Mie--G falls to $+7.32$.
-
-Widening moves the pinning rather than removing it. Five of six fits then sit on
-$\alpha=10^3$ with $g$ collapsed to \SIrange{1.1}{3.5}{\pascal}. \Cref{fig:ridge} shows the
-mechanism: the optimizer slides along the $g\alpha$ valley until it meets an edge.
-
-\paragraph{Identified coordinates.} Fixing $g/\alpha$ and fitting the product $g\alpha$
-removes the pinning entirely, with none of $54$ fits on a bound. We repeat at three ratios
-spanning two decades and on all three records. An ordering counts as settled when one record
-decides it by more than a nat and none contradicts it.
-
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-ordering & \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
-\midrule
-compressible $>$ Rayleigh--Plesset & $+162$ to $+182$ & $+74$ to $+79$ & $+74$ to $+75$ \\
-\textbf{Gilmore/Tait $>$ Keller--Miksis} & $\mathbf{+17.1}$ & $\mathbf{+4.2}$ & $\mathbf{+1.2}$ \\
-Keller enthalpy/Tait $>$ Keller--Miksis & $+5.8$ & $+2.0$ & \\
-Keller enthalpy/Mie--G $>$ Keller--Miksis & $+4.5$ & $+1.5$ & \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-Twelve of the fifteen pairwise orderings are settled. Compressibility is required on every
-record. The pressure form assumed by every candidate in this package is beaten by three
-separate operators, and by Gilmore/Tait on all three records.
-
-\paragraph{Under the likelihood the residuals have, that ranking dissolves.}
-Every margin above assumes independent samples, and \cref{sec:screening} deflates such margins
-by $N/N_{\rm eff} \approx 20$. Applied here that puts Rayleigh--Plesset at $-4.0$ and $-3.8$ on
-two records --- inside the five nats \eqref{eq:screen} calls live --- while the conclusions call
-compressibility the most robust statement in this work. Both cannot stand, and the scalar is the
-wrong instrument for deciding which: it is derived for a sum of correlated terms and applied as
-though every model difference had the same shape, which \cref{sec:gain} measures they do not.
-
-So the evidences are recomputed with $\Sigma$ in the likelihood --- one exponential covariance
-per record, shared by every operator, since evidences taken under different covariances differ
-by $\log|\Sigma|$ and are not a Bayes factor at all. The correlation length is swept, because
-whitening amplifies fine structure by roughly $1/(1-\rho^2)$ and a single $\rho$ is a single
-arbitrary amplification.
-
-\begin{center}
-\begin{tabular}{lccccc}
-\toprule
-\SI{15}{\celsius}, nats vs.\ the best & independent & $\rho=0.8$ & $\rho=0.9$ & $\rho=0.95$ & fitted \\
-\midrule
-Rayleigh--Plesset & $-185.7$ & $\mathbf{-4.3}$ & $-5.6$ & $-8.5$ & $-5.1$ \\
-Keller--Miksis & $-20.8$ & $-0.15$ & $-0.19$ & $-0.29$ & $-0.17$ \\
-Keller enthalpy/Tait & $-14.6$ & $-0.14$ & $-0.18$ & $-0.29$ & $-0.17$ \\
-Gilmore/Tait & $-2.2$ & $0$ & $0$ & $0$ & $0$ \\
-Gilmore/Mie--G & $0$ & $-0.15$ & $-0.20$ & $-0.31$ & $-0.18$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent Two things change and one does not. \emph{The compressible operators become
-indistinguishable}: they span $0.31$ nats at \SI{15}{\celsius} and $0.33$ at \SI{23}{\celsius},
-against the $17.1$ and $4.2$ the independent likelihood reports. Whatever separated them was
-information the samples did not carry. And \emph{compressibility itself sits at the threshold
-rather than far above it}: Rayleigh--Plesset lands between $-3.3$ and $-9.2$ across the two
-records and the swept $\rho$, crossing the five-nat line depending on which $\rho$ is taken.
-
-What does not change is the sign. No correlated fit prefers the incompressible model, and
-Gilmore remains at or within a fifth of a nat of the top everywhere. The defensible statement is
-therefore narrower than the one above: \emph{compressibility is preferred on every record and
-decisive on none of them at \SI{15}{} or \SI{23}{\celsius}, and the six operators are not
-ordered by these data at all.}
-
-\Cref{sec:33anomaly} sets \SI{33}{\celsius} aside rather than reporting it: there
-Rayleigh--Plesset lands at $-10^4$ while two compressible operators separate by $200$ to $550$
-nats, out of family with both other records by three orders of magnitude, which is the
-signature of an ill-conditioned covariance and not of physics.
-
-\paragraph{A search budget produced an earlier answer.} At six multistart restarts the same
-comparison placed Gilmore/Tait fourth on two records and first on the third, and reported the
-operator as undetermined. It also settled no ordering at \SI{33}{\celsius}, which we read as a
-record without discriminating power. At ten starts the \SI{33}{\celsius} fits reach
-$\chi^2/N = 0.42$ where six starts found $1.151$.
-
-Every operator had been held in the same poor basin. A record that cannot decide and a search
-that has not converged produce the same output. Only a better search separates them.
-
-\paragraph{The initial radius is not exact.} Every fit above holds $R_{\mathrm{eq}}$ at its
-inferred value, which asserts that it is known exactly. It is not: $R_{\max}$ is read off the
-images, but $R_{\mathrm{eq}}$ is inferred, and the margins in the table are small enough that
-this matters. Perturbing $R_{\mathrm{eq}}$ alone and projecting off the material span, as in
-\cref{sec:axes}, an error of \SI{1.68}{\percent} leaves the same residual as replacing
-Keller--Miksis with its Mie--Gr\"uneisen enthalpy form.
-
-That is not a license to ignore the ranking. The two remainders lie at
-\SI{58.4}{\degree}, so an initial-radius error and an operator change are separable in
-principle -- an experiment can tell them apart, and \cref{sec:axes} shows the initial state
-absorbs under \SI{5}{\percent} of the operator difference. What it means is narrower and
-worse: a quantity we set to zero is the size of the effect being reported. The remedy is to
-fit $R_{\mathrm{eq}}$ rather than assert it, which \cref{sec:reqprior} does.
-
-The perturbation is superlinear -- the residual per unit fractional error runs $79$, $93$,
-$138$ across half, one and two percent -- so \SI{1.68}{\percent} is solved for by re-solving
-rather than scaled from any one of those rows. Read linearly off the \SI{1}{\percent} row it
-would come out a third larger.
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}[scale=1.15]
-  \fill[gray!14] (0.2,0) -- (5.4,0) -- (6.9,1.35) -- (1.7,1.35) -- cycle;
-  \draw[gray!55] (0.2,0) -- (5.4,0) -- (6.9,1.35) -- (1.7,1.35) -- cycle;
-  \node[gray!65,anchor=north east] at (5.5,-0.05)
-    {\footnotesize $\operatorname{span}\partial R/\partial\theta$ -- refitting absorbs this};
-  % the two remainders, drawn at the measured 58.4 degrees and the same measured length
-  \draw[-{Latex[length=2.4mm]},very thick,blue!70!black] (3,1) -- (2.549,3.560);
-  \draw[-{Latex[length=2.4mm]},very thick,red!75!black] (3,1) -- (4.944,2.726);
-  \draw[gray!70] (3,1) ++(41.6:0.95) arc (41.6:100:0.95);
-  \node[gray!55!black] at (3.62,2.05) {\footnotesize $58.4^\circ$};
-  \fill[black] (3,1) circle (1.5pt);
-  \node[blue!70!black,anchor=south east,align=right] at (2.6,3.62)
-    {\footnotesize operator:\\[-2pt]\footnotesize KM $\to$ Keller enthalpy/Mie--G\\[-2pt]\footnotesize $1.98$ noise units};
-  \node[red!75!black,anchor=west,align=left] at (5.05,2.62)
-    {\footnotesize initial radius:\\[-2pt]\footnotesize $R_{\mathrm{eq}}$ off by $1.68\%$\\[-2pt]\footnotesize $1.98$ noise units};
-\end{tikzpicture}
-\caption{The size of the operator result, against the size of an error bar this work set to
-zero. Both arrows are what survives refitting the material -- the part of a perturbation that
-lies outside the shaded span, and so the only part any experiment can see. They are drawn at
-their measured length and their measured separation. A \SI{1.68}{\percent} error in the
-inferred equilibrium radius leaves exactly as much residual as replacing the bubble-dynamics
-operator does. The \SI{58.4}{\degree} between them is the reason this is a call to fit
-$R_{\mathrm{eq}}$ rather than to abandon the ranking: at that angle the two are separable in
-principle, and \cref{sec:axes} confirms the initial state absorbs under \SI{5}{\percent} of
-the operator difference.}
-\label{fig:reqsize}
-\end{figure}
-
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}[scale=1.0]
-\begin{scope}
-  \draw[->,gray] (0,0) -- (5.2,0) node[anchor=north east] {\footnotesize time};
-  \draw[->,gray] (0,0) -- (0,2.9);
-  \node[gray,rotate=90,anchor=south] at (-0.35,1.45) {\footnotesize $R$};
-  \draw[blue!70!black,very thick] (0.3,2.5) .. controls (1.6,2.4) and (2.1,0.45) .. (2.7,0.42)
-    .. controls (3.3,0.4) and (4.0,1.75) .. (4.9,1.9);
-  \draw[red!75!black,very thick,dashed] (0.3,2.5) .. controls (1.6,2.35) and (2.2,0.72) .. (2.85,0.7)
-    .. controls (3.5,0.68) and (4.1,1.95) .. (4.9,2.15);
-  \node[blue!70!black,anchor=west] at (5.0,1.75) {\footnotesize $R_A$};
-  \node[red!75!black,anchor=west] at (5.0,2.25) {\footnotesize $R_B$};
-  \node[anchor=south] at (2.6,3.05) {\footnotesize\textbf{two models, one design}};
-\end{scope}
-\begin{scope}[xshift=7.3cm]
-  \node[anchor=south] at (2.4,3.05) {\footnotesize\textbf{the difference is a column of $J$}};
-  \draw[gray!55] (0.15,0.35) rectangle (1.55,2.6);
-  \node[gray!75] at (0.85,2.85) {\footnotesize $\partial R/\partial\theta$};
-  \foreach \x in {0.45,0.85,1.25} { \draw[gray!70] (\x,0.45) -- (\x,2.5); }
-  \draw[red!75!black,thick] (2.05,0.35) rectangle (2.55,2.6);
-  \draw[red!75!black,thick] (2.3,0.45) -- (2.3,2.5);
-  \node[red!75!black,anchor=south] at (2.3,2.72) {\footnotesize $R_B-R_A$};
-  \node[anchor=west,align=left] at (3.0,1.5)
-    {\footnotesize $J=\big[\,\partial R/\partial\theta \;\big|\; R_B-R_A\,\big]$};
-\end{scope}
-\end{tikzpicture}
-\caption{Turning a model choice into a parameter. Writing
-$R(\theta,\varepsilon)=(1-\varepsilon)R_A(\theta)+\varepsilon R_B(\theta)$ gives
-$\partial R/\partial\varepsilon = R_B-R_A$ at $\varepsilon=0$, so the difference between two
-models becomes one more column of the Jacobian. Discrimination and estimation then live in a
-single information matrix, and $D$-optimality over the augmented set balances learning the
-material against learning which model produced the trace. Nothing about the criterion changes,
-so the certificate still applies. The variance of $\varepsilon$ after the material is fitted
-out is what says whether a design can tell the models apart at all.}
-\label{fig:augment}
-\end{figure}
-
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}[scale=1.0]
-  \draw[-{Latex[length=2.2mm]},thick] (0,0) -- (4.5,0);
-  \draw[-{Latex[length=2.2mm]},thick] (0,0) -- (0,3.4);
-  \draw[-{Latex[length=2.2mm]},thick] (0,0) -- (-2.05,-1.5);
-  \node[anchor=west] at (4.6,0) {\footnotesize constitutive law};
-  \node[anchor=south] at (0,3.5) {\footnotesize bubble dynamics};
-  \node[anchor=north east] at (-2.1,-1.55) {\footnotesize thermal transport};
-  \foreach \x/\lab in {1.2/qSLS, 2.6/qSLS2, 3.9/qSLSthin} {
-    \fill[gray!75] (\x,0) circle (1.7pt); }
-  \foreach \y/\lab in {0.85/{}, 1.7/{}, 2.55/{}} { \fill[gray!75] (0,\y) circle (1.7pt); }
-  \fill[gray!75] (-0.68,-0.5) circle (1.7pt);
-  \fill[gray!75] (-1.36,-1.0) circle (1.7pt);
-  \fill[red!75!black] (0,0) circle (2.6pt);
-  \node[red!75!black,anchor=west,align=left] at (0.3,-0.55)
-    {\footnotesize every published comparison\\[-2pt]\footnotesize moves along one axis only};
-  \node[gray,anchor=west,align=left] at (2.3,2.6)
-    {\footnotesize $77.7\%$ absorbed\\[-2pt]\footnotesize by refitting};
-  \draw[gray] (2.25,2.6) -- (0.1,2.0);
-\end{tikzpicture}
-\caption{Three choices go into every prediction, and they are made independently: the
-constitutive law, the bubble-dynamics equation, and whether heat transfer is modeled.
-Published comparisons vary the first and leave the other two at the origin. Some of each
-change can be canceled by refitting stiffness and viscosity, which makes it invisible no
-matter how the experiment is run; what remains is $22\%$ of an operator change, $57\%$ of a
-constitutive change and $53\%$ of a thermal one, and no two of those remainders point in
-similar directions. All three are therefore distinguishable in principle. The $77.7\%$ is the
-CLOSEST pair of operators rather than the axis: across the six dynamics of
-\cref{sec:operators} absorption runs from there down to $19.5\%$, and the second-order
-equation leaves twenty-two times as much as the pair drawn here.}
-\label{fig:modelspace}
-\end{figure}
-
 \section{Separability of the model axes}
 \label{sec:axes}
 
@@ -1961,206 +1659,6 @@ the two easiest. So a change of geometry buys a great deal of constitutive and t
 discrimination at little cost to the operator. The support wants $R_{\max}$ near
 \SI{60}{\micro\metre} at high stretch and near \SI{1200}{\micro\metre} at low stretch, against
 the \SI{277}{\micro\metre} and stretch $7.09$ performed.
-
-\section{Fitting the initial radius}
-\label{sec:reqprior}
-
-\Cref{sec:operator} reports operator margins of a few nats while holding $R_{\mathrm{eq}}$
-fixed, and a \SI{1.68}{\percent} error in $R_{\mathrm{eq}}$ is worth as much as the operator
-change those margins measure. A quantity that large cannot be asserted. So we fit it, as a
-nuisance parameter with a prior. The question is not whether the evidence moves -- adding a
-parameter always moves it -- but whether the \emph{ordering} does. An operator preferred by $17$ nats
-with $R_{\mathrm{eq}}$ pinned, and not preferred once it floats, was never an operator result.
-
-The prior width is the whole argument, and nothing measures it. Too wide and $R_{\mathrm{eq}}$ absorbs the operator difference, which reads as ``the
-operators are indistinguishable'' while being a statement about the box. Too narrow and the
-pinned answer is reproduced by construction. We therefore sweep the half-width over
-$\SIrange{3}{25}{\percent}$ rather than choose one. A conclusion that holds across that range
-is a conclusion; one that flips inside it is a prior.
-
-\paragraph{A convergence gate with no tuning constant.} Every wider box contains every
-narrower one, and all of them contain $R_{\mathrm{eq}}$ at its inferred value, which is the
-pinned fit. The best attainable $\chi^2/N$ can therefore only fall as the width grows. A cell
-that rises has not found its own optimum. This matters because it caught a real failure: at
-ten multistart restarts, five of $72$ cells failed it, one reporting $-117$ nats between a
-$+13$ and a $+7$ -- which reads as a prior effect and is a search that stopped early. At $24$
-restarts two cells fail, and both are excluded below rather than read as physics.
-
-\begin{center}
-\begin{tabular}{lcccccc}
-\toprule
-& \multicolumn{2}{c}{\SI{15}{\celsius}} & \multicolumn{2}{c}{\SI{23}{\celsius}}
-& \multicolumn{2}{c}{\SI{33}{\celsius}} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
-operator & pinned & $\pm25\%$ & pinned & $\pm25\%$ & pinned & $\pm25\%$ \\
-\midrule
-Rayleigh--Plesset & $-165.0$ & $\mathbf{-178.6}$ & $-76.9$ & $\mathbf{-81.8}$ & $-74.4$ & $\mathbf{-74.2}$ \\
-Keller--Miksis & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
-Keller enthalpy/Tait & $+6.1$ & $+0.8$ & $+2.1$ & $+0.1$ & $+0.8$ & $+0.8$ \\
-Gilmore/Tait & $+18.5$ & $\mathbf{+5.0}$ & $+4.3$ & $+0.5$ & $+1.9$ & $-0.0$ \\
-Keller enthalpy/Mie--G & $+4.7$ & $+0.3$ & $+1.6$ & $+0.1$ & $+0.6$ & $+0.9$ \\
-Gilmore/Mie--G & $+20.7$ & $\mathbf{+11.2}$ & $+4.3$ & --- & $+1.1$ & $-0.3$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent nats against Keller--Miksis; ``---'' marks the one cell the gate excluded. Of $17$
-orderings the pinned fit called decisive, $15$ stay decisive and keep their sign at every
-width. None reverses. Two fall below five nats at some width, both at \SI{15}{\celsius}.
-
-The conclusions of \cref{sec:operator} therefore survive, but not equally. \emph{Compressibility
-is required} at every width and on every record, by $74$ to $179$ nats -- the most robust
-statement in this work. \emph{Gilmore beats the pressure form} at \SI{15}{\celsius}, still by
-$5$ to $11$ nats with $R_{\mathrm{eq}}$ free. But at \SI{23}{\celsius} and \SI{33}{\celsius}
-every margin above Keller--Miksis collapses to under a nat. Those two records never had
-operator discrimination; pinning $R_{\mathrm{eq}}$ is what made it look as though they did.
-
-\paragraph{The data want a larger equilibrium radius.} The fitted scale is the same story
-told forwards, and it is the most consistent number in this study. At $\pm3\%$ every one of
-the $18$ cells pins against the upper edge. Given room, they agree closely: $1.104$ to
-$1.115$ at \SI{15}{\celsius}, $1.074$ to $1.086$ at \SI{23}{\celsius}, and $1.032$ to $1.040$
-at \SI{33}{\celsius}, across six operators and two prior widths.
-
-So $R_{\mathrm{eq}}$ is inferred about \SIrange{3}{11}{\percent} too small, and the fit says
-so whichever operator it is asked through. The residual improves accordingly --- $\chi^2/N$
-falls from $0.97$ to $0.62$ at \SI{15}{\celsius}, $1.03$ to $0.90$ at \SI{23}{\celsius}, and
-$0.44$ to $0.38$ at \SI{33}{\celsius}. That the offset shrinks as the gel warms is a pattern
-we can measure but not yet explain, and it is larger than the \SI{1.68}{\percent} that makes
-$R_{\mathrm{eq}}$ worth as much as the operator choice.
-
-\subsection*{Where it actually wants to sit}
-
-The sweep above asks whether a conclusion survives letting $R_{\rm eq}$ float. It never asks
-where $R_{\rm eq}$ goes, and the answer is not the stored value. Fitting it on the mean trace of
-each record over a box wide enough that nothing is cut off:
-
-\begin{center}
-\begin{tabular}{lccccc}
-\toprule
-record & stored stretch & implied & offset & $\chi^2/N$ & lack of fit \\
-\midrule
-\SI{15}{\celsius} & $7.09$ & $6.40$ & $\mathbf{+10.8\%}$ & $0.971 \to 0.632$ & $16.79 \to 8.80$ \\
-\SI{23}{\celsius} & $7.37$ & $6.80$ & $+8.3\%$ & $1.029 \to 0.901$ & $2.95 \to 2.15$ \\
-\SI{33}{\celsius} & $6.83$ & $6.59$ & $+3.6\%$ & $0.439 \to 0.379$ & $1.80 \to 1.49$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent Every record prefers a larger equilibrium radius, by three to eleven percent against
-the \SI{1.68}{\percent} this section opens by calling worth an operator change.
-
-\paragraph{Read against the source, most of that is not an offset.} The stretch is not a single
-measurement. \citet{chu2026limits} tabulate it as a mean over the experiments in each bin, with
-a spread: $7.09 \pm 0.36$ over $18$ events, $7.37 \pm 1.28$ over $14$, and $6.83 \pm 0.49$ over
-$7$. (Nucleation and imaging follow \citet{abeid2024experimental}; the tabulated quantities are
-that study's own.) Against those the preferred values sit at $1.9$, $0.45$ and $0.49$
-standard deviations. Only \SI{15}{\celsius} is outside the tabulated uncertainty at all, and it
-is marginal.
-
-The definition matches too, which was the other thing worth checking. That source defines
-$R_\infty$ as the equilibrium bubble-wall radius --- the quantity the solver wants --- so the
-ratio is not a different measurement pressed into service, and there is no unit or convention
-error to correct.
-
-So the honest reading is not that the stretch is wrong. It is that a \emph{population mean is
-being applied to every trial}, and the population is wide: the same table reports $R_{\max}$ at
-$277\pm48$, $298\pm59$ and $312\pm32$ \si{\micro\metre}, so individual bubbles differ by ten to
-twenty percent in the absolute scale that sets the Reynolds, Weber and Deborah groups. Every fit
-in this document uses one value for all of them.
-
-Two consequences follow. The per-trial spreads of \cref{sec:latent} --- $1.9$, $6.7$ and $3.1$
-percent in $R_{\rm eq}$ --- are \emph{smaller} than the scatter the source reports for the same
-quantity, so they are consistent with it rather than evidence of anything new. And the absolute
-$R_{\max}$ of each event, which varies by more than the ratio does, is not fitted anywhere here
-and is not recoverable from the traces, since each is normalized by its own maximum before it
-reaches us.
-
-What must be said plainly is what the reported parameters rest on. Freeing $R_{\rm eq}$ moves
-$\mu$ by $11$ to $23$ percent and $g\alpha$ by $9$ to $41$, and it moves $\lambda_1$ by a factor
-of \emph{five and a half} at \SI{15}{\celsius}. Those are the numbers this document reports, and
-they are conditional on a stretch known only to $\pm 5$ to $\pm 17$ percent.
-
-\section{Scoring the thermal treatment}
-\label{sec:thermal}
-
-\Cref{sec:axes} finds the thermal treatment the largest of the three model axes: it moves the
-trace by $16$ noise units and keeps $8.5$ after the material absorbs what it can. Scoring it
-means running the comparison of \cref{sec:operator} with the thermal treatment varied and the
-material axes held identical, so the Occam terms cancel and the difference is a Bayes factor
-between physics rather than between parameter counts.
-
-The first attempt failed, and how it failed was diagnostic. At ten multistart restarts and
-again at twenty-four -- a $2.4\times$ change of budget -- the \SI{23}{\celsius} rows moved by
-at most $0.01$ nats while the others moved by $15$, $153$, $19$ and $68$. Decisively,
-\emph{more restarts fitted worse}: at \SI{33}{\celsius} bubble\,+\,medium went from
-$\chi^2/N = 0.428$ to $1.073$. Best-of-$24$ cannot be worse than best-of-$10$ at a converged
-optimum, so the search was landing in different basins rather than refining one, and a third
-increase of the budget was not the remedy.
-
-The remedy was a better start. Each thermal fit is now seeded from its own record's converged
-cold optimum instead of sampling a four-dimensional box afresh (\texttt{docs/writeup/thermal.py}), at
-twenty-four restarts. That run takes \SI{2.7}{\hour} on six workers and recovers what the
-cold-started search had lost: \SI{33}{\celsius} bubble\,+\,medium returns to $0.428$, and
-\SI{15}{\celsius} bubble\,+\,medium improves by $15.8$ nats.
-
-It also loses a basin the earlier run had found. At \SI{15}{\celsius} the \emph{bubble}
-treatment lands $15.0$ nats worse warm-started than cold-started, because seeding from the
-cold optimum is a good start for a treatment close to cold and a bad one for a treatment that
-is not. So this is not a converged search either; it is a search whose failures have moved.
-Both runs are minimisations of the same objective, so the table below reads best-of-both,
-which is valid and is what a third run would be compared against.
-
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-record & cold & bubble & bubble\,+\,medium \\
-\midrule
-\SI{15}{\celsius} & $0$ & $+8.6$ & $\mathbf{+21.6}$ \\
-\SI{23}{\celsius} & $0$ & $+2.7$ & $\mathbf{+8.0}$ \\
-\SI{33}{\celsius} & $0$ & $-5.0$ & $\mathbf{+1.7}$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent nats against the cold model. The bubble\,+\,medium column is positive on every
-record and is the same number in both runs at \SI{23}{\celsius} and \SI{33}{\celsius}, so it
-is a property of the data rather than of the optimiser. The bubble column changes sign across
-records and moved by $15$ nats between runs at \SI{15}{\celsius}; it is search noise and we
-decline to read it.
-
-\subsection*{What the score is worth}
-
-Read raw, $+31.2$ nats combined is overwhelming. It is not, and \cref{sec:screening} says why:
-these margins come from a likelihood that treats $201$ samples as $201$ independent
-observations, and the residuals of these very fits have lag-one autocorrelation between
-$0.907$ and $0.962$. Deflating each record by its own AR(1) effective sample size,
-$N_{\rm eff} = N(1-\rho)/(1+\rho)$:
-
-\begin{center}
-\begin{tabular}{lcccc}
-\toprule
-record & raw & lag-one & $N_{\rm eff}$ of $201$ & deflated \\
-\midrule
-\SI{15}{\celsius} & $+21.57$ & $0.915$ & $8.9$ & $+0.96$ \\
-\SI{23}{\celsius} & $+8.01$ & $0.962$ & $3.9$ & $+0.16$ \\
-\SI{33}{\celsius} & $+1.66$ & $0.907$ & $9.8$ & $+0.08$ \\
-\midrule
-combined & $+31.24$ & & & $\mathbf{+1.19}$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent The records are independent, so the deflated margins add. A Bayes factor of $3.3$ is
-substantial on Jeffreys' scale and an order of magnitude short of the five nats
-\cref{sec:screening} requires before calling a question closed. The \SI{23}{\celsius} record,
-whose fit was the most stable of the three, is inflated $52$-fold and contributes least.
-
-The conclusion is therefore the same as the first attempt's and rests on nothing the first
-attempt could see. The thermal treatment is favored -- consistently, on every record, by the
-one column that is stable under both a change of optimiser and a change of budget -- and it is
-not established. What separates those two statements is not more restarts. It is $1.19$ nats
-against a threshold of five, which is a statement about how much data of this kind is worth,
-and it is the quantity \cref{sec:batch} designs against.
 
 \section{What the model error costs}
 \label{sec:discrepancy}
@@ -2475,6 +1973,13 @@ comparison is a comparison of the identifiable parts, since the absorbed parts o
 discrepancies are invisible in both. And a design criterion computed under a rejected model
 optimises a quantity whose parameters carry this budget --- which is the gap
 \cref{sec:survives} names and \eqref{eq:biasbound} finally sizes.
+
+\part{Designing the experiment that would settle it}
+\label{part:design}
+
+\noindent This is the contribution. Everything above says what a record of this kind cannot
+settle; what follows is a criterion that says which experiment would, and a proof that no
+better one exists over the settings offered.
 
 \section{Experimental design}
 \label{sec:design}
@@ -3952,6 +3457,551 @@ no amount of later analysis recovers a question that was never funded. Wasted ef
 unasked question are not symmetric costs, and the maximin choice is the one that trades the
 first for the second.
 
+\part{The comparison, worked}
+\label{part:case}
+
+\noindent The ranking is what supplied \cref{part:design} with its identified coordinates, its
+noise profile, its $\Sigma$ and its $\hat\delta$, and it is reported for that purpose. It is
+also the case the design is built against: the margins below are large under the likelihood
+that produced them and small under the one \cref{sec:screening} argues for, which is the
+circumstance a certified design exists to repair.
+
+\section{Which model the records prefer}
+
+\cref{tab:fits} and \Cref{fig:fits} give the outcome. The quadratic Zener model
+\texttt{qSLS} -- strain-stiffening elasticity with stress relaxation -- wins at every
+temperature. The ordering beneath it separates into three tiers: models with both
+ingredients, models with relaxation only, and memoryless models.
+
+\begin{table}[htbp]
+\centering
+\caption{Best $\chi^2/N$ \emph{on the selection grid} by model class -- the best node, not the best fit; \cref{sec:fitquality} refits and reaches $0.962$ for qSLS at \SI{15}{\celsius}. Values near $1$ indicate a fit within
+experimental repeatability.}
+\label{tab:fits}
+\begin{tabular}{lccc}
+\toprule
+& \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
+\midrule
+\texttt{qSLS} (stiffening $+$ relaxation) & \textbf{1.35} & \textbf{1.33} & \textbf{1.23} \\
+\texttt{SLS} (relaxation, linear elasticity) & 2.94 & 1.85 & 1.41 \\
+viscoelastic fluids & 5.3--5.7 & 4.5--4.7 & 1.9--2.1 \\
+memoryless & 12.6--16.7 & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig_fits.pdf}
+\caption{Best $\chi^2/N$ on the selection grid for every candidate, all three temperatures, logarithmic scale.
+The dashed line is the measurement-noise floor.}
+\label{fig:fits}
+\end{figure}
+
+\Cref{fig:winner} overlays the winning model on the data it was selected against.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig_winner.pdf}
+\caption{The selected model against the measured band it was fitted to.}
+\label{fig:winner}
+\end{figure}
+
+\subsection{Reading the posteriors}
+
+The model posteriors saturate. The winner takes essentially all the mass and the runners-up
+are reported as $10^{-29}$ or smaller. Do not read these magnitudes literally.
+
+Evidence differences scale with sample count. With roughly $3600$ samples, a modest
+per-sample difference in fit compounds into an astronomical Bayes factor. The defensible
+reading is ordinal: the winner is decisive and the ordering means something, the magnitudes
+do not. Quote the residual $\chi^2/N$. \Cref{sec:nats} sets out which normalisation each
+reported log evidence uses, and why numbers from different sections must not be differenced.
+
+\section{The bubble-dynamics operator}
+\label{sec:operator}
+
+Every comparison above varies the material and holds the bubble-dynamics equation at
+Keller--Miksis. That is an assumption. With the material at its fit, changing only the
+operator moves the trace by four to fourteen times the median noise, which exceeds any
+constitutive difference measured here.
+
+The operators are not candidate materials, so they are compared differently. We hold the
+candidate fixed and vary the forward solve. The parameter space is then identical across the
+set, the Occam terms cancel, and the difference in $\log Z$ is a Bayes factor between
+operators.
+
+\subsection{What the operators are}
+\label{sec:operators}
+
+The set is a product of two choices rather than a list of equations, and reading it as a list
+hid a defect. The enthalpy forms share one equation: they differ only in which equation of
+state supplies the wall enthalpy and whether the sound speed is the constant $c_\infty$ or the
+local wall value. The name \emph{Keller--Miksis} was doing double duty, standing for both the
+pressure form and the constant-sound-speed enthalpy form, which are different equations.
+
+Separating the axes gives four dynamics that need an equation of state and two that do not:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+dynamics & order & closure \\
+\midrule
+Rayleigh--Plesset & incompressible & none \\
+Keller--Miksis & $O(M)$, pressure form & none \\
+Keller enthalpy & $O(M)$, enthalpy form, $\lambda=0$ & Tait, Mie--Gr\"uneisen or NASG \\
+Herring & $O(M)$, enthalpy form, $\lambda=1$ & Tait, Mie--Gr\"uneisen or NASG \\
+Gilmore & Kirkwood--Bethe, local $c$ & Tait, Mie--Gr\"uneisen or NASG \\
+Lezzi--Prosperetti & $O(M^2)$, implicit in $\ddot R$ & Tait, Mie--Gr\"uneisen or NASG \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Fourteen operators, of which six were available when the results below were
+computed. Keller enthalpy and Herring are the $\lambda=0$ and $\lambda=1$ members of the
+one-parameter family of \citet{prosperetti1986bubble}, not two theories; NASG~\citep{lemetayer2016noble} adds the
+covolume Tait lacks and reduces to Tait exactly at zero covolume.
+
+\paragraph{The second-order equation, and two typos in reading it.} Equation 8.7 of
+\citet{lezzi1987bubble} is the only member here that is not first order in the Mach number, and
+the only one implicit in the acceleration: an $R^2\ddot R^2/c^2$ term makes it quadratic, so it
+is solved rather than divided, on the branch that stays finite as $c\to\infty$. It is used at
+the authors' own recommended $(\lambda,\theta) = (0.5, 0)$.
+
+A secondary source we worked from first prints two errors in the pair, and both were caught
+before implementation --- the first because $\lambda=0$ must reduce to the Keller form, the
+second because the term multiplying $\dot h_B$ is dimensionally impossible as printed. Neither
+is a criticism of that paper so much as an argument for reading the source: coefficients are
+exactly the thing a transcription loses.
+
+The same equation carries a group of $O(M^2)$ far-field terms that vanish only for a steady
+drive. This implementation drops them and \emph{refuses} a time-varying one, rather than
+quietly losing the order the equation exists to supply.
+
+\paragraph{Validating a coefficient no asymptotic argument reaches.} Members of a family agree
+to one order beyond the family's accuracy, so varying $\lambda$ or $\theta$ tests only the
+terms they multiply --- and the constants $14/5$ and $16/15$ multiply neither. With no
+compressible reference solver available, the gate is direct: take the acceleration the solver
+returns, substitute it into 8.7 transcribed independently, and require the residual to vanish.
+It does, to $10^{-11}$, and six mutations of the coefficients each break it.
+
+That gate exists because a weaker one passed. The first check on the first-order family --- that
+its members agree to $O(M^2)$ --- gave the right ratios and survived a deliberate error, since
+members agree at that order for \emph{any} constant in the $\dot R^2$ coefficient. The test
+that works compares against the independently written pressure form, which has no free constant
+in it, and it needs the sound speed raised together with the equation of state or the two forms
+describe different liquids.
+
+\paragraph{The prior box sets the answer.} Scored with the bounds of \cref{sec:prior},
+Keller enthalpy/Mie--Gr\"uneisen ranks first at $+4.02$ nats and Gilmore/Tait second to last at
+$-27.66$. Three of the six fits sit on $g=10^2$ or $\lambda_1=10^{-7}$, their own floors.
+Widening the box to $g\in(10^0,10^6)$ and $\lambda_1\in(10^{-9},10^{-2})$ reverses the
+ranking: Gilmore/Tait leads at $+21.93$ and Keller enthalpy/Mie--G falls to $+7.32$.
+
+Widening moves the pinning rather than removing it. Five of six fits then sit on
+$\alpha=10^3$ with $g$ collapsed to \SIrange{1.1}{3.5}{\pascal}. \Cref{fig:ridge} shows the
+mechanism: the optimizer slides along the $g\alpha$ valley until it meets an edge.
+
+\paragraph{Identified coordinates.} Fixing $g/\alpha$ and fitting the product $g\alpha$
+removes the pinning entirely, with none of $54$ fits on a bound. We repeat at three ratios
+spanning two decades and on all three records. An ordering counts as settled when one record
+decides it by more than a nat and none contradicts it.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+ordering & \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
+\midrule
+compressible $>$ Rayleigh--Plesset & $+162$ to $+182$ & $+74$ to $+79$ & $+74$ to $+75$ \\
+\textbf{Gilmore/Tait $>$ Keller--Miksis} & $\mathbf{+17.1}$ & $\mathbf{+4.2}$ & $\mathbf{+1.2}$ \\
+Keller enthalpy/Tait $>$ Keller--Miksis & $+5.8$ & $+2.0$ & \\
+Keller enthalpy/Mie--G $>$ Keller--Miksis & $+4.5$ & $+1.5$ & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Twelve of the fifteen pairwise orderings are settled. Compressibility is required on every
+record. The pressure form assumed by every candidate in this package is beaten by three
+separate operators, and by Gilmore/Tait on all three records.
+
+\paragraph{Under the likelihood the residuals have, that ranking dissolves.}
+Every margin above assumes independent samples, and \cref{sec:screening} deflates such margins
+by $N/N_{\rm eff} \approx 20$. Applied here that puts Rayleigh--Plesset at $-4.0$ and $-3.8$ on
+two records --- inside the five nats \eqref{eq:screen} calls live --- while the conclusions call
+compressibility the most robust statement in this work. Both cannot stand, and the scalar is the
+wrong instrument for deciding which: it is derived for a sum of correlated terms and applied as
+though every model difference had the same shape, which \cref{sec:gain} measures they do not.
+
+So the evidences are recomputed with $\Sigma$ in the likelihood --- one exponential covariance
+per record, shared by every operator, since evidences taken under different covariances differ
+by $\log|\Sigma|$ and are not a Bayes factor at all. The correlation length is swept, because
+whitening amplifies fine structure by roughly $1/(1-\rho^2)$ and a single $\rho$ is a single
+arbitrary amplification.
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+\SI{15}{\celsius}, nats vs.\ the best & independent & $\rho=0.8$ & $\rho=0.9$ & $\rho=0.95$ & fitted \\
+\midrule
+Rayleigh--Plesset & $-185.7$ & $\mathbf{-4.3}$ & $-5.6$ & $-8.5$ & $-5.1$ \\
+Keller--Miksis & $-20.8$ & $-0.15$ & $-0.19$ & $-0.29$ & $-0.17$ \\
+Keller enthalpy/Tait & $-14.6$ & $-0.14$ & $-0.18$ & $-0.29$ & $-0.17$ \\
+Gilmore/Tait & $-2.2$ & $0$ & $0$ & $0$ & $0$ \\
+Gilmore/Mie--G & $0$ & $-0.15$ & $-0.20$ & $-0.31$ & $-0.18$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Two things change and one does not. \emph{The compressible operators become
+indistinguishable}: they span $0.31$ nats at \SI{15}{\celsius} and $0.33$ at \SI{23}{\celsius},
+against the $17.1$ and $4.2$ the independent likelihood reports. Whatever separated them was
+information the samples did not carry. And \emph{compressibility itself sits at the threshold
+rather than far above it}: Rayleigh--Plesset lands between $-3.3$ and $-9.2$ across the two
+records and the swept $\rho$, crossing the five-nat line depending on which $\rho$ is taken.
+
+What does not change is the sign. No correlated fit prefers the incompressible model, and
+Gilmore remains at or within a fifth of a nat of the top everywhere. The defensible statement is
+therefore narrower than the one above: \emph{compressibility is preferred on every record and
+decisive on none of them at \SI{15}{} or \SI{23}{\celsius}, and the six operators are not
+ordered by these data at all.}
+
+\Cref{sec:33anomaly} sets \SI{33}{\celsius} aside rather than reporting it: there
+Rayleigh--Plesset lands at $-10^4$ while two compressible operators separate by $200$ to $550$
+nats, out of family with both other records by three orders of magnitude, which is the
+signature of an ill-conditioned covariance and not of physics.
+
+\paragraph{A search budget produced an earlier answer.} At six multistart restarts the same
+comparison placed Gilmore/Tait fourth on two records and first on the third, and reported the
+operator as undetermined. It also settled no ordering at \SI{33}{\celsius}, which we read as a
+record without discriminating power. At ten starts the \SI{33}{\celsius} fits reach
+$\chi^2/N = 0.42$ where six starts found $1.151$.
+
+Every operator had been held in the same poor basin. A record that cannot decide and a search
+that has not converged produce the same output. Only a better search separates them.
+
+\paragraph{The initial radius is not exact.} Every fit above holds $R_{\mathrm{eq}}$ at its
+inferred value, which asserts that it is known exactly. It is not: $R_{\max}$ is read off the
+images, but $R_{\mathrm{eq}}$ is inferred, and the margins in the table are small enough that
+this matters. Perturbing $R_{\mathrm{eq}}$ alone and projecting off the material span, as in
+\cref{sec:axes}, an error of \SI{1.68}{\percent} leaves the same residual as replacing
+Keller--Miksis with its Mie--Gr\"uneisen enthalpy form.
+
+That is not a license to ignore the ranking. The two remainders lie at
+\SI{58.4}{\degree}, so an initial-radius error and an operator change are separable in
+principle -- an experiment can tell them apart, and \cref{sec:axes} shows the initial state
+absorbs under \SI{5}{\percent} of the operator difference. What it means is narrower and
+worse: a quantity we set to zero is the size of the effect being reported. The remedy is to
+fit $R_{\mathrm{eq}}$ rather than assert it, which \cref{sec:reqprior} does.
+
+The perturbation is superlinear -- the residual per unit fractional error runs $79$, $93$,
+$138$ across half, one and two percent -- so \SI{1.68}{\percent} is solved for by re-solving
+rather than scaled from any one of those rows. Read linearly off the \SI{1}{\percent} row it
+would come out a third larger.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.15]
+  \fill[gray!14] (0.2,0) -- (5.4,0) -- (6.9,1.35) -- (1.7,1.35) -- cycle;
+  \draw[gray!55] (0.2,0) -- (5.4,0) -- (6.9,1.35) -- (1.7,1.35) -- cycle;
+  \node[gray!65,anchor=north east] at (5.5,-0.05)
+    {\footnotesize $\operatorname{span}\partial R/\partial\theta$ -- refitting absorbs this};
+  % the two remainders, drawn at the measured 58.4 degrees and the same measured length
+  \draw[-{Latex[length=2.4mm]},very thick,blue!70!black] (3,1) -- (2.549,3.560);
+  \draw[-{Latex[length=2.4mm]},very thick,red!75!black] (3,1) -- (4.944,2.726);
+  \draw[gray!70] (3,1) ++(41.6:0.95) arc (41.6:100:0.95);
+  \node[gray!55!black] at (3.62,2.05) {\footnotesize $58.4^\circ$};
+  \fill[black] (3,1) circle (1.5pt);
+  \node[blue!70!black,anchor=south east,align=right] at (2.6,3.62)
+    {\footnotesize operator:\\[-2pt]\footnotesize KM $\to$ Keller enthalpy/Mie--G\\[-2pt]\footnotesize $1.98$ noise units};
+  \node[red!75!black,anchor=west,align=left] at (5.05,2.62)
+    {\footnotesize initial radius:\\[-2pt]\footnotesize $R_{\mathrm{eq}}$ off by $1.68\%$\\[-2pt]\footnotesize $1.98$ noise units};
+\end{tikzpicture}
+\caption{The size of the operator result, against the size of an error bar this work set to
+zero. Both arrows are what survives refitting the material -- the part of a perturbation that
+lies outside the shaded span, and so the only part any experiment can see. They are drawn at
+their measured length and their measured separation. A \SI{1.68}{\percent} error in the
+inferred equilibrium radius leaves exactly as much residual as replacing the bubble-dynamics
+operator does. The \SI{58.4}{\degree} between them is the reason this is a call to fit
+$R_{\mathrm{eq}}$ rather than to abandon the ranking: at that angle the two are separable in
+principle, and \cref{sec:axes} confirms the initial state absorbs under \SI{5}{\percent} of
+the operator difference.}
+\label{fig:reqsize}
+\end{figure}
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+\begin{scope}
+  \draw[->,gray] (0,0) -- (5.2,0) node[anchor=north east] {\footnotesize time};
+  \draw[->,gray] (0,0) -- (0,2.9);
+  \node[gray,rotate=90,anchor=south] at (-0.35,1.45) {\footnotesize $R$};
+  \draw[blue!70!black,very thick] (0.3,2.5) .. controls (1.6,2.4) and (2.1,0.45) .. (2.7,0.42)
+    .. controls (3.3,0.4) and (4.0,1.75) .. (4.9,1.9);
+  \draw[red!75!black,very thick,dashed] (0.3,2.5) .. controls (1.6,2.35) and (2.2,0.72) .. (2.85,0.7)
+    .. controls (3.5,0.68) and (4.1,1.95) .. (4.9,2.15);
+  \node[blue!70!black,anchor=west] at (5.0,1.75) {\footnotesize $R_A$};
+  \node[red!75!black,anchor=west] at (5.0,2.25) {\footnotesize $R_B$};
+  \node[anchor=south] at (2.6,3.05) {\footnotesize\textbf{two models, one design}};
+\end{scope}
+\begin{scope}[xshift=7.3cm]
+  \node[anchor=south] at (2.4,3.05) {\footnotesize\textbf{the difference is a column of $J$}};
+  \draw[gray!55] (0.15,0.35) rectangle (1.55,2.6);
+  \node[gray!75] at (0.85,2.85) {\footnotesize $\partial R/\partial\theta$};
+  \foreach \x in {0.45,0.85,1.25} { \draw[gray!70] (\x,0.45) -- (\x,2.5); }
+  \draw[red!75!black,thick] (2.05,0.35) rectangle (2.55,2.6);
+  \draw[red!75!black,thick] (2.3,0.45) -- (2.3,2.5);
+  \node[red!75!black,anchor=south] at (2.3,2.72) {\footnotesize $R_B-R_A$};
+  \node[anchor=west,align=left] at (3.0,1.5)
+    {\footnotesize $J=\big[\,\partial R/\partial\theta \;\big|\; R_B-R_A\,\big]$};
+\end{scope}
+\end{tikzpicture}
+\caption{Turning a model choice into a parameter. Writing
+$R(\theta,\varepsilon)=(1-\varepsilon)R_A(\theta)+\varepsilon R_B(\theta)$ gives
+$\partial R/\partial\varepsilon = R_B-R_A$ at $\varepsilon=0$, so the difference between two
+models becomes one more column of the Jacobian. Discrimination and estimation then live in a
+single information matrix, and $D$-optimality over the augmented set balances learning the
+material against learning which model produced the trace. Nothing about the criterion changes,
+so the certificate still applies. The variance of $\varepsilon$ after the material is fitted
+out is what says whether a design can tell the models apart at all.}
+\label{fig:augment}
+\end{figure}
+
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=1.0]
+  \draw[-{Latex[length=2.2mm]},thick] (0,0) -- (4.5,0);
+  \draw[-{Latex[length=2.2mm]},thick] (0,0) -- (0,3.4);
+  \draw[-{Latex[length=2.2mm]},thick] (0,0) -- (-2.05,-1.5);
+  \node[anchor=west] at (4.6,0) {\footnotesize constitutive law};
+  \node[anchor=south] at (0,3.5) {\footnotesize bubble dynamics};
+  \node[anchor=north east] at (-2.1,-1.55) {\footnotesize thermal transport};
+  \foreach \x/\lab in {1.2/qSLS, 2.6/qSLS2, 3.9/qSLSthin} {
+    \fill[gray!75] (\x,0) circle (1.7pt); }
+  \foreach \y/\lab in {0.85/{}, 1.7/{}, 2.55/{}} { \fill[gray!75] (0,\y) circle (1.7pt); }
+  \fill[gray!75] (-0.68,-0.5) circle (1.7pt);
+  \fill[gray!75] (-1.36,-1.0) circle (1.7pt);
+  \fill[red!75!black] (0,0) circle (2.6pt);
+  \node[red!75!black,anchor=west,align=left] at (0.3,-0.55)
+    {\footnotesize every published comparison\\[-2pt]\footnotesize moves along one axis only};
+  \node[gray,anchor=west,align=left] at (2.3,2.6)
+    {\footnotesize $77.7\%$ absorbed\\[-2pt]\footnotesize by refitting};
+  \draw[gray] (2.25,2.6) -- (0.1,2.0);
+\end{tikzpicture}
+\caption{Three choices go into every prediction, and they are made independently: the
+constitutive law, the bubble-dynamics equation, and whether heat transfer is modeled.
+Published comparisons vary the first and leave the other two at the origin. Some of each
+change can be canceled by refitting stiffness and viscosity, which makes it invisible no
+matter how the experiment is run; what remains is $22\%$ of an operator change, $57\%$ of a
+constitutive change and $53\%$ of a thermal one, and no two of those remainders point in
+similar directions. All three are therefore distinguishable in principle. The $77.7\%$ is the
+CLOSEST pair of operators rather than the axis: across the six dynamics of
+\cref{sec:operators} absorption runs from there down to $19.5\%$, and the second-order
+equation leaves twenty-two times as much as the pair drawn here.}
+\label{fig:modelspace}
+\end{figure}
+
+\section{Fitting the initial radius}
+\label{sec:reqprior}
+
+\Cref{sec:operator} reports operator margins of a few nats while holding $R_{\mathrm{eq}}$
+fixed, and a \SI{1.68}{\percent} error in $R_{\mathrm{eq}}$ is worth as much as the operator
+change those margins measure. A quantity that large cannot be asserted. So we fit it, as a
+nuisance parameter with a prior. The question is not whether the evidence moves -- adding a
+parameter always moves it -- but whether the \emph{ordering} does. An operator preferred by $17$ nats
+with $R_{\mathrm{eq}}$ pinned, and not preferred once it floats, was never an operator result.
+
+The prior width is the whole argument, and nothing measures it. Too wide and $R_{\mathrm{eq}}$ absorbs the operator difference, which reads as ``the
+operators are indistinguishable'' while being a statement about the box. Too narrow and the
+pinned answer is reproduced by construction. We therefore sweep the half-width over
+$\SIrange{3}{25}{\percent}$ rather than choose one. A conclusion that holds across that range
+is a conclusion; one that flips inside it is a prior.
+
+\paragraph{A convergence gate with no tuning constant.} Every wider box contains every
+narrower one, and all of them contain $R_{\mathrm{eq}}$ at its inferred value, which is the
+pinned fit. The best attainable $\chi^2/N$ can therefore only fall as the width grows. A cell
+that rises has not found its own optimum. This matters because it caught a real failure: at
+ten multistart restarts, five of $72$ cells failed it, one reporting $-117$ nats between a
+$+13$ and a $+7$ -- which reads as a prior effect and is a search that stopped early. At $24$
+restarts two cells fail, and both are excluded below rather than read as physics.
+
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+& \multicolumn{2}{c}{\SI{15}{\celsius}} & \multicolumn{2}{c}{\SI{23}{\celsius}}
+& \multicolumn{2}{c}{\SI{33}{\celsius}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+operator & pinned & $\pm25\%$ & pinned & $\pm25\%$ & pinned & $\pm25\%$ \\
+\midrule
+Rayleigh--Plesset & $-165.0$ & $\mathbf{-178.6}$ & $-76.9$ & $\mathbf{-81.8}$ & $-74.4$ & $\mathbf{-74.2}$ \\
+Keller--Miksis & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ \\
+Keller enthalpy/Tait & $+6.1$ & $+0.8$ & $+2.1$ & $+0.1$ & $+0.8$ & $+0.8$ \\
+Gilmore/Tait & $+18.5$ & $\mathbf{+5.0}$ & $+4.3$ & $+0.5$ & $+1.9$ & $-0.0$ \\
+Keller enthalpy/Mie--G & $+4.7$ & $+0.3$ & $+1.6$ & $+0.1$ & $+0.6$ & $+0.9$ \\
+Gilmore/Mie--G & $+20.7$ & $\mathbf{+11.2}$ & $+4.3$ & --- & $+1.1$ & $-0.3$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent nats against Keller--Miksis; ``---'' marks the one cell the gate excluded. Of $17$
+orderings the pinned fit called decisive, $15$ stay decisive and keep their sign at every
+width. None reverses. Two fall below five nats at some width, both at \SI{15}{\celsius}.
+
+The conclusions of \cref{sec:operator} therefore survive, but not equally. \emph{Compressibility
+is required} at every width and on every record, by $74$ to $179$ nats -- the most robust
+statement in this work. \emph{Gilmore beats the pressure form} at \SI{15}{\celsius}, still by
+$5$ to $11$ nats with $R_{\mathrm{eq}}$ free. But at \SI{23}{\celsius} and \SI{33}{\celsius}
+every margin above Keller--Miksis collapses to under a nat. Those two records never had
+operator discrimination; pinning $R_{\mathrm{eq}}$ is what made it look as though they did.
+
+\paragraph{The data want a larger equilibrium radius.} The fitted scale is the same story
+told forwards, and it is the most consistent number in this study. At $\pm3\%$ every one of
+the $18$ cells pins against the upper edge. Given room, they agree closely: $1.104$ to
+$1.115$ at \SI{15}{\celsius}, $1.074$ to $1.086$ at \SI{23}{\celsius}, and $1.032$ to $1.040$
+at \SI{33}{\celsius}, across six operators and two prior widths.
+
+So $R_{\mathrm{eq}}$ is inferred about \SIrange{3}{11}{\percent} too small, and the fit says
+so whichever operator it is asked through. The residual improves accordingly --- $\chi^2/N$
+falls from $0.97$ to $0.62$ at \SI{15}{\celsius}, $1.03$ to $0.90$ at \SI{23}{\celsius}, and
+$0.44$ to $0.38$ at \SI{33}{\celsius}. That the offset shrinks as the gel warms is a pattern
+we can measure but not yet explain, and it is larger than the \SI{1.68}{\percent} that makes
+$R_{\mathrm{eq}}$ worth as much as the operator choice.
+
+\subsection*{Where it actually wants to sit}
+
+The sweep above asks whether a conclusion survives letting $R_{\rm eq}$ float. It never asks
+where $R_{\rm eq}$ goes, and the answer is not the stored value. Fitting it on the mean trace of
+each record over a box wide enough that nothing is cut off:
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+record & stored stretch & implied & offset & $\chi^2/N$ & lack of fit \\
+\midrule
+\SI{15}{\celsius} & $7.09$ & $6.40$ & $\mathbf{+10.8\%}$ & $0.971 \to 0.632$ & $16.79 \to 8.80$ \\
+\SI{23}{\celsius} & $7.37$ & $6.80$ & $+8.3\%$ & $1.029 \to 0.901$ & $2.95 \to 2.15$ \\
+\SI{33}{\celsius} & $6.83$ & $6.59$ & $+3.6\%$ & $0.439 \to 0.379$ & $1.80 \to 1.49$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Every record prefers a larger equilibrium radius, by three to eleven percent against
+the \SI{1.68}{\percent} this section opens by calling worth an operator change.
+
+\paragraph{Read against the source, most of that is not an offset.} The stretch is not a single
+measurement. \citet{chu2026limits} tabulate it as a mean over the experiments in each bin, with
+a spread: $7.09 \pm 0.36$ over $18$ events, $7.37 \pm 1.28$ over $14$, and $6.83 \pm 0.49$ over
+$7$. (Nucleation and imaging follow \citet{abeid2024experimental}; the tabulated quantities are
+that study's own.) Against those the preferred values sit at $1.9$, $0.45$ and $0.49$
+standard deviations. Only \SI{15}{\celsius} is outside the tabulated uncertainty at all, and it
+is marginal.
+
+The definition matches too, which was the other thing worth checking. That source defines
+$R_\infty$ as the equilibrium bubble-wall radius --- the quantity the solver wants --- so the
+ratio is not a different measurement pressed into service, and there is no unit or convention
+error to correct.
+
+So the honest reading is not that the stretch is wrong. It is that a \emph{population mean is
+being applied to every trial}, and the population is wide: the same table reports $R_{\max}$ at
+$277\pm48$, $298\pm59$ and $312\pm32$ \si{\micro\metre}, so individual bubbles differ by ten to
+twenty percent in the absolute scale that sets the Reynolds, Weber and Deborah groups. Every fit
+in this document uses one value for all of them.
+
+Two consequences follow. The per-trial spreads of \cref{sec:latent} --- $1.9$, $6.7$ and $3.1$
+percent in $R_{\rm eq}$ --- are \emph{smaller} than the scatter the source reports for the same
+quantity, so they are consistent with it rather than evidence of anything new. And the absolute
+$R_{\max}$ of each event, which varies by more than the ratio does, is not fitted anywhere here
+and is not recoverable from the traces, since each is normalized by its own maximum before it
+reaches us.
+
+What must be said plainly is what the reported parameters rest on. Freeing $R_{\rm eq}$ moves
+$\mu$ by $11$ to $23$ percent and $g\alpha$ by $9$ to $41$, and it moves $\lambda_1$ by a factor
+of \emph{five and a half} at \SI{15}{\celsius}. Those are the numbers this document reports, and
+they are conditional on a stretch known only to $\pm 5$ to $\pm 17$ percent.
+
+\section{Scoring the thermal treatment}
+\label{sec:thermal}
+
+\Cref{sec:axes} finds the thermal treatment the largest of the three model axes: it moves the
+trace by $16$ noise units and keeps $8.5$ after the material absorbs what it can. Scoring it
+means running the comparison of \cref{sec:operator} with the thermal treatment varied and the
+material axes held identical, so the Occam terms cancel and the difference is a Bayes factor
+between physics rather than between parameter counts.
+
+The first attempt failed, and how it failed was diagnostic. At ten multistart restarts and
+again at twenty-four -- a $2.4\times$ change of budget -- the \SI{23}{\celsius} rows moved by
+at most $0.01$ nats while the others moved by $15$, $153$, $19$ and $68$. Decisively,
+\emph{more restarts fitted worse}: at \SI{33}{\celsius} bubble\,+\,medium went from
+$\chi^2/N = 0.428$ to $1.073$. Best-of-$24$ cannot be worse than best-of-$10$ at a converged
+optimum, so the search was landing in different basins rather than refining one, and a third
+increase of the budget was not the remedy.
+
+The remedy was a better start. Each thermal fit is now seeded from its own record's converged
+cold optimum instead of sampling a four-dimensional box afresh (\texttt{docs/writeup/thermal.py}), at
+twenty-four restarts. That run takes \SI{2.7}{\hour} on six workers and recovers what the
+cold-started search had lost: \SI{33}{\celsius} bubble\,+\,medium returns to $0.428$, and
+\SI{15}{\celsius} bubble\,+\,medium improves by $15.8$ nats.
+
+It also loses a basin the earlier run had found. At \SI{15}{\celsius} the \emph{bubble}
+treatment lands $15.0$ nats worse warm-started than cold-started, because seeding from the
+cold optimum is a good start for a treatment close to cold and a bad one for a treatment that
+is not. So this is not a converged search either; it is a search whose failures have moved.
+Both runs are minimisations of the same objective, so the table below reads best-of-both,
+which is valid and is what a third run would be compared against.
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+record & cold & bubble & bubble\,+\,medium \\
+\midrule
+\SI{15}{\celsius} & $0$ & $+8.6$ & $\mathbf{+21.6}$ \\
+\SI{23}{\celsius} & $0$ & $+2.7$ & $\mathbf{+8.0}$ \\
+\SI{33}{\celsius} & $0$ & $-5.0$ & $\mathbf{+1.7}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent nats against the cold model. The bubble\,+\,medium column is positive on every
+record and is the same number in both runs at \SI{23}{\celsius} and \SI{33}{\celsius}, so it
+is a property of the data rather than of the optimiser. The bubble column changes sign across
+records and moved by $15$ nats between runs at \SI{15}{\celsius}; it is search noise and we
+decline to read it.
+
+\subsection*{What the score is worth}
+
+Read raw, $+31.2$ nats combined is overwhelming. It is not, and \cref{sec:screening} says why:
+these margins come from a likelihood that treats $201$ samples as $201$ independent
+observations, and the residuals of these very fits have lag-one autocorrelation between
+$0.907$ and $0.962$. Deflating each record by its own AR(1) effective sample size,
+$N_{\rm eff} = N(1-\rho)/(1+\rho)$:
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+record & raw & lag-one & $N_{\rm eff}$ of $201$ & deflated \\
+\midrule
+\SI{15}{\celsius} & $+21.57$ & $0.915$ & $8.9$ & $+0.96$ \\
+\SI{23}{\celsius} & $+8.01$ & $0.962$ & $3.9$ & $+0.16$ \\
+\SI{33}{\celsius} & $+1.66$ & $0.907$ & $9.8$ & $+0.08$ \\
+\midrule
+combined & $+31.24$ & & & $\mathbf{+1.19}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The records are independent, so the deflated margins add. A Bayes factor of $3.3$ is
+substantial on Jeffreys' scale and an order of magnitude short of the five nats
+\cref{sec:screening} requires before calling a question closed. The \SI{23}{\celsius} record,
+whose fit was the most stable of the three, is inflated $52$-fold and contributes least.
+
+The conclusion is therefore the same as the first attempt's and rests on nothing the first
+attempt could see. The thermal treatment is favored -- consistently, on every record, by the
+one column that is stable under both a change of optimiser and a change of budget -- and it is
+not established. What separates those two statements is not more restarts. It is $1.19$ nats
+against a threshold of five, which is a statement about how much data of this kind is worth,
+and it is the quantity \cref{sec:batch} designs against.
+
 \section{Temperature dependence}
 
 The most informative result is not any single number but a trend
@@ -3973,27 +4023,29 @@ $\chi^2$.
 
 \section{Conclusions}
 
-We have treated the model comparison in inertial microcavitation rheometry as the object of
-study rather than a step toward a parameter value. Ranking by evidence in coordinates the
-records can answer, three findings hold.
+The contribution of this paper is a way to choose the next experiment that comes with a proof,
+and the case for needing one is that the records in hand cannot settle what they are being asked.
 
-The shear modulus is not identified separately from the stiffening exponent, so a reported
-modulus is a statement about the prior box -- and \cref{sec:discrepancy} shows this is not a
-bound that can be widened away, since releasing one wall merely slides the fit onto another. The bubble-dynamics operator assumed throughout
-this literature is beaten on every record. And a correlated residual that has been read as
-constitutive model error survives every constitutive, observational and operator change tested
-here.
+\paragraph{What a record of this kind supports.} Three limits, each measured. The shear modulus
+is not identified separately from the stiffening exponent, so a reported modulus is a statement
+about the prior box --- and \cref{sec:discrepancy} shows this is not a bound that can be widened
+away, since releasing one wall merely slides the fit onto another. A residual at the measurement
+scatter is not adequacy: the samples carry a twentieth of the information the likelihood counts,
+and a replicated lack-of-fit test rejects every candidate on every record. And because every
+candidate is rejected, the fitted parameters carry a model-form budget one to two orders of
+magnitude wider than their posterior, which \eqref{eq:biasbound} computes rather than laments.
 
-Two of those findings needed qualifying once the equilibrium radius was fitted rather than
-asserted. Compressibility is required on every record at every prior width, by $74$ to $179$
-nats. Gilmore still beats the pressure form at \SI{15}{\celsius}. But at \SI{23}{\celsius} and
-\SI{33}{\celsius} the operator margins collapse to under a nat, so those records never
-discriminated operators at all -- pinning $R_{\mathrm{eq}}$ is what made it appear they did.
-The fit wants $R_{\mathrm{eq}}$ \SIrange{3}{11}{\percent} larger than inferred, consistently
-across six operators and three records, and we cannot yet explain the trend with temperature.
+\paragraph{What the design contributes.} Posing the problem over measures makes it convex, so the
+answer is certified rather than merely converged, and every extension here was built to keep that
+certificate: averaging over the scatter a setpoint delivers, normalising candidates by what they
+cost, averaging over the bias bound rather than a point estimate, and making the measured
+discrepancy a coordinate. One criterion serves the material, the model label and the nuisance
+parameters alike, so their answers are comparable in nats --- which is what makes the ranking
+below possible at all.
 
-On the design side the useful conclusion is about what to optimize rather than what the optimum
-is. The certified formulation was applied to the geometry, which its own numbers rank last:
+\paragraph{And what it says to do differently.} The useful conclusion is about what to optimize
+rather than what the optimum is. The certified formulation was applied to the geometry, which its
+own numbers rank last:
 pricing the candidates so the bubbles-against-frames split enters the same convex problem buys
 $0.9$ to $10$ nats against at most $1.3$ for the geometry, and the certificate survives the
 change intact because normalizing by cost is the same simplex in different coordinates. Three
@@ -4004,6 +4056,22 @@ geometry chosen for the operator question settles every live rival --- which say
 margins reported here are small for want of a geometry, not for want of runs. And the
 temperature dependence cannot be identified at all without varying temperature, which no design
 in this literature does.
+
+\paragraph{The comparison, and how much of it survives.} A quadratic Zener solid is the
+best-fitting candidate at every temperature and under every perturbation applied to it, and
+neither strain stiffening nor stress relaxation suffices without the other. Two claims around it
+needed qualifying once the equilibrium radius was fitted rather than asserted. Compressibility is
+required on every record at every prior width, by $74$ to $179$ nats --- the most robust
+statement in this work. Gilmore still beats the pressure form at \SI{15}{\celsius}, but at
+\SI{23}{} and \SI{33}{\celsius} the operator margins collapse to under a nat, so those records
+never discriminated operators at all and pinning $R_{\mathrm{eq}}$ is what made it appear they
+did. The fit wants $R_{\mathrm{eq}}$ \SIrange{3}{11}{\percent} larger than inferred, consistently
+across six operators and three records, and we cannot yet explain the trend with temperature.
+
+Read with \cref{sec:screening}, that is the case for the design rather than a result standing
+beside it. The margins are decisive under a likelihood that counts $201$ samples as $201$
+observations and are not under the one these residuals imply, and no amount of further analysis
+of these three records resolves which reading is right. Only a different experiment does.
 
 What remains genuinely open is the one thing a criterion still cannot take as an argument: which
 physics is missing. \Cref{sec:deltadesign} gets as far as the measured $\hat\delta$ allows, and

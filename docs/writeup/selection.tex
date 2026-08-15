@@ -778,10 +778,39 @@ Two later sections move the wall that does bind and see exactly what that predic
 \Cref{sec:operator} widens the box to $g\in(10^0,10^6)$ and five of six fits go to
 $\alpha=10^3$ with $g$ collapsed to \SIrange{1.1}{3.5}{\pascal}; \cref{sec:discrepancy}
 releases the same floor and reports $g\alpha$ preserved to \SI{1.6}{\percent} across a
-hundredfold change in $g$. Drop $g$ two decades and $\alpha$ rises two decades. The test that
-would settle whether the data determine $\alpha$ is a sweep of the $g$ floor, and it has not
-been run, so the conclusion of the paragraph above stands unqualified: what these data identify
-is the product.
+hundredfold change in $g$.
+
+Run as a sweep, that is the whole of it. A box bound is a prior truncation rather than a
+different likelihood, so both sweeps are regions of one surface: $\chi^2$ on a $96\times96$ grid
+over $(g,\alpha)$, with the noise scale marginalised as in \cref{sec:beta} and the viscosity and
+relaxation time held at their fitted values, which the spectrum in \cref{fig:identifiability}
+shows are nearly orthogonal to this direction. Sweeping the floor under $g$ with $\alpha$'s box
+fixed:
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+$g$ floor (\si{\pascal}) & median $\alpha$ & $97.5\%$ & median $g\alpha$ & $g\alpha/g_{\min}$ \\
+\midrule
+$1$ & $47.3$ & $96.8$ & $1126$ & $1126$ \\
+$10$ & $47.3$ & $96.8$ & $1126$ & $113$ \\
+$100$ & $4.13$ & $11.2$ & $1064$ & $10.6$ \\
+$1000$ & $1.05$ & $1.13$ & $1128$ & $1.1$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The median moves by a factor of $45$ while the floor moves by $1000$, and the product
+holds to \SI{6}{\percent} throughout. The upper quantile is $\min(\alpha_{\max},\,
+g\alpha/g_{\min})$ to within a few percent in every row: at the two lowest floors $\alpha$ rails
+against its own ceiling of $100$, and at the two highest against what the floor under $g$
+permits. It is never the data that stop it.
+
+That is also why the published sweep looks reassuring. Moving $\alpha$'s ceiling from $10$ to
+$100$ shifts the median from $3.72$ to $4.13$, an \SI{11}{\percent} wobble that reads as
+stability; moving the floor shifts it from $1.05$ to $47.3$. Same posterior, different wall. So
+the conclusion of the paragraph above stands unqualified: what these data identify is the
+product, and a reported $\alpha$ is a reported box.
 
 \begin{figure}[htbp]
 \centering
@@ -790,8 +819,8 @@ is the product.
 sloppiest directions, with the sloppiest being modulus against stiffening. Right: the
 posterior for $\alpha$ against the ceiling imposed on its prior. It tracks the ceiling while
 truncated and departs from it once the ceiling is loose. The panel is titled for the reading
-this document first took from it, and the text beside it gives the reason that reading does not
-hold: the bound that limits $\alpha$ here is the floor under $g$, which this sweep never moves.}
+this document first took from it; the table beside it sweeps the floor under $g$ instead and
+finds $\alpha$ tracking that bound just as faithfully, which is why the reading does not hold.}
 \label{fig:identifiability}
 \end{figure}
 
@@ -4097,10 +4126,11 @@ the transfer it rests on is supported rather than established.
 \subsection{Limitations of this work}
 \label{sec:limitations}
 
-Five, and they are of different kinds: one set of numbers reported so it is not mistaken for
+Seven, and they are of different kinds: one set of numbers reported so it is not mistaken for
 evidence, one region of parameter space the winning model cannot be integrated in, one estimate
-the quadrature cannot make, one material property that comes out implausible for gelatin, and
-one candidate that was never genuinely exercised.
+the quadrature cannot make, one material property that comes out implausible for gelatin, one
+candidate that was never genuinely exercised, and two defects in how the fits are set up that
+were measured after the rest of this document was written and are not corrected in it.
 
 \paragraph{The \SI{33}{\celsius} correlated fits are not usable.}
 \label{sec:33anomaly}
@@ -4176,6 +4206,47 @@ grid does.
 A modulus that size is also implausibly soft for gelatin. That is the degeneracy above making
 itself felt: the fit buys a lower residual by trading modulus against stiffening, along a
 direction the data barely constrain.
+
+\paragraph{The datasets want a collapse five to nine percent slower than gelatin's density gives.}
+Two densities enter every fit and they are not the same quantity. The clock carries
+\SI{998}{\kilo\gram\per\metre\cubed}, which is correct: the acquisition file normalises time by
+$R_{\max}\sqrt{\rho/p_\infty}$ with $\sqrt{p_\infty/\rho} = \SI{10.07}{\metre\per\second}$
+(\cref{sec:latent}), so the clock's job is to undo the experimenters' convention and it does.
+The equation of motion carries $\rho = \SI{1064}{\kilo\gram\per\metre\cubed}$, the
+polyacrylamide value, applied to \SI{5}{\percent} gelatin at roughly
+\SI{1015}{\kilo\gram\per\metre\cubed}.
+
+Holding the clock and sweeping only the medium density, every dataset has a clean interior
+optimum, at $1200$, $1120$ and \SI{1120}{\kilo\gram\per\metre\cubed} against gelatin's $1015$.
+That is ten to eighteen percent too dense, and since $t_c \propto \sqrt{\rho}$ it is a collapse
+time five to nine percent too slow. An interior optimum says the density is \emph{identified};
+it does not say it is a density, and a well-posed optimum at a value no gel can take is a sink
+for model error rather than a measurement. So \texttt{RHO}$=1064$ has been buying fit quality it
+is not entitled to, and setting the density to gelatin's true value is correct physics that
+makes every fit worse. What should be carried from this is the deficit, which nothing in the
+model explains, and not any density.
+
+\paragraph{The fit target is the mean of jittered traces, which is not a trajectory.}
+Every fit here targets the sample mean over trials at fixed lab time. The trials' first-collapse
+times scatter by about two percent, so averaging across that jitter fills and widens the trough:
+measured against the mean of the per-trial minima, the collapse minimum of the target is
+$19.6$, $9.9$ and \SI{14.0}{\percent} too shallow. No spherical solution of any candidate passes
+through that curve at any parameter value, because the curve is not a solution of the equations.
+
+Warping each trial onto a common first collapse removes the bias, completely at \SI{23}{} and
+\SI{33}{\celsius} and most of the way at \SI{15}{}. It does not touch the correlated residual of
+\cref{sec:fitquality}: lag-one stays at $0.918$, $0.967$ and $0.910$. So this defect is real and
+is \emph{not} the explanation for the structure \cref{sec:discrepancy} bounds, and the ranking is
+untouched, with the quadratic Zener solid best on every dataset under all four constructions of
+the target.
+
+One warning belongs with that, because it inverts the obvious way to judge the repair. A sham
+warp, each trace given a neighbour's knots so the resampling is identical and only the alignment
+is broken, \emph{fits better} than the correct one on every dataset ($\chi^2/N$ of $0.440$
+against $0.962$ at \SI{15}{\celsius}). Mismatched knots add jitter, jitter widens the trough, and
+a wider trough is easier to fit. Fit quality is therefore anti-diagnostic here, and the argument
+for repairing the target is that a mean of jittered traces is not a trajectory, not that the
+repaired fit looks better.
 
 \paragraph{One candidate was never genuinely exercised.}
 The Gent solid appears in the comparison but cannot be tested on these datasets. Its energy

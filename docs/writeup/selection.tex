@@ -565,7 +565,7 @@ because they summarize the same spectrum differently. The choice states what one
 learn.
 
 For identifiability the relevant fact is a scaling argument. A design change that only
-amplifies signal, more samples, less noise, a larger bubble, sends $F \to sF$. Then
+amplifies signal (more samples, less noise, a larger bubble) sends $F \to sF$. Then
 $\det F \to s^p\det F$ and $\lambda_{\min}\to s\lambda_{\min}$, so D and E both improve,
 while
 %
@@ -588,7 +588,9 @@ privileges neither.
 
 \section{Identifiability of the constitutive parameters}
 
-The winner fits, but not every parameter it contains is measured by these data.
+The best-fitting candidate fits, but not every parameter it contains is measured by these data.
+Which parameters those are is the first thing \cref{part:design} needs, because a design can
+only be scored in coordinates the data can answer in.
 
 \subsection*{Why the trade exists}
 
@@ -814,8 +816,8 @@ $\chi^2/N$ entitle us to claim?
 \paragraph{The grid understates the fit.}
 The model-selection grid evaluates each candidate at log-spaced parameter nodes, so its
 best value is the best \emph{node}, not the best fit. Refitting each model to the
-\SI{15}{\celsius} dataset by multistart Gauss--Newton with analytic Jacobians, eight
-starts from a Latin hypercube over the wide prior box, taking the lowest, gives:
+\SI{15}{\celsius} dataset by multistart Gauss--Newton with analytic Jacobians (eight
+starts from a Latin hypercube over the wide prior box, taking the lowest) gives:
 
 \begin{center}
 \begin{tabular}{lcccccc}
@@ -890,9 +892,9 @@ dataset & $J$ & $\chi^2/N$ & pure error & lack of fit & $F$ & corrected \\
 elsewhere, so the five percent critical value is near $1.2$ throughout. Every dataset shows lack
 of fit. The conclusion is the one above, reached with none of the same machinery.
 
-Two things make it worth the page. It gets the factor of $J$ right by construction, the fit
+Two things make it worth the page. It gets the factor of $J$ right by construction (the fit
 compares the \emph{mean} of the trials against the spread \emph{between} them, and the $J$ in
-the numerator is that missing $\sqrt{J}$, and it is conservative in a direction we can
+the numerator is that missing $\sqrt{J}$) and it is conservative in a direction we can
 quantify: \SI{39.3}{\percent} of the trial variance is bubble-to-bubble parameter spread rather
 than measurement, so pure error is inflated and the corrected column divides that share out.
 
@@ -1060,8 +1062,8 @@ directly.
 \paragraph{It is largely the clock, and the acquisition data says so directly.}
 Each of those tests varied a property of the bubble. The one quantity that could not be tested
 was the one every trace is divided by before it arrives: its own $R_{\max}$. The acquisition
-dataset carries it, $835$ events, each with a measured $R_{\max}$, a measured $R_{\rm eq}$ and
-an un-normalised trace, and two facts follow immediately.
+dataset carries it ($835$ events, each with a measured $R_{\max}$, a measured $R_{\rm eq}$ and
+an un-normalised trace) and two facts follow immediately.
 
 \emph{The scatter is in the scale, not in the ratio.} Per event, $R_{\max}$ has a coefficient of
 variation of $0.25$, $0.28$ and $0.23$ in bins around \SI{15}{}, \SI{23}{} and
@@ -1221,8 +1223,8 @@ dilation signature, which it destroys on the sweep data, it \emph{strengthens} h
 \SI{15}{} and \SI{23}{\celsius}, from $0.71$ to $0.88$ and from $0.61$ to $0.85$, and
 removes only at \SI{33}{\celsius}. One dataset of three behaves like the sweep.
 
-Three explanations were available, time resolution, replicate count, and the experiment
-itself, and two of them can be settled with the data already in hand.
+Three explanations were available (time resolution, replicate count, and the experiment
+itself) and two of them can be settled with the data already in hand.
 
 \emph{Resolution is not it, and that is arithmetic.} The datasets carry $201$ samples over
 $5\,t_c$, a spacing of $0.0250\,t_c$; the sweep traces have a median spacing of $0.0315$. The
@@ -1250,7 +1252,7 @@ bin & $n$ & $\lvert\cos\rvert$ before & $\lvert\cos\rvert$ after & $P(\text{afte
 
 \noindent medians over the draws. At the datasets' own replicate counts the warp still works: it
 takes $\lvert\cos\rvert$ from about $0.83$ down to $0.26$--$0.50$, and it makes the signature
-\emph{worse}, which is what happens on two of this document's three datasets, between $0$ and
+\emph{worse} (which is what happens on two of this document's three datasets) between $0$ and
 $10\%$ of the time. Observing that on two datasets of three is a one to three percent event under
 this explanation.
 
@@ -1277,8 +1279,8 @@ about \SI{5}{\celsius}, so those datasets differ in thermal history as well as i
 And every bin carries a $\pm\SI{2}{\celsius}$ tolerance, so each is itself a small sweep.
 
 \paragraph{One candidate can be eliminated, and one new limit falls out.} Both $R_{\max}$ and
-$R_{\rm eq}$ are \emph{fitted} rather than read off, the first by a fourth-order polynomial
-through a window at the peak, the second by averaging the tail of $R(t)$, and since the clock
+$R_{\rm eq}$ are \emph{fitted} rather than read off (the first by a fourth-order polynomial
+through a window at the peak, the second by averaging the tail of $R(t)$) and since the clock
 is $R_{\max}\sqrt{\rho/p_\infty}$, an error in the first fit is an error in that event's clock.
 That is the right shape for the residual dilation, and it is testable because the file stores the
 fit quality per event.
@@ -1289,7 +1291,7 @@ $\lvert\text{dilation}\rvert$ against $1-R^2$ correlates at $+0.064$, $+0.016$ a
 across the three bins. The residue is not $R_{\max}$ fit noise.
 
 $R_{\rm eq}$ is a different matter, and this is the new limit. The authors describe two
-estimators, the tail average that is stored, and the median of the post-collapse oscillations, and both are available:
+estimators (the tail average that is stored, and the median of the post-collapse oscillations) and both are available:
 
 \begin{center}
 \begin{tabular}{lccccc}
@@ -1323,8 +1325,8 @@ leaves the mode more dilation-like rather than less, on two datasets of three.
 \paragraph{The remaining explanation is the material, and it can be tested rather than left
 open.} Resolution was eliminated by arithmetic and the replicate count by resampling, which
 leaves the experiment itself. That comparison does not need the acquisition file at all: the
-processed per-trial traces for \emph{both} materials are distributed in one format, a
-normalised clock, then one $R/R_{\max}$ trace per column, and, decisively, at the same
+processed per-trial traces for \emph{both} materials are distributed in one format (a
+normalised clock, then one $R/R_{\max}$ trace per column) and, decisively, at the same
 sampling step of $0.025\,t_c$. Running the identical warp, sham and diagnostic over both arms
 holds processing and resolution fixed by construction rather than by argument:
 
@@ -1339,8 +1341,8 @@ PAAm & $3$ & $249$ & $\mathbf{71.9\%}$ & $0.923$ & $\mathbf{0.568}$ \\
 \end{tabular}
 \end{center}
 
-\noindent In both arms the sham, each event warped with another event's knot \emph{pair}, so
-the knot geometry stays realistic and only the match to the event is broken, \emph{increases}
+\noindent In both arms the sham (each event warped with another event's knot \emph{pair}, so
+the knot geometry stays realistic and only the match to the event is broken) \emph{increases}
 the variance in all six datasets. None of the reduction is bought by the two fitted degrees of
 freedom.
 
@@ -1444,8 +1446,8 @@ marginalization of \cref{sec:beta} absorbs the difference, the implied $\beta \a
 lies inside its prior, so the evidence ranking is undisturbed. What changes is what a
 residual near one entitles one to say.
 
-\paragraph{What lag-one does and does not measure.} The inference above, that whitening
-removes a third of the correlation and the remainder is structure the model lacks, rules
+\paragraph{What lag-one does and does not measure.} The inference above (that whitening
+removes a third of the correlation and the remainder is structure the model lacks) rules
 out variation between bubbles, and nothing more. Lag-one autocorrelation at $N = 201$
 samples is close to a measure of how much of a residual is \emph{smooth}, not of what made
 it smooth: sampled at this density, white noise gives $0.04$, a single sine period gives
@@ -1453,8 +1455,8 @@ $1.00$, a smooth random curve gives $0.999$, and a mixture that is $80\%$ smooth
 $0.944$. A value of $0.918$ says the residual is roughly three-quarters smooth structure. It
 does not say whose.
 
-That matters because the trial deviations from the mean, pure measurement variation, with
-no model fitted at all, carry lag-one $0.859$ (median over the eighteen trials, range
+That matters because the trial deviations from the mean (pure measurement variation, with
+no model fitted at all) carry lag-one $0.859$ (median over the eighteen trials, range
 $0.725$ to $0.890$). Most of the smoothness the fit residual shows is already present in the
 data before any model is involved. Whitening by the hierarchical covariance removes the part
 of it that lies along $\partial R/\partial\theta$, which is why it removes only a third; the
@@ -1524,8 +1526,8 @@ model, the two-mode model scores
 %
 so it wins precisely where its second arm does nothing and loses only where the arm does
 real work. The cause is the fitted Gaussian extending far outside the bounded cube the prior
-occupies. Capping each eigendirection's contribution at unity, a posterior cannot be wider
-than the prior it came from, \cref{sec:occam-cap}, returns $-0.0000$, $-0.0004$, $-0.033$
+occupies. Capping each eigendirection's contribution at unity (a posterior cannot be wider
+than the prior it came from, \cref{sec:occam-cap}) returns $-0.0000$, $-0.0004$, $-0.033$
 and $-6.81$ at $w = 10^{-3}, 10^{-2}, 0.05, 0.3$: monotone, and never paying for what the
 data cannot resolve. The correction is a strict generalization, agreeing with the plain form
 to round-off wherever every direction is already sharper than the prior.
@@ -1563,9 +1565,9 @@ crossover is not resolved by this dataset at all.
 \paragraph{What this says.} A richer relaxation spectrum is not the missing physics, or at
 least not the part that matters here. Two independent enrichments, each reducing exactly to
 the one-mode law and each free to switch itself off, both decline to and both leave the
-correlation in place. That is evidence about where to look next, the residual is
+correlation in place. That is evidence about where to look next (the residual is
 concentrated in the first collapse, where sphericity and the far-field boundary are least
-secure, and it is more useful than a small positive margin would have been.
+secure) and it is more useful than a small positive margin would have been.
 
 \section{Separability of the model axes}
 \label{sec:axes}
@@ -1685,8 +1687,8 @@ evidence rewards whichever model best ABSORBS the discrepancy, and absorption is
 mechanism \eqref{eq:biasbound} below shows biases the parameters, so the ranking could be
 measuring absorption capacity rather than physical closeness, and nothing separates those.
 
-It separates directly. Generate from a truth the catalogue does not contain, the two
-\cref{sec:survives} uses, thermal transport and a second relaxation mode, rank the catalogue
+It separates directly. Generate from a truth the catalogue does not contain (the two
+\cref{sec:survives} uses, thermal transport and a second relaxation mode) rank the catalogue
 by evidence, and separately measure which candidate is genuinely closest, defined as the residual
 its OWN best fit leaves against the noiseless truth.
 
@@ -1720,7 +1722,7 @@ size of error these datasets show.
 \subsection*{Half of it is invisible, and that is a theorem}
 
 Write the truth as $y = m(\theta) + \delta + \varepsilon$. Whitening by the standard error of
-the mean, the $\sqrt{J}$ of \cref{eq:lackoffit}, not the trial spread, and letting $J$
+the mean (the $\sqrt{J}$ of \cref{eq:lackoffit}, not the trial spread) and letting $J$
 hold the parameter sensitivities, the residual splits along the model's own span,
 %
 \begin{equation}
@@ -1732,8 +1734,8 @@ d \;=\; \underbrace{P d}_{\text{absorbable}} \;+\; \underbrace{(I-P)\,d}_{\hat\d
 At a converged interior fit the normal equations give $J^{\mathsf T}d = 0$ exactly, so $Pd = 0$
 and $\hat\delta = d$: the whole residual is identifiable discrepancy, and the component of
 $\delta$ lying in the span of $J$ has left \emph{no trace whatsoever}. It was absorbed into
-$\hat\theta$ while fitting. Two worlds, a biased $\theta$ with no discrepancy, and the true
-$\theta$ with a discrepancy in the span, predict the same data exactly. This is the
+$\hat\theta$ while fitting. Two worlds (a biased $\theta$ with no discrepancy, and the true
+$\theta$ with a discrepancy in the span) predict the same data exactly. This is the
 unidentifiability of \citet{kennedy2001bayesian}, and it is why the bias cannot be estimated
 from these data at any budget.
 
@@ -1788,6 +1790,10 @@ $(\mu, g\alpha, \lambda_1)$ & $3\times10^{1}$ & $0.0\%$ & yes & \eqref{eq:biasbo
 
 \subsection*{The budget}
 
+Evaluating \eqref{eq:biasbound} at each dataset's own $\hat\delta$ and its own
+$(J^{\mathsf T}J)^{-1}$, in the identified coordinates the previous subsection established are
+the only ones it holds in:
+
 \begin{center}
 \begin{tabular}{lcccc}
 \toprule
@@ -1816,8 +1822,8 @@ $\hat\delta$ correlate at $0.49$ to $0.84$, where unrelated curves of this lengt
 near $0.08$, and between $65$ and $69$ percent of each sits in the first collapse. One curve,
 measured rather than guessed, is a thing a candidate physics can be screened against.
 
-The screen is a projection, not a fit. Any enrichment supplies a direction $v$, the trace it
-would add, differenced against the current model, and only the part of it orthogonal to the
+The screen is a projection, not a fit. Any enrichment supplies a direction $v$ (the trace it
+would add, differenced against the current model) and only the part of it orthogonal to the
 existing sensitivities can remove any of $\hat\delta$. The rest is absorbed by refitting the
 parameters already present, which improves $\chi^2$ and explains nothing. So the question is a
 cosine,
@@ -1913,8 +1919,8 @@ radius and $6.5\%$ for the best genuine-physics entry on the original list.
 
 \paragraph{Fitted rather than screened, that $37.6\%$ does not survive.} A screen bounds what a
 candidate could remove with its amplitude free, and the way to collect on it is to fit. Doing so
-with the stretch \emph{also} free, pinning a quantity known only to five--seventeen percent
-would let one error masquerade as the other, the velocity does land somewhere definite and
+with the stretch \emph{also} free (pinning a quantity known only to five--seventeen percent
+would let one error masquerade as the other) the velocity does land somewhere definite and
 does not buy what the screen promised:
 
 \begin{center}
@@ -1994,6 +2000,12 @@ settings offered.
 \section{Experimental design}
 \label{sec:design}
 
+Everything to this point measures what these datasets cannot settle. This chapter asks what
+experiment would, and the order is deliberate: first the one assumption the whole chapter rests
+on, then the two ways of scoring a single design and why both are unreliable, then the
+reformulation over measures that makes the problem convex and the answer certifiable. The
+sections after it are extensions that keep that certificate.
+
 \subsection*{One assumption carries this whole chapter}
 \label{sec:transfer}
 
@@ -2018,8 +2030,8 @@ candidates, so a fixed clock time lands at a different point of every collapse.
 What that evidence cannot do is test the extrapolation actually being made. The three datasets
 differ in \emph{temperature}, not in size. Agreement among them says the transfer is not
 sensitive to the material changing; it says nothing about a bubble four times larger, because no
-such bubble has been recorded. Everything downstream, the certified measures, the batch
-tables, the run budgets, is conditional on this, and the first experiment run at a genuinely
+such bubble has been recorded. Everything downstream (the certified measures, the batch
+tables, the run budgets) is conditional on this, and the first experiment run at a genuinely
 different $R_{\max}$ tests it directly and cheaply.
 
 \subsection*{Designing without assuming the model}
@@ -2171,8 +2183,8 @@ $\log\det$ is concave on the positive-definite cone, and the composition of a co
 function with a linear map is concave, so $\Phi(\xi) = \log\det M(\xi)$ is concave on the
 simplex, a convex set. A concave function on a convex set has no local maximum that is
 not global, and its first-order condition is not merely necessary but sufficient. Every
-pathology this study ran into, wrong basins, surrogate blind spots, answers that improve
-whenever the optimizer does, is a symptom of non-convexity, and none of them can occur
+pathology this study ran into (wrong basins, surrogate blind spots, answers that improve
+whenever the optimizer does) is a symptom of non-convexity, and none of them can occur
 here.
 
 The same holds for $\Phi_A = -\operatorname{tr}M(\xi)^{-1}$ and $\Phi_E =
@@ -2333,8 +2345,8 @@ sensitivities to $(c_a, b_a)$, the second scaled by $(1/T - 1/T_{\rm ref})$.
 
 Under that model the comparison is not close, and not subtle. \emph{With temperature held, the
 six-parameter information is singular and the design is refused.} That is near-tautological once
-stated, a slope cannot be measured at one point, so the $b_a$ columns are exact multiples of
-the $c_a$ columns and the rank is three, not six, and it is exactly the abstract claim of
+stated (a slope cannot be measured at one point, so the $b_a$ columns are exact multiples of
+the $c_a$ columns and the rank is three, not six) and it is exactly the abstract claim of
 \cref{sec:criteria} made concrete: no optimization over geometry, at any budget, identifies the
 temperature dependence. Only varying temperature does. Freeing it certifies at a gap of
 $8\times10^{-10}$ on six settings spanning \SIrange{12}{36}{\celsius}, with $\log\det = 5.15$ and
@@ -2662,8 +2674,8 @@ so \emph{which} question a batch should serve cannot be asked. They are one quan
 \subsection*{The value of an experiment}
 
 What an experiment is worth is how much it moves your beliefs, and about \emph{what} is an
-argument rather than a fixed choice. Write $A$ for the quantity of interest, parameters,
-a model label, the initial radius, the noise scale, any subset, and the value of a design
+argument rather than a fixed choice. Write $A$ for the quantity of interest (parameters,
+a model label, the initial radius, the noise scale, any subset) and the value of a design
 is the mutual information between the data and $A$,
 %
 \begin{equation}
@@ -2672,8 +2684,8 @@ U_A(\xi) \;=\; \mathbb{E}_y\!\left[\operatorname{KL}\!\big(p(A \mid y,\xi)\,\|\,
 \label{eq:gain}
 \end{equation}
 %
-For a Gaussian likelihood in prior-standardized coordinates, the unit-cube scaling
-\cref{sec:prior} already uses, in which the prior covariance is the identity, the posterior
+For a Gaussian likelihood in prior-standardized coordinates (the unit-cube scaling
+\cref{sec:prior} already uses, in which the prior covariance is the identity) the posterior
 precision is $N = I + M(\xi)$ and \eqref{eq:gain} is available in closed form. Partitioning
 into the coordinates $A$ and the nuisance coordinates $B$,
 %
@@ -2763,8 +2775,8 @@ N \;\ge\; \frac{\big(z_{1-\alpha} + \sqrt{z_{1-\alpha}^2 + 2\delta}\big)^2}{s} .
 \label{eq:runs}
 \end{equation}
 %
-At $\delta = 5$ nats and $95\%$ confidence the numerator is $27.14$. An $s$ of zero, the
-difference wholly absorbed, the infinite variance of \cref{sec:axes}, sends \eqref{eq:runs}
+At $\delta = 5$ nats and $95\%$ confidence the numerator is $27.14$. An $s$ of zero (the
+difference wholly absorbed, the infinite variance of \cref{sec:axes}) sends \eqref{eq:runs}
 to infinity, which is the statement that no experiment of this shape ever settles the question.
 
 The same unit serves the parameter question. After $N$ runs the posterior standard deviation of
@@ -2797,8 +2809,8 @@ $\mathrm{df} = -2$ still.
 
 The support half is a cardinality constraint and is not convex, so it cannot join the objective
 without forfeiting \eqref{eq:gaincert}. \texttt{pyimr.measure.constrained\_measure} buys most of
-the certificate back in two steps. Which settings to guarantee, the set $\mathcal{K}$,
-of size $k$, is decided by the certificate itself: those the free solution already funds,
+the certificate back in two steps. Which settings to guarantee (the set $\mathcal{K}$,
+of size $k$) is decided by the certificate itself: those the free solution already funds,
 then the candidates of largest sensitivity, the ones \eqref{eq:equivalence} shows the free
 problem came closest to wanting. Naming them is
 not enough, since an optimizer merely restricted to a larger candidate set reproduces the free
@@ -2931,9 +2943,9 @@ those differences rather than a property of the likelihood.
 
 \paragraph{Applied rather than quoted, it changes neither the design nor, here, its sign.}
 The paragraph above is a statement about idealized shapes. Recomputing every geometry with
-$M = J^{\mathsf T}\Sigma^{-1}J$ at $\tau/t_c = 0.292$, the correlation length transferred by
+$M = J^{\mathsf T}\Sigma^{-1}J$ at $\tau/t_c = 0.292$ (the correlation length transferred by
 phase, for the reason \cref{sec:noisedesign} gives for $\sigma$ and under
-\cref{sec:transfer}'s caveat, settles what it does to the
+\cref{sec:transfer}'s caveat) settles what it does to the
 answer, and the answer is two negatives and one positive.
 
 The recommended geometry does not move, under any of the three measured noise profiles: the
@@ -3158,8 +3170,8 @@ batch to five settings, so \eqref{eq:lackoffit} keeps a numerator, costs $0.008$
 
 $\Sigma$ is the assumption, and it is both weaker and less load-bearing than the paragraph above
 assumed, though it inherits the standing caveat of \cref{sec:transfer} like everything else
-here. Weaker, because $\Sigma$ is a population covariance of \emph{material} parameters, a
-property of the gel and of how repeatably the laser nucleates, not of how large the bubble is, and the three datasets measuring it differ in \emph{temperature}, not geometry, sitting at $277$,
+here. Weaker, because $\Sigma$ is a population covariance of \emph{material} parameters (a
+property of the gel and of how repeatably the laser nucleates, not of how large the bubble is) and the three datasets measuring it differ in \emph{temperature}, not geometry, sitting at $277$,
 $298$ and \SI{312}{\micro\metre}. There is no evidence of geometry dependence because geometry
 was never varied. Less load-bearing, because swept over $\times\tfrac12$ to $\times2$ the
 recommended $N$ moves once, from $12$ to $8$.
@@ -3181,15 +3193,15 @@ between the smallest and largest $\sigma_i$, around medians of $0.018$ to $0.023
 
 At the same Jacobian, the constant overstates $\log\det F$ by $1.3$ to $2.2$ nats and understates
 each parameter's standard deviation by up to a factor of two. What matters more is that it
-changes the answer. Transferring each dataset's measured profile to a candidate geometry by phase, reading $\sigma$ as a function of $t/t_c$, which \cref{sec:latent} justifies by showing the
-profile is dynamical rather than instrumental, the single best geometry moves from
+changes the answer. Transferring each dataset's measured profile to a candidate geometry by phase (reading $\sigma$ as a function of $t/t_c$, which \cref{sec:latent} justifies by showing the
+profile is dynamical rather than instrumental) the single best geometry moves from
 \SI{514}{\micro\metre} at stretch $6.9$ to \SI{416}{\micro\metre} at $10.9$, and the constant's
 choice gives up as much as $1.34$ nats of $8.89$, fifteen percent.
 
 The transfer is the assumption here, so it was tested rather than asserted. Under a raw
 per-sample profile the datasets split, \SI{15}{\celsius} keeping the constant's geometry. Median-
-filtering the spread before transferring, a standard deviation from seven to eighteen trials
-carries $17$ to $29\%$ relative error and should not be interpolated raw, makes all three
+filtering the spread before transferring (a standard deviation from seven to eighteen trials
+carries $17$ to $29\%$ relative error and should not be interpolated raw) makes all three
 datasets agree on \SI{416}{\micro\metre} at $10.9$, and none agrees with the constant. The
 disagreement that survives is with the flat scale, not among the datasets, which is the opposite
 of what a transfer artifact looks like. Transferring by absolute time instead picks a different
@@ -3698,8 +3710,8 @@ absorbs under \SI{5}{\percent} of the operator difference. What it means is narr
 worse: a quantity we set to zero is the size of the effect being reported. The remedy is to
 fit $R_{\mathrm{eq}}$ rather than assert it, which \cref{sec:reqprior} does.
 
-The perturbation is superlinear, the residual per unit fractional error runs $79$, $93$,
-$138$ across half, one and two percent, so \SI{1.68}{\percent} is solved for by re-solving
+The perturbation is superlinear (the residual per unit fractional error runs $79$, $93$,
+$138$ across half, one and two percent) so \SI{1.68}{\percent} is solved for by re-solving
 rather than scaled from any one of those rows. Read linearly off the \SI{1}{\percent} row it
 would come out a third larger.
 
@@ -4001,8 +4013,8 @@ substantial on Jeffreys' scale and an order of magnitude short of the five nats
 whose fit was the most stable of the three, is inflated $52$-fold and contributes least.
 
 The conclusion is therefore the same as the first attempt's and rests on nothing the first
-attempt could see. The thermal treatment is favored, consistently, on every dataset, by the
-one column that is stable under both a change of optimiser and a change of budget, and it is
+attempt could see. The thermal treatment is favored (consistently, on every dataset, by the
+one column that is stable under both a change of optimiser and a change of budget) and it is
 not established. What separates those two statements is not more restarts. It is $1.19$ nats
 against a threshold of five, which is a statement about how much data of this kind is worth,
 and it is the quantity \cref{sec:batch} designs against.
@@ -4085,6 +4097,11 @@ the transfer it rests on is supported rather than established.
 \subsection{Limitations of this work}
 \label{sec:limitations}
 
+Five, and they are of different kinds: one set of numbers reported so it is not mistaken for
+evidence, one region of parameter space the winning model cannot be integrated in, one estimate
+the quadrature cannot make, one material property that comes out implausible for gelatin, and
+one candidate that was never genuinely exercised.
+
 \paragraph{The \SI{33}{\celsius} correlated fits are not usable.}
 \label{sec:33anomaly}
 Recomputing the operator evidences with $\Sigma$ in the likelihood behaves on two datasets and
@@ -4151,8 +4168,8 @@ shown lost no points.}
 \end{figure}
 
 \paragraph{Consequences for the numbers reported here.}
-Three methods that resolve the posterior, sampling, a refined grid, and continuous
-optimization, agree that $g$ lies near $10^2$\,Pa. The coarse grid used for the ranking
+Three methods that resolve the posterior (sampling, a refined grid, and continuous
+optimization) agree that $g$ lies near $10^2$\,Pa. The coarse grid used for the ranking
 reports $2154$\,Pa. The ranking does not depend on this; any material property quoted from the
 grid does.
 
@@ -4332,7 +4349,7 @@ H = -\nabla^2 \log p(Y\mid\theta)\big|_{\hat\theta}.
 \label{eq:laplace-evidence}
 \end{equation}
 %
-For Gaussian data $H = J^{\mathsf T}J + \sum_i r_i \nabla^2 r_i$. Dropping the second term, the Gauss--Newton approximation, valid when residuals are small or the model nearly linear, leaves $H \simeq J^{\mathsf T}J$, which the fit already computed. Parameterizing so the prior is
+For Gaussian data $H = J^{\mathsf T}J + \sum_i r_i \nabla^2 r_i$. Dropping the second term (the Gauss--Newton approximation, valid when residuals are small or the model nearly linear) leaves $H \simeq J^{\mathsf T}J$, which the fit already computed. Parameterizing so the prior is
 uniform on the unit cube makes $\pi(\hat\theta) = 1$, and with whitened residuals
 $r = (m - y)/\sigma$,
 %
@@ -4380,8 +4397,8 @@ $895\,\mu$m, stretch $4.93$ & $1.52$ & $232$ & $150 \pm 73$ \\
 \end{tabular}
 \end{center}
 
-Two computations sharing no machinery, one a constrained least-squares minimum, the other
-a marginal likelihood by Laplace, agreeing to within their stated uncertainty. The residual
+Two computations sharing no machinery (one a constrained least-squares minimum, the other
+a marginal likelihood by Laplace) agreeing to within their stated uncertainty. The residual
 gap at $895\,\mu$m is of the right sign and size for the Occam penalty that qSLS pays for its
 fourth parameter.
 
@@ -4454,7 +4471,7 @@ resolves the second, and in doing so dissolves the first.
 \caption{The certificate, which is what makes an optimal design a proof rather than a stopping
 rule. Kiefer and Wolfowitz: a measure $\xi^\star$ is $D$-optimal \emph{if and only if} its
 sensitivity $d(x,\xi^\star)$ never exceeds the parameter count $p$ anywhere in the design
-space, and attains $p$ exactly on the points carrying weight. Both halves are visible at once, a curve capped by a level it touches and never crosses, so a search reports not merely
+space, and attains $p$ exactly on the points carrying weight. Both halves are visible at once (a curve capped by a level it touches and never crosses) so a search reports not merely
 that it stopped improving but that there is nowhere left for a better design to hide. The gap
 $\max_x d(x,\xi^\star)-p$ is the proof's residue; $10^{-9}$ in the designs here.}
 \label{fig:certificate-schematic}
@@ -4524,6 +4541,11 @@ other allocation does better.}
 
 \section{Supporting checks}
 \label{sec:supporting}
+
+Three checks the design chapter depends on and does not have room for: that rounding a measure
+to whole runs costs what it is reported to cost, that a design optimised under one model can be
+worse than the one already performed when that model is wrong, and that staging a budget across
+two rounds buys nothing here.
 
 \subsection*{A measure assigns weights; an experiment runs integers}
 
@@ -4864,8 +4886,8 @@ that does nothing, which is the opposite of what the Occam factor exists to do.
 The pathology is entirely an artifact of the Gaussian approximation. The fitted Gaussian has
 width $\sqrt{2\pi/\lambda_i} \gg 1$ in that direction and so extends far outside the cube the
 prior actually occupies, while the true integral, taken over the cube, simply returns the
-prior mass. Imposing what the geometry already requires, a posterior cannot be wider than
-the prior it came from, gives
+prior mass. Imposing what the geometry already requires (a posterior cannot be wider than
+the prior it came from) gives
 %
 \begin{equation}
 \log\frac{V_{\rm post}}{V_{\rm prior}} \;=\; \sum_{i=1}^{p}\min\!\left(0,\;

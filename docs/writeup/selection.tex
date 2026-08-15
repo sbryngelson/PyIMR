@@ -230,7 +230,7 @@ not propagate. Conclusions resting on that dataset alone should be read accordin
 understates uncertainty. \Cref{sec:beta} handles it by giving the noise scale a prior and
 integrating it out. \emph{Independence} is the one that fails: the
 diagonal covariance in~\eqref{eq:likelihood} says each residual carries fresh information,
-and \cref{sec:limitations} measures a lag-one autocorrelation of $0.90$.
+and \cref{sec:limitations} measures a lag-one autocorrelation of $0.918$.
 
 The deviations are not constant across the dataset. Optical tracking degrades where the wall
 moves fastest, so the variance is inflated by a logistic weight in the strain rate,
@@ -745,7 +745,7 @@ white region at upper right is where the model is not physical.}
 magnitude while agreeing about the fit. They are different points on the floor of one
 flat-bottomed trench.
 
-\paragraph{The stiffening is nonetheless identified, once the prior allows it.}
+\paragraph{Widening $\alpha$'s own ceiling does not move it, and that is less than it looks.}
 Sampling with the ceiling on $\alpha$ placed at $1$, $10$ and $100$:
 
 \begin{center}
@@ -761,13 +761,25 @@ $100$ & $2172.4$ & $5.27$ & $8.73$ \\
 \end{center}
 
 Widening the prior tenfold moves the median only from $6.37$ to $5.27$, and the evidence by
-$1.5$ out of $2173$. So $\alpha$ is identified near $5$, with $97.5\%$ of posterior mass below
-about $9$. A prior-dominated parameter would have tracked its bound. The ceiling of
-$1$ shows what genuine truncation looks like: the median pins against it and $11$ log units
-of evidence are lost.
+$1.5$ out of $2173$. The ceiling of $1$ shows what genuine truncation against \emph{that} bound
+looks like: the median pins against it and $11$ log units of evidence are lost.
 
-This corrects a natural reading of the profile likelihood alone, which appears flat to the
-boundary only because the boundary sits where the posterior's upper tail does.
+It is tempting to read the two loose rows as identification, and this document did read them
+that way. They do not support it, because the wall that binds is not the one being moved. The
+likelihood depends on $g\alpha$, the box floors $g$ at \SI{100}{\pascal}, and the identified
+product is \SI{1106}{\pascal} at \SI{15}{\celsius}, so the floor alone caps $\alpha$ near
+$11$ whatever its own ceiling is set to. The two loose rows report $97.5\%$ points of $9.04$
+and $8.73$, just under that cap, and they agree with each other because they are limited by the
+same thing.
+
+Two later sections move the wall that does bind and see exactly what that predicts.
+\Cref{sec:operator} widens the box to $g\in(10^0,10^6)$ and five of six fits go to
+$\alpha=10^3$ with $g$ collapsed to \SIrange{1.1}{3.5}{\pascal}; \cref{sec:discrepancy}
+releases the same floor and reports $g\alpha$ preserved to \SI{1.6}{\percent} across a
+hundredfold change in $g$. Drop $g$ two decades and $\alpha$ rises two decades. The test that
+would settle whether the data determine $\alpha$ is a sweep of the $g$ floor, and it has not
+been run, so the conclusion of the paragraph above stands unqualified: what these data identify
+is the product.
 
 \begin{figure}[htbp]
 \centering
@@ -775,8 +787,9 @@ boundary only because the boundary sits where the posterior's upper tail does.
 \caption{Left: the Fisher spectrum at the optimum, six decades between the stiffest and
 sloppiest directions, with the sloppiest being modulus against stiffening. Right: the
 posterior for $\alpha$ against the ceiling imposed on its prior. It tracks the ceiling while
-truncated and departs from it once the ceiling is loose, which is what distinguishes an
-identified parameter from a prior-driven one.}
+truncated and departs from it once the ceiling is loose. The panel is titled for the reading
+this document first took from it, and the text beside it gives the reason that reading does not
+hold: the bound that limits $\alpha$ here is the floor under $g$, which this sweep never moves.}
 \label{fig:identifiability}
 \end{figure}
 
@@ -978,7 +991,8 @@ absorption.
 Those three axes are the MATERIAL ones, though, and the equilibrium radius was held at
 $R_{\max}/\text{stretch}$, one value for every trial in a dataset, so that refit could not
 have absorbed variation in the initial condition however large it was. That is not a pedantic
-gap. The mode is $97$ to $98\%$ post-collapse, and the afterbounce period is set by the gas the
+gap. The mode is $98$ and $97\%$ post-collapse at \SI{23}{} and \SI{33}{\celsius} and $63\%$ at
+\SI{15}{\celsius}, and the afterbounce period is set by the gas the
 bubble is left with, so $R_{\rm eq}$ is both the quantity nucleation is least repeatable in and
 the one whose variation appears after the first collapse rather than during it.
 
@@ -1009,7 +1023,7 @@ bubbles, a calibration question, and a different one from this section's.
 
 \paragraph{Nor is it how the bubble starts moving, which was the last axis available.}
 Every test above varies what the bubble \emph{is}. None varies how it \emph{starts}, and that
-gap mattered: the mode is $97$ to $98\%$ post-collapse, what a bubble carries into its rebound is
+gap mattered: the mode sits largely after the collapse, what a bubble carries into its rebound is
 set by the energy it goes in with, and every fit here begins at $R_{\max}$ with zero wall
 velocity, asserting that the imaged maximum is a turning point of a free collapse.
 
@@ -2457,8 +2471,8 @@ that \eqref{eq:equivalence} already optimises over, so a measure can emulate any
 cannot do worse. Only the \emph{magnitude} is informative, and the magnitude is what settles
 the investment.
 
-$0.191$ nats is small, the second-smallest entry in the price list of \cref{sec:survives},
-below even restoring testability, and a twenty-fifth of the bubbles-against-frames split. Perfect
+$0.191$ nats is small, second from last in the price list of \cref{sec:survives}, inside the
+range restoring testability spans, and a twentieth of the bubbles-against-frames split. Perfect
 control of the stretch is worth less still, $+0.100$, and is last.
 
 \emph{Account for the scatter; do not pay to remove it.} Designing as though the setpoint were

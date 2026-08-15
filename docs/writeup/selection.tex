@@ -792,7 +792,8 @@ used later as much as it is reported here: how much a residual near the measurem
 actually entitles one to claim, what the between-trial spread is made of --- which is the
 covariance $\Sigma$ that \cref{sec:allocation} designs against --- and whether a richer
 relaxation spectrum is the missing physics, which it is not. The ranking that produced these fits
-is \cref{part:case}.
+is \cref{part:case}; the winner throughout is \texttt{qSLS}, a quadratic Zener solid carrying
+both strain stiffening and stress relaxation.
 
 \subsection{How good are the fits, really?}
 \label{sec:fitquality}
@@ -1663,8 +1664,8 @@ the \SI{277}{\micro\metre} and stretch $7.09$ performed.
 \section{What the model error costs}
 \label{sec:discrepancy}
 
-Every comparison to this point --- constitutive, operator, initial radius, thermal --- has been
-made between models that \cref{eq:lackoffit} rejects. That does not make the comparisons
+Every comparison in this paper --- constitutive, operator, initial radius, thermal --- is made
+between models that \cref{eq:lackoffit} rejects. That does not make the comparisons
 worthless, since a ranking among wrong models is still a ranking, but it leaves a question no
 $\chi^2$ answers: how much of a reported parameter is physics, and how much is the model being
 the wrong shape? The question has an answer, and it is not the one an error bar gives.
@@ -3381,9 +3382,11 @@ shows that deflating them by $N/N_{\rm eff}$ changes which rivals are live at al
 \label{sec:screening}
 
 Step 0 of \cref{sec:batch} asks which rivals the datasets have already decided. Run on this
-package's three axes, the answer is stark and then immediately contingent.
+package's three axes, the answer is stark and then immediately contingent. The margins it runs
+on are the ones \cref{part:case} reports, and this section is where they are used rather than
+where they are derived.
 
-At face value almost nothing is still in question. Of seventeen constitutive candidates, one
+At face value almost nothing is still in question. Of the constitutive candidates, one
 is live on every dataset; the rest trail by up to $4573$ nats. Of the six operators scored, two
 survive on every dataset. Each dataset admits a single thermal treatment.
 
@@ -4004,7 +4007,7 @@ and it is the quantity \cref{sec:batch} designs against.
 
 \section{Temperature dependence}
 
-The most informative result is not any single number but a trend
+The most informative thing in the comparison is not any single number but a trend
 (\Cref{fig:trend}). The advantage that the stiffening term buys over pure relaxation
 shrinks monotonically as the gel warms: the gap between \texttt{SLS} and \texttt{qSLS}
 falls from $2.94$ versus $1.35$ at \SI{15}{\celsius} to $1.41$ versus $1.23$ at

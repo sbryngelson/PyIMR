@@ -32,12 +32,12 @@ $g\alpha$ alone, so a reported shear modulus is a statement about where the prio
 ridge --- moving the box swings the model ranking by fifty nats. A residual near the measurement
 scatter is not adequacy: lag-one autocorrelation is $0.918$, the $201$ samples carry the
 information of about ten, and a replicated lack-of-fit test rejects every candidate on every
-dataset. And the parameters carry a model-form error budget that no amount of data of this kind
-can remove, one to two orders of magnitude wider than the posterior: the identified modulus could
-be wrong by \SIrange{30}{57}{\percent} and the relaxation time by a factor of three to four.
+dataset. And the parameters carry a model-form error budget no data of this kind can
+remove, one to two orders of magnitude wider than the posterior. The identified modulus could be
+wrong by \SIrange{30}{57}{\percent}, the relaxation time by a factor of three to four.
 
-The contribution is the repair. Scoring a single design by parameter precision or by model
-discrimination gives criteria that disagree and that are both delicate --- a criterion defined by
+So we ask what experiment would fix it. Scoring a single design by parameter precision or by
+model discrimination gives criteria that disagree, and both are delicate --- a criterion defined by
 an inner minimum is multimodal here, and every improvement to the optimizer lowers it. Posing the
 problem over design \emph{measures} instead makes it convex, and the Kiefer--Wolfowitz
 equivalence theorem then \emph{certifies} the answer rather than reporting that a search stopped.
@@ -64,9 +64,9 @@ quadratic Zener solid --- strain-stiffening elasticity \emph{and} stress relaxat
 best-fitting candidate at every temperature and under every perturbation we applied, including a
 pre-registered sweep of the noise weights and four constructions of the fit target. Neither
 ingredient suffices alone. But the margins that make it look decisive do not survive the
-effective sample size the same datasets imply, and the bubble-dynamics operator held fixed
-throughout this literature is beaten on every dataset while being ordered by none of them once the
-residual correlation is taken seriously.
+effective sample size the same datasets imply. And the operator held fixed throughout this
+literature is beaten on every dataset while being ordered by none of them, once the residual
+correlation is taken seriously.
 \end{abstract}
 
 \noindent\textbf{Keywords:} inertial microcavitation rheometry; model selection; Bayesian evidence; identifiability; optimal experimental design
@@ -84,10 +84,9 @@ bubble-dynamics equation is assumed, thermal transport is included or neglected,
 resulting parameters are reported as material properties. Each choice conditions the answer,
 and the conditioning is seldom quantified.
 
-This paper asks what a dataset of this kind can support, finds that it is considerably less than
-the reported parameters suggest, and then spends most of its length on the question that follows:
-what experiment would make those parameters measurements. The diagnosis is the motivation; the
-design is the contribution.
+What a dataset of this kind supports is considerably less than the reported parameters suggest.
+Most of what follows is therefore about the question that comes after: what experiment would make
+those parameters measurements.
 
 \paragraph{What the datasets do not support.} Three limits, each measured rather than asserted.
 The likelihood depends on the product $g\alpha$ alone, so a reported shear modulus is set by
@@ -103,9 +102,9 @@ magnitude wider than the posterior, and computable as a bound rather than left a
 \paragraph{What would fix it.} Treat the choice of model as one more unknown to be fitted, and a
 single calculation says both how well an experiment separates the models and how well it pins the
 material. Pose that calculation over design \emph{measures} rather than single settings and it
-becomes convex, so the Kiefer--Wolfowitz equivalence theorem~\citep{kiefer1960equivalence}
-certifies the answer --- a proof that no better design exists, which is unusual in this
-literature and is what the rest of the machinery is built to preserve. Four extensions keep it:
+becomes convex. The Kiefer--Wolfowitz equivalence theorem~\citep{kiefer1960equivalence} then
+certifies the answer: a proof that no better design exists, which is unusual in this literature.
+The rest of the machinery is built to preserve it. Four extensions keep it:
 the setpoint is not the geometry, candidates do not cost the same, the parameters carry the bias
 bound above, and the measured discrepancy can be made a coordinate the design sees
 (\crefrange{sec:design}{sec:survives}).
@@ -122,10 +121,9 @@ the two easiest.
 needs --- the identified coordinates, the noise profile, the between-trial covariance and the
 discrepancy vector --- and is reported for that purpose. A quadratic Zener solid wins at every
 temperature and under every perturbation applied to it. The bubble-dynamics operator held fixed
-at Keller--Miksis throughout this literature is beaten on every dataset, though \cref{sec:operator}
-finds the six operators are not ordered by these data once the residual correlation is taken
-seriously, and \cref{sec:screening} finds that which questions are open at all is undetermined by
-the same argument. That is the case for the design rather than an aside from it.
+at Keller--Miksis throughout this literature is beaten on every dataset. It is also not ordered
+against the other five once the residual correlation is taken seriously (\cref{sec:operator}),
+and by the same argument which questions are open at all is undetermined (\cref{sec:screening}).
 
 
 \begin{figure}[t]
@@ -156,10 +154,10 @@ parameters always fits at least as well as the simpler model inside it.}
 
 \part{What these data support}
 
-\noindent The design of \cref{part:design} needs four things this part measures: the
-coordinates the data can answer in, the noise profile, the covariance between trials, and the
-discrepancy vector. Each is a negative result about the datasets in its own right, and each is
-an input there. The comparison those measurements came out of is \cref{part:case}.
+\noindent The design of \cref{part:design} needs four things measured here: the coordinates the
+data can answer in, the noise profile, the covariance between trials, and the discrepancy
+vector. Each is a negative result in its own right, and each is an input there. The comparison
+they came out of is \cref{part:case}.
 
 \section{The data and the noise model}
 \label{sec:records}
@@ -787,11 +785,11 @@ identified parameter from a prior-driven one.}
 \section{What the fits actually support}
 
 A candidate that wins is not the same as a candidate that is adequate, and the difference is
-where the inputs to \cref{part:design} come from. This section measures three things and each is
-used later as much as it is reported here: how much a residual near the measurement scatter
-actually entitles one to claim, what the between-trial spread is made of --- which is the
-covariance $\Sigma$ that \cref{sec:allocation} designs against --- and whether a richer
-relaxation spectrum is the missing physics, which it is not. The ranking that produced these fits
+where the inputs to \cref{part:design} come from. It measures three things, and each is used later as much as it is
+reported here. How much a residual near the measurement scatter entitles one to claim. What the
+between-trial spread is made of, which is the covariance $\Sigma$ that \cref{sec:allocation}
+designs against. And whether a richer relaxation spectrum is the missing physics, which it is
+not. The ranking that produced these fits
 is \cref{part:case}; the winner throughout is \texttt{qSLS}, a quadratic Zener solid carrying
 both strain stiffening and stress relaxation.
 
@@ -1978,9 +1976,9 @@ optimises a quantity whose parameters carry this budget --- which is the gap
 \part{Designing the experiment that would settle it}
 \label{part:design}
 
-\noindent This is the contribution. Everything above says what a dataset of this kind cannot
-settle; what follows is a criterion that says which experiment would, and a proof that no
-better one exists over the settings offered.
+\noindent Everything above says what a dataset of this kind cannot settle. What follows is a
+criterion that says which experiment would, and a proof that no better one exists among the
+settings offered.
 
 \section{Experimental design}
 \label{sec:design}
@@ -4026,10 +4024,10 @@ $\chi^2$.
 
 \section{Conclusions}
 
-The contribution of this paper is a way to choose the next experiment that comes with a proof,
-and the case for needing one is that the datasets in hand cannot settle what they are being asked.
+A way to choose the next experiment that comes with a proof is what this work adds. The case for
+needing one is that the datasets in hand cannot settle what they are being asked.
 
-\paragraph{What a dataset of this kind supports.} Three limits, each measured. The shear modulus
+\paragraph{What a dataset of this kind supports.} The shear modulus
 is not identified separately from the stiffening exponent, so a reported modulus is a statement
 about the prior box --- and \cref{sec:discrepancy} shows this is not a bound that can be widened
 away, since releasing one wall merely slides the fit onto another. A residual at the measurement
@@ -4038,8 +4036,8 @@ and a replicated lack-of-fit test rejects every candidate on every dataset. And 
 candidate is rejected, the fitted parameters carry a model-form budget one to two orders of
 magnitude wider than their posterior, which \eqref{eq:biasbound} computes rather than laments.
 
-\paragraph{What the design contributes.} Posing the problem over measures makes it convex, so the
-answer is certified rather than merely converged, and every extension here was built to keep that
+\paragraph{What the design adds.} Over measures the problem is convex, so its answer is certified
+and not merely converged. Every extension here was built to keep that
 certificate: averaging over the scatter a setpoint delivers, normalising candidates by what they
 cost, averaging over the bias bound rather than a point estimate, and making the measured
 discrepancy a coordinate. One criterion serves the material, the model label and the nuisance

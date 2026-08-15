@@ -54,7 +54,7 @@ GELATIN = 1015.0
 # a denser liquid, it is asking for one this equation of state cannot represent -- which is a
 # result, and is reported as unresolved rather than as a number.
 DENSITIES = (998.0, 1015.0, 1064.0, 1120.0, 1200.0, 1320.0, 1450.0)
-TARGETS = ("raw", "one_knot", "two_knot")
+TARGETS = ("raw", "one_knot", "two_knot", "sham")
 CONFIGURATIONS = [(), ("u0_shift",)]
 
 
@@ -92,7 +92,7 @@ def load_trials(dataset):
   return tau[keep], trials[:, keep]
 
 
-def warp(tau, trials, knots):
+def warp(tau, trials, knots, sham=False):
   """Resample each trial so its own knots land on the median ones.
 
   `knots=1` maps (peak, first minimum) linearly; `knots=2` adds the second minimum and is
@@ -106,6 +106,12 @@ def warp(tau, trials, knots):
     if len(m) < knots: return None
     found.append([tau[i] for i in m[:knots]])
   reference = np.median(np.array(found, dtype=float), axis=0)
+  # The sham hands each trace its NEIGHBOUR's knots. The knot geometry stays realistic and the
+  # interpolation is identical, so whatever the resampling does by itself it does here too --
+  # only the match to the event is broken. sec:latent uses exactly this device, and without it
+  # a lag-one that rises after warping cannot be told from linear interpolation low-pass
+  # filtering the target.
+  if sham: found = found[1:] + found[:1]
 
   out = []
   for trace, own in zip(trials, found, strict=True):
@@ -126,12 +132,12 @@ def build_targets(dataset):
   per_trial_depth = float(np.mean([t[local_minima(t)[0]] for t in trials]))
 
   built, report = {}, {}
-  for name, knots in (("raw", 0), ("one_knot", 1), ("two_knot", 2)):
+  for name, knots in (("raw", 0), ("one_knot", 1), ("two_knot", 2), ("sham", 1)):
     if knots == 0:
       warped = trials
       reference = None
     else:
-      got = warp(tau, trials, knots)
+      got = warp(tau, trials, knots, sham=(name == "sham"))
       if got is None:
         report[name] = {"failed": f"a trial has fewer than {knots} resolved minima"}
         continue

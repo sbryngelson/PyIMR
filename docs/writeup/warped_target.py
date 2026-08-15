@@ -44,9 +44,33 @@ FILES = {"gelatin_15C": "Ga_t15_exp_data.csv", "gelatin_23C": "Ga_t23_exp_data.c
 MAX_RATIO = 1.05
 CLOCK_DENSITY = 998.0
 GELATIN = 1015.0
-DENSITIES = (998.0, 1015.0, 1064.0, 1120.0, 1200.0, 1320.0)
+# Widened after the first run put three argmins on the 1320 end. An argmin at a bracket edge is
+# not an optimum -- it says the bracket was too narrow -- so the range is extended until every
+# cell either turns over inside it or is reported unresolved.
+#
+# It cannot be extended indefinitely, and the limit is physical rather than chosen: the NASG
+# liquid has a covolume `b`, so `b * rho < 1` is required for the equation of state to admit the
+# density at all, capping it at 1/b = 1513. A cell still wanting more than that is not asking for
+# a denser liquid, it is asking for one this equation of state cannot represent -- which is a
+# result, and is reported as unresolved rather than as a number.
+DENSITIES = (998.0, 1015.0, 1064.0, 1120.0, 1200.0, 1320.0, 1450.0)
 TARGETS = ("raw", "one_knot", "two_knot")
 CONFIGURATIONS = [(), ("u0_shift",)]
+
+
+def resolved(values):
+  """The argmin, or `None` when it sits at either end of the bracket.
+
+  An argmin on a boundary is not a located optimum: it reports that the search range stopped
+  before the function turned over. Returning a number there invites it to be read, differenced
+  and quoted as though it were a measurement, which is exactly what happened to the first run
+  of this sweep -- three cells landed on the top end and the direction of the effect was then
+  read off them. Callers get `None` and drop the cell.
+  """
+  if not values: return None
+  order = sorted(values)
+  best = min(values, key=values.get)
+  return None if best in (order[0], order[-1]) else best
 
 
 def local_minima(trace, floor=3):
@@ -134,7 +158,10 @@ def one(job):
   mean = np.asarray(cache["mean"], dtype=float)
   spread = np.asarray(cache["spread"], dtype=float)
   candidate = candidate_for(free)
-  solve = solver_with_start(times, maximum, stretch, CLOCK_DENSITY, density)
+  try:
+    solve = solver_with_start(times, maximum, stretch, CLOCK_DENSITY, density)
+  except ValueError as error:                                    # e.g. b * rho >= 1
+    return job, {"failed": f"inadmissible density: {error}"}
   box = _box(free)
   try:
     fit = fit_candidate(candidate, solve, mean, spread, bounds=box, starts=32,
@@ -175,11 +202,28 @@ def main():
   print(f"  targets usable on all three records: {available}\n")
 
   print("  ---- step 2: where does each target put the density optimum? ----\n")
+  # Reuse whatever a previous run already computed. Widening the bracket must not cost a full
+  # recomputation of the cells that were already inside it, and the fits are deterministic
+  # given (record, target, free, density), so a cached lack of fit is the same number.
+  held = {}
+  previous = records.HERE / "warped_target.json"
+  if previous.exists():
+    for dataset, labels in json.load(open(previous)).get("sweep", {}).items():
+      for label, targets in labels.items():
+        free = () if label == "nothing" else tuple(label.split("+"))
+        for target, payload in targets.items():
+          for rho, value in payload.get("by_density", {}).items():
+            held[(dataset, target, free, float(rho))] = {"lack_of_fit": float(value)}
+
   jobs = [(d, t, free, rho) for d in records.DATASETS for t in available
-          for free in CONFIGURATIONS for rho in DENSITIES]
-  print(f"  {len(jobs)} fits, clock pinned at {CLOCK_DENSITY:.0f} ...", flush=True)
-  with records.pool(len(jobs)) as pool:
-    got = dict(pool.map(one, jobs))
+          for free in CONFIGURATIONS for rho in DENSITIES
+          if (d, t, free, rho) not in held]
+  print(f"  {len(held)} cells reused, {len(jobs)} to compute, "
+        f"clock pinned at {CLOCK_DENSITY:.0f} ...", flush=True)
+  got = dict(held)
+  if jobs:
+    with records.pool(len(jobs)) as pool:
+      got |= dict(pool.map(one, jobs))
 
   summary = {"depth": reports, "densities": list(DENSITIES), "clock": CLOCK_DENSITY,
              "sweep": {}}
@@ -195,29 +239,45 @@ def main():
           v = got[(dataset, target, free, rho)]
           cells.append(f"{'failed':>8s}" if "failed" in v else f"{v['lack_of_fit']:8.2f}")
           if "failed" not in v: values[rho] = v["lack_of_fit"]
-        best = min(values, key=values.get) if values else float("nan")
+        best = resolved(values)
         summary["sweep"].setdefault(dataset, {}).setdefault(label, {})[target] = {
           "by_density": {str(int(k)): float(v) for k, v in values.items()},
-          "best_density": float(best)}
-        print(f"  {target:>10s}  " + " ".join(cells) + f"  {best:7.0f}")
+          "best_density": None if best is None else float(best)}
+        shown = "UNRESOLVED" if best is None else f"{best:7.0f}"
+        print(f"  {target:>10s}  " + " ".join(cells) + f"  {shown:>10s}")
       print()
 
   print("  ---- what it says ----\n")
+  print("  A cell whose argmin sits at either end of the bracket is reported UNRESOLVED, not as")
+  print("  a best: it says the bracket was too narrow and nothing more. Such a cell is excluded")
+  print("  from every comparison below rather than carried with a caveat.\n")
   for dataset in records.DATASETS:
     row = summary["sweep"][dataset]["nothing"]
-    line = "  ".join(f"{t}: {row[t]['best_density']:.0f}" for t in available if t in row)
+    line = "  ".join(
+      f"{t}: " + ("unresolved" if row[t]["best_density"] is None else f"{row[t]['best_density']:.0f}")
+      for t in available if t in row)
     print(f"  {dataset:>14s}  {line}")
-  moved = []
+
+  toward, comparable, unresolved = [], [], 0
   for dataset in records.DATASETS:
     row = summary["sweep"][dataset]["nothing"]
-    if "raw" in row and available[-1] in row:
-      moved.append(abs(row[available[-1]]["best_density"] - GELATIN)
-                   < abs(row["raw"]["best_density"] - GELATIN))
-  summary["optimum_moves_toward_gelatin"] = bool(all(moved)) if moved else None
-  print(f"\n  aligning the target moves the preferred density toward gelatin on "
-        f"{sum(moved)} of {len(moved)} records")
-  print("  If it moves to ~1015, the two defects are one and both close together. If it stays")
-  print("  at 1120-1200, the depth bias and the collapse-time deficit are separate problems.")
+    for target in available[1:]:
+      raw, warped = row.get("raw", {}), row.get(target, {})
+      if raw.get("best_density") is None or warped.get("best_density") is None:
+        unresolved += 1
+        continue
+      comparable.append((dataset, target))
+      toward.append(abs(warped["best_density"] - GELATIN) < abs(raw["best_density"] - GELATIN))
+  summary["comparable_cells"] = [f"{d}/{t}" for d, t in comparable]
+  summary["unresolved_cells"] = unresolved
+  summary["optimum_moves_toward_gelatin"] = bool(all(toward)) if toward else None
+  print(f"\n  {len(comparable)} comparable cells, {unresolved} dropped as unresolved")
+  print(f"  the optimum moves toward gelatin in {sum(toward)} of {len(comparable)}")
+  if comparable:
+    print("  comparable cells: " + ", ".join(f"{d.replace('gelatin_', '')}/{t}"
+                                             for d, t in comparable))
+  print("\n  If the optimum reaches ~1015, the two defects are one and both close together.")
+  print("  If it stays well above, the depth bias and the collapse-time deficit are separate.")
   json.dump(summary, open(records.HERE / "warped_target.json", "w"), indent=1)
 
 

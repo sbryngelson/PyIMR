@@ -4049,6 +4049,7 @@ against a threshold of five, which is a statement about how much data of this ki
 and it is the quantity \cref{sec:batch} designs against.
 
 \section{Temperature dependence}
+\label{sec:trend}
 
 The most informative thing in the comparison is not any single number but a trend
 (\Cref{fig:trend}). The advantage that the stiffening term buys over pure relaxation
@@ -4057,7 +4058,9 @@ falls from $2.94$ versus $1.35$ at \SI{15}{\celsius} to $1.41$ versus $1.23$ at
 \SI{33}{\celsius}. A warmer, softer gel needs less strain-stiffening to explain its
 dataset. Because this is a trend across three independent datasets rather than a single
 fitted value, it is harder to attribute to a fitting artifact than any individual
-$\chi^2$.
+$\chi^2$. It is not, however, free of one: \cref{sec:limitations} finds that switching on the
+vapour pressure this package leaves off halves the Arrhenius slope of $g\alpha$, so about half
+of what follows is a graded pressure error rather than the gel.
 
 \begin{figure}[htbp]
 \centering
@@ -4126,10 +4129,10 @@ the transfer it rests on is supported rather than established.
 \subsection{Limitations of this work}
 \label{sec:limitations}
 
-Seven, and they are of different kinds: one set of numbers reported so it is not mistaken for
+Eight, and they are of different kinds: one set of numbers reported so it is not mistaken for
 evidence, one region of parameter space the winning model cannot be integrated in, one estimate
 the quadrature cannot make, one material property that comes out implausible for gelatin, one
-candidate that was never genuinely exercised, and two defects in how the fits are set up that
+candidate that was never genuinely exercised, and three defects in how the fits are set up that
 were measured after the rest of this document was written and are not corrected in it.
 
 \paragraph{The \SI{33}{\celsius} correlated fits are not usable.}
@@ -4247,6 +4250,29 @@ against $0.962$ at \SI{15}{\celsius}). Mismatched knots add jitter, jitter widen
 a wider trough is easier to fit. Fit quality is therefore anti-diagnostic here, and the argument
 for repairing the target is that a mean of jittered traces is not a trajectory, not that the
 repaired fit looks better.
+
+\paragraph{Vapour is off, and half the temperature trend goes with it.}
+\texttt{SimulationConfig.vapor} defaults off and nothing in this package sets it, so the bubble
+carries only its non-condensable charge, about \SI{25}{\pascal} at $R_{\max}$. The saturated
+vapour pressure at the three temperatures is $1702$, $2770$ and \SI{4916}{\pascal}. The driving
+pressure is therefore wrong by $1.7$, $2.7$ and \SI{4.9}{\percent}, which is not a constant a
+refit absorbs into the material but a ramp along the axis \cref{sec:trend} reads as physics.
+
+Switching vapour on, which needs neither \texttt{bubtherm} nor \texttt{masstrans} for its leading
+term, improves every fit: lack of fit falls from $16.79$, $2.95$ and $1.80$ to $15.79$, $2.72$
+and $1.60$, and $\chi^2/N$ with it. That makes this the one defect in this list whose correction
+the data actually want. And it halves the trend: the Arrhenius slope of $g\alpha$ falls from
+$+3564$ to \SI{+1797}{\kelvin}, with the \SI{33}{\celsius} value moving from $513$ to
+\SI{794}{\pascal}. \emph{Roughly half of the temperature dependence this document reports is the
+graded pressure error and not the gel.}
+
+Two things do not move. The far-field temperature is fixed at \SI{298.15}{\kelvin} on all three
+datasets, which is wrong and is also inert here: $T_8$ enters only through $p_v$ and through
+conductivities gated on \texttt{bubtherm}, so with both off the fits are identical to the last
+printed digit. And the identified $\mu$ still \emph{rises} as the gel warms, an Arrhenius slope
+of \SI{-2317}{\kelvin} and an activation energy of \SI{-19.3}{\kilo\joule\per\mole} against
+$-18.1$ before. No liquid or gel has a negative activation energy for viscosity, water being
+$+16$; whatever $\mu$ is absorbing, it is not the missing vapour.
 
 \paragraph{One candidate was never genuinely exercised.}
 The Gent solid appears in the comparison but cannot be tested on these datasets. Its energy

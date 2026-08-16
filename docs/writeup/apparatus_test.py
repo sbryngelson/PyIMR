@@ -13,7 +13,14 @@ That is a real $R_0$ variation and the anomaly failed to track it. It is not dec
 $R_0$ moves together with temperature and with the fitted modulus across these three datasets,
 so a cancellation between them cannot be excluded from three points.
 
-THE WITHIN-DATASET TEST WOULD NOT BE CONFOUNDED, AND CANNOT BE RUN. At fixed temperature the
+CORRECTION, AND IT IS THE THIRD TIME. The claim below that the per-event radii are absent is
+WRONG. They are in `~/fastscratch/imr-data-tempsweeps/data`, which this module did not look
+in: `PA0503_radius.csv` holds $437$ rows of $(R_{\max}, R_{\rm eq})$ in micrometres. That
+directory also holds PAAm traces with $52$, $117$ and $80$ events, which is a better test than
+the one described here; see `paam_afterbounce.py`. What survives below is only the part about
+the GELATIN traces, whose per-event radii are genuinely not in the released form.
+
+THE WITHIN-DATASET TEST WOULD NOT BE CONFOUNDED, AND CANNOT BE RUN ON GELATIN. At fixed temperature the
 events of one dataset differ only in their bubble, so regressing each event's anomalous period
 against its own $R_{\max}$ separates the hypotheses cleanly with $18$, $14$ and $7$ points.
 It needs a per-event $R_{\max}$, and that is precisely what the released form removes: every

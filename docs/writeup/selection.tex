@@ -4129,10 +4129,10 @@ the transfer it rests on is supported rather than established.
 \subsection{Limitations of this work}
 \label{sec:limitations}
 
-Eight, and they are of different kinds: one set of numbers reported so it is not mistaken for
+Nine, and they are of different kinds: one set of numbers reported so it is not mistaken for
 evidence, one region of parameter space the winning model cannot be integrated in, one estimate
 the quadrature cannot make, one material property that comes out implausible for gelatin, one
-candidate that was never genuinely exercised, and three defects in how the fits are set up that
+candidate that was never genuinely exercised, and four defects in how the fits are set up that
 were measured after the rest of this document was written and are not corrected in it.
 
 \paragraph{The \SI{33}{\celsius} correlated fits are not usable.}
@@ -4250,6 +4250,30 @@ against $0.962$ at \SI{15}{\celsius}). Mismatched knots add jitter, jitter widen
 a wider trough is easier to fit. Fit quality is therefore anti-diagnostic here, and the argument
 for repairing the target is that a mean of jittered traces is not a trajectory, not that the
 repaired fit looks better.
+
+\paragraph{The thermal comparison scores incomplete physics, and completing it is not affordable.}
+\Cref{sec:thermal} varies \texttt{bubtherm} and \texttt{medtherm} and sets neither
+\texttt{vapor} nor \texttt{masstrans}. The validator requires all three together, so what it
+scores is gas conduction with no latent heat and no condensation, which is the dominant thermal
+effect at the collapse of a laser bubble in water. Its $+31.2$ nats compares two incomplete
+thermal models.
+
+Completing it costs more than this study can spend, and the reason is worth recording because it
+is not obvious from the physics. One forward solve takes \SI{15}{\milli\second} cold,
+\SI{372}{\milli\second} with \texttt{bubtherm}, and \SI{3356}{\milli\second} with vapour and mass
+transfer: a factor of $223$, and $9$ over \texttt{bubtherm} alone. At the restart budget this
+surface needs a single such fit is an eleven-hour job. Attempted at a quarter of that budget the
+search fails its own nesting gate --- full physics fits \emph{worse} than the \texttt{bubtherm}
+model it contains, returns a viscosity five hundred times water's, and reverses the sign of the
+$g\alpha$ trend --- so the question is open rather than answered, and the price is the finding.
+
+What can be said without fitting is the direction. Holding the material at its fit and solving on
+a grid twenty times finer than the record's, the full physics moves the first collapse
+\emph{later} by $1.14$, $1.97$ and \SI{3.31}{\percent} at the three temperatures. That is the
+sign the inflated density above would be compensating for, graded with temperature as the
+viscosity anomaly would require, and between a quarter and a half of the $5$--$9\%$ wanted.
+\texttt{bubtherm} alone contributes about \SI{0.2}{\percent}, so nearly all of it is the vapour
+and mass transfer \cref{sec:thermal} leaves out.
 
 \paragraph{Vapour is off, and half the temperature trend goes with it.}
 \texttt{SimulationConfig.vapor} defaults off and nothing in this package sets it, so the bubble

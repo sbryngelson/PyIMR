@@ -1,0 +1,33 @@
+{
+ "r0_um": [
+  39.06911142454161,
+  40.43419267299864,
+  45.680819912152266
+ ],
+ "anomaly_khz": [
+  71.76,
+  72.27,
+  74.12
+ ],
+ "scatter": {
+  "gelatin_15C": {
+   "period_scatter_pct": 12.860414532229047,
+   "ratio_scatter_pct": 10.25597064236895,
+   "events": 18,
+   "bounce": 4
+  },
+  "gelatin_23C": {
+   "period_scatter_pct": 15.319932335671538,
+   "ratio_scatter_pct": 15.032774490177687,
+   "events": 14,
+   "bounce": 3
+  },
+  "gelatin_33C": {
+   "period_scatter_pct": 19.557956467948898,
+   "ratio_scatter_pct": 17.04448799529258,
+   "events": 7,
+   "bounce": 3
+  }
+ },
+ "verdict": "confounded between datasets; within-dataset test needs per-event R_max"
+}

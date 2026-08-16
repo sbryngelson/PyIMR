@@ -2387,8 +2387,31 @@ $\kappa = 2.8\times10^{9}$ where the held design has no finite $\kappa$ at all.
 
 This is the most conditional result in the chapter and is reported as such. Three temperatures
 fitting six coefficients leaves one residual degree of freedom per axis, so the Arrhenius form is
-assumed rather than tested; its residuals, $\pm0.005$ in $\log\mu$, $\pm0.05$ in $\log g\alpha$
-and $\pm0.13$ in $\log\lambda_1$, are a consistency note and nothing more.
+assumed rather than tested by its own fit; its residuals, $\pm0.005$ in $\log\mu$, $\pm0.05$ in
+$\log g\alpha$ and $\pm0.13$ in $\log\lambda_1$, are a consistency note and nothing more.
+
+\paragraph{Tested another way, the assumption fails.} An Arrhenius axis is the weakest form of
+time--temperature superposition: warming slides the relaxation spectrum along the time axis
+without changing its shape. That has a sharp consequence the fit does not impose. Every
+characteristic time must shift by one factor $a_T$, and every modulus by
+$b_T = \rho T/\rho_{\rm ref}T_{\rm ref}$, which is within \SI{6}{\percent} of unity here. The
+identified coordinates carry \emph{two} independent times, $\lambda_1$ and the viscosity over the
+modulus $\mu/g\alpha$, built from coordinates $\lambda_1$ never touches, so their agreement is a
+free test.
+
+They disagree. Carrying the per-trial covariance through, $a_T$ from $\lambda_1$ is $0.657$ and
+$0.875$ at \SI{23}{} and \SI{33}{\celsius} while $a_T$ from $\mu/g\alpha$ is $2.04$ and $3.55$:
+a gap of up to $6.1$ standard errors, and the two move in \emph{opposite} directions with
+temperature. The vertical shift fails on its own, $b_T$ measured at $0.583$ and $0.427$ where
+entropy elasticity requires $1.00$ to $1.06$ --- the modulus does the opposite of what a fixed
+network must do, by a factor of fifteen.
+
+That is what a thermoreversible gel looks like. Warming gelatin does not slide its spectrum, it
+melts helices and changes the network (\cref{sec:limitations}), so no shift factor exists to be
+fitted. The temperature axis of this section therefore rests on a superposition its own data
+refuse, which is a stronger objection than the one the paragraph above records, and it points at
+what should replace it: a design over a \emph{structural} coordinate, the fraction of network
+still bonded, rather than over a rate shift.
 
 \subsection*{The setpoint is not the geometry}
 \label{sec:setpoint}

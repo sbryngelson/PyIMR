@@ -2044,6 +2044,84 @@ discrepancies are invisible in both. And a design criterion computed under a rej
 optimises a quantity whose parameters carry this budget, which is the gap
 \cref{sec:survives} names and \eqref{eq:biasbound} finally sizes.
 
+\subsection*{An observable the screen was never given}
+\label{sec:afterbounce}
+
+The caution above is that a screen cannot propose what it was not given, and everything it
+was given is a direction in the trace. The trace is a function of time, so anything that
+rescales time trades against anything that dissipates energy, and \cref{sec:discrepancy}
+measures that trade at \SI{97}{\percent}: a timebase perturbation is almost entirely absorbed
+by refitting the material, which is why it lands in the parameters rather than in
+$\hat\delta$. An observable built to be blind to that trade is a different instrument, not a
+different candidate.
+
+The ratio of successive afterbounce maxima, $A_{k+1}/A_k$, is one. It is unchanged by any
+rescaling of time, it needs no derivative of a sampled trace, and it needs no model. It is
+also computed within a trial, so it may be averaged across trials where a trace may not, and
+it uses all $39$ events rather than three mean curves. Each bounce is slower than the one
+before, so the sequence is a descending sweep in rate, and the fact that the maxima are broad
+is what makes it usable: reading the model on the dataset's own $201$ points rather than a
+grid a hundred times finer moves its ratios by $0.000$ to $0.001$, against
+measured-against-model gaps of $0.03$ to $0.10$.
+
+\paragraph{No material in this form reaches it.} Fitting the qSLS directly to the ratio
+sequence, over a box six decades wide, takes $\chi^2$ per bounce from $36.75$ to $6.52$ at
+\SI{15}{\celsius} and from $11.62$ to $5.33$ at \SI{23}{\celsius}, and stops there. The
+\SI{33}{\celsius} dataset reaches $0.67$ on $7$ events, which is $1.73$ at the sample size of
+the other two and is therefore weaker evidence rather than contrary evidence. The fitter is
+not the limitation: run against a sequence the model itself generated at four times its
+relaxation time, the same fitter returns $\chi^2 = 0.0000$ and recovers that time to three
+decimal places on all three datasets. The elastic modulus is not the limitation either, and
+not because it was bounded: the ratios are identical at $10^{-4}$ and $10^{-6}$ of the fitted
+value, so the objective is flat and the afterbounces simply cannot see it.
+
+\paragraph{The failure has a shape, and it is one bounce.} A spherical viscoelastic model
+damps monotonically, because damping weakens as the bounces slow and nothing in the form
+allows otherwise. Its ratio sequence is monotone in all six cases, three datasets at the trace
+fit and at the best achievable fit. Every measured sequence is non-monotone. At the best fit
+the residual collapses onto a single bounce, at $-5.0$, $-4.4$ and $-1.4$ standard errors of
+the mean and negative on all three: one bounce loses more amplitude than any material in this
+form can take from it.
+
+It is not the same bounce, and it is close to the same frequency.
+
+\begin{table}[htbp]
+\centering
+\caption{The anomalous bounce sits at a common frequency rather than a common index, and
+against both quantities that would explain it away. A feature pinned to the bubble's own
+clock, or to the sampling grid, would have a period \SI{12.6}{\percent} longer at
+\SI{33}{\celsius} than at \SI{15}{\celsius}.}
+\label{tab:afterbounce}
+\begin{tabular}{lcccc}
+\toprule
+& bounce & period (\si{\micro\second}) & $R_{\max}$ (\si{\micro\metre}) & $\Delta t$ (\si{\micro\second}) \\
+\midrule
+\SI{15}{\celsius} & 4 & 13.94 & 277 & 0.6873 \\
+\SI{23}{\celsius} & 3 & 13.84 & 298 & 0.7394 \\
+\SI{33}{\celsius} & 3 & 13.49 & 312 & 0.7741 \\
+\midrule
+change across the three & & $-3.2\%$ & $+12.6\%$ & $+12.6\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two confounds would account for a shared frequency and both predict the opposite sign.
+$R_{\max}$ grows \SI{12.6}{\percent} across these three datasets and the sampling interval
+grows \SI{12.6}{\percent} with it, so an anomaly pinned to the bubble's own timescale, or to
+the grid that samples it, would appear at a period \SI{12.6}{\percent} longer at the warmest
+dataset than at the coldest. It appears \SI{3.2}{\percent} shorter. And because the later
+periods cluster, the coincidence is enumerated rather than asserted: of the $125$ ways to pick
+one bounce from each dataset, $2$ cluster at least this tightly, so $p = 0.016$.
+
+\paragraph{What this is and is not.} It is not a constitutive result. A fixed frequency
+independent of bubble size, of temperature and of sampling is what a resonance does and what
+a material property does not, and a resonance that drains energy from the radial mode at one
+rate is outside what any spherically symmetric model can produce, whatever its material. That
+places the failure in the geometry rather than in the constitutive law, which is a different
+kind of answer than \eqref{eq:biasbound} is built to carry. It is also three datasets with one
+anomalous bounce each. It is a lead, and the honest use of it is to say which measurement
+would settle it rather than to fold it into a parameter budget.
+
 \part{Designing the experiment that would settle it}
 \label{part:design}
 

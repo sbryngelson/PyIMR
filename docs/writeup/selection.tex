@@ -1594,7 +1594,11 @@ crossover is not resolved by this dataset at all.
 \paragraph{What this says.} A richer relaxation spectrum is not the missing physics, or at
 least not the part that matters here. Two independent enrichments, each reducing exactly to
 the one-mode law and each free to switch itself off, both decline to and both leave the
-correlation in place. That is evidence about where to look next (the residual is
+correlation in place. That is narrower than it sounds, and \cref{sec:limitations} says why: both
+are \emph{narrow} parameterisations, two discrete modes and one rate-dependent mode, while a
+network of unequal chain lengths debonding stochastically implies a \emph{broad} continuous
+spectrum. The candidate that structure points to is a power-law or fractional kernel, and it is
+untested here. That is evidence about where to look next (the residual is
 concentrated in the first collapse, where sphericity and the far-field boundary are least
 secure) and it is more useful than a small positive margin would have been.
 
@@ -4129,11 +4133,12 @@ the transfer it rests on is supported rather than established.
 \subsection{Limitations of this work}
 \label{sec:limitations}
 
-Nine, and they are of different kinds: one set of numbers reported so it is not mistaken for
+Ten, and they are of different kinds: one set of numbers reported so it is not mistaken for
 evidence, one region of parameter space the winning model cannot be integrated in, one estimate
 the quadrature cannot make, one material property that comes out implausible for gelatin, one
-candidate that was never genuinely exercised, and four defects in how the fits are set up that
-were measured after the rest of this document was written and are not corrected in it.
+candidate that was never genuinely exercised, one property of the material this document did not
+account for, and four defects in how the fits are set up that were measured after the rest of it
+was written and are not corrected in it.
 
 \paragraph{The \SI{33}{\celsius} correlated fits are not usable.}
 \label{sec:33anomaly}
@@ -4274,6 +4279,31 @@ sign the inflated density above would be compensating for, graded with temperatu
 viscosity anomaly would require, and between a quarter and a half of the $5$--$9\%$ wanted.
 \texttt{bubtherm} alone contributes about \SI{0.2}{\percent}, so nearly all of it is the vapour
 and mass transfer \cref{sec:thermal} leaves out.
+
+\paragraph{What gelatin is, and why that changes how $\mu$ should be read.}
+This document has treated gelatin as a generic soft solid, and it is not one. Gelatin is built
+from triple helices: three polypeptide chains wound together and held by hydrogen bonds, on
+chains of markedly unequal length, entangling in a way that has no well-defined crosslink sites
+--- closer to interlaced strands that come and go than to the fixed covalent network of a
+polyacrylamide. Warming does not break that network at one temperature. Helices unzip
+stochastically into single strands, and an unzipped run is fluid-like if it is short and can
+still carry elasticity if it is long enough to entangle (J.~Estrada, personal communication;
+see also \citet{tenijenhuis1997thermoreversible}).
+
+Two consequences bear directly on numbers reported above. The population of floppy single
+strands \emph{grows} as the gel warms, so a fitted viscosity that rises with temperature is what
+this structure predicts rather than a contradiction: the activation energy of
+\SI{-19.3}{\kilo\joule\per\mole} is unphysical only for a $\mu$ that is a liquid viscosity
+obeying an Arrhenius law, and here $\mu$ is closer to a reading of how much of the network has
+come apart. Arrhenius is then the wrong model for it, which is a stronger objection to the fit of
+\cref{sec:measure}'s temperature axis than the sign of its slope.
+
+Our own numbers are consistent with that picture and do not establish it. The identified $\mu$
+and $g\alpha$ move oppositely as it requires, $0.0437 \to 0.0662$ against $1106 \to
+\SI{472}{\pascal}$, but the simplest form of it --- one helix fraction with $g\alpha$ tracking the
+helices and $\mu$ the coils --- makes $\mu$ linear in $g\alpha$, and the two intervals give slopes
+differing by a factor of $4.5$. Three temperatures and an unknown fraction cannot settle that
+either way, which is an argument for more temperatures rather than for either reading.
 
 \paragraph{Vapour is off, and half the temperature trend goes with it.}
 \texttt{SimulationConfig.vapor} defaults off and nothing in this package sets it, so the bubble

@@ -1791,6 +1791,27 @@ coordinate, so a single number covers the whole vector. Taking $B = \lVert\hat\d
 the natural choice and is not conservative: nothing in the data forbids the unseen component
 being larger than the seen one.
 
+\paragraph{What $\hat\delta$ is the size of.} It is worth naming what \eqref{eq:deltasplit} is,
+because this document goes on to use $\hat\delta$ as though it were the discrepancy and it is the
+discrepancy's \emph{visible remainder}. The confounding between $\theta$ and $\delta$ is
+\citet{kennedy2001bayesian}'s, and forcing the discrepancy orthogonal to
+$\partial m/\partial\theta$ is the construction \citet{plumlee2017bayesian} uses to identify
+$\theta$ at all; that omitting $\delta$ biases the parameters is \citet{brynjarsdottir2014learning},
+that the resulting estimator need not be consistent is \citet{tuo2015efficient}, and the
+identifiability of the two is analysed by \citet{arendt2012quantification}. None of that is new
+here. What this package can add is a number for how bad it is in this problem.
+
+Screened the way \eqref{eq:enrich} screens anything else, a timebase perturbation is
+\SI{97}{\percent} absorbed by refitting the material, so its invisible component is between
+$5.7$ and $5.9$ times its visible one in norm. Two things follow for the tables above. Taking
+$B = \lVert\hat\delta\rVert$ was called natural and not conservative; for a mechanism these
+datasets demonstrably contain it understates \eqref{eq:biasbound} by nearly six, and it does so
+worst where an error is hardest to see. And \eqref{eq:enrich} scores a candidate by how much of
+its \emph{visible} part aligns with the visible residual, so a large absorbable mechanism scores
+low. The null result of the screen therefore says that nothing on the list resembles the visible
+remainder, which is weaker than saying nothing on the list is present: the clock is present, is
+measured in \cref{sec:limitations}, and sits mid-table.
+
 \subsection*{The bound exists only in the identified coordinates}
 
 \Cref{eq:deltasplit} means something only where $Pd = 0$, and in the natural axes that can

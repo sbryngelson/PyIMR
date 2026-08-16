@@ -41,5 +41,11 @@
    "cos": 0.3543748496402243
   }
  },
- "beats_known": false
+ "beats_known": false,
+ "density_is_a_clock": true,
+ "clock_absorbed": [
+  0.97168388987406,
+  0.969689333500628,
+  0.9714329104506212
+ ]
 }

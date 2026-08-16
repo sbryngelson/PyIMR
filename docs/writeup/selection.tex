@@ -4133,7 +4133,7 @@ the transfer it rests on is supported rather than established.
 \subsection{Limitations of this work}
 \label{sec:limitations}
 
-Ten, and they are of different kinds: one set of numbers reported so it is not mistaken for
+Eleven, and they are of different kinds: one set of numbers reported so it is not mistaken for
 evidence, one region of parameter space the winning model cannot be integrated in, one estimate
 the quadrature cannot make, one material property that comes out implausible for gelatin, one
 candidate that was never genuinely exercised, one property of the material this document did not
@@ -4255,6 +4255,29 @@ against $0.962$ at \SI{15}{\celsius}). Mismatched knots add jitter, jitter widen
 a wider trough is easier to fit. Fit quality is therefore anti-diagnostic here, and the argument
 for repairing the target is that a mean of jittered traces is not a trajectory, not that the
 repaired fit looks better.
+
+\paragraph{The vapour and mass-transfer model is not resolved at the grid this package uses.}
+\Cref{sec:thermal} runs at $N_t = 11$ spectral nodes and never varies it. Measured against the
+finest grid affordable, in the noise units \cref{sec:axes} states the thermal axis in, the
+discretisation error at that grid is \emph{$0.7$ noise units} with \texttt{bubtherm} alone and
+\emph{$6.0$} once vapour and mass transfer are switched on, against $8.5$ for the entire thermal
+axis after the material absorbs what it can. The first is negligible and the second is the same
+order as the physics it would measure.
+
+It is a spatial error and not a time-stepping one, which is what makes it awkward: tightening the
+ODE tolerance from $10^{-6}$ to $10^{-10}$ moves the collapse depth by about one percent at fixed
+$N_t$, while going from $N_t = 7$ to $11$ moves it by $41$. The solver reports on the converged
+axis and is silent about the one that is not. Refinement is slow, $71.5$, $17.7$, $14.9$ and
+$6.0$ noise units at $N_t = 5, 7, 9, 11$, and the $N_t = 15$ reference those are measured against
+has not itself settled.
+
+That is the reason a fit through the full model cannot be trusted here, and it is a stronger
+reason than expense. An objective carrying six noise units of numerical error is not repaired by
+more restarts, and an attempt to score it produced exactly what an unresolved objective produces:
+fits that failed their own nesting gate, a viscosity five hundred times water's, and a reversed
+$g\alpha$ trend. \emph{The thermal comparison of \cref{sec:thermal} is sound as run, because
+\texttt{bubtherm} alone is resolved at this grid; it is the completion of it that is not yet
+computable.}
 
 \paragraph{The thermal comparison scores incomplete physics, and completing it is not affordable.}
 \Cref{sec:thermal} varies \texttt{bubtherm} and \texttt{medtherm} and sets neither

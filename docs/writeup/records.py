@@ -22,6 +22,32 @@ HERE = Path(__file__).resolve().parent
 # They differ; `results.json` does not carry them, which is why they live here now.
 DATASETS = {"gelatin_15C": 277e-6, "gelatin_23C": 298e-6, "gelatin_33C": 312e-6}
 
+TEMPSWEEPS = Path.home() / "fastscratch/imr-data-tempsweeps/data"
+# The PAAm release, read from its CSVs rather than from `results.json`: 249 events against
+# gelatin's 39, on the same rig.
+#
+# `PA05_temp_exp_data.csv` is a POOLED temperature sweep and must be split before it is a
+# record. Its 117 columns are three blocks of 30, 57 and 30, which is what the per-temperature
+# event counts in `PA05_t{10,21,33}_pIMR_i.csv` state and what the collapse time confirms
+# independently at F = 14.1 against a permutation null of the same partition (p < 0.0005).
+# `PA05003_temp_exp_data.csv` shows no block structure at ANY two-cut partition -- its best F
+# of 6.6 sits below a best-of-all-partitions null of 8.6 -- so it is carried whole. If it is
+# pooled after all its spread is inflated, which makes its lack-of-fit ratio conservative.
+# The three files share no column: every one of the 249 events appears exactly once.
+#
+# R_max is the mean of `PA0503_radius.csv`, which is PAAm as a whole rather than per record;
+# `radius_provenance.py` shows the row-to-trace pairing is not recoverable. It enters only
+# through the dimensionless groups, so it rescales mu and lambda1 and leaves the residual
+# shape alone -- `paam_sensitivity.py` measures how far that holds.
+PAAM_MAXIMUM = 359.281e-6
+PAAM = {
+  "paam_PA05": ("PA05_exp_data.csv", (0, 52), 7.753),
+  "paam_PA05_10C": ("PA05_temp_exp_data.csv", (0, 30), 7.836),
+  "paam_PA05_21C": ("PA05_temp_exp_data.csv", (30, 87), 7.736),
+  "paam_PA05_33C": ("PA05_temp_exp_data.csv", (87, 117), 7.451),
+  "paam_PA05003": ("PA05003_temp_exp_data.csv", (0, 80), 8.007),
+}
+
 
 def pool(jobs):
   """A worker pool sized to the work and the machine, not to a number typed once.
@@ -42,8 +68,31 @@ def pool(jobs):
   return worker_pool(max(1, min(int(jobs), available - 2)))
 
 
+def trials(dataset):
+  """The `(times, events)` matrix a record is built from, screened but not averaged.
+
+  Gelatin comes from `results.json`, which carries only the mean and the spread, so the
+  matrix is available for PAAm alone. Studies that need per-event traces on both use
+  `trial_modes.FILES` for gelatin.
+  """
+  if dataset not in PAAM: raise KeyError(f"{dataset} has no released per-event matrix here")
+  from pyimr.noise import characteristic_time
+
+  filename, (low, high), _ = PAAM[dataset]
+  table = np.loadtxt(TEMPSWEEPS / filename, delimiter=",", ndmin=2)
+  tau, events = table[:, 0], table[:, 1 + low:1 + high].T
+  # the same screen `measured_selection.screen` applies: a trace above its own maximum is a
+  # tracking failure, and a sample where every event agrees exactly is the t*=0 definition
+  keep = ~(events > 1.05).any(axis=0) & (events.std(axis=0, ddof=1) > 0.0)
+  return tau[keep] * characteristic_time(PAAM_MAXIMUM), events[:, keep]
+
+
 def load(dataset):
   """`(times, mean, spread, maximum_radius, stretch)` with the useless samples dropped."""
+  if dataset in PAAM:
+    times, events = trials(dataset)
+    return (times, events.mean(axis=0), events.std(axis=0, ddof=1), PAAM_MAXIMUM,
+            PAAM[dataset][2])
   record = json.loads((HERE / "results.json").read_text())[dataset]
   times, mean, spread = (np.array(record[k], dtype=float) for k in ("times_s", "mean", "spread"))
   keep = spread > 0
@@ -51,12 +100,15 @@ def load(dataset):
 
 
 def trial_count(dataset):
-  """How many repeats the record carries. Not uniform: 18, 14 and 7.
+  """How many repeats the record carries. Not uniform: 18, 14 and 7 on gelatin.
 
   Named apart from `score`'s `trials=` argument deliberately: a module function and a
   keyword of the same name in one file is a shadow waiting for whoever calls one from
   inside the other.
   """
+  if dataset in PAAM:
+    low, high = PAAM[dataset][1]
+    return high - low
   return int(json.loads((HERE / "results.json").read_text())[dataset]["trials"])
 
 

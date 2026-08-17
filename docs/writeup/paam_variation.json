@@ -1,0 +1,92 @@
+{
+ "gelatin_15C": {
+  "share": 0.4607995966616054,
+  "chance": 0.029850746268656716,
+  "events": 18,
+  "samples": 201,
+  "lag_one_raw": 0.7407562639242147,
+  "lag_one_whitened": 0.8776189264404074,
+  "chi2_diagonal": 0.9727413650477387,
+  "chi2_hierarchical": 16.394671837565905
+ },
+ "gelatin_23C": {
+  "share": 0.21153615899154332,
+  "chance": 0.03125,
+  "events": 14,
+  "samples": 192,
+  "lag_one_raw": 0.8547249274469718,
+  "lag_one_whitened": 0.8012363197837039,
+  "chi2_diagonal": 1.0173932631728586,
+  "chi2_hierarchical": 2.6079983847115527
+ },
+ "gelatin_33C": {
+  "share": 0.14945587603139032,
+  "chance": 0.030303030303030304,
+  "events": 7,
+  "samples": 198,
+  "lag_one_raw": 0.8446971159328868,
+  "lag_one_whitened": 0.8442420335739341,
+  "chi2_diagonal": 1.130411746418321,
+  "chi2_hierarchical": 3.7944386917179904
+ },
+ "paam_PA05": {
+  "share": 0.28172595131725064,
+  "chance": 0.03,
+  "events": 52,
+  "samples": 200,
+  "lag_one_raw": 0.7487311813331987,
+  "lag_one_whitened": 0.4163893550493321,
+  "chi2_diagonal": 0.6028619607473163,
+  "chi2_hierarchical": 29.700971742402977
+ },
+ "paam_PA05_10C": {
+  "share": 0.4579489967093743,
+  "chance": 0.0375,
+  "events": 30,
+  "samples": 160,
+  "lag_one_raw": 0.7148043816436194,
+  "lag_one_whitened": 0.6034086469231443,
+  "chi2_diagonal": 0.49724846809226886,
+  "chi2_hierarchical": 10.47770153236109
+ },
+ "paam_PA05_21C": {
+  "share": 0.45320425869204706,
+  "chance": 0.0375,
+  "events": 57,
+  "samples": 160,
+  "lag_one_raw": 0.6765990056614127,
+  "lag_one_whitened": 0.7254190741172692,
+  "chi2_diagonal": 0.3796259384646724,
+  "chi2_hierarchical": 15.87283104329363
+ },
+ "paam_PA05_33C": {
+  "share": 0.44503917617571964,
+  "chance": 0.0375,
+  "events": 30,
+  "samples": 160,
+  "lag_one_raw": 0.7400644625433453,
+  "lag_one_whitened": 0.7094868793412219,
+  "chi2_diagonal": 0.4697766382942744,
+  "chi2_hierarchical": 13.300029996656386
+ },
+ "paam_PA05003": {
+  "share": 0.4339246330602369,
+  "chance": 0.0375,
+  "events": 80,
+  "samples": 160,
+  "lag_one_raw": 0.8434317459204447,
+  "lag_one_whitened": 0.8192804632625316,
+  "chi2_diagonal": 0.6161733927417293,
+  "chi2_hierarchical": 43.6193915230937
+ },
+ "gelatin_15C_legacy_fit": {
+  "share": 0.39293807089993504,
+  "chance": 0.029850746268656716,
+  "events": 18,
+  "samples": 201,
+  "lag_one_raw": 0.7579048246943818,
+  "lag_one_whitened": 0.5161622759606065,
+  "chi2_diagonal": 0.9744625491680646,
+  "chi2_hierarchical": 21.954948134089893
+ }
+}

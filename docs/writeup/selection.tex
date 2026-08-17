@@ -2331,12 +2331,32 @@ reaches the afterbounce sequence on most datasets. And the one alternative expla
 free parameter behind it, a mis-set equilibrium radius, is refitted rather than argued away and
 does not survive.
 
-Two claims must be narrowed rather than extended by this. The afterbounce non-monotonicity is
+One claim must be narrowed rather than extended by this. The afterbounce non-monotonicity is
 gelatin's and does not appear in PAAm at all, so the part of \cref{sec:afterbounce} that reads
-the shape of the failure is a statement about one material. And the parameter share of the trial
-spread, which the correction in \cref{sec:latent} rests on, is a gelatin measurement applied
-here to both; it has not been re-measured on PAAm and every ratio in \cref{tab:paam} is quoted
-without it.
+the shape of the failure is a statement about one material.
+
+\paragraph{The correction that is not applied, and why.} \Cref{tab:paam} is quoted without the
+factor of \cref{sec:latent} that divides out the share of the trial spread lying in the span of
+the model's own sensitivities, and that share is now measured on both materials rather than
+carried. It is \SIrange{28}{46}{\percent} on PAAm against \SIrange{15}{46}{\percent} on gelatin,
+so the correction it implies runs $1.39$ to $1.84$ on PAAm against the $1.65$ the published
+gelatin value gives. Applying one material's number to the other is therefore not neutral, and
+the uncorrected column is the one that assumes nothing.
+
+Two things came out of measuring it. Evaluated at the point \cref{sec:latent} uses, the share
+returns \SI{39.3}{\percent} exactly, so this is the same measurement rather than a similar one.
+Evaluated at the same dataset's own fit from \cref{tab:paam}, which sits elsewhere along the
+$g\alpha$ ridge, it returns \SI{46.1}{\percent}. The ridge is a degeneracy of the likelihood
+and was not expected to move the span of the sensitivities; it moves it by $6.8$ points, so that
+much of the share is a property of where a fit landed rather than of the data. That is a third
+reason to leave the correction off.
+
+What does transfer is the test the share was constructed for. Whitening the fit residual by the
+hierarchical covariance $G \Sigma G^{\mathsf T} + \sigma^2 I$ leaves its lag-one correlation at
+$0.42$ to $0.88$, on all nine fits across both materials, against $0.68$ to $0.86$ before. The
+correlation is not latent per-event parameter variation on either material. It is structure the
+model does not contain, which is the conclusion \cref{sec:latent} reaches on one dataset and
+which now holds on eight.
 
 One number in this document should be read differently from here on. The lack-of-fit ratio
 depends on the assumed equilibrium radius by a factor of about two over that radius's own

@@ -2300,12 +2300,24 @@ material is reachable by a fixed material: gelatin \SI{33}{\celsius} at $0.67$, 
 three on gelatin and three of four on PAAm. The effect is markedly weaker on PAAm and it is the
 same effect.
 
-Three cautions belong with that column. The first is that the PAAm ratio sequences are monotone
-throughout, where all three gelatin sequences fall somewhere. So the PAAm failure is a smooth
-shape error rather than the non-monotonicity gelatin shows. Pooling was the obvious suspect for
-a monotone reading, since averaging datasets that do not share a condition is what manufactured
-the gelatin dip in \cref{sec:afterbounce}, and it is not the cause: the three temperature blocks
-are monotone individually, and the same extractor finds the dips on all three gelatin datasets.
+Three cautions belong with that column. The first concerns the shape of the PAAm failure, and it
+must be stated more carefully than a first reading of the sequences suggests. The three
+temperature blocks are monotone throughout; \texttt{PA05} falls at bounce $6$ and
+\texttt{PA05003} at bounces $3$ and $5$, so it is not true that PAAm never falls. What is true is
+that neither fall survives the shift null of \cref{sec:afterbounce}, at $p = 0.998$ and
+$p = 0.090$, where gelatin \SI{15}{\celsius} reaches $p = 0.022$. Pooling was the obvious suspect
+for the monotone blocks, since averaging datasets that do not share a condition is what
+manufactured the gelatin dip, and it is not the cause: the blocks are monotone individually, and
+the same extractor finds the dips on all three gelatin datasets.
+
+That null is weaker than it looks, and the weakness runs against the reading above rather than
+for it. Injecting an index-locked fall of $0.10$ into every event and re-running the test
+recovers it at $J = 52$ and $J = 117$ but misses it at $J = 7$, $14$ and $18$, so at gelatin's
+sample sizes the test cannot detect a dip of the size gelatin actually shows. The PAAm
+non-detections, at $J$ of $30$ to $80$, carry more weight than the gelatin ones do. Circular
+shifting also manufactures a fall at the seam, which puts the null mean above the observed
+statistic whenever a sequence rises throughout: a large negative $z$ means the events are
+individually monotone, not that a dip failed to align.
 The second caution is the direction of the bound. A fit returns an upper bound on
 the achievable $\chi^2$, so a small value is self-evidencing while a large one rests on the
 optimiser having found the optimum; the synthetic-target control is the only thing licensing the
@@ -2331,9 +2343,19 @@ reaches the afterbounce sequence on most datasets. And the one alternative expla
 free parameter behind it, a mis-set equilibrium radius, is refitted rather than argued away and
 does not survive.
 
-One claim must be narrowed rather than extended by this. The afterbounce non-monotonicity is
-gelatin's and does not appear in PAAm at all, so the part of \cref{sec:afterbounce} that reads
-the shape of the failure is a statement about one material.
+One claim must be narrowed rather than extended by this. Only gelatin shows a fall that survives
+its own null, so the part of \cref{sec:afterbounce} that reads the SHAPE of the failure is a
+statement about one material. It is narrowed a second time by the premise it was argued from.
+\Cref{sec:afterbounce} asserts that a spherical viscoelastic model damps monotonically and that
+nothing in the form allows otherwise; that is false. A quadratic Zener at $g = \SI{7}{\kilo\pascal}$,
+$\alpha = 0$, $\mu = \SI{0.2}{\pascal\second}$ and $\lambda_1 = \SI{1.78}{\micro\second}$ produces
+the ratio sequence $0.598$, $0.579$, $0.751$, $0.916$, $0.975$, which falls at the second bounce
+and is unchanged to five digits under grid and tolerance refinement. The mechanism is the Debye
+loss peak at $\omega\lambda_1 = 1$: the afterbounces are a descending frequency sweep, so a
+sequence that crosses the peak loses more per cycle and then less. That point lies inside the box
+searched here. Non-monotonicity therefore does not by itself place a record outside the form, and
+the argument for the failure rests on the achievable $\chi^2$ of \cref{tab:paamtwo}, which is
+measured, and not on the monotonicity premise, which is wrong.
 
 \paragraph{The correction that is not applied, and why.} \Cref{tab:paam} is quoted without the
 factor of \cref{sec:latent} that divides out the share of the trial spread lying in the span of

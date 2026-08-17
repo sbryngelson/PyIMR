@@ -2131,7 +2131,10 @@ carries the finding that matters here: fitting the qSLS directly to the ratio se
 box six decades wide, takes $\chi^2$ per bounce from $36.75$ to $6.52$ at \SI{15}{\celsius} and
 from $11.62$ to $5.33$ at \SI{23}{\celsius} and stops, while the same fitter run against a
 model-generated sequence returns $\chi^2 = 0.0000$. No fixed material in this form reaches
-these afterbounces, and that conclusion never rested on the anomaly.
+those two sequences, and that conclusion never rested on the anomaly. It does not extend to the
+third: \SI{33}{\celsius} reaches $0.67$ and is fitted by a fixed material, on seven events.
+\Cref{sec:paam} runs the same test on $249$ events of a second material, where three of the four
+datasets it can be run on behave like the first two.
 
 \paragraph{And the observable itself is sound, which had to be checked.} A maximum of noisy
 samples is biased, the bias grows as the bounces shrink, and it is systematic so averaging does
@@ -2141,6 +2144,206 @@ that indifference holds only below $\sigma \approx 0.001$, an order below what a
 second-difference estimator returns, and at that level the bias accounts for $3$ to
 \SI{7}{\percent} of the gap. An extraction corrupted by noise cannot be indifferent to how wide
 a window it searches, so the measurement bounds its own error here.
+
+\section{The same measurements, on a second material}
+\label{sec:paam}
+
+Everything in this part rests on $39$ events. Three gelatin datasets carry $18$, $14$ and $7$
+repeats, and from them come the rejection of \cref{sec:fitquality}, the empty physics shelf of
+\cref{sec:enrich}, the shaped discrepancy of \cref{sec:discrepancy} and the afterbounce failure
+of \cref{sec:afterbounce}. A reader entitled to one objection should spend it here: three
+datasets of one material, one of them with seven repeats, is a case study, and a case study
+about gelatin is not a claim about the method.
+
+The same release carries $249$ polyacrylamide events on the same instrument. This section runs
+the three load-bearing measurements on them, unchanged. Nothing in the machinery is retuned;
+only the datasets are new.
+
+\subsection*{What a PAAm dataset is, which took establishing}
+
+Two of the three released PAAm files are not datasets as \cref{sec:records} defines one, and
+using them as they stand would have decided the answer before the first fit.
+
+\texttt{PA05\_temp} is a pooled temperature sweep. Its $117$ columns are three blocks of $30$,
+$57$ and $30$ at \SI{10}{}, \SI{21}{} and \SI{33}{\celsius}, which is what the per-temperature
+event counts in the released auxiliary files state and what the first-collapse time confirms
+independently: partitioned there, the between-block $F$ is $14.1$ against a permutation null of
+the same partition, $p < 0.0005$. Fitting the file whole would have averaged three materials
+and reported the average as a lack of fit. \texttt{PA05003\_temp} shows no block structure at
+any two-cut partition, its best $F$ of $6.6$ sitting below a best-of-all-partitions null of
+$8.6$, so it is carried whole. Should it be pooled after all, its trial spread is inflated,
+which enlarges the denominator of every ratio below and makes its rejection conservative. The
+three files share no column, so the $249$ events are distinct.
+
+The radii are the harder gap. $R_{\max}$ and $R_{\max}/R_{\rm eq}$ are tabulated per dataset for
+gelatin and are not available per dataset for PAAm: the release holds $437$ radii whose pairing
+to the trace columns is not recoverable, as \cref{sec:afterbounce} records. So every PAAm
+dataset is carried at the file's mean of \SI{359}{\micro\metre}, with a stretch read off its own
+late trace. That is an assumption, and it is measured rather than defended. Refitting one
+dataset across the plausible range of both separates them cleanly. Over a factor of $1.35$ in
+$R_{\max}$, $\chi^2/N$ moves by \SI{3}{\percent} and the lack-of-fit ratio by
+\SI{4}{\percent}, while $\mu$ tracks $R_{\max}$ at $1.000$, $1.169$, $1.339$ against the
+$1.000$, $1.176$, $1.353$ the dimensionless groups require and $g$ does not move at all. The
+missing per-dataset radius therefore costs the reported moduli a scale factor and costs the
+residual-shape conclusions nothing. The equilibrium radius is the opposite: over its own
+uncertainty the ratio runs $12.2$ to $22.9$, a factor of $1.88$. That is a caution for every
+number in this document rather than for PAAm alone, and it is taken up below.
+
+\subsection*{The model is rejected there, and refitting the radius does not rescue it}
+
+\Cref{tab:paam} is the lack-of-fit test of \cref{sec:fitquality} on both materials. It is
+reported without the correction that divides out the parameter share of the trial spread, since
+that share was measured on gelatin and would be carried rather than established here.
+
+\begin{table}[htbp]
+\centering
+\caption{The classical lack-of-fit test on both materials, and what refitting the equilibrium
+radius does to it. Mean squares are in units of $10^{-3}$. The last three columns refit each
+dataset at seven stretches from $5.5$ to $8.5$ and report the value it prefers, the $\chi^2/N$
+there, and the ratio there. Every dataset prefers a stretch it is not carried at, $\chi^2/N$
+falls by about a third, and every dataset is still rejected.}
+\label{tab:paam}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+& & & \multicolumn{2}{c}{mean square} & & \multicolumn{3}{c}{at the preferred stretch} \\
+\cmidrule(lr){4-5}\cmidrule(lr){7-9}
+dataset & events & $\chi^2/N$ & pure & lack & $F$ & stretch & $\chi^2/N$ & $F$ \\
+\midrule
+gelatin \SI{15}{\celsius} & 18 & 0.97 & 0.52 & 7.36 & 14.2 & 6.5 & 0.64 & 11.2 \\
+gelatin \SI{23}{\celsius} & 14 & 1.02 & 1.86 & 5.47 & 2.9 & 7.0 & 0.91 & 2.3 \\
+gelatin \SI{33}{\celsius} & 7 & 1.13 & 1.91 & 6.23 & 3.3 & 7.0 & 0.55 & 1.9 \\
+\midrule
+PAAm \texttt{PA05} & 52 & 0.60 & 0.62 & 18.87 & 30.5 & 7.0 & 0.50 & 22.0 \\
+PAAm \SI{10}{\celsius} & 30 & 0.50 & 0.70 & 6.64 & 9.5 & 7.5 & 0.34 & 6.6 \\
+PAAm \SI{21}{\celsius} & 57 & 0.38 & 0.81 & 14.24 & 17.6 & 7.0 & 0.26 & 10.8 \\
+PAAm \SI{33}{\celsius} & 30 & 0.47 & 1.17 & 11.34 & 9.7 & 7.5 & 0.48 & 10.0 \\
+PAAm \texttt{PA05003} & 80 & 0.62 & 0.82 & 29.33 & 35.7 & 7.0 & 0.50 & 24.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The rejection reproduces. It is worth separating two readings of how strongly, because $F$ alone
+oversells it. The ratio scales with the replicate count by construction, so part of the gap
+between PAAm's $9.5$ to $35.7$ and gelatin's $2.9$ to $14.2$ is $30$ to $80$ events buying power
+to detect the same misfit. The reading that does not depend on the replicate count is in the two
+mean-square columns: PAAm's pure error matches gelatin's while its lack of fit is up to four
+times larger, so the model is genuinely worse there as well as more securely rejected.
+
+The $\chi^2/N$ column is the sharpest form of the argument this document has been making. Every
+PAAm dataset fits at $0.38$ to $0.62$. Reported alone, as it usually is, that number says the
+model reproduces the data to better than experimental repeatability and would pass any review.
+The same fits miss by $10$ to $36$ times the instrument's own scatter.
+
+The last three columns close the obvious objection. The enrichment screen below makes the
+initial radius the largest admissible candidate on seven of eight datasets, and the sensitivity
+above makes the ratio a factor of two sensitive to it, so a reader is entitled to suspect that
+the discrepancy is a mis-set $R_{\rm eq}$ rather than model-form error. Both of those are
+linearised about one point; refitting is not. Every dataset is refitted at seven stretches from
+$5.5$ to $8.5$, all eight then have an interior $\chi^2$ minimum, and all eight prefer a value
+between $6.5$ and $7.5$ while being carried at $6.83$ to $8.01$. A real share of what is
+reported as misfit is a pinned radius: $\chi^2/N$ at the preferred value falls by \SI{25}{\percent}
+on the median dataset and by as much as a half, though on one it does not fall at all. It is not
+the whole share, which is the result. At its own preferred stretch every dataset is still
+rejected, at $1.9$ to $24.3$ against a critical value near $1.2$.
+
+Two things in that column are worth stating rather than smoothing. Among the four datasets whose
+preference sits more than $0.5$ from the value they are carried at is gelatin \SI{15}{\celsius},
+whose stretch is tabulated in the source rather than estimated here, so the offset is not an
+artefact of how the PAAm datasets were prepared. And gelatin \SI{23}{} and \SI{33}{\celsius}
+fall to $2.3$ and $1.9$ at their preferred stretch, which are rejections but marginal ones. The
+gelatin case rests mostly on one dataset. That is an argument for the PAAm datasets carrying the
+claim rather than decorating it.
+
+\subsection*{The shelf is empty there too, and the afterbounces mostly fail there too}
+
+\Cref{tab:paamtwo} runs the other two measurements. The enrichment screen of \cref{sec:enrich}
+scores what share of each dataset's measured discrepancy a candidate enrichment could remove,
+and the afterbounce test of \cref{sec:afterbounce} asks what $\chi^2$ per bounce a fixed qSLS
+can achieve against the ratio sequence over a box six decades wide.
+
+\begin{table}[htbp]
+\centering
+\caption{The enrichment screen and the afterbounce test on both materials. The screen scores
+every candidate together, as a cone, so the last of those columns is what no admissible
+enrichment reaches. The afterbounce fit is run at four seeds; the spread is the range across
+them. A dataset whose control did not run takes no verdict.}
+\label{tab:paamtwo}
+\begin{tabular}{lrrrrrr}
+\toprule
+& \multicolumn{2}{c}{enrichment screen} & \multicolumn{4}{c}{afterbounce fit} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-7}
+dataset & reachable & left over & bounces & best $\chi^2$ & seed spread & control \\
+\midrule
+gelatin \SI{15}{\celsius} & 25\,\% & 75\,\% & 5 & 6.52 & 0.000 & passed \\
+gelatin \SI{23}{\celsius} & 15\,\% & 85\,\% & 5 & 5.33 & 0.000 & passed \\
+gelatin \SI{33}{\celsius} & 21\,\% & 79\,\% & 5 & 0.67 & 0.000 & passed \\
+\midrule
+PAAm \texttt{PA05} & 24\,\% & 76\,\% & 5 & 0.70 & 0.028 & passed \\
+PAAm \SI{10}{\celsius} & 43\,\% & 57\,\% & 5 & 8.27 & 0.000 & passed \\
+PAAm \SI{21}{\celsius} & 39\,\% & 61\,\% & 4 & 1.32 & 0.042 & passed \\
+PAAm \SI{33}{\celsius} & 24\,\% & 76\,\% & 4 & 2.43 & 0.000 & passed \\
+PAAm \texttt{PA05003} & 26\,\% & 74\,\% & 5 & n/a & 0.007 & did not run \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every candidate enrichment together leaves $57$ to \SI{76}{\percent} of the PAAm discrepancy
+unexplained, against $75$ to \SI{85}{\percent} on gelatin. Weaker, and the same verdict: the
+shelf does not hold it. The largest admissible single candidate is the initial radius on seven
+of the eight datasets, which is the linearised form of what the stretch refit measured directly,
+and it removes at most \SI{36}{\percent}.
+
+The afterbounce test reproduces on three of the four PAAm datasets where the fitter is
+validated, at $8.27$, $2.43$ and $1.32$ against gelatin's $6.52$ and $5.33$. One dataset of each
+material is reachable by a fixed material: gelatin \SI{33}{\celsius} at $0.67$, which
+\cref{sec:afterbounce} already reported, and \texttt{PA05} at $0.70$. So the count is two of
+three on gelatin and three of four on PAAm. The effect is markedly weaker on PAAm and it is the
+same effect.
+
+Three cautions belong with that column. The first is that the PAAm ratio sequences are monotone
+throughout, where all three gelatin sequences fall somewhere. So the PAAm failure is a smooth
+shape error rather than the non-monotonicity gelatin shows. Pooling was the obvious suspect for
+a monotone reading, since averaging datasets that do not share a condition is what manufactured
+the gelatin dip in \cref{sec:afterbounce}, and it is not the cause: the three temperature blocks
+are monotone individually, and the same extractor finds the dips on all three gelatin datasets.
+The second caution is the direction of the bound. A fit returns an upper bound on
+the achievable $\chi^2$, so a small value is self-evidencing while a large one rests on the
+optimiser having found the optimum; the synthetic-target control is the only thing licensing the
+second kind of claim, and no verdict is issued where it did not pass. \texttt{PA05003} is that
+case, and it is also the only dataset seen to settle in two different basins between runs, at
+$26.3$ and $39.1$. The control's absence and the instability appear together, which is the
+argument for the control rather than against it.
+
+The third is a defect in how these numbers were produced, since it touches values already
+quoted. The multistart behind \cref{sec:afterbounce} was seeded from a string hash, which Python
+salts per process, so it drew different starting points on every run and its $6.52$ and $5.33$
+were not reproducible. The seed is fixed now, and running every dataset at four seeds says the
+defect was harmless in effect: the spread is $0.000$ to $0.042$ and the gelatin values return
+identical. That is a measured statement rather than an assumed one, which is the only reason it
+is worth a sentence.
+
+\subsection*{What this changes}
+
+The first three links of the chain hold on a second material at six times the sample size. The
+model is rejected, at $\chi^2/N$ values that would be reported as a good fit. No candidate
+enrichment accounts for the bulk of what is missing. No fixed material in this constitutive form
+reaches the afterbounce sequence on most datasets. And the one alternative explanation with a
+free parameter behind it, a mis-set equilibrium radius, is refitted rather than argued away and
+does not survive.
+
+Two claims must be narrowed rather than extended by this. The afterbounce non-monotonicity is
+gelatin's and does not appear in PAAm at all, so the part of \cref{sec:afterbounce} that reads
+the shape of the failure is a statement about one material. And the parameter share of the trial
+spread, which the correction in \cref{sec:latent} rests on, is a gelatin measurement applied
+here to both; it has not been re-measured on PAAm and every ratio in \cref{tab:paam} is quoted
+without it.
+
+One number in this document should be read differently from here on. The lack-of-fit ratio
+depends on the assumed equilibrium radius by a factor of about two over that radius's own
+uncertainty, on gelatin exactly as much as on PAAm, and the multistart behind it lands in
+neighbouring basins between adjacent stretches. No $F$ quoted anywhere above is pinned better
+than a factor of two. The rejection is not close enough to that boundary for it to matter, which
+is the only reason the conclusions stand as written.
 
 \part{Designing the experiment that would settle it}
 \label{part:design}

@@ -31,6 +31,7 @@ what it says. If it does not, the real number is uninterpretable and nothing is 
 """
 
 import json
+import zlib
 
 import numpy as np
 from scipy.optimize import minimize
@@ -91,6 +92,13 @@ def _objective(dataset, target, err, base, n):
   return chi2
 
 
+def seed_for(name):
+  """A seed that is the same next week. `hash()` of a str is salted per PROCESS, so the
+  multistart this drives was drawing different starts on every run and the reported chi2 was
+  not reproducible -- `shape_seeds.py` measures what that was worth."""
+  return zlib.crc32(name.encode()) & 0x7FFFFFFF
+
+
 def _fit(chi2, seed):
   """Multistart Nelder-Mead in log coordinates; the starts span the box, not a neighbourhood."""
   rng = np.random.default_rng(seed)
@@ -116,7 +124,7 @@ def one(dataset):
   if start is None: return dataset, None
   at_fit = float(np.mean(((start - target) / err) ** 2))
 
-  best, best_x = _fit(_objective(dataset, target, err, base, n), seed=abs(hash(dataset)) % 2**31)
+  best, best_x = _fit(_objective(dataset, target, err, base, n), seed=seed_for(dataset))
   fitted = {a: float(base[a] * np.exp(best_x[k])) for k, a in enumerate(AXES)}
 
   # the control: the same fitter against a sequence the model itself can produce
@@ -125,7 +133,7 @@ def one(dataset):
   sham_best = sham_x = None
   if sham_target is not None:
     sham_best, sham_x = _fit(_objective(dataset, sham_target, err, base, n),
-                             seed=abs(hash(dataset + "sham")) % 2**31)
+                             seed=seed_for(dataset + "sham"))
     sham_x = {a: float(base[a] * np.exp(sham_x[k])) for k, a in enumerate(AXES)}
 
   at_best = _ratios(dataset, fitted, n, MAX_STEPS_REPORT)

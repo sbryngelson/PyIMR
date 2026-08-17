@@ -2197,44 +2197,85 @@ that share was measured on gelatin and would be carried rather than established 
 
 \begin{table}[htbp]
 \centering
-\caption{The classical lack-of-fit test on both materials, and what refitting the equilibrium
-radius does to it. Mean squares are in units of $10^{-3}$. The last three columns refit each
-dataset at seven stretches from $5.5$ to $8.5$ and report the value it prefers, the $\chi^2/N$
-there, and the ratio there. Every dataset prefers a stretch it is not carried at, $\chi^2/N$
-falls by about a third, and every dataset is still rejected.}
+\caption{The lack-of-fit test on both materials, weighted so its numerator is the sum the fit
+minimises, and judged against a null carrying each record's own autocorrelation rather than an
+assumption of independence. $\mathrm{MS}_{\rm pure}$ is $1.000$ on every dataset by
+construction, which is the finding rather than a rounding: weighting by the trial spread makes
+the pure-error sum $k(J-1)$ identically, so the denominator carries no information and the test
+is $J\chi^2/N$. The last two columns refit the equilibrium radius over seven stretches from
+$5.5$ to $8.5$. Every dataset is rejected, before and after.}
 \label{tab:paam}
-\begin{tabular}{lrrrrrrrr}
+\begin{tabular}{lrrrrrrr}
 \toprule
-& & & \multicolumn{2}{c}{mean square} & & \multicolumn{3}{c}{at the preferred stretch} \\
-\cmidrule(lr){4-5}\cmidrule(lr){7-9}
-dataset & events & $\chi^2/N$ & pure & lack & $F$ & stretch & $\chi^2/N$ & $F$ \\
+& & & & \multicolumn{2}{c}{null} & \multicolumn{2}{c}{at the preferred stretch} \\
+\cmidrule(lr){5-6}\cmidrule(lr){7-8}
+dataset & events & $\chi^2/N$ & $F_w$ & \SI{95}{\percent} & \SI{99}{\percent} & stretch & $\chi^2/N$ \\
 \midrule
-gelatin \SI{15}{\celsius} & 18 & 0.97 & 0.52 & 7.36 & 14.2 & 6.5 & 0.64 & 11.2 \\
-gelatin \SI{23}{\celsius} & 14 & 1.02 & 1.86 & 5.47 & 2.9 & 7.0 & 0.91 & 2.3 \\
-gelatin \SI{33}{\celsius} & 7 & 1.13 & 1.91 & 6.23 & 3.3 & 7.0 & 0.55 & 1.9 \\
+gelatin \SI{15}{\celsius} & 18 & 0.95 & 17.51 & 1.35 & 1.53 & 6.5 & 0.64 \\
+gelatin \SI{23}{\celsius} & 14 & 1.02 & 14.55 & 1.50 & 1.79 & 7.0 & 0.91 \\
+gelatin \SI{33}{\celsius} & 7 & 0.44 & 3.11 & 1.48 & 1.74 & 7.0 & 0.55 \\
 \midrule
-PAAm \texttt{PA05} & 52 & 0.60 & 0.62 & 18.87 & 30.5 & 7.0 & 0.50 & 22.0 \\
-PAAm \SI{10}{\celsius} & 30 & 0.50 & 0.70 & 6.64 & 9.5 & 7.5 & 0.34 & 6.6 \\
-PAAm \SI{21}{\celsius} & 57 & 0.38 & 0.81 & 14.24 & 17.6 & 7.0 & 0.26 & 10.8 \\
-PAAm \SI{33}{\celsius} & 30 & 0.47 & 1.17 & 11.34 & 9.7 & 7.5 & 0.48 & 10.0 \\
-PAAm \texttt{PA05003} & 80 & 0.62 & 0.82 & 29.33 & 35.7 & 7.0 & 0.50 & 24.3 \\
+PAAm \texttt{PA05} & 52 & 0.60 & 31.99 & 1.37 & 1.54 & 7.0 & 0.50 \\
+PAAm \SI{10}{\celsius} & 30 & 0.50 & 15.30 & 1.38 & 1.58 & 7.5 & 0.34 \\
+PAAm \SI{21}{\celsius} & 57 & 0.38 & 22.19 & 1.35 & 1.52 & 7.0 & 0.26 \\
+PAAm \SI{33}{\celsius} & 30 & 0.47 & 14.45 & 1.41 & 1.56 & 7.5 & 0.48 \\
+PAAm \texttt{PA05003} & 80 & 0.62 & 50.56 & 1.54 & 1.82 & 7.0 & 0.50 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The rejection reproduces. It is worth separating two readings of how strongly, because $F$ alone
-oversells it. The ratio scales with the replicate count by construction, so part of the gap
-between PAAm's $9.5$ to $35.7$ and gelatin's $2.9$ to $14.2$ is $30$ to $80$ events buying power
-to detect the same misfit. The reading that does not depend on the replicate count is in the two
-mean-square columns: PAAm's pure error matches gelatin's while its lack of fit is up to four
-times larger, so the model is genuinely worse there as well as more securely rejected.
+\paragraph{Why this table is not the one a classical treatment would print.} The textbook
+statistic sums $J\sum_i(\bar y_i - \hat y_i)^2$ unweighted against the replicate pure error.
+These records are strongly heteroscedastic and the fit minimises the WEIGHTED sum, so the
+unweighted numerator is not what any fit here descends, and its $k-p$ degrees of freedom belong
+to no minimisation performed. That is not a formal complaint: raising the multistart budget from
+$10$ to $40$ improves the \SI{15}{\celsius} fit from $\chi^2/N = 0.9727$ to $0.9535$ and
+\emph{raises} its unweighted ratio from $14.16$ to $16.69$. A statistic that worsens when the fit
+improves is measuring the wrong thing.
 
-The $\chi^2/N$ column is the sharpest form of the argument this document has been making. Every
-PAAm dataset fits at $0.38$ to $0.62$. Reported alone, as it usually is, that number says the
-model reproduces the data to better than experimental repeatability and would pass any review.
-The same fits miss by $10$ to $36$ times the instrument's own scatter.
+Weighting both sums consistently repairs it and, in doing so, removes a claim this document has
+been making. The pure-error term becomes $\sum_{ij}(y_{ij}-\bar y_i)^2/s_i^2 = k(J-1)$
+identically, so $\mathrm{MS}_{\rm pure} = 1$ exactly and what remains is
+$F_w = \tfrac{k}{k-p}J\chi^2/N$. The classical test applied to a heteroscedastic record with its
+own weights IS $J\chi^2/N$. \Cref{sec:fitquality} presents these as two routes to one
+conclusion, "reached with none of the same machinery"; they are one route with a factor of $J$
+between them, and that sentence is withdrawn. What survives is the part that was always the
+point: the factor of $J$ is not a detail, because the fit is compared against the spread BETWEEN
+events when the standard error of their mean is smaller by $\sqrt{J}$.
 
-The last three columns close the obvious objection. The enrichment screen below makes the
+The threshold is then the only live question, and it is settled by simulation rather than
+disclaimed. An analytic $F(k-p,\cdot)$ critical value near $1.2$ assumes independent errors;
+these are correlated at $\rho = 0.68$ to $0.86$. Surrogates carrying each record's own
+autocorrelation put the \SI{99}{\percent} point at $1.52$ to $1.82$ instead. Correlation moves
+the threshold by a quarter to a half and changes no verdict, which is worth stating precisely
+because \cref{sec:fitquality} raises this objection against itself and then leaves it
+unquantified.
+
+Two entries move enough to be worth naming. Gelatin \SI{23}{\celsius} reported $2.94$ unweighted
+and read as the weakest rejection in the document; weighted it is $14.55$, because the unweighted
+statistic understates the misfit exactly where the trial spread is largest. Gelatin
+\SI{33}{\celsius} reported $3.26$ from a fit that ten starts could not find; at forty starts it
+reaches $\chi^2/N = 0.4354$ and $F_w = 3.11$, which is the weakest rejection here and still sits
+above its own \SI{99}{\percent} null of $1.74$. The seven-event dataset is the one carrying the
+least, as it should be.
+
+The rejection reproduces. It is worth separating two readings of how strongly, because $F_w$
+alone oversells it. Since $F_w = \tfrac{k}{k-p}J\chi^2/N$ exactly, the statistic scales with the
+replicate count by construction, so most of the gap between PAAm's $14.5$ to $50.6$ and gelatin's
+$3.1$ to $17.5$ is $30$ to $80$ events buying power to detect the same misfit rather than a worse
+model. The reading that does not depend on the replicate count is the $\chi^2/N$ column, and it
+says the opposite of what the $F_w$ column suggests: PAAm fits BETTER, at $0.38$ to $0.62$
+against gelatin's $0.44$ to $1.02$. What PAAm buys is not a larger failure but a securer
+detection of one.
+
+That $\chi^2/N$ column is also the sharpest form of the argument this document has been making,
+and the two facts are the same fact. Every PAAm dataset fits at $0.38$ to $0.62$. Reported alone,
+against the between-event spread, as it usually is, that number says the model reproduces the
+data to better than experimental repeatability. The same fits are rejected at $14$ to $51$
+against a null of $1.5$ to $1.8$, because the fit is being compared to the scatter of single
+events when it was fitted to their mean.
+
+The last two columns close the obvious objection. The enrichment screen below makes the
 initial radius the largest admissible candidate on seven of eight datasets, and the sensitivity
 above makes the ratio a factor of two sensitive to it, so a reader is entitled to suspect that
 the discrepancy is a mis-set $R_{\rm eq}$ rather than model-form error. Both of those are
@@ -2243,16 +2284,22 @@ $5.5$ to $8.5$, all eight then have an interior $\chi^2$ minimum, and all eight 
 between $6.5$ and $7.5$ while being carried at $6.83$ to $8.01$. A real share of what is
 reported as misfit is a pinned radius: $\chi^2/N$ at the preferred value falls by \SI{25}{\percent}
 on the median dataset and by as much as a half, though on one it does not fall at all. It is not
-the whole share, which is the result. At its own preferred stretch every dataset is still
-rejected, at $1.9$ to $24.3$ against a critical value near $1.2$.
+the whole share, which is the result. Carried through the same weighted statistic, every dataset
+at its own preferred stretch still gives $F_w$ of $3.96$ to $41.3$ against nulls of $1.5$ to
+$1.8$. Refitting the radius freely does not rescue the model.
 
-Two things in that column are worth stating rather than smoothing. Among the four datasets whose
+One thing in that column is worth stating rather than smoothing. Among the four datasets whose
 preference sits more than $0.5$ from the value they are carried at is gelatin \SI{15}{\celsius},
 whose stretch is tabulated in the source rather than estimated here, so the offset is not an
-artefact of how the PAAm datasets were prepared. And gelatin \SI{23}{} and \SI{33}{\celsius}
-fall to $2.3$ and $1.9$ at their preferred stretch, which are rejections but marginal ones. The
-gelatin case rests mostly on one dataset. That is an argument for the PAAm datasets carrying the
-claim rather than decorating it.
+artefact of how the PAAm datasets were prepared.
+
+A claim made earlier in this section has to be withdrawn here rather than quietly dropped. On
+the unweighted statistic gelatin \SI{23}{} and \SI{33}{\celsius} fell to $2.3$ and $1.9$ at their
+preferred stretch, and that was read as the gelatin case resting on one dataset. Weighted, they
+are $13.0$ and $4.0$: \SI{23}{\celsius} is among the firmest rejections in the document rather
+than the weakest, because the unweighted numerator was discounting exactly the samples where the
+trial spread is largest. The argument for the PAAm datasets carrying the claim stands on their
+sample size, not on a weakness in gelatin that the statistic manufactured.
 
 \subsection*{The shelf is empty there too, and the afterbounces mostly fail there too}
 

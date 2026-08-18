@@ -43,13 +43,20 @@ def one(dataset):
   Done that way the correlations cluster by window rather than by material, which is an
   artefact of the resampling and was mistaken for a result once already.
   """
-  _, split, _, _ = directions(dataset)
+  _, split, jac, _ = directions(dataset)
   curve = np.asarray(split.identifiable, dtype=float)
   times, _, _, maximum, _ = records.load(dataset)
   tau = times / (maximum * np.sqrt(1064.0 / 101325.0))
   resampled = np.interp(GRID, tau[: curve.size], curve)
   resampled = resampled - resampled.mean()
+  # the sensitivity span this residual was projected out of, resampled the same way, so a
+  # null can be built carrying the SAME constraint the measurement carries
+  span = []
+  for column in np.asarray(jac, dtype=float).T:
+    got = np.interp(GRID, tau[: column.size], column)
+    span.append((got - got.mean()) / (np.linalg.norm(got - got.mean()) + 1e-30))
   return dataset, {"curve": (resampled / np.linalg.norm(resampled)).tolist(),
+                   "span": np.array(span).tolist(),
                    "tau_max": float(tau[curve.size - 1])}
 
 
@@ -71,6 +78,14 @@ def main():
         + ", ".join(f"{d.replace('paam_','')[:8]} {raw[d]['tau_max']:.1f}" for d in ORDER))
   print(f"  compared over the common {GRID[0]:.1f} to {GRID[-1]:.1f}\n")
   curves = {d: np.array(v["curve"]) for d, v in raw.items()}
+  spans = {d: np.array(v["span"]) for d, v in raw.items()}
+
+  def constrained(rng, dataset):
+    """A surrogate with the curve's spectrum AND its orthogonality to the sensitivities."""
+    out = _surrogate(rng, curves[dataset])
+    basis, _ = np.linalg.qr(spans[dataset].T)
+    out = out - basis @ (basis.T @ out)
+    return out / (np.linalg.norm(out) + 1e-30)
 
   print("  pairwise |correlation| of the identifiable discrepancy, on a common phase grid\n")
   print(f"  {'':>16s} " + " ".join(f"{d.replace('paam_','')[:8]:>9s}" for d in ORDER))
@@ -98,7 +113,15 @@ def main():
       ga, gb = a in records.DATASETS, b in records.DATASETS
       (within_gel if ga and gb else within_paam if not (ga or gb) else across).append(r)
 
+  tight = np.empty(DRAWS)
+  for d in range(DRAWS):
+    a, b = rng.choice(len(keys), size=2, replace=False)
+    tight[d] = abs(np.dot(constrained(rng, keys[a]), constrained(rng, keys[b])))
+  cut_tight = float(np.percentile(tight, 95))
+
   print("\n  ---- against a null that keeps each curve's own spectrum ----\n")
+  print("  and one that ALSO projects out the sensitivity span, as delta-hat is:")
+  print(f"    mean {tight.mean():.3f}, 95th percentile {cut_tight:.3f}")
   print(f"  phase-randomised surrogate pairs: mean {null.mean():.3f}, "
         f"95th percentile {cut95:.3f}")
   print(f"  the paper compares against 1/sqrt(N) = {1/np.sqrt(GRID.size):.3f}\n")
@@ -107,6 +130,9 @@ def main():
     beat = sum(1 for r in group if r > cut95)
     print(f"  {label:>22s}: {len(group):2d} pairs, |r| {min(group):.3f} to {max(group):.3f}, "
           f"median {np.median(group):.3f}, {beat} above the null")
+
+  print(f"\n  cross-material pairs above the constrained null: "
+        f"{sum(1 for r in across if r > cut_tight)} of {len(across)}")
 
   print("\n  ---- what it says ----\n")
   if np.median(across) > cut95 and np.median(within_gel) > cut95:

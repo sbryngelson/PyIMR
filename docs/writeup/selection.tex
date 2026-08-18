@@ -1890,12 +1890,63 @@ be screened against.
 this was originally compared against is $1/\sqrt{N}$, the null for two INDEPENDENT vectors, and
 it is the wrong null for two curves that this same paragraph says are two-thirds concentrated in
 one feature. Phase-randomised surrogates, which keep each curve's own power spectrum and destroy
-only what it shares with the other, correlate at a mean of $0.234$ with a \SI{95}{\percent} point
-of $0.484$. So the corrected floor is six times the number quoted, the top of the observed range
-clears it comfortably, and the bottom of it, $0.49$, sits exactly ON it. The agreement is real at
-the strong end and not established at the weak end, which is a narrower claim than ``one curve''
-and is the one the data supports. \Cref{sec:paam} carries the same correction through the screen
-itself, where the consequences are larger.
+only what it shares with the other, correlate at a mean of $0.239$ with a \SI{95}{\percent} point
+of $0.508$. The corrected floor is therefore six times the number quoted: the top of the observed
+range clears it comfortably and the bottom of it, $0.49$, sits ON it. On three gelatin datasets
+alone, ``one curve'' is established at the strong end and not at the weak end.
+
+\paragraph{It is the same curve on two materials that share nothing but an instrument.} What
+settles it is the comparison three datasets could not make. Gelatin is a physical gel of triple
+helices; polyacrylamide is a covalent network; \cref{sec:paam} supplies five more records of the
+second. Resampled onto a common normalised time and correlated pairwise, the eight $\hat\delta$
+give a median of $0.679$ within PAAm on ten pairs, $0.551$ within gelatin on three, and
+$\mathbf{0.726}$ ACROSS the two materials on fifteen. The cross-material agreement is stronger
+than the within-gelatin agreement, and $12$ of those $15$ pairs clear the phase-randomised
+null.
+
+\begin{table}[htbp]
+\centering
+\caption{The identifiable discrepancy of every record against every other, $\lvert\cos\rvert$ on
+a common normalised-time grid. Two nulls are quoted because $\hat\delta$ carries two properties
+a naive comparison would credit to mechanism: it is smooth, and it is orthogonal to the model's
+own sensitivities by construction. Surrogates carrying the first sit at $0.508$; surrogates
+carrying both sit at $0.466$, so the shared orthogonality does not manufacture the agreement.}
+\label{tab:universal}
+\begin{tabular}{lrrr}
+\toprule
+comparison & pairs & median $\lvert\cos\rvert$ & above the constrained null \\
+\midrule
+gelatin with gelatin & 3 & 0.551 & 3 \\
+PAAm with PAAm & 10 & 0.679 & 10 \\
+\textbf{gelatin with PAAm} & 15 & \textbf{0.726} & \textbf{13} \\
+\midrule
+\multicolumn{2}{l}{phase-randomised null} & 0.239 & \SI{95}{\percent} point $0.508$ \\
+\multicolumn{2}{l}{\quad and orthogonal to the sensitivities} & 0.201 & \SI{95}{\percent} point $0.466$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The obvious objection is that $\hat\delta$ is DEFINED as the part of the residual orthogonal to
+the sensitivities, and all eight were projected out of the same model's span, so two such curves
+might correlate for that reason and no other. Building the null with that constraint imposed
+answers it: surrogates that are both spectrum-matched and orthogonal to each record's own span
+correlate LESS, at $0.201$ with a \SI{95}{\percent} point of $0.466$, and $13$ of the $15$
+cross-material pairs clear that. The constraint tightens the null rather than inflating the
+statistic.
+
+So whatever every model in this document is missing is not the chemistry of either network. It
+survives a change of crosslinking, of gelation mechanism, of temperature and of bubble size, and
+\cref{sec:paam} shows no candidate enrichment reaches it above a \SI{20}{\percent} noise floor.
+That is a measured curve, common to two materials, that nothing on the shelf explains, and it is
+a more useful object than the rejection it came from: a target a theory can be tested against
+rather than a bound on how wrong a number might be.
+
+Two limits belong with it. Every record here comes from one instrument and one laboratory, so
+the invariance is established across chemistry and not across apparatus. And a shared residual
+from a shared model is what model-form error should look like, which is the claim, but it cannot
+be told apart from a shape imprinted by the shared processing without a pipeline nobody in this
+document controls. Both are testable by anyone with a second rig, which is the right kind of
+weakness to have.
 
 The screen is a projection, not a fit. Any enrichment supplies a direction $v$ (the trace it
 would add, differenced against the current model) and only the part of it orthogonal to the

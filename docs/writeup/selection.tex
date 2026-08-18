@@ -1932,12 +1932,35 @@ That is a measured curve, common to two materials, that nothing on the shelf exp
 a more useful object than the rejection it came from: a target a theory can be tested against
 rather than a bound on how wrong a number might be.
 
+\paragraph{And it is not the shape of the pinned radius either.} $\hat\delta$ is computed from
+fits that \cref{sec:limitations} says are misconfigured, and every one of the eight carries the
+same misconfiguration, so a shared curve is what shared defects would produce whether or not any
+model-form error exists. The one the data most loudly asks for is the equilibrium radius: the
+screen makes it the only reachable candidate above its own floor, every record prefers a stretch
+it is not carried at, and the sensitivity sweep makes it the input the lack-of-fit ratio is most
+sensitive to. Refitting all eight at the stretch each record's own $\chi^2$ prefers moves
+$\hat\delta$ hardly at all, at a median $\lvert\cos\rvert$ of $0.844$ against the uncorrected
+curve, and the cross-material agreement survives at a median of $0.629$ with $12$ of $15$ pairs
+above the same constrained null of $0.465$. The shared curve is not a pinned radius.
+
+That correction is not free of consequence elsewhere, which is why it is worth doing rather than
+asserting: $\chi^2/N$ falls to $0.26$ to $0.91$ at the preferred stretches, and \texttt{PA05}
+moves furthest, its discrepancy correlating with the uncorrected one at only $0.579$. What
+survives the correction is the agreement between materials, not the numerical identity of the
+curve.
+
 Two limits belong with it. Every record here comes from one instrument and one laboratory, so
 the invariance is established across chemistry and not across apparatus. And a shared residual
 from a shared model is what model-form error should look like, which is the claim, but it cannot
 be told apart from a shape imprinted by the shared processing without a pipeline nobody in this
-document controls. Both are testable by anyone with a second rig, which is the right kind of
-weakness to have.
+document controls. Both are testable by anyone with a second rig, which is the right kind of weakness to have.
+
+A third limit is narrower and belongs with the correction just described. Vapour pressure and
+mass transfer, which \cref{sec:limitations} also lists, are NOT corrected in that test. Switching
+them on costs about half an hour per record and raises inside the multistart on some, so the
+radius correction was separated from it and run alone rather than bundling a cheap test with an
+expensive one and losing both. What is reported above is therefore that the curve survives
+freeing $R_{\rm eq}$, and nothing about vapour.
 
 \subsection{What could remove it, and what the screen can resolve}
 \label{sec:screenres}

@@ -36,10 +36,17 @@ from universal_delta import GRID, _surrogate, one as delta_one
 # in PARALLEL, so cutting their number does not cut wall time -- only cutting the cost of a
 # single fit does. The question is directional (does the cross-material curve survive correcting
 # the fits) and four records answer it; eight would only sharpen an answer not yet in hand.
-ORDER = ("gelatin_15C", "gelatin_23C", "paam_PA05_21C", "paam_PA05003")
+ORDER = (*records.DATASETS, *records.PAAM)
 DRAWS = 2000
-STARTS, EVALUATIONS = 3, 120
-THERMAL = {"bubtherm": 1, "Nt": 7, "masstrans": 1, "vapor": 1}
+STARTS, EVALUATIONS = 10, 300
+# The two corrections are separated, because they do not cost the same. Freeing the equilibrium
+# radius is what four independent measurements implicate and it is free: the fit is isothermal,
+# like every other fit in this document. Switching vapour and mass transfer on costs about thirty
+# minutes PER RECORD -- a diagnostic timed out at that on one -- and some records raise inside the
+# multistart. So the radius is tested here and the vapour correction is left as stated work rather
+# than half-run. Set THERMAL to the commented value to pay for it.
+THERMAL = {}
+# THERMAL = {"bubtherm": 1, "Nt": 7, "masstrans": 1, "vapor": 1}
 
 
 def corrected(dataset):
@@ -61,7 +68,7 @@ def corrected(dataset):
     fitted = dict(zip(candidate.axes, (float(v) for v in values), strict=True))
     base = np.asarray(evaluate_at(candidate, solve, fitted)[0], dtype=float)
   except Exception as error:                                          # noqa: BLE001
-    return dataset, {"failed": f"{type(error).__name__}"}
+    return dataset, {"failed": f"{type(error).__name__}: {error}"}
   error_bar = spread / np.sqrt(records.trial_count(dataset))
   step, columns = 1e-4, []
   for axis in candidate.axes:
@@ -70,8 +77,8 @@ def corrected(dataset):
     try:
       hi = np.asarray(evaluate_at(candidate, solve, up)[0], dtype=float)
       lo = np.asarray(evaluate_at(candidate, solve, dn)[0], dtype=float)
-    except Exception:                                                 # noqa: BLE001
-      return dataset, {"failed": "jacobian"}
+    except Exception as error:                                        # noqa: BLE001
+      return dataset, {"failed": f"jacobian: {type(error).__name__}"}
     columns.append((hi - lo) / (2 * step * error_bar))
   jacobian = np.column_stack(columns)
   split = discrepancy((mean - base) / error_bar, jacobian)
@@ -93,7 +100,8 @@ def main():
     fixed = dict(pool.map(corrected, list(ORDER)))
     plain = dict(pool.map(delta_one, list(ORDER)))
   good = [d for d in ORDER if "failed" not in fixed[d]]
-  print(f"  {len(good)} of {len(ORDER)} refitted with vapour on at the preferred stretch")
+  label = "with vapour on" if THERMAL else "isothermal, vapour NOT corrected"
+  print(f"  {len(good)} of {len(ORDER)} refitted at the preferred stretch, {label}")
   for d in ORDER:
     if "failed" in fixed[d]: print(f"    {d}: {fixed[d]['failed']}")
   if len(good) < 4: return
@@ -139,8 +147,11 @@ def main():
 
   print("\n  ---- what it says ----\n")
   if across and np.median(across) > cut:
-    print("  The cross-material agreement survives correcting the fits, so the shared curve is")
-    print("  not the shape of the shared defects and sec:universal stands.")
+    what = "the fits" if THERMAL else "the equilibrium radius"
+    print(f"  The cross-material agreement survives correcting {what}, so the shared curve is")
+    print("  not the shape of THAT defect and sec:universal stands against it.")
+    if not THERMAL:
+      print("  Vapour is not corrected here and this says nothing about it.")
     if np.median(same) < cut:
       print("  But the corrected curve is NOT the uncorrected one, so the curve that gets")
       print("  published has to be this one.")

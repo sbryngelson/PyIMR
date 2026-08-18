@@ -213,47 +213,112 @@ audience, and what do they currently believe that this changes?
 
 ## 6. Where it stands
 
-`selection.tex` is 78 pages, restructured around the universality result, compiling clean.
-Title: *The same curve on two materials: a measured, material-independent discrepancy in
-inertial microcavitation rheometry.*
+*Rewritten 2026-08-18 after an outside-eyes audit. The audit's own headline is that most of
+what it flagged was conservative — and that the one thing it did not anticipate, a solver
+default, had silently produced a false conclusion in the text and a false reassurance beside
+it.*
 
-**Ran, and failed:** the vapour-corrected refit. `delta_corrected.py` with `bubtherm`,
-`masstrans` and `vapor` on refitted 2 of 8 records — both gelatin — and raised `qSLS did
-not fit from any of 3 starts` on the other six, every PAAm record among them. With no PAAm
-survivor there is no cross-material comparison to make, and the script's own `len(good) < 4`
-guard returned without writing a result. The wrapper printed `All checks passed!` and exited
-0 on top of that.
+`selection.tex` is 83 pages, restructured around the universality result, compiling clean with
+zero undefined references (there were eight; `eq:lackoffit` was cited eight times and defined
+never).
 
-The failure is not the optimiser running out of budget. `selection.py:614` raises only when
-every start ends above `_UNREACHABLE`, the penalty region, and the warm box is centred on
-the isothermal optimum — so the first start *is* the point the isothermal fit already found.
-A probe evaluating exactly that point confirmed it: the thermal solve completes in 9.8 s
-against 3.0 s isothermal on `gelatin_15C`, and on `gelatin_23C`, `paam_PA05` and
-`paam_PA05003` exhausts 400 000 integrator steps after ~four minutes without reaching the end
-of the record — `SimulationError: The maximum number of solver steps was reached`. One
-completion, three stalls. A stalled solve burns 20× the steps of a successful one and still
-does not finish, so this is stepsize collapse, not a ceiling set too low; raising `max_steps`
-buys nothing a fit could use. Where it does complete it barely moves anything: χ² on
-`gelatin_15C` goes 25207 → 24911, a little over a percent.
+### 6.1 The vapour question, which turned out to be a solver setting
 
-`sec:universal` had said switching vapour on "raises inside the multistart on some" records,
-written from a one-record diagnostic. That paragraph now carries the measured version: 6 of 8,
-localised to the forward solve, with the mechanism and the cost named.
+The paper said the vapour-corrected forward model "cannot be integrated on most of these
+records", and I had written that the session before, pleased that a cost hedge had become a
+measured limitation. The measurement was real — 6 of 8 records raising, 400 000 steps exhausted
+after four minutes, the failure localised to the forward solve — and the conclusion was wrong.
 
-So the vapour correction is not merely expensive, it is unavailable at this configuration,
-and the cross-material curve stands tested against the radius correction and untested against
-vapour. Beyond it, only the single-instrument, single-laboratory limit remains, and that one
-belongs in the text permanently rather than being defended.
+Those runs carried `Nt = 7` spectral nodes against a package default of 25. At `Nt = 15` and
+`Nt = 25`, **8 of 8 records integrate**. Worse, the stall is *slower* than the success it stood
+in for: ~250 s of collapsing stepsize against ~35 s of completed solve, so the setting chosen
+for speed cost seven times the time. An implicit Kvaerno5 was in use throughout, which is why
+the symptom read as genuine stiffness and why every remedy I reached for was aimed at a solver
+that was already correct.
 
-**Open, not blocked:**
+The reassurance was the same artifact. The one record that completed at `Nt = 7` moved χ² from
+25207 to 24911 — about a percent — which I reported as evidence the correction was harmless. At
+`Nt = 25` the same evaluation gives **80507**. The comforting number and the blocking failure
+had one cause, and I had quoted both.
 
-1. An unreconciled inconsistency: `sec:enrich` says 65–69 % of each δ̂ sits in the first
-   collapse; the mode measures 47 %. Different definitions, possibly — but unreconciled.
-2. Collinearity in the dictionary regression is unquantified (1/R and R/R_max both score
-   high and are strongly related).
-3. `trial_variation.py` on PAAm proper — PARAMETER_SHARE = 0.393 is a gelatin number.
-4. Three bibliography entries flagged `VERIFY BEFORE SUBMISSION`; ten uncited entries to
-   cite or remove.
-5. The editor's recommendation to cut ~20 pages (`app:background`, `sec:genealogy`).
-6. OED-referee findings not independently verified: certificate scope, δ̂-circularity in
-   `sec:deltadesign`, prior standardisation (1/√12 vs `sec:prior`).
+### 6.2 What the correction then did, and why it is not yet a retraction
+
+With `Nt = 25` all eight records refit, and the cross-material median |cos| falls from **0.726
+to 0.302**. That is a threat to the paper's central claim, so it got the control the claim
+deserves rather than the write-up it invited.
+
+The corrected fits come back *worse* than the isothermal ones (χ²/N up to 3.66 against ~1.3),
+and a richer, more correct physics should not fit worse at a converged optimum. Checking the
+box walls: **14 of 16 fits sit on one**. Read in the raw axes that says "search failed". Read
+in the identified coordinates it says something much sharper:
+
+- **gα, the combination the data determines, converged** — agreeing to ~3 % between a ×3 and a
+  ×10 box on 7 of 8 records. `g` and `α` individually sat on opposite walls, which is just the
+  documented g–α trade and not a failure at all.
+- **λ₁ did not.** It landed on the lower wall *exactly* — the isothermal value divided by the
+  box width, to three digits, at both widths — while χ² kept falling as the wall moved down.
+
+That is not the flat direction the identifiability chapter describes, where the objective is
+indifferent and the answer is whatever the prior box says. It is an active descent toward
+λ₁ → 0: with the thermal physics modelled, the data stops wanting a relaxing solid, which reads
+as the Zener arm having been absorbing thermal damping all along. So the 0.302 is measured at a
+boundary of the model class, not at an optimum. `vapour_lambda_floor.py` gives λ₁ the full
+seven-decade prior range to find out whether there is an interior optimum at all. **That result
+is the open question the paper now turns on.**
+
+### 6.3 The independent test of the same hypothesis
+
+Separately and far more cheaply, `thermal_signature.py` asks whether the correction's *own
+shape* is the universal curve — two forward solves per record, no fitting, differenced in noise
+units and projected into δ̂'s coordinates. It is not: median |cos| 0.300 against a per-record
+null of 0.367, nowhere near the 0.726 the two materials agree at. And it is not a null result
+for want of a big enough correction, which is 2–4× the size of the discrepancy it would have to
+explain on seven of eight records.
+
+Honest residue: 3 of 8 records *do* clear their own null where 0.4 would be expected, so a
+minority component of the correction resembles the curve. The candidate is reduced, not
+eliminated. The first version of that script's verdict read the median alone and printed the
+answer I wanted; it now reports the count as well.
+
+Reconciling 6.2 against 6.3 is a live task. Both can hold — a large correction pointing
+elsewhere still moves the fitted parameters a long way, and δ̂ is defined *at* the fitted point,
+so the curve can be destroyed by a correction whose shape it does not share.
+
+### 6.4 What the audit corrected, all of it in the paper's favour or neutral
+
+- **The universality null was quoted at the wrong level.** `tab:universal` compared a median
+  over 15 *dependent* pairs against a single-pair null. The ensemble 95th point is **0.315**,
+  not 0.508; observed 0.726 sits beyond all 4000 draws. The error was conservative, and
+  correcting it most helps the cell that looked thinnest — within-gelatin's 0.551, hedged in
+  the text as "sitting ON" the null, is p ≈ 0.003 at the level the claim is quoted.
+- **"65–69 % sits in the first collapse"** described one gelatin record. Measured: 46 %, 69 %,
+  47 %; 41–69 % across all eight; common mode 47.5 %. A correction, not a reconciliation.
+- **The 0.998 "visible share"** in `sec:deltadesign` is first-order optimality restated — a
+  least-squares residual is orthogonal to the sensitivity span *at* the fitted point — so its
+  four-point rank correlation carries three points. Both now stated. Its stale 1/√N null of
+  0.05, already corrected in `sec:transfer`, is brought into line.
+- **The form-shadow control** spans constitutive form only; every fit shares a Keller–Miksis
+  operator and an isothermal gas. Scope stated, and handed to the vapour section.
+- **The dictionary is worse conditioned than suspected**: the polytropic gas term and the
+  internal pressure are the *same direction* to numerical precision (|cos| = 1.000 on 8/8 — one
+  is the other times a constant), so ten entries span nine directions and the Gram is singular.
+  The two terms the headline reading is taken from overlap at 0.88. The subspace comparison
+  survives; naming a single term does not.
+- **PARAMETER_SHARE = 0.393 transfers.** PAAm gives 28.2–45.8 %, median 44.5 %, against chance
+  levels of 3.0–3.8 %; gelatin sits inside that range. The leftover lag-one stays at 0.59–0.73,
+  so on the second material too the correlation is mostly structure the model lacks.
+- **Bibliography closed.** The three `VERIFY BEFORE SUBMISSION` entries verified against
+  publishers' records — every field correct as written, DOIs added, attributed claims re-read
+  and accurate. The eleven uncited entries placed rather than deleted; they are the canonical
+  citations for machinery the document actually uses. 35 entries, 0 uncited.
+
+### 6.5 Still open
+
+1. **The λ₁ floor run**, which decides §6.2 — and with it whether `sec:universal` needs
+   restating. Everything else on this list is smaller than this one item.
+2. Two OED-referee findings unverified: certificate scope, prior standardisation (1/√12 vs
+   `sec:prior`).
+3. The editor's ~20-page cut (`app:background`, `sec:genealogy`) — the author's call.
+4. The two-papers question, whose answer now depends on item 1.
+5. **A convergence sweep over every other numerical default.** `Nt = 7` was found only by
+   asking what the default was. Nothing says it is the only one.

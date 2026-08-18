@@ -1959,13 +1959,32 @@ lobe is the model running BELOW the data there. Eight records missing the same t
 DIRECTION is a stronger statement than eight records sharing a shape, and it is the one the data
 supports.
 
-And the mode peaks at $t/t_c = 0.10$, early in the first expansion, with \SI{47}{\percent} of its
-squared norm inside $t/t_c \le 1.2$. The discrepancy is not concentrated at the collapse minimum
-where the rates are most extreme and where a rate-dependent mechanism would put it. That is
-consistent with what the dictionary of \cref{sec:screenres} finds, since every term carrying
-$\dot R$ or $\ddot R$ takes under \SI{9}{\percent} of the curve while terms in $R$ alone take
-$29$ to \SI{70}{\percent}, and it is the second independent reason to look for something
-quasi-static rather than rate-dependent.
+The mode's largest single excursion is at $t/t_c = 0.10$, and that spike should be discounted
+rather than read. Every trace starts at $R/R_{\max} = 1$ by construction, so the between-event
+spread just after $t=0$ is $0.001$ to $0.002$ against a median of $0.018$ to $0.025$, and
+$\hat\delta$ carries a $1/\text{error}$ in its definition: the early amplitude is a small
+denominator, not a large disagreement.
+
+Where the curve actually lives is the other end. By squared norm it is \SI{16.9}{\percent} in
+$t/t_c < 0.2$, \SI{19.5}{\percent} in $0.2$--$0.5$, \SI{11.0}{\percent} through the first
+collapse at $0.5$--$1.2$, and then \SI{25.1}{\percent} and \SI{27.5}{\percent} in the two
+windows after it. More than half of the discrepancy is POST-collapse, in the ringdown, and the
+least of it is at the collapse minimum where the rates are most extreme and where a
+rate-dependent mechanism would put it. That agrees with two things measured separately: the
+dictionary of \cref{sec:screenres}, where every term carrying $\dot R$ or $\ddot R$ takes under
+\SI{9}{\percent} while terms in $R$ alone take $29$ to \SI{70}{\percent}; and
+\cref{sec:afterbounce}, which finds no fixed material reaching the afterbounce sequence on most
+records. The curve and the afterbounce failure are the same object seen twice.
+
+\paragraph{None of which is the small denominator talking.} Since the early spike is inflated by
+construction, the whole result is re-run with the early window removed, against nulls rebuilt on
+each restricted window rather than carried over from the full one. Dropping $t/t_c < 0.3$ leaves
+the cross-material median at $0.654$ against a null of $0.458$, with $14$ of $15$ pairs above;
+dropping $t/t_c < 0.5$ leaves $0.596$ against $0.452$; and keeping only what follows the first
+collapse leaves $0.542$ against $0.445$, still $12$ of $15$. The leading mode carries $73.5$,
+$69.3$, $64.9$ and \SI{61.4}{\percent} across those four windows, and the loadings are all of
+one sign in every one of them, with the smallest never below $0.61$. The agreement degrades
+gracefully as the window shrinks and never approaches its null.
 
 \paragraph{And it is not the shape of the pinned radius either.} $\hat\delta$ is computed from
 fits that \cref{sec:limitations} says are misconfigured, and every one of the eight carries the

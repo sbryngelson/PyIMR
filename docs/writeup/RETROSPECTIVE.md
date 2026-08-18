@@ -227,9 +227,18 @@ guard returned without writing a result. The wrapper printed `All checks passed!
 The failure is not the optimiser running out of budget. `selection.py:614` raises only when
 every start ends above `_UNREACHABLE`, the penalty region, and the warm box is centred on
 the isothermal optimum — so the first start *is* the point the isothermal fit already found.
-The thermal solve cannot be evaluated there. `sec:universal` already said switching vapour on
-"raises inside the multistart on some" records, written from a one-record diagnostic; that is
-now 6 of 8, localised to the forward solve rather than the search.
+A probe evaluating exactly that point confirmed it: the thermal solve completes in 9.8 s
+against 3.0 s isothermal on `gelatin_15C`, and on `gelatin_23C`, `paam_PA05` and
+`paam_PA05003` exhausts 400 000 integrator steps after ~four minutes without reaching the end
+of the record — `SimulationError: The maximum number of solver steps was reached`. One
+completion, three stalls. A stalled solve burns 20× the steps of a successful one and still
+does not finish, so this is stepsize collapse, not a ceiling set too low; raising `max_steps`
+buys nothing a fit could use. Where it does complete it barely moves anything: χ² on
+`gelatin_15C` goes 25207 → 24911, a little over a percent.
+
+`sec:universal` had said switching vapour on "raises inside the multistart on some" records,
+written from a one-record diagnostic. That paragraph now carries the measured version: 6 of 8,
+localised to the forward solve, with the mechanism and the cost named.
 
 So the vapour correction is not merely expensive, it is unavailable at this configuration,
 and the cross-material curve stands tested against the radius correction and untested against

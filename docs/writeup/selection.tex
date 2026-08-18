@@ -2010,11 +2010,23 @@ be told apart from a shape imprinted by the shared processing without a pipeline
 document controls. Both are testable by anyone with a second rig, which is the right kind of weakness to have.
 
 A third limit is narrower and belongs with the correction just described. Vapour pressure and
-mass transfer, which \cref{sec:limitations} also lists, are NOT corrected in that test. Switching
-them on costs about half an hour per record and raises inside the multistart on some, so the
-radius correction was separated from it and run alone rather than bundling a cheap test with an
-expensive one and losing both. What is reported above is therefore that the curve survives
-freeing $R_{\rm eq}$, and nothing about vapour.
+mass transfer, which \cref{sec:limitations} also lists, are NOT corrected in that test, and the
+reason is not cost. Refitting all eight records with \texttt{bubtherm}, \texttt{masstrans} and
+\texttt{vapor} on, in a box centred on each record's converged isothermal optimum, fitted two of
+them --- both gelatin --- and raised on the other six, every polyacrylamide record among them.
+The failure is in the forward solve rather than in the search: the multistart reports no fit
+only when every start ends in the penalty region, and since the box is centred on the isothermal
+answer, the first start \emph{is} the point the isothermal fit already found. Evaluated there
+directly, the thermal solve either completes in \SI{9.8}{\second} against \SI{3.0}{\second}
+isothermal, or exhausts $4\times10^{5}$ integrator steps after four minutes without reaching the
+end of the record; on the four records probed it completed once and stalled three times. That is
+stiffness, not a step ceiling set too low, so raising the budget buys nothing a fit could use.
+Where it does complete, it barely moves the objective: $\chi^2$ on \texttt{gelatin\_15C} goes
+from $25207$ to $24911$, a little over a percent.
+
+So what is reported above is that the curve survives freeing $R_{\rm eq}$, and nothing about
+vapour --- not because the vapour test was judged too expensive to run, but because at this
+configuration the corrected forward model cannot be integrated on most of these records.
 
 \subsection{What could remove it, and what the screen can resolve}
 \label{sec:screenres}

@@ -107,7 +107,10 @@ magnitude wider than the posterior, and computable as a bound rather than left a
 single calculation says both how well an experiment separates the models and how well it pins the
 material. Pose that calculation over design \emph{measures} rather than single settings and it
 becomes convex. The Kiefer--Wolfowitz equivalence theorem~\citep{kiefer1960equivalence} then
-certifies the answer: a proof that no better design exists, which is unusual in this literature.
+certifies the answer: a proof that no better design exists \emph{among the settings offered},
+which is unusual in this literature. The qualification is not decorative and this document
+measures it --- scanned off its own grid the certified measure is beaten, at
+\SI{552}{\micro\metre} and stretch $17.82$, on a ridge the grid steps over (\cref{sec:offgrid}).
 The rest of the machinery is built to preserve it. Four extensions keep it:
 the setpoint is not the geometry, candidates do not cost the same, the parameters carry the bias
 bound above, and the measured discrepancy can be made a coordinate the design sees
@@ -3052,7 +3055,8 @@ against a best single design of $1015\,\mu$m at stretch $6.70$. The measure exce
 $6.99$ in $\log\det$, a D-efficiency ratio of $\exp(6.99/4) = 5.74$; equivalently the
 confidence ellipsoid is $\exp(6.99/2) \approx 33$ times smaller in volume, and a typical
 parameter's interval is $\exp(6.99/8) = 2.4$ times tighter. No single design can match it,
-and this is not a claim about the search: \eqref{eq:equivalence} certifies that none exists.
+and this is not a claim about the search: \eqref{eq:equivalence} certifies that none exists
+on this candidate set. \Cref{sec:offgrid} scans off it and finds that the qualification bites.
 
 \begin{figure}[htbp]
 \centering
@@ -3335,7 +3339,8 @@ $\xi$, which \cref{sec:biasdesign} now prices and partly repairs, at $0.39$ to $
 The candidate set is still a grid, so the certificate proves optimality \emph{over that grid}.
 That scan has now been run, and it fails.
 
-\paragraph{The certificate does not reach past its own grid.} On the $224$-point grid the
+\paragraph{The certificate does not reach past its own grid.}
+\label{sec:offgrid} On the $224$-point grid the
 measure certifies exactly: $\max_x d(x,\xi^\star) = 4.000000$ against $p = 4$, at a gap of
 $8\times10^{-10}$. Evaluated on a grid eight times finer, the same measure gives
 %

@@ -1941,6 +1941,22 @@ correlate LESS, at $0.201$ with a \SI{95}{\percent} point of $0.466$, and $13$ o
 cross-material pairs clear that. The constraint tightens the null rather than inflating the
 statistic.
 
+\paragraph{Nor is it the shadow of the form that was fitted.} $\hat\delta$ is DEFINED as what a
+qSLS cannot reach, and all eight fits used a qSLS, so eight of them could agree because that form
+is wrong in the same way everywhere, which is the claim, or because the curve is mostly a
+property of the form, which is not. Refitting every record with an SLS, which drops the
+strain-stiffening term, and with a Kelvin--Voigt solid, which drops the relaxation arm as well,
+separates the two. Between the two forms that FIT, the discrepancy is the same curve on eight
+records out of eight, at a median $\lvert\cos\rvert$ of $0.699$ against the same constrained null
+of $0.435$; and the cross-material agreement reproduces under the SLS alone, at $0.608$ with
+$23$ of $28$ pairs above that null. The result does not rest on the qSLS having been the model.
+
+It also says something the correlation alone does not. Adding or removing the strain-stiffening
+term leaves $\hat\delta$ where it is, which places the missing physics OUTSIDE the elasticity.
+Dropping the relaxation arm destroys it, but that form fits at $\chi^2/N$ of $4$ to $13$, so its
+residual is mostly the arm it is missing rather than the term every fitting model lacks; that
+comparison is reported and not counted.
+
 So whatever every model in this document is missing is not the chemistry of either network. It
 survives a change of crosslinking, of gelation mechanism, of temperature and of bubble size, and
 \cref{sec:paam} shows no candidate enrichment reaches it above a \SI{20}{\percent} noise floor.
@@ -4114,10 +4130,10 @@ experimental repeatability.}
 \toprule
 & \SI{15}{\celsius} & \SI{23}{\celsius} & \SI{33}{\celsius} \\
 \midrule
-\texttt{qSLS} (stiffening $+$ relaxation) & \textbf{1.35} & \textbf{1.33} & \textbf{1.23} \\
+\texttt{qSLS} (stiffening $+$ relaxation) & \textbf{1.28} & \textbf{1.34} & \textbf{1.21} \\
 \texttt{SLS} (relaxation, linear elasticity) & 2.94 & 1.85 & 1.41 \\
-viscoelastic fluids & 5.3--5.7 & 4.5--4.7 & 1.9--2.1 \\
-memoryless & 12.6--16.7 &, &, \\
+viscoelastic fluids & 5.3--5.7 & 4.5--4.6 & 1.9--2.1 \\
+memoryless & 8.3--16.7 & 8.0--10.6 & 3.2--9.2 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -4682,7 +4698,7 @@ below possible at all.
 rather than what the optimum is. The certified formulation was applied to the geometry, which its
 own numbers rank last:
 pricing the candidates so the bubbles-against-frames split enters the same convex problem buys
-$0.9$ to $10$ nats against at most $1.3$ for the geometry, and the certificate survives the
+$3.4$ to $4.0$ nats against at most $1.34$ for the geometry, and the certificate survives the
 change intact because normalizing by cost is the same simplex in different coordinates. Three
 further questions the chapter raised are now answered, and two of the answers are negative. The
 screening cliff \cref{sec:screening} calls a precondition is removed by a maximin over the

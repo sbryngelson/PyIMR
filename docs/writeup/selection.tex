@@ -1388,9 +1388,12 @@ Two further facts locate it without naming it. It lives in the \emph{rebound}: $
 $97.2\%$ of its squared length falls after the collapse window at \SI{23}{} and
 \SI{33}{\celsius}, while the identifiable discrepancy of \cref{sec:discrepancy} sits $65$ to
 $69\%$ in the \emph{first collapse}. And it is not one curve: on a common $t/t_c$ grid the three
-datasets' leading modes overlap at $\lvert\cos\rvert$ of $0.075$, $0.252$ and $0.082$, against
-$0.050$ for unrelated curves of that length. A shared curve would have been the apparatus, which
-no constitutive law could absorb. This is not shared either.
+datasets' leading modes overlap at $\lvert\cos\rvert$ of $0.075$, $0.252$ and $0.082$. The
+$0.050$ these were read against is the independent-vector null and is too small by roughly six,
+as \cref{sec:enrich} now records, but the correction runs the safe way here: against a floor near
+$0.48$ these overlaps are further below chance, not closer to it. A shared curve would have been
+the apparatus, which no constitutive law could absorb. This is not shared either, and the
+corrected null strengthens that rather than weakening it.
 
 \paragraph{What the refit does give is $\Sigma$.}
 Regressing deviations onto $G$ inherits the $g$--$\alpha$ degeneracy of
@@ -1447,12 +1450,15 @@ separates two things \cref{sec:limitations} had conflated.
 \caption{What the trial spread is, and what it does not explain. Left: the singular
 spectrum of the eighteen trial deviations. Independent measurement error would put an equal
 share in every component (dashed); instead the leading one carries $54\%$, and $39\%$ of
-the total lies in the six-dimensional span of $\partial R/\partial\theta$ against a $3\%$
-chance level. Right: the autocorrelation of the qSLS fit residual before and after whitening
-by the hierarchical covariance~\eqref{eq:hierarchical}, with the white-noise band shaded. If
-the correlation were caused by variation between bubbles, whitening would flatten it into
-that band. It removes about a third and leaves the rest, so the remainder is structure the
-model does not contain.}
+the total lies in the six-dimensional span of $\partial R/\partial\theta$. The $3\%$ chance
+level drawn there is $d/k$, which is the share WHITE noise puts in a $d$-dimensional
+subspace; against surrogates carrying these deviations' own autocorrelation the chance level
+is $15$ to $22\%$ with a $95$th percentile of $32$ to $44\%$, and four of the eight records in
+\cref{sec:paam} do not clear it. Right: the autocorrelation of the qSLS fit residual before
+and after whitening by the hierarchical covariance~\eqref{eq:hierarchical}. That panel was
+drawn to show that variation between bubbles would have been flattened into the shaded band;
+it does not, because the whitener fails that test on synthetic data where the variation is
+present by construction. See the retraction in \cref{sec:paam}.}
 \label{fig:trial}
 \end{figure}
 
@@ -1475,9 +1481,13 @@ marginalization of \cref{sec:beta} absorbs the difference, the implied $\beta \a
 lies inside its prior, so the evidence ranking is undisturbed. What changes is what a
 residual near one entitles one to say.
 
-\paragraph{What lag-one does and does not measure.} The inference above (that whitening
-removes a third of the correlation and the remainder is structure the model lacks) rules
-out variation between bubbles, and nothing more. Lag-one autocorrelation at $N = 201$
+\paragraph{What lag-one does and does not measure.} The inference above -- that whitening
+removes a third of the correlation and the remainder is structure the model lacks -- was read
+as ruling out variation between bubbles. It does not rule out anything, and the reason is in
+\cref{sec:paam}: run on synthetic events whose deviations ARE parameter variation by
+construction, the same whitener does not remove the correlation there either, so its failure to
+remove it here carries no information about the source. What follows in this paragraph narrows
+the reading further and stands on its own; the whitening step does not. Lag-one autocorrelation at $N = 201$
 samples is close to a measure of how much of a residual is \emph{smooth}, not of what made
 it smooth: sampled at this density, white noise gives $0.04$, a single sine period gives
 $1.00$, a smooth random curve gives $0.999$, and a mixture that is $80\%$ smooth gives
@@ -1872,9 +1882,20 @@ than infinite.
 
 The bound says how much of a parameter the discrepancy could be eating. It does not say what
 the discrepancy \emph{is}, and $\hat\delta$ is not a shapeless residual: the three datasets'
-$\hat\delta$ correlate at $0.49$ to $0.84$, where unrelated curves of this length would sit
-near $0.08$, and between $65$ and $69$ percent of each sits in the first collapse. One curve,
-measured rather than guessed, is a thing a candidate physics can be screened against.
+$\hat\delta$ correlate at $0.49$ to $0.84$, and between $65$ and $69$ percent of each sits in
+the first collapse. One curve, measured rather than guessed, is a thing a candidate physics can
+be screened against.
+
+\paragraph{How much of that agreement is the smoothness, and not the mechanism.} The $0.08$
+this was originally compared against is $1/\sqrt{N}$, the null for two INDEPENDENT vectors, and
+it is the wrong null for two curves that this same paragraph says are two-thirds concentrated in
+one feature. Phase-randomised surrogates, which keep each curve's own power spectrum and destroy
+only what it shares with the other, correlate at a mean of $0.234$ with a \SI{95}{\percent} point
+of $0.484$. So the corrected floor is six times the number quoted, the top of the observed range
+clears it comfortably, and the bottom of it, $0.49$, sits exactly ON it. The agreement is real at
+the strong end and not established at the weak end, which is a narrower claim than ``one curve''
+and is the one the data supports. \Cref{sec:paam} carries the same correction through the screen
+itself, where the consequences are larger.
 
 The screen is a projection, not a fit. Any enrichment supplies a direction $v$ (the trace it
 would add, differenced against the current model) and only the part of it orthogonal to the
@@ -2527,8 +2548,13 @@ passing.
 
 What supports it is that each transfer was tested for consistency across the datasets, and each
 passed: median-filtered $\sigma$ profiles bring all three datasets to the same recommended
-geometry (\cref{sec:noisedesign}), and the three $\hat\delta$ overlap at $0.44$ to $0.81$ against
-$0.05$ for unrelated curves (\cref{sec:deltadesign}). Transfer by absolute time fails the same
+geometry (\cref{sec:noisedesign}), and the three $\hat\delta$ overlap at $0.44$ to $0.81$
+(\cref{sec:deltadesign}). The $0.05$ that overlap was originally read against is the null for
+INDEPENDENT vectors and is not the right one here; surrogates keeping each curve's own spectrum
+sit at $0.484$ at the \SI{95}{\percent} point, so the top of that range supports the transfer and
+the bottom of it does not. The assumption is therefore carried on one strong agreement and one
+that is indistinguishable from smoothness, which is weaker support than this section claimed and
+is stated here rather than in a footnote. Transfer by absolute time fails the same
 test, and fails it for a statable reason, $t_c$ spans a factor of twenty-four across the
 candidates, so a fixed clock time lands at a different point of every collapse.
 

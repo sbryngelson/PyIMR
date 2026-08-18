@@ -1,0 +1,42 @@
+{
+ "paam_PA05": {
+  "share": 0.28172595131725064,
+  "chance": 0.03,
+  "events": 52,
+  "samples": 200,
+  "lag_one_raw": 0.8171656919379612,
+  "lag_one_leftover": 0.7280673162747908
+ },
+ "paam_PA05_10C": {
+  "share": 0.4579489967093743,
+  "chance": 0.0375,
+  "events": 30,
+  "samples": 160,
+  "lag_one_raw": 0.8183512141994447,
+  "lag_one_leftover": 0.585476937412264
+ },
+ "paam_PA05_21C": {
+  "share": 0.45320425869204706,
+  "chance": 0.0375,
+  "events": 57,
+  "samples": 160,
+  "lag_one_raw": 0.8463918085324795,
+  "lag_one_leftover": 0.6851002033363428
+ },
+ "paam_PA05_33C": {
+  "share": 0.44503917617571964,
+  "chance": 0.0375,
+  "events": 30,
+  "samples": 160,
+  "lag_one_raw": 0.8650936732805552,
+  "lag_one_leftover": 0.6925524233118879
+ },
+ "paam_PA05003": {
+  "share": 0.4339246330602369,
+  "chance": 0.0375,
+  "events": 80,
+  "samples": 160,
+  "lag_one_raw": 0.8621450610025293,
+  "lag_one_leftover": 0.6580226878184459
+ }
+}

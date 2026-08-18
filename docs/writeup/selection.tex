@@ -11,8 +11,9 @@
 \setlength{\intextsep}{10pt plus 2pt minus 2pt}
 \setlength{\abovecaptionskip}{6pt}
 
-\title{What inertial microcavitation data cannot settle,\\
-and how to design the experiment that would}
+\title{The same curve on two materials:\\
+a measured, material-independent discrepancy in\\
+inertial microcavitation rheometry}
 \author{Spencer H. Bryngelson}
 \date{\today}
 
@@ -22,51 +23,54 @@ and how to design the experiment that would}
 \maketitle
 
 \begin{abstract}
-Inertial microcavitation rheometry infers a material's mechanical response from the radius history
-of one collapsing bubble, and reports the fitted stiffness and viscosity as material properties.
-We ask what those reports actually support, and what experiment would turn them into
-measurements. The second question is the harder one and is what most of this paper is about.
+Inertial microcavitation rheometry infers a material's mechanical response from the radius
+history of a collapsing bubble. We fit $288$ events across two chemically unrelated networks, a
+physical gelatin gel and a covalent polyacrylamide, and find that what the standard model cannot
+reproduce is the same curve in both.
 
-The first has three answers and all are negative. The likelihood depends on the product
-$g\alpha$ alone, so a reported shear modulus is a statement about where the prior box cuts a
-ridge, moving the box swings the model ranking by fifty nats. A residual near the measurement
-scatter is not adequacy: lag-one autocorrelation is $0.918$, the $201$ samples carry the
-information of about ten, and a replicated lack-of-fit test rejects every candidate on every
-dataset. And the parameters carry a model-form error budget no data of this kind can
-remove, one to two orders of magnitude wider than the posterior. The identified modulus could be
-wrong by \SIrange{30}{57}{\percent}, the relaxation time by a factor of three to four.
+The residual is not noise and it is not small. Against replicate pure error, with the statistic
+weighted so its numerator is the sum the fit actually minimises, every one of eight datasets is
+rejected at $3$ to $51$ against a null of $1.5$ to $1.8$ built from each record's own
+autocorrelation. This happens at $\chi^2/N$ between $0.38$ and $1.02$, values that read as
+agreement to better than experimental repeatability, because the fit is scored against the
+scatter between single events when it was fitted to their mean.
 
-So we ask what experiment would fix it. Scoring a single design by parameter precision or by
-model discrimination gives criteria that disagree, and both are delicate, a criterion defined by
-an inner minimum is multimodal here, and every improvement to the optimizer lowers it. Posing the
-problem over design \emph{measures} instead makes it convex, and the Kiefer--Wolfowitz
-equivalence theorem then \emph{certifies} the answer rather than reporting that a search stopped.
-One criterion covers every question the experiment can ask (material parameters, the model
-label, the initial radius) as the same expected information gain at different partitions, so
-answers in nats are comparable across them. Four extensions keep the certificate: averaging the
-information over the scatter a setpoint actually delivers, normalising candidates by what they
-cost, averaging over a computed model-error bound rather than a point estimate, and making the
-measured discrepancy a coordinate the design can see.
+What is left over, projected free of everything the parameters can absorb, is a specific curve
+$\hat\delta$. Resampled onto a common collapse time, the eight discrepancies correlate at a
+median $\lvert\cos\rvert$ of $0.726$ ACROSS the two materials, higher than the $0.551$ within
+gelatin, against a null of $0.466$ built from surrogates that carry both the curves' smoothness
+and their orthogonality to the model's own sensitivities. Thirteen of fifteen cross-material
+pairs clear it. Whatever every model here is missing survives a change of crosslinking, of
+gelation mechanism, of temperature and of bubble size.
 
-What that machinery finds is that the variable everyone optimises is the wrong one. Pricing the
-candidates, a trace of $N$ samples costs $N$ frames, puts the split between bubbles and
-frames inside the certified problem, and that split is worth $+3.4$ to $+4.0$ nats against at
-most $1.34$ for the geometry. A geometry is not a knob, and designing as though it were costs
-about a nat, on scatter widths confirmed against $437$ per-event radii. Designing against the
-bias bound rather than the fit is worth $0.39$ to $0.67$. The temperature dependence closes
-nothing at any budget or geometry: with temperature held, the information is singular and the
-design is refused. Judged by the criterion, the experiments analysed here are near the best
-possible for the hardest of the three model axes and $24$ to $41$ times worse than the best for
-the two easiest.
+Nothing on the shelf reaches it. Seven candidate enrichments, thermal, mass transfer, two
+compressible operators, a second relaxation arm and the initial radius, are scored by the share
+of $\hat\delta$ they could remove, and the same surrogates put that screen's resolution floor
+near \SI{20}{\percent}. Seven of $56$ candidate-dataset cells clear their own floor and the joint
+cone clears it on one dataset of eight. The one reachable candidate that survives is the
+equilibrium radius, which three further measurements independently implicate: refitting it over
+seven stretches drops $\chi^2/N$ by a quarter, every dataset prefers a value it is not carried
+at, and every dataset is still rejected there.
 
-The model comparison is the worked example that supplies those inputs and is reported as such. A
-quadratic Zener solid, strain-stiffening elasticity \emph{and} stress relaxation, is the
-best-fitting candidate at every temperature and under every perturbation we applied, including a
-pre-registered sweep of the noise weights and four constructions of the fit target. Neither
-ingredient suffices alone. But the margins that make it look decisive do not survive the
-effective sample size the same datasets imply. And the operator held fixed throughout this
-literature is beaten on every dataset while being ordered by none of them, once the residual
-correlation is taken seriously.
+Because roughly half of such an error is absorbed by refitting rather than left in the residual,
+it lands in the reported parameters: the identified modulus could be wrong by
+\SIrange{30}{57}{\percent} and the relaxation time by a factor of three to four, with no data of
+this kind able to distinguish that from the truth.
+
+The second half of the paper asks what experiment would identify the curve rather than absorb
+it. Posing the design problem over measures makes it convex and lets the Kiefer--Wolfowitz
+equivalence theorem certify the answer instead of reporting that a search stopped, with four
+extensions that keep the certificate. Its own numbers rank the variable everyone optimises,
+the geometry, last: the split between bubbles and frames is worth $+3.4$ to $+4.0$ nats against
+at most $1.34$ for the geometry. Fisher widths from that machinery, corrected for the effective
+sample size these records carry, predict the measured per-event parameter scatter to a median
+ratio of $0.70$, which is the first test of the design half against data.
+
+Two limits belong with the central claim. Every record comes from one instrument and one
+laboratory, so the invariance is established across chemistry and not across apparatus. And a
+shared residual from a shared model is what model-form error should look like, but it cannot be
+told apart from a shape imprinted by shared processing without a second pipeline. Both are
+testable by anyone with another rig.
 \end{abstract}
 
 \noindent\textbf{Keywords:} inertial microcavitation rheometry; model selection; Bayesian evidence; identifiability; optimal experimental design
@@ -152,7 +156,7 @@ parameters always fits at least as well as the simpler model inside it.}
 \label{fig:pipeline}
 \end{figure}
 
-\part{What these data support}
+\part{One curve, and it is not the material's}
 
 \noindent The design of \cref{part:design} needs four things measured here: the coordinates the
 data can answer in, the noise profile, the covariance between trials, and the discrepancy
@@ -1878,7 +1882,7 @@ factors are consistent, and their ratio is the point: $\sigma$ is small in these
 precisely because they are the identified ones, which is what makes the budget readable rather
 than infinite.
 
-\subsection*{What could remove it}
+\subsection*{What the discrepancy is, before asking what removes it}
 
 The bound says how much of a parameter the discrepancy could be eating. It does not say what
 the discrepancy \emph{is}, and $\hat\delta$ is not a shapeless residual: the three datasets'
@@ -1894,6 +1898,9 @@ only what it shares with the other, correlate at a mean of $0.239$ with a \SI{95
 of $0.508$. The corrected floor is therefore six times the number quoted: the top of the observed
 range clears it comfortably and the bottom of it, $0.49$, sits ON it. On three gelatin datasets
 alone, ``one curve'' is established at the strong end and not at the weak end.
+
+\subsection{The discrepancy is one curve, and the curve is not the material's}
+\label{sec:universal}
 
 \paragraph{It is the same curve on two materials that share nothing but an instrument.} What
 settles it is the comparison three datasets could not make. Gelatin is a physical gel of triple
@@ -1947,6 +1954,9 @@ from a shared model is what model-form error should look like, which is the clai
 be told apart from a shape imprinted by the shared processing without a pipeline nobody in this
 document controls. Both are testable by anyone with a second rig, which is the right kind of
 weakness to have.
+
+\subsection{What could remove it, and what the screen can resolve}
+\label{sec:screenres}
 
 The screen is a projection, not a fit. Any enrichment supplies a direction $v$ (the trace it
 would add, differenced against the current model) and only the part of it orthogonal to the
@@ -2567,7 +2577,7 @@ neighbouring basins between adjacent stretches. No $F$ quoted anywhere above is 
 than a factor of two. The rejection is not close enough to that boundary for it to matter, which
 is the only reason the conclusions stand as written.
 
-\part{Designing the experiment that would settle it}
+\part{The experiment that would identify it}
 \label{part:design}
 
 \noindent Everything above says what a dataset of this kind cannot settle. What follows is a

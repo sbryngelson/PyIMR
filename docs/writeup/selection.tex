@@ -482,7 +482,8 @@ in this work.
 Finally, $F$ is the observability Gramian of the system augmented with $\dot\theta = 0$:
 identifiability and observability are the same statement. The distinction that matters is
 \emph{structural} unidentifiability, where $F$ is singular and no data can help, against
-\emph{practical} sloppiness, where $F$ is invertible but ill-conditioned. Here
+\emph{practical} sloppiness, where $F$ is invertible but ill-conditioned
+\citep{raue2009structural,transtrum2014model}. Here
 $\lambda_{\min} = 5.2\times10^{-2} \neq 0$ and the profile likelihood has a genuine minimum,
 so the problem is the second, which is why a different experiment can fix it.
 
@@ -534,8 +535,8 @@ N_{\rm eff} = \frac{N}{1 + 2\sum_{k\ge1}\rho_k}
 \end{equation}
 %
 independent samples, and parameter uncertainties are understated by
-$\sqrt{N/N_{\rm eff}}$. The sum is truncated at the first negative $\rho_k$, Geyer's
-initial positive sequence, because the long tail is estimated from few pairs each and
+$\sqrt{N/N_{\rm eff}}$. The sum is truncated at the first negative $\rho_k$, \citeauthor{geyer1992practical}'s
+initial positive sequence \citep{geyer1992practical}, because the long tail is estimated from few pairs each and
 contributes sampling error rather than signal.
 
 The correct remedy is a covariance with off-diagonal terms, not a larger $\sigma$. Taking
@@ -554,7 +555,8 @@ which is the failure Brynjarsd\'ottir and O'Hagan warn about.
 \subsection{Which design criterion, and why they disagree}
 \label{sec:criteria}
 
-An experiment is chosen by a scalar summary of $F$. The classical family is
+An experiment is chosen by a scalar summary of $F$; \citet{chaloner1995bayesian} review the
+choice and its Bayesian reading. The classical family is
 %
 \begin{equation}
 \text{D: } \max \det F, \qquad
@@ -2881,7 +2883,8 @@ is both fast and gentle.
 
 There is accordingly no single best design, and a scalar design objective is answering a
 question that has no scalar answer. What replaces it is the \emph{Pareto front}: the set of
-designs on which no other design is better on every criterion at once. Enumerating a
+designs on which no other design is better on every criterion at once, the object multi-objective
+design search targets directly \citep{knowles2006parego}. Enumerating a
 $14\times18$ grid over $(R_{\max}, \lambda)$ and applying that test leaves $12$ designs
 undominated, spanning $50$--$1200\,\mu$m and stretch $4$--$18$. Reporting that set rather than
 a single optimum is the honest summary of an experiment serving several questions at once;
@@ -3462,7 +3465,10 @@ U_A(\xi) \;=\; \tfrac12 \log\det\Big[\,N_{AA} - N_{AB}N_{BB}^{-1}N_{BA}\,\Big],
 \label{eq:gainschur}
 \end{equation}
 %
-the Schur complement of everything you are not asking about. Every criterion in this document
+the Schur complement of everything you are not asking about. The closed form is what makes
+this affordable here: outside the Gaussian case \eqref{eq:gain} needs a nested Monte Carlo
+estimator, and the cost of that is the subject of a literature of its own
+\citep{long2013fast,beck2018fast,foster2019variational,huan2024optimal}. Every criterion in this document
 is \eqref{eq:gainschur} at a different $A$: all coordinates gives Bayesian D-optimality, the
 material block gives \cref{sec:criteria}'s $\log\det$, the mixing coordinates of
 \cref{sec:batch} give $D_s$-optimality, and \texttt{req\_scale} alone asks whether the initial
@@ -5121,7 +5127,9 @@ reasons the present form looks the way it does.
 \label{sec:integral}
 
 At this stage the design results of \cref{sec:design} scored a design by $T$, defined through a
-\emph{global minimum} over the rival's parameters. That definition is the trouble, and the
+\emph{global minimum} over the rival's parameters --- the separation criterion in the tradition
+of \citet{box1967discrimination} and \citet{buzziferraris1983sequential}, which scores a design
+by how far apart the rival predictions can be driven. That definition is the trouble, and the
 trouble is structural rather than computational. Here we replace the minimum with an integral, say why
 that is more robust, and report what it gives.
 

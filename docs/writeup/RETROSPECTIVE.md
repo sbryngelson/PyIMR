@@ -217,8 +217,23 @@ audience, and what do they currently believe that this changes?
 Title: *The same curve on two materials: a measured, material-independent discrepancy in
 inertial microcavitation rheometry.*
 
-**Running:** the vapour-corrected refit — the last stated limitation testable with this
-data. After it, only the single-instrument, single-laboratory limit remains, and that one
+**Ran, and failed:** the vapour-corrected refit. `delta_corrected.py` with `bubtherm`,
+`masstrans` and `vapor` on refitted 2 of 8 records — both gelatin — and raised `qSLS did
+not fit from any of 3 starts` on the other six, every PAAm record among them. With no PAAm
+survivor there is no cross-material comparison to make, and the script's own `len(good) < 4`
+guard returned without writing a result. The wrapper printed `All checks passed!` and exited
+0 on top of that.
+
+The failure is not the optimiser running out of budget. `selection.py:614` raises only when
+every start ends above `_UNREACHABLE`, the penalty region, and the warm box is centred on
+the isothermal optimum — so the first start *is* the point the isothermal fit already found.
+The thermal solve cannot be evaluated there. `sec:universal` already said switching vapour on
+"raises inside the multistart on some" records, written from a one-record diagnostic; that is
+now 6 of 8, localised to the forward solve rather than the search.
+
+So the vapour correction is not merely expensive, it is unavailable at this configuration,
+and the cross-material curve stands tested against the radius correction and untested against
+vapour. Beyond it, only the single-instrument, single-laboratory limit remains, and that one
 belongs in the text permanently rather than being defended.
 
 **Open, not blocked:**

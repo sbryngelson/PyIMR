@@ -260,11 +260,27 @@ in the identified coordinates it says something much sharper:
 
 That is not the flat direction the identifiability chapter describes, where the objective is
 indifferent and the answer is whatever the prior box says. It is an active descent toward
-λ₁ → 0: with the thermal physics modelled, the data stops wanting a relaxing solid, which reads
-as the Zener arm having been absorbing thermal damping all along. So the 0.302 is measured at a
-boundary of the model class, not at an optimum. `vapour_lambda_floor.py` gives λ₁ the full
-seven-decade prior range to find out whether there is an interior optimum at all. **That result
-is the open question the paper now turns on.**
+λ₁ → 0: with the thermal physics modelled, the data stops wanting a relaxing solid.
+
+Given the full seven-decade prior, the corrected objective turns out **bimodal**. Four records
+drive λ₁ to the floor at 1e-9 — the qSLS family's boundary, not a parameter value — and four
+settle near 3e-6, a decade and a half *above* their isothermal answers, in a different gα basin
+(~3000–3100 against ~1100–1450). The split does not follow the material.
+
+**And the number that settles it is the one I had not been looking at.** Corrected: across
+0.383, within **0.382**, null 0.419. Uncorrected: within-gelatin 0.551, within-PAAm 0.679.
+Same-material records share a chemistry, a rig, a protocol and nearly a parameter vector, so a
+correction that genuinely exposed the shared curve as an isothermal artifact would leave *those*
+agreeing with each other. It destroys them exactly as thoroughly as the cross-material pairs.
+That is δ̂ dominated by fit scatter, not a discrepancy that changed. **`sec:universal` is not
+withdrawn on this evidence, and not confirmed against it.**
+
+The obstruction names the next experiment. Half these records want no relaxation arm at all
+once thermal damping is modelled, which says the corrected data prefer a different constitutive
+*family*, not a different point in this one. The real test is a form whose optimum is interior
+under the correction — a quadratic Kelvin–Voigt solid, exactly the λ₁ → 0 limit four of eight
+are asking for — comparing δ̂ between two forms that both fit rather than between one that fits
+and one on its own boundary.
 
 ### 6.3 The independent test of the same hypothesis
 

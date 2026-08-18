@@ -30,9 +30,16 @@ import records
 from shape_error import seed_for
 from universal_delta import GRID, _surrogate, one as delta_one
 
-ORDER = (*records.DATASETS, *records.PAAM)
+# Two records per material rather than all eight, and a cheaper search. The full version ran
+# past an hour without printing: these fits carry a spectral thermal grid and mass transfer, so
+# one solve costs one to two orders more than the isothermal fits elsewhere, and the records run
+# in PARALLEL, so cutting their number does not cut wall time -- only cutting the cost of a
+# single fit does. The question is directional (does the cross-material curve survive correcting
+# the fits) and four records answer it; eight would only sharpen an answer not yet in hand.
+ORDER = ("gelatin_15C", "gelatin_23C", "paam_PA05_21C", "paam_PA05003")
 DRAWS = 2000
-THERMAL = {"bubtherm": 1, "Nt": 11, "masstrans": 1, "vapor": 1}
+STARTS, EVALUATIONS = 3, 120
+THERMAL = {"bubtherm": 1, "Nt": 7, "masstrans": 1, "vapor": 1}
 
 
 def corrected(dataset):
@@ -45,11 +52,11 @@ def corrected(dataset):
 
   times, mean, spread, maximum, _ = records.load(dataset)
   stretch = json.load(open(records.HERE / "paam_stretch.json"))[dataset]["argmin"]
-  solve = records.solver(times, maximum, stretch, max_steps=800_000, **THERMAL)
+  solve = records.solver(times, maximum, stretch, max_steps=400_000, **THERMAL)
   candidate = STANDARD_MODELS["qSLS"]
   try:
-    fit = fit_candidate(candidate, solve, mean, spread, bounds=WIDE, starts=10,
-                        max_evaluations=300)
+    fit = fit_candidate(candidate, solve, mean, spread, bounds=WIDE, starts=STARTS,
+                        max_evaluations=EVALUATIONS)
     values = physical_from_unit(candidate.axes, fit.unit, WIDE)
     fitted = dict(zip(candidate.axes, (float(v) for v in values), strict=True))
     base = np.asarray(evaluate_at(candidate, solve, fitted)[0], dtype=float)

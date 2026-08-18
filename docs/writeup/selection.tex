@@ -2315,34 +2315,64 @@ can achieve against the ratio sequence over a box six decades wide.
 \begin{table}[htbp]
 \centering
 \caption{The enrichment screen and the afterbounce test on both materials. The screen scores
-every candidate together, as a cone, so the last of those columns is what no admissible
-enrichment reaches. The afterbounce fit is run at four seeds; the spread is the range across
-them. A dataset whose control did not run takes no verdict.}
+every candidate together, as a cone. Beside it is the \SI{95}{\percent} point of the same
+statistic computed on a cone over as many SURROGATE directions, drawn at the record's own
+autocorrelation and carrying no mechanism at all. The screen exceeds its own null on one dataset
+of eight, so the ``left over'' column is not a measurement of what the physics fails to explain.
+The afterbounce fit is run at four seeds; the spread is the range across them. A dataset whose
+control did not run takes no verdict.}
 \label{tab:paamtwo}
-\begin{tabular}{lrrrrrr}
+\begin{tabular}{lrrrrrrr}
 \toprule
-& \multicolumn{2}{c}{enrichment screen} & \multicolumn{4}{c}{afterbounce fit} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-7}
-dataset & reachable & left over & bounces & best $\chi^2$ & seed spread & control \\
+& \multicolumn{3}{c}{enrichment screen} & \multicolumn{4}{c}{afterbounce fit} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-8}
+dataset & reachable & null \SI{95}{\percent} & left over & bounces & best $\chi^2$ & seed spread & control \\
 \midrule
-gelatin \SI{15}{\celsius} & 25\,\% & 75\,\% & 5 & 6.52 & 0.000 & passed \\
-gelatin \SI{23}{\celsius} & 15\,\% & 85\,\% & 5 & 5.33 & 0.000 & passed \\
-gelatin \SI{33}{\celsius} & 21\,\% & 79\,\% & 5 & 0.67 & 0.000 & passed \\
+gelatin \SI{15}{\celsius} & 25\,\% & 37\,\% & 75\,\% & 5 & 6.52 & 0.000 & passed \\
+gelatin \SI{23}{\celsius} & 15\,\% & 58\,\% & 85\,\% & 5 & 5.33 & 0.000 & passed \\
+gelatin \SI{33}{\celsius} & 21\,\% & 37\,\% & 79\,\% & 5 & 0.67 & 0.000 & passed \\
 \midrule
-PAAm \texttt{PA05} & 24\,\% & 76\,\% & 5 & 0.70 & 0.028 & passed \\
-PAAm \SI{10}{\celsius} & 43\,\% & 57\,\% & 5 & 8.27 & 0.000 & passed \\
-PAAm \SI{21}{\celsius} & 39\,\% & 61\,\% & 4 & 1.32 & 0.042 & passed \\
-PAAm \SI{33}{\celsius} & 24\,\% & 76\,\% & 4 & 2.43 & 0.000 & passed \\
-PAAm \texttt{PA05003} & 26\,\% & 74\,\% & 5 & n/a & 0.007 & did not run \\
+PAAm \texttt{PA05} & 24\,\% & 36\,\% & 76\,\% & 5 & 0.70 & 0.028 & passed \\
+PAAm \SI{10}{\celsius} & 43\,\% & 43\,\% & 57\,\% & 5 & 8.27 & 0.000 & passed \\
+PAAm \SI{21}{\celsius} & 39\,\% & 40\,\% & 61\,\% & 4 & 1.32 & 0.042 & passed \\
+PAAm \SI{33}{\celsius} & 24\,\% & 43\,\% & 76\,\% & 4 & 2.43 & 0.000 & passed \\
+PAAm \texttt{PA05003} & 26\,\% & 46\,\% & 74\,\% & 5 & n/a & 0.007 & did not run \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Every candidate enrichment together leaves $57$ to \SI{76}{\percent} of the PAAm discrepancy
-unexplained, against $75$ to \SI{85}{\percent} on gelatin. Weaker, and the same verdict: the
-shelf does not hold it. The largest admissible single candidate is the initial radius on seven
-of the eight datasets, which is the linearised form of what the stretch refit measured directly,
-and it removes at most \SI{36}{\percent}.
+unexplained, against $75$ to \SI{85}{\percent} on gelatin. Read alone that is the same verdict as
+\cref{sec:enrich} reaches, and it should not be read alone, because the screen had no null and
+its noise floor turns out to be most of what it was reporting.
+
+\paragraph{What an arbitrary direction scores on the same screen.} A candidate is scored by
+$\cos^2$ against $\hat\delta$ in the identifiable subspace, and a smooth direction of no
+mechanism whatever scores well above zero there for the same reason correlated noise fills a
+smooth subspace. Drawing surrogates at each record's own autocorrelation and pushing them
+through the identical code puts the \SI{95}{\percent} point for a single candidate at $17.7$ to
+\SI{32.5}{\percent}. Against that floor, $7$ of $56$ candidate-dataset cells clear their own
+null. Every thermal, operator and mass-transfer entry in \cref{tab:paamtwo} sits BELOW what a
+meaningless direction achieves, including the \SI{19.8}{\percent} that reads as the best
+reachable candidate on PAAm \SI{33}{\celsius}.
+
+The joint row is worse, and it is the row the conclusion was drawn from. A cone over seven
+surrogate directions reaches $35.6$ to \SI{58.1}{\percent}, so the measured $15.1$ to
+\SI{43.1}{\percent} is below its own null on seven of eight datasets. Seven arbitrary smooth
+directions remove MORE of $\hat\delta$ than the seven physical candidates do.
+
+So "the physics shelf is empty" is not established by this screen. What the screen establishes
+is that it cannot resolve anything at the scale it was reporting: quoting \SI{2}{} and
+\SI{4}{\percent} shares from an instrument with a \SI{20}{\percent} floor is quoting noise. The
+conclusion may still be true -- \cref{sec:enrich} reaches it by other means, and the lack-of-fit
+and afterbounce results are untouched -- but this is not the evidence for it.
+
+One candidate does survive its own null, and it is the same one three other measurements point
+at. The initial radius clears the floor on four datasets, reachable in every case, at $23.7$,
+$22.7$, $36.3$ and \SI{29.5}{\percent}. The large \SI{58.1}{\percent} and \SI{29.5}{\percent}
+cells for the second relaxation arm clear it too and are anti-aligned, so no admissible amount
+of that physics removes anything: they are large and inert, and without the reachability flag of
+\cref{sec:enrich} the screen would name the second arm its best candidate on three datasets.
 
 The afterbounce test reproduces on three of the four PAAm datasets where the fitter is
 validated, at $8.27$, $2.43$ and $1.32$ against gelatin's $6.52$ and $5.33$. One dataset of each

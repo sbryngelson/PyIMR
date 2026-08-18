@@ -2154,8 +2154,38 @@ resemble the curve and the candidate is reduced rather than eliminated. And this
 of SHAPES at the isothermal optimum, which is a different question from whether $\hat\delta$
 survives refitting under the corrected model --- a correction pointing somewhere else entirely
 can still move the fitted parameters far enough to change what is left over. That second
-question is the one \cref{sec:limitations} still carries as open, and it is the one worth
-running next.
+question was then run, and it does not yet have an answer, for a reason worth reporting.
+
+\paragraph{Refitting under the correction does not produce a well-posed discrepancy.} Refitted
+with the thermal physics on, all eight records converge in the identified combination $g\alpha$
+--- it agrees to about \SI{3}{\percent} between search boxes of $\times3$ and $\times10$ --- and
+none of them converge in $\lambda_1$. Given the full seven-decade prior range, four records
+drive the relaxation time to the floor at \SI{1e-9}{\second}, which is the qSLS family's own
+boundary and not a parameter value, while the other four settle near
+\SI{3e-6}{\second}, about a decade and a half ABOVE their isothermal answers. The two groups sit
+in different $g\alpha$ basins as well, near $1100$--$1450$ against $3000$--$3100$, and the split
+does not follow the material. The corrected objective is bimodal, and a four-start search
+resolves which basin a record lands in rather than which basin is right.
+
+What settles the reading is not the cross-material number but the WITHIN-material one. On the
+corrected fits the across-material median $\lvert\cos\rvert$ is $0.383$ and the within-material
+median is $0.382$, against a constrained null of $0.419$; the uncorrected fits give $0.551$
+within gelatin and $0.679$ within polyacrylamide. Same-material records share a chemistry, a
+rig, a temperature protocol and nearly a parameter vector, so a correction that genuinely
+exposed the shared curve as an artifact of the isothermal fits should leave them agreeing with
+each other. It does not: it destroys same-material agreement exactly as thoroughly as
+cross-material agreement, which is the signature of $\hat\delta$ dominated by fit scatter rather
+than of a discrepancy that changed. \Cref{sec:universal} is therefore not withdrawn on this
+evidence, and equally is not confirmed against it.
+
+The obstruction is specific and points at the experiment that would remove it. Half these
+records want no relaxation arm at all once thermal damping is modelled, which is a statement
+that the corrected data prefer a DIFFERENT constitutive family rather than a different point in
+this one. Testing the universal curve against the vapour correction properly therefore means
+refitting a form whose optimum is interior under that correction --- a quadratic Kelvin--Voigt
+solid is the obvious candidate, since it is the $\lambda_1 \to 0$ limit four of the eight
+records are asking for --- and comparing $\hat\delta$ between two forms that both fit rather
+than between one that fits and one sitting on its own boundary.
 
 \subsection{What could remove it, and what the screen can resolve}
 \label{sec:screenres}

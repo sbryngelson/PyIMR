@@ -19,53 +19,55 @@ is the one live threat to the paper's central claim.
 
 ---
 
-## Tier 0 — LIVE: the claim is under test
+## Tier 0 — resolved: the claim stands, untested rather than refuted
 
-### 1. Does the cross-material curve survive the vapour correction? *(control running)*
+### 1. ~~Does the cross-material curve survive the vapour correction?~~ *No answer yet, and the reason is the finding*
 
-**This is now the paper's decisive open question, and the first answer went against it.**
-With `Nt = 25`, all eight records refit under `bubtherm`/`masstrans`/`vapor`
-(`delta_corrected.py`, artifact `delta_corrected_vapour.json`). The cross-material median
-|cos| falls from **0.726 to 0.302**, with 5 of 15 pairs above the constrained null of 0.458.
-Within-material holds up better at 0.564. Same-record corrected-against-uncorrected is 0.414,
-so the corrected δ̂ is a substantially different curve.
+The first corrected refit moved the cross-material median from 0.726 to **0.302**, which looked
+like a retraction of the paper's central claim. It is not one, and the controls that establish
+that are the day's most useful output.
 
-**Do not write this into the paper yet.** The result carries its own alarm: the corrected fits
-come back *worse* than the isothermal ones, at χ²/N up to 3.66 against ~1.3, and a fit that
-degrades when the physics gets more complete is the signature of a search that did not
-converge. Two mechanisms would produce exactly that — the box spans ×3 per axis around a
-centre whose thermal objective is an order of magnitude worse, so the optimum may lie outside
-it, and 3 starts × 100 evaluations is short for a surface that moved that far.
+**`vapour_convergence.py`** — 14 of 16 fits sit on a box wall. Read in the raw axes that says
+"search failed". Read in the identified coordinates it splits cleanly: **gα converges** (~3 %
+between ×3 and ×10 boxes), while **λ₁ lands on the lower wall exactly** — the isothermal value
+divided by the box width, to three digits — with χ² still falling as the wall moves down. Not a
+flat unidentifiable direction; an active descent toward λ₁ → 0.
 
-`vapour_convergence.py` is the control: the same fit at box widths ×3 and ×10, reporting the
-fitted parameters and flagging any axis within 2 % of a wall, then recomputing the
-universality statistics at each width. **Done when** either (a) both widths agree, nothing sits
-on a wall, and the collapse is a property of the corrected model — in which case
-`sec:universal` needs restating and that is the paper's biggest revision; or (b) the wide box
-finds materially better χ²/N, in which case the first answer was search-limited and the
-experiment must be rerun at a budget that converges.
+**`vapour_lambda_floor.py`** — given the full seven-decade prior, the objective turns out
+**bimodal**. Four records drive λ₁ to the floor at 1e-9 (the qSLS family's boundary, not a
+parameter value); the other four settle near 3e-6, a decade and a half *above* their isothermal
+answers. The two groups occupy different gα basins (~1100–1450 against ~3000–3100), and the
+split does not follow the material.
 
-If (b), the follow-on is a genuinely global corrected fit rather than a local refinement — the
-warm-box shortcut exists only because the cold multistart was intractable at `Nt = 7`, and
-that premise is now known to be false.
+**The diagnostic that settles it is the within-material number, not the cross-material one.**
+Corrected: across 0.383, within **0.382**, null 0.419. Uncorrected: within-gelatin 0.551,
+within-PAAm 0.679. Same-material records share a chemistry, a rig, a protocol and nearly a
+parameter vector. A correction that genuinely exposed the shared curve as an isothermal artifact
+should leave *those* agreeing. It destroys them exactly as thoroughly as the cross-material
+pairs — the signature of δ̂ dominated by fit scatter, not of a discrepancy that changed.
 
-### 2. Reconcile the two thermal results against each other
+**`sec:universal` is not withdrawn on this evidence, and not confirmed against it.** Written
+into the paper in those words.
 
-They currently point opposite ways and both are measured, so the resolution is physics, not
-arithmetic. `thermal_signature.py` finds the correction's *own shape* is **not** the universal
-curve — median |cos| 0.300 against a per-record null of 0.367, nowhere near 0.726 — while
-being 2–4× the size of the discrepancy it would explain. Yet refitting under that same
-correction collapses the cross-material agreement. Both can hold: a large correction pointing
-somewhere else still moves the fitted parameters a long way, and δ̂ is defined *at* the fitted
-point, so the curve can be destroyed by a correction whose own shape it does not share. That
-reading needs stating and testing rather than asserting.
+### 2. The experiment that would actually settle it
 
-Note the honest residue in the signature result: 3 of 8 records align above their own null
-where 0.4 would be expected, so a minority component of the correction *does* resemble the
-curve. The candidate is reduced, not eliminated.
+Half the records want *no relaxation arm at all* once thermal damping is modelled. That is a
+statement that the corrected data prefer a **different constitutive family**, not a different
+point in this one. So the real test is to refit a form whose optimum is interior under the
+correction — a **quadratic Kelvin–Voigt** solid is the obvious candidate, being exactly the
+λ₁ → 0 limit four of eight records are asking for — and compare δ̂ between two forms that both
+fit, rather than between one that fits and one sitting on its own boundary.
 
-**Done when** one paragraph in `sec:vapour` states which of the two the paper is claiming and
-why the other is consistent with it.
+**Done when** the corrected fit has an interior optimum on every record and the cross-material
+comparison is made between converged δ̂. Everything about the paper's central claim turns on it.
+
+### 3. The reconciliation, still open
+
+`thermal_signature.py` finds the correction's *own shape* is not the universal curve (median
+|cos| 0.300 against a per-record null of 0.367) while being 2–4× its size. That sits comfortably
+beside item 1 now: a large correction pointing elsewhere still moves the parameters far enough
+to scramble what is left over. One paragraph in `sec:vapour` should state that explicitly once
+item 2 lands.
 
 ---
 

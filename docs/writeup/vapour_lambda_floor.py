@@ -135,16 +135,30 @@ def main():
   print(f"  within materials: median {np.median(within):.3f}")
   print(f"  for comparison, uncorrected: across 0.726, within-gelatin 0.551, within-PAAm 0.679")
 
+  # THE DIAGNOSTIC, and it is not the across-material number. If the correction merely
+  # revealed the shared curve as an artifact, then same-material records -- same chemistry,
+  # same rig, near-identical parameters -- should still agree with EACH OTHER. Within-material
+  # agreement collapsing as far as cross-material agreement is not a physical result; it is
+  # what fit noise looks like. So the two are compared against each other, and a verdict that
+  # reads the across number alone is not allowed to stand.
+  indiscriminate = np.median(within) < cut and np.median(across) < cut
   print("\n  ---- what it says ----\n")
-  if floored > len(good) / 2:
-    print("  The corrected model wants no relaxation at all: lambda1 runs to the floor with")
-    print("  seven decades of room. The fit has left the qSLS family through a boundary, so")
-    print("  any delta_hat from it is the degenerate limit's and the cross-material number")
-    print("  below is not comparable to the interior fit sec:universal reports.")
+  if indiscriminate:
+    print(f"  BOTH comparisons have fallen to the null: across {np.median(across):.3f} and")
+    print(f"  WITHIN {np.median(within):.3f} against {cut:.3f}, where the uncorrected fits give")
+    print("  0.551 and 0.679 within material. A correction that destroys same-material")
+    print("  agreement as completely as cross-material agreement is destroying structure")
+    print("  indiscriminately, which is fit noise and not physics. These delta_hat are not a")
+    print("  measurement, and sec:universal is NOT retracted on this evidence.")
+  elif floored:
+    print(f"  {floored} of {len(good)} records drive lambda1 to the floor of a seven-decade")
+    print("  prior, so for those the corrected model has left the qSLS family through a")
+    print("  boundary and their delta_hat belongs to the degenerate limit. Any cross-material")
+    print("  number mixing them with the interior fits is comparing unlike things.")
   else:
-    print("  lambda1 finds an interior optimum once it is given room, so these fits are")
-    print("  converged and the cross-material comparison above is a statement about the")
-    print("  corrected model.")
+    print("  lambda1 finds an interior optimum on every record once it is given room, so these")
+    print("  fits are converged and the cross-material comparison above is a statement about")
+    print("  the corrected model rather than about the optimiser.")
   json.dump({d: {k: v for k, v in got[d].items() if k not in ("curve", "span")} for d in good}
             | {"across": across, "within": within, "null_95": cut, "on_floor": floored},
             open(records.HERE / "vapour_lambda_floor.json", "w"), indent=1)

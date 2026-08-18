@@ -2134,6 +2134,29 @@ corrected forward model integrates on all eight records at the package's own def
 that its effect at the isothermal optimum is large rather than negligible, and that it therefore
 has to be refitted rather than argued about.
 
+\paragraph{So: is the universal curve the isothermal approximation's own error?} The correction
+has a shape, and that shape can be computed without fitting anything. At each record's converged
+isothermal parameters, integrate the model twice --- once as this document fits it, once with
+the thermal physics on --- and difference the two in noise units. That difference IS the term
+the isothermal fits are missing, to first order and at that point, and projecting out the
+isothermal sensitivities puts it in the coordinates $\hat\delta$ lives in.
+
+It is not the curve. The median $\lvert\cos\rvert$ against the common mode of
+\cref{fig:universal} is $0.300$, against a per-record phase-randomised null with a median
+\SI{95}{\percent} point of $0.367$, and nowhere near the $0.726$ at which the two materials
+agree with each other. Nor is that a null result for want of a large enough correction: the
+signature is $2.2$ to $4.2$ times the norm of the discrepancy it would have to explain on seven
+of the eight records.
+
+Two honest qualifications belong with it. Three of the eight records do clear their own null,
+where $0.4$ would be expected by chance, so a minority component of the thermal correction does
+resemble the curve and the candidate is reduced rather than eliminated. And this is a comparison
+of SHAPES at the isothermal optimum, which is a different question from whether $\hat\delta$
+survives refitting under the corrected model --- a correction pointing somewhere else entirely
+can still move the fitted parameters far enough to change what is left over. That second
+question is the one \cref{sec:limitations} still carries as open, and it is the one worth
+running next.
+
 \subsection{What could remove it, and what the screen can resolve}
 \label{sec:screenres}
 

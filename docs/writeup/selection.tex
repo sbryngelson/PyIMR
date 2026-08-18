@@ -1932,6 +1932,41 @@ That is a measured curve, common to two materials, that nothing on the shelf exp
 a more useful object than the rejection it came from: a target a theory can be tested against
 rather than a bound on how wrong a number might be.
 
+\paragraph{And here is the curve, which is what a theory can actually be tested against.} A
+correlation coefficient supports the claim and is useless to anyone who wants to work on it.
+Decomposing the eight discrepancies on the shared grid puts \SI{73.5}{\percent} of the total
+squared norm in a single mode, where eight unrelated curves would put \SI{12.5}{\percent} in
+each, and the remaining modes carry $8.9$, $6.2$, $4.3$, $2.7$, $2.0$, $1.3$ and
+\SI{1.1}{\percent}. To this resolution the object is rank one: there is one missing term rather
+than a family of them.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig_universal.pdf}
+\caption{The discrepancy every model in this document leaves behind. Left: the eight
+$\hat\delta$, normalised and signed onto their common mode, gelatin in blue and PAAm in orange,
+with the mode in black. Right: the singular spectrum, against the $1/8$ an unrelated set would
+give (dashed). The mode is tabulated in \texttt{universal\_curve.json} so it can be read off
+rather than re-derived.}
+\label{fig:universal}
+\end{figure}
+
+Two features of it are worth stating because neither is visible in a correlation. The loadings
+are $0.647$ to $0.932$ and ALL EIGHT ARE POSITIVE. The universality test scored
+$\lvert\cos\rvert$ and was blind to sign by construction, but $\hat\delta$ is the identifiable
+part of (measured $-$ model) in units of the standard error, so its sign is physical: a positive
+lobe is the model running BELOW the data there. Eight records missing the same term in the same
+DIRECTION is a stronger statement than eight records sharing a shape, and it is the one the data
+supports.
+
+And the mode peaks at $t/t_c = 0.10$, early in the first expansion, with \SI{47}{\percent} of its
+squared norm inside $t/t_c \le 1.2$. The discrepancy is not concentrated at the collapse minimum
+where the rates are most extreme and where a rate-dependent mechanism would put it. That is
+consistent with what the dictionary of \cref{sec:screenres} finds, since every term carrying
+$\dot R$ or $\ddot R$ takes under \SI{9}{\percent} of the curve while terms in $R$ alone take
+$29$ to \SI{70}{\percent}, and it is the second independent reason to look for something
+quasi-static rather than rate-dependent.
+
 \paragraph{And it is not the shape of the pinned radius either.} $\hat\delta$ is computed from
 fits that \cref{sec:limitations} says are misconfigured, and every one of the eight carries the
 same misconfiguration, so a shared curve is what shared defects would produce whether or not any

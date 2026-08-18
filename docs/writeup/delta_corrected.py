@@ -39,14 +39,20 @@ from universal_delta import GRID, _surrogate, one as delta_one
 ORDER = (*records.DATASETS, *records.PAAM)
 DRAWS = 2000
 STARTS, EVALUATIONS = 10, 300
+# Switching the thermal physics on made a COLD multistart over the six-decade WIDE box
+# intractable: one record ran thirty minutes without converging and others raised inside the
+# search. The isothermal fit is already close, so the thermal run is given a box of one third to
+# three times that answer per axis and a short search. That is a local refinement of a known
+# point, not a fresh global fit, and it is the honest way to describe it.
+WARM = 3.0
+THERMAL_STARTS, THERMAL_EVALUATIONS = 3, 100
 # The two corrections are separated, because they do not cost the same. Freeing the equilibrium
 # radius is what four independent measurements implicate and it is free: the fit is isothermal,
 # like every other fit in this document. Switching vapour and mass transfer on costs about thirty
 # minutes PER RECORD -- a diagnostic timed out at that on one -- and some records raise inside the
 # multistart. So the radius is tested here and the vapour correction is left as stated work rather
 # than half-run. Set THERMAL to the commented value to pay for it.
-THERMAL = {}
-# THERMAL = {"bubtherm": 1, "Nt": 7, "masstrans": 1, "vapor": 1}
+THERMAL = {"bubtherm": 1, "Nt": 7, "masstrans": 1, "vapor": 1}
 
 
 def corrected(dataset):
@@ -61,10 +67,15 @@ def corrected(dataset):
   stretch = json.load(open(records.HERE / "paam_stretch.json"))[dataset]["argmin"]
   solve = records.solver(times, maximum, stretch, max_steps=400_000, **THERMAL)
   candidate = STANDARD_MODELS["qSLS"]
+  box, starts, evaluations = WIDE, STARTS, EVALUATIONS
+  if THERMAL:
+    warm = json.load(open(records.HERE / "paam_lackoffit.json"))[dataset]["fitted"]
+    box = {a: (warm[a] / WARM, warm[a] * WARM) for a in candidate.axes}
+    starts, evaluations = THERMAL_STARTS, THERMAL_EVALUATIONS
   try:
-    fit = fit_candidate(candidate, solve, mean, spread, bounds=WIDE, starts=STARTS,
-                        max_evaluations=EVALUATIONS)
-    values = physical_from_unit(candidate.axes, fit.unit, WIDE)
+    fit = fit_candidate(candidate, solve, mean, spread, bounds=box, starts=starts,
+                        max_evaluations=evaluations)
+    values = physical_from_unit(candidate.axes, fit.unit, box)
     fitted = dict(zip(candidate.axes, (float(v) for v in values), strict=True))
     base = np.asarray(evaluate_at(candidate, solve, fitted)[0], dtype=float)
   except Exception as error:                                          # noqa: BLE001
@@ -161,7 +172,7 @@ def main():
     print("  pressure, shared by every fit, and the claim must be withdrawn in that form.")
   json.dump({"same_record": same, "within": within, "across": across, "null_95": cut,
              "chi2": {d: fixed[d]["chi2"] for d in good}},
-            open("delta_corrected.json", "w"), indent=1)
+            open("delta_corrected_vapour.json", "w"), indent=1)
 
 
 if __name__ == "__main__":

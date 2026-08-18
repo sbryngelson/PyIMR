@@ -1,0 +1,66 @@
+{
+ "gelatin_15C": {
+  "measured": 2.045986704593246,
+  "points": 81,
+  "fitted material": 1.4582804175502537,
+  "viscosity off": 3.0936768580456477,
+  "viscosity and stiffening off": 3.5923192579217034,
+  "excess_over_fitted_model": 0.5877062870429923
+ },
+ "gelatin_23C": {
+  "measured": 1.771026925967747,
+  "points": 52,
+  "fitted material": 2.12322240329767,
+  "viscosity off": 2.9387953251957395,
+  "viscosity and stiffening off": 3.5931881948583833,
+  "excess_over_fitted_model": -0.3521954773299232
+ },
+ "gelatin_33C": {
+  "measured": 2.1464283805518227,
+  "points": 29,
+  "fitted material": 2.720420317971252,
+  "viscosity off": null,
+  "viscosity and stiffening off": null,
+  "excess_over_fitted_model": -0.5739919374194291
+ },
+ "paam_PA05": {
+  "measured": 2.052634007513486,
+  "points": 204,
+  "fitted material": 1.9609919215045164,
+  "viscosity off": 3.2351789545380787,
+  "viscosity and stiffening off": 3.596561576063804,
+  "excess_over_fitted_model": 0.09164208600896973
+ },
+ "paam_PA05_10C": {
+  "measured": 1.854424399360414,
+  "points": 147,
+  "fitted material": 1.672607010974455,
+  "viscosity off": 2.5670715228463346,
+  "viscosity and stiffening off": 3.5962497669768734,
+  "excess_over_fitted_model": 0.18181738838595884
+ },
+ "paam_PA05_21C": {
+  "measured": 1.6847392706793183,
+  "points": 260,
+  "fitted material": 1.797628861995528,
+  "viscosity off": 2.7478161334764,
+  "viscosity and stiffening off": 3.5965511442836138,
+  "excess_over_fitted_model": -0.11288959131620979
+ },
+ "paam_PA05_33C": {
+  "measured": 1.7564681947578553,
+  "points": 136,
+  "fitted material": 2.26139369696473,
+  "viscosity off": 3.141853182890903,
+  "viscosity and stiffening off": 3.5961319049924736,
+  "excess_over_fitted_model": -0.5049255022068746
+ },
+ "paam_PA05003": {
+  "measured": 1.6692729029501372,
+  "points": 367,
+  "fitted material": 1.9737369257510062,
+  "viscosity off": 3.352743417890273,
+  "viscosity and stiffening off": 3.5958493485189993,
+  "excess_over_fitted_model": -0.30446402280086904
+ }
+}

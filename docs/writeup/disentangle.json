@@ -1,0 +1,202 @@
+{
+ "gelatin_15C": {
+  "points": 81,
+  "events": 18,
+  "corr_overall": -0.8451119936964,
+  "corr_within_bounce": -0.21399102591209518,
+  "slope_frequency": 1.1838476185253097,
+  "ci_frequency": [
+   -1.048298874473428,
+   2.928184732833058
+  ],
+  "slope_amplitude": 2.6423399851082463,
+  "ci_amplitude": [
+   1.6067200893978069,
+   3.6333295782096626
+  ],
+  "frequency_resolved": false,
+  "amplitude_resolved": true,
+  "within_bounce_slopes": [
+   1.229837522095078,
+   -0.7858539459537754,
+   0.4285928806377163,
+   1.0900035519415618,
+   null
+  ]
+ },
+ "gelatin_23C": {
+  "points": 52,
+  "events": 14,
+  "corr_overall": -0.7842450008749021,
+  "corr_within_bounce": -0.2083951569685798,
+  "slope_frequency": 0.4609514987321223,
+  "ci_frequency": [
+   -0.6032880861272295,
+   1.395159682742356
+  ],
+  "slope_amplitude": 2.0642071823264874,
+  "ci_amplitude": [
+   1.2686036375838068,
+   2.9091662098668634
+  ],
+  "frequency_resolved": false,
+  "amplitude_resolved": true,
+  "within_bounce_slopes": [
+   null,
+   null,
+   null,
+   null,
+   null
+  ]
+ },
+ "gelatin_33C": {
+  "points": 29,
+  "events": 7,
+  "corr_overall": -0.8981247665524321,
+  "corr_within_bounce": NaN,
+  "slope_frequency": 2.343897598087821,
+  "ci_frequency": [
+   0.5854212496332225,
+   4.831797224194299
+  ],
+  "slope_amplitude": 3.873940207223037,
+  "ci_amplitude": [
+   3.025455051742625,
+   5.358139876805211
+  ],
+  "frequency_resolved": true,
+  "amplitude_resolved": true,
+  "within_bounce_slopes": [
+   null,
+   null,
+   null,
+   null,
+   null
+  ]
+ },
+ "paam_PA05": {
+  "points": 204,
+  "events": 52,
+  "corr_overall": -0.7851686996255756,
+  "corr_within_bounce": -0.37999731861034325,
+  "slope_frequency": 0.06458047705376593,
+  "ci_frequency": [
+   -0.869527798507783,
+   1.3445969038081271
+  ],
+  "slope_amplitude": 2.1029781918083925,
+  "ci_amplitude": [
+   1.4423736034140069,
+   3.0978447522023265
+  ],
+  "frequency_resolved": false,
+  "amplitude_resolved": true,
+  "within_bounce_slopes": [
+   0.93155434260754,
+   -1.525978665815368,
+   0.11589079988090327,
+   0.29166208674661315,
+   -0.08402642882863595
+  ]
+ },
+ "paam_PA05_10C": {
+  "points": 147,
+  "events": 30,
+  "corr_overall": -0.7213135850071974,
+  "corr_within_bounce": -0.30762697151770835,
+  "slope_frequency": 0.08309081597658133,
+  "ci_frequency": [
+   -1.1362148176968956,
+   1.9601908307204485
+  ],
+  "slope_amplitude": 1.8957287069212672,
+  "ci_amplitude": [
+   1.3281109035594643,
+   2.745032172434224
+  ],
+  "frequency_resolved": false,
+  "amplitude_resolved": true,
+  "within_bounce_slopes": [
+   0.7586035786651399,
+   2.558089475793647,
+   0.37749154281831476,
+   0.757996905102123,
+   -0.5182572384526635
+  ]
+ },
+ "paam_PA05_21C": {
+  "points": 260,
+  "events": 57,
+  "corr_overall": -0.5606431499748982,
+  "corr_within_bounce": -0.2902219064235285,
+  "slope_frequency": -1.5216577267904052,
+  "ci_frequency": [
+   -2.1173209728981965,
+   -0.05930491192595826
+  ],
+  "slope_amplitude": 0.9588105692352956,
+  "ci_amplitude": [
+   0.5772353804125077,
+   1.816014409091709
+  ],
+  "frequency_resolved": true,
+  "amplitude_resolved": true,
+  "within_bounce_slopes": [
+   -2.675409589720295,
+   0.49551171100007624,
+   1.4017036094639455,
+   -0.6604801454233331,
+   -1.0638005386015674
+  ]
+ },
+ "paam_PA05_33C": {
+  "points": 136,
+  "events": 30,
+  "corr_overall": -0.8089755860833979,
+  "corr_within_bounce": -0.44720811501826485,
+  "slope_frequency": 0.2796482646560325,
+  "ci_frequency": [
+   -0.4598919364101208,
+   1.248074509382197
+  ],
+  "slope_amplitude": 1.9105340096561456,
+  "ci_amplitude": [
+   1.4192498326064906,
+   2.4396687543728057
+  ],
+  "frequency_resolved": false,
+  "amplitude_resolved": true,
+  "within_bounce_slopes": [
+   0.873569467728567,
+   0.22855133359833404,
+   -2.746452169606012,
+   1.0433236148971334,
+   -1.050135801972971
+  ]
+ },
+ "paam_PA05003": {
+  "points": 367,
+  "events": 80,
+  "corr_overall": -0.7120155210948469,
+  "corr_within_bounce": -0.2913645460847736,
+  "slope_frequency": -0.9611719425726521,
+  "ci_frequency": [
+   -1.931088012946633,
+   0.40730513372991517
+  ],
+  "slope_amplitude": 1.1734237837273938,
+  "ci_amplitude": [
+   0.5890456332484639,
+   1.9549280795940605
+  ],
+  "frequency_resolved": false,
+  "amplitude_resolved": true,
+  "within_bounce_slopes": [
+   -2.9968745683520446,
+   1.6895161363943587,
+   -0.34467921113692335,
+   -0.2473349438721853,
+   -0.6477598026296091
+  ]
+ }
+}

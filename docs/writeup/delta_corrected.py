@@ -112,6 +112,23 @@ def main():
   print(f"  {len(good)} of {len(ORDER)} refitted at the preferred stretch, {label}")
   for d in ORDER:
     if "failed" in fixed[d]: print(f"    {d}: {fixed[d]['failed']}")
+
+  # A record that failed to solve is a SELECTION EFFECT and not a missing data point: the
+  # records that drop out are the hardest ones, and here they dropped out by material -- an
+  # earlier run of this script kept two of eight and both were gelatin, which leaves no
+  # cross-material comparison to make while still printing a number for one. So the survivors
+  # are counted per material and the across-material statistic is refused, not degraded, when
+  # either side is too thin to carry it.
+  kept_gel = [d for d in good if d in records.DATASETS]
+  kept_paam = [d for d in good if d not in records.DATASETS]
+  print(f"  survivors by material: {len(kept_gel)} gelatin, {len(kept_paam)} PAAm"
+        f"  (of {sum(1 for d in ORDER if d in records.DATASETS)} and "
+        f"{sum(1 for d in ORDER if d not in records.DATASETS)})")
+  if len(kept_gel) < 2 or len(kept_paam) < 2:
+    print("\n  REFUSING to report a cross-material comparison: one material has fewer than two")
+    print("  surviving records, so any across-material median would be built from a handful of")
+    print("  pairs sharing a single curve. This is not a weak result, it is no result.")
+    return
   if len(good) < 4: return
 
   fixed_c = {d: np.array(fixed[d]["curve"]) for d in good}

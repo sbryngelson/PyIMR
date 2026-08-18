@@ -105,14 +105,23 @@ why the other is consistent with it.
 
 ---
 
-## Tier 2 — remaining bookkeeping
+## Tier 2 — closed today as well
 
-3. **`trial_variation.py` on PAAm proper.** `PARAMETER_SHARE = 0.393` is a gelatin number
-   currently standing in for both materials. Done when PAAm has its own number, or the text
-   says which records the number covers.
-4. **Two OED-referee findings still unverified:** certificate scope, and the prior
-   standardisation (1/√12 vs `sec:prior`). Done when each is confirmed-and-fixed or
-   refuted-with-a-measurement, recorded in `ISSUES.md` either way.
+- ~~**`trial_variation.py` on PAAm.**~~ It transfers. PAAm gives 28.2–45.8 %, median 44.5 %,
+  against chance levels of 3.0–3.8 %, and gelatin's 39.3 % sits inside that range rather than
+  beside it. The leftover lag-one stays at 0.59–0.73, so on the second material too the
+  correlation is mostly structure the model lacks. `trial_variation_paam.py`.
+- ~~**Prior standardisation.**~~ The code was right and the sentence was wrong. `design.py`
+  carries `UNIFORM_VARIANCE = 1/12` and scales the Jacobian by its square root, so every
+  information number is correct as computed; the text called the prior-standardised coordinates
+  "the unit-cube scaling … in which the prior covariance is the identity", omitting the
+  1/√12 per axis. Now named and priced: omitting it would inflate every gain by
+  (p/2)·log 12, about 1.24 nats per parameter.
+- ~~**Certificate scope.**~~ Also handled in the body and overclaimed in the introduction.
+  `sec:measure`'s follow-up already runs the off-grid scan and reports that it *fails* —
+  max d = 69.56 against p = 4 at 552 µm and stretch 17.82, shown not to be numerical — but the
+  introduction promised "a proof that no better design exists" flatly, and the headline claim
+  did too. Both now carry the qualification and point at the scan.
 
 ---
 
@@ -143,7 +152,16 @@ why the other is consistent with it.
 - **A third material.** Two materials rule out chemistry-in-common by having none; a third —
   ideally a fluid, or an elastomer far from both networks — turns "two unrelated materials"
   into "materials are irrelevant", and is cheap now the pipeline exists.
-- **Audit the other solver defaults.** `Nt = 7` was wrong for a year and cost a false
-  conclusion in the text. It was found by asking what the default was. Nothing guarantees it is
-  the only such setting; the thermal grid, `rtol`, `max_steps` and the spectral quadrature
-  orders all deserve one convergence sweep each, run once and recorded.
+- ~~**Audit the other solver defaults.**~~ Done, and it bounds the risk rather than
+  extending it. `Nt = 11` appears in six further scripts, and `thermal_resolution.py` already
+  justifies it: 0.69 noise units of discretisation error against 16 for the effect being
+  measured. `Nt = 7` in `delta_corrected.py` was the one setting no study supported. `rtol`
+  overrides are almost all *tighter* than the 1e-8 default, and the two at 1e-6 cost ~0.02 % in
+  χ². **`max_steps` is the one to watch:** almost every script sets it *below* the package's
+  1 000 000, which can only turn a slow solve into a failure. That looks loud but is not,
+  because these scripts catch the exception and drop the record — so a low budget silently
+  removes the hardest records from a study. That is exactly what happened here: the vapour
+  refit dropped six of eight, and the two survivors were *both gelatin*, in a study whose whole
+  point was the cross-material comparison. **A dropped record is a selection effect, not a
+  missing data point**, and any script that catches a solver failure should report the count and
+  the material breakdown next to its result.

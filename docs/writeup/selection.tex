@@ -853,83 +853,51 @@ best value is the best \emph{node}, not the best fit. Refitting each model to th
 starts from a Latin hypercube over the wide prior box, taking the lowest) gives:
 
 \begin{center}
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccccc}
 \toprule
-model & parameters & $\chi^2/N$ & lag-one $\rho$ & $N_{\rm eff}$ & $\chi^2/N_{\rm eff}$ & inflation \\
+dataset & $J$ & $\chi^2/N$ & $F_w$ & null \SI{95}{\percent} & null \SI{99}{\percent} \\
 \midrule
-qSLS & $4$ & $\mathbf{0.962}$ & $0.918$ & $10.3$ & $18.9$ & $4.43$ \\
-SLS  & $3$ & $1.984$ & $0.932$ & $7.1$  & $56.6$ & $5.34$ \\
-qKV  & $3$ & $20.18$ & $0.948$ & $13.4$ & $302$  & $3.87$ \\
-NHKV & $2$ & $20.16$ & $0.948$ & $13.4$ & $302$  & $3.87$ \\
+\SI{15}{\celsius} & $18$ & $0.954$ & $\mathbf{17.51}$ & $1.35$ & $1.53$ \\
+\SI{23}{\celsius} & $14$ & $1.017$ & $\mathbf{14.55}$ & $1.50$ & $1.79$ \\
+\SI{33}{\celsius} & $7$ & $0.435$ & $\mathbf{3.11}$ & $1.48$ & $1.74$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-At its true optimum qSLS reaches $\chi^2/N = 0.96$ rather than the grid's $1.35$, which
-confirms in a second way that the tabulated residuals are ceilings. The ordering is
-unchanged, and the gaps are large: relaxation without stiffening doubles the residual, and
-both memoryless models sit twenty times above it.
+\noindent The statistic and its threshold both differ from what \eqref{eq:lackoffit} first
+suggests, and \cref{sec:paam} derives both; the short version belongs here because this is where
+the number is first used. Weighting the two sums consistently, which is required because these
+records are strongly heteroscedastic and the fit minimises the WEIGHTED residual, makes the
+pure-error term $k(J-1)$ identically. Its mean square is then $1$ exactly, on every dataset, so
+the denominator carries no information and $F_w = \tfrac{k}{k-p}J\chi^2/N$. The classical
+replicated test, applied to a record with its own weights, IS $J\chi^2/N$: the two routes are one
+route with a factor of $J$ between them, and the claim that this conclusion is ``reached with
+none of the same machinery'' is withdrawn. What survives is the factor of $J$ itself, which was
+always the substantive point, since the fit is scored against the spread BETWEEN events when it
+was fitted to their mean.
 
-\paragraph{Stiffening buys nothing without relaxation.}
-qKV and NHKV differ only by the stiffening exponent $\alpha$, and they fit identically:
-$20.18$ against $20.16$, one part in a thousand on a residual twenty times too large. The
-strain-stiffening term is decisive alongside a relaxation mode and worth nothing without one.
+The threshold is simulated rather than assumed. An analytic $F(k-p,\cdot)$ critical value near
+$1.2$ presumes independent errors across time; these are correlated at $\rho = 0.68$ to $0.86$.
+Surrogates carrying each record's own autocorrelation put the \SI{99}{\percent} point at $1.52$
+to $1.82$ instead, so correlation moves the threshold by a quarter to a half and changes no
+verdict here. Every dataset shows lack of fit, and does so against a threshold that grants the
+correlation this document spends its length establishing.
 
-That is sharper than the evidence ranking alone. It is not that qKV is a worse model than
-qSLS; its extra parameter does no work at all. It also explains why the temperature trend is
-carried by the interaction of the two mechanisms rather than by either alone.
+Two entries moved when the statistic was repaired and both are worth naming. \SI{23}{\celsius}
+reported $2.94$ unweighted and read as the weakest rejection in this document; weighted it is
+$14.55$, because the unweighted numerator discounts exactly the samples where the trial spread is
+largest. \SI{33}{\celsius} reported $3.26$ from a basin ten multistarts could not escape; at
+forty it reaches $\chi^2/N = 0.435$ and $F_w = 3.11$, which is the weakest rejection here and
+still clears its own \SI{99}{\percent} null. The seven-event dataset carrying the least is the
+right outcome.
 
-\paragraph{But $\chi^2/N \approx 1$ does not mean the fit is within noise.}
-The statistic $\chi^2/N$ compares the residual to its expectation under the assumption that
-the $N$ residuals are independent draws of known scale. They are not. The lag-one
-autocorrelation of the qSLS residual is $0.918$, and by the Geyer initial-positive-sequence
-estimator~\citep{geyer1992practical} of~\eqref{eq:ess} the $201$ samples carry the information of about
-$N_{\rm eff} = 10$ independent ones. Dividing by that count instead gives $18.9$.
-
-That number is not a calibrated test. For correlated residuals the correct statistic is
-$r^{\mathsf T}\Sigma^{-1}r$ with the true covariance, not $\chi^2$ rescaled by an effective
-count. But its message is robust, and it is the opposite of the headline's.
-
-A residual with $\rho = 0.918$ is not noise the model failed to average away. It is
-\emph{structure} the model does not contain. The fit is excellent in that no candidate does
-better, and not excellent in that it is inconsistent with the measurement error.
-
-\paragraph{The classical test agrees, and says more.} The argument above rests on lag-one
-autocorrelation, which \cref{sec:limitations} shows is a blunt instrument. There is a standard
-test for the same question and these datasets already carry what it needs: replicates. The
-trial spread at each time is \emph{pure error}, costing no model, so the residual of the mean
-splits into that and what the model cannot follow,
-%
-\begin{equation}
-F = \frac{J\sum_i (\bar y_i - \hat y_i)^2 \,/\, (k-p)}
-         {(J-1)\sum_i s_i^2 \,/\, k(J-1)} ,
-\label{eq:lackoffit}
-\end{equation}
-%
-with $J$ trials at $k$ times and $p=4$ parameters. The datasets do not carry equal replication:
-$J$ is $18$, $14$ and $7$.
-
-\begin{center}
-\begin{tabular}{lcccccc}
-\toprule
-dataset & $J$ & $\chi^2/N$ & pure error & lack of fit & $F$ & corrected \\
-\midrule
-\SI{15}{\celsius} & $18$ & $0.973$ & $5.20\times10^{-4}$ & $7.36\times10^{-3}$ & $\mathbf{14.2}$ & $\mathbf{23.3}$ \\
-\SI{23}{\celsius} & $14$ & $1.017$ & $1.86\times10^{-3}$ & $5.47\times10^{-3}$ & $2.9$ & $4.8$ \\
-\SI{33}{\celsius} & $7$ & $1.130$ & $1.91\times10^{-3}$ & $6.23\times10^{-3}$ & $3.3$ & $5.4$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\noindent Degrees of freedom are $197$ against $3417$ at \SI{15}{\celsius} and fall with $J$
-elsewhere, so the five percent critical value is near $1.2$ throughout. Every dataset shows lack
-of fit. The conclusion is the one above, reached with none of the same machinery.
-
-Two things make it worth the page. It gets the factor of $J$ right by construction (the fit
-compares the \emph{mean} of the trials against the spread \emph{between} them, and the $J$ in
-the numerator is that missing $\sqrt{J}$) and it is conservative in a direction we can
-quantify: \SI{39.3}{\percent} of the trial variance is bubble-to-bubble parameter spread rather
-than measurement, so pure error is inflated and the corrected column divides that share out.
+There is no ``corrected'' column. It used to divide the ratio by $1 - 0.393$, on the ground that
+\SI{39.3}{\percent} of the trial variance is bubble-to-bubble parameter spread rather than
+measurement error. \Cref{sec:paam} measures that share on eight datasets and finds it $15$ to
+\SI{46}{\percent}, and \cref{sec:universal}'s companion null shows the $3\%$ chance level it was
+judged against assumes white noise, where the correlated figure is $15$ to \SI{22}{\percent} and
+four of eight records do not clear it. A correction resting on one dataset's number, measured
+against the wrong null, is not applied to eight.
 
 It also separates the datasets, which lag-one does not: those values are $0.919$, $0.968$ and
 $0.911$, effectively identical. Two things drive the separation and both are real.

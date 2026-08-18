@@ -29,7 +29,10 @@ from universal_delta import GRID, one as delta_one
 
 DRAWS = 4000
 ORDER = (*records.DATASETS, *records.PAAM)
-POWERS = (0.5, 1.0, 1.5, 2.0, 3.0, 4.0)
+# The first sweep started at 0.5 and every record's argmin landed there: a bracket edge, not an
+# optimum. The share must vanish as p -> 0, since (Rmax/R)^0 is a constant and the mean is
+# removed, so a maximum exists strictly inside (0, 0.5) and the bracket has to contain it.
+POWERS = (0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.0)
 
 
 def one(dataset):
@@ -90,20 +93,25 @@ def main():
   bests = [summary[d]["best_power"] for d in ORDER]
   survivors = {p: sum(1 for d in ORDER if got[d][p]["p"] < 0.05) for p in POWERS}
   print(f"  best exponent per record: {bests}")
-  print(f"  records where each exponent beats the shift null: "
+  print("  records where each exponent beats the shift null: "
         + ", ".join(f"p={p}: {n}/{len(ORDER)}" for p, n in survivors.items()))
-  spread = max(bests) / min(bests)
-  if spread <= 2 and survivors.get(1.0, 0) >= 6:
-    print("\n  The exponent is resolved near 1 and survives a null that destroys only the")
-    print("  alignment, so the match is to 2 sigma / R specifically and not to any spike at")
-    print("  the collapse. The missing term is interfacial.")
-  elif max(survivors.values()) == 0:
-    print("\n  NOTHING survives the shift null. The dictionary result was the collapse")
-    print("  localisation of both curves and says nothing about which term it is.")
+  interior = [x for x in bests if min(POWERS) < x < max(POWERS)]
+  near_one = sum(1 for x in bests if 0.75 <= x <= 1.5)
+  separates = len({q for q in POWERS if survivors[q] >= 6}) < len(POWERS)
+  print(f"\n  argmins strictly inside the bracket: {len(interior)} of {len(bests)}")
+  print(f"  argmins consistent with p = 1 (0.75 to 1.5): {near_one} of {len(bests)}")
+  print(f"  does the shift null separate the exponents: {separates}")
+  if len(interior) < len(bests):
+    print("\n  An argmin still sits on a bracket wall, so the exponent is NOT measured and")
+    print("  nothing here says which power of R is matched.")
+  elif near_one >= 6 and separates:
+    print("\n  The exponent is resolved near 1 and the null separates the powers, so the match")
+    print("  is to 2 sigma / R specifically and the missing term is interfacial.")
   else:
-    print("\n  The exponent is NOT resolved: several powers score alike, so what is being")
-    print("  matched is a spike at the collapse rather than a particular power of R. The")
-    print("  interfacial reading is not established by this.")
+    print("\n  The exponent is resolved and it is NOT 1. What delta-hat matches is a weak")
+    print("  negative power of R rather than the 1/R surface tension requires, so the")
+    print("  interfacial reading is refused. A real component does grow as the bubble shrinks,")
+    print("  aligned in time; its power is measured here and it is not surface tension's.")
   json.dump(summary, open("delta_exponent.json", "w"), indent=1)
 
 

@@ -30,12 +30,9 @@ import records
 from shape_error import seed_for
 from universal_delta import GRID, _surrogate, one as delta_one
 
-# Two records per material rather than all eight, and a cheaper search. The full version ran
-# past an hour without printing: these fits carry a spectral thermal grid and mass transfer, so
-# one solve costs one to two orders more than the isothermal fits elsewhere, and the records run
-# in PARALLEL, so cutting their number does not cut wall time -- only cutting the cost of a
-# single fit does. The question is directional (does the cross-material curve survive correcting
-# the fits) and four records answer it; eight would only sharpen an answer not yet in hand.
+# All eight, because they run in PARALLEL and one worker per record costs the same wall time as
+# one worker per pair. A thermal solve is ~35 s against ~3 s isothermal, so the budget below and
+# not the record count is what sets the runtime.
 ORDER = (*records.DATASETS, *records.PAAM)
 DRAWS = 2000
 STARTS, EVALUATIONS = 10, 300
@@ -46,13 +43,13 @@ STARTS, EVALUATIONS = 10, 300
 # point, not a fresh global fit, and it is the honest way to describe it.
 WARM = 3.0
 THERMAL_STARTS, THERMAL_EVALUATIONS = 3, 100
-# The two corrections are separated, because they do not cost the same. Freeing the equilibrium
-# radius is what four independent measurements implicate and it is free: the fit is isothermal,
-# like every other fit in this document. Switching vapour and mass transfer on costs about thirty
-# minutes PER RECORD -- a diagnostic timed out at that on one -- and some records raise inside the
-# multistart. So the radius is tested here and the vapour correction is left as stated work rather
-# than half-run. Set THERMAL to the commented value to pay for it.
-THERMAL = {"bubtherm": 1, "Nt": 7, "masstrans": 1, "vapor": 1}
+# `Nt = 25` is the package default and it is not negotiable here. At `Nt = 7`, chosen once for
+# speed, this configuration stalls on six of eight records: `thermal_gate.py` measures 2/8
+# integrating at 7 against 8/8 at both 15 and 25, and the stall is SLOWER than the success --
+# 250 s of stepsize collapse against 35 s of solve -- so the coarse grid bought nothing even
+# before it bought a wrong answer. The earlier reading of those stalls as the corrected model
+# being un-integrable was a statement about the grid and not about the physics.
+THERMAL = {"bubtherm": 1, "Nt": 25, "masstrans": 1, "vapor": 1}
 
 
 def corrected(dataset):
@@ -172,7 +169,7 @@ def main():
     print("  pressure, shared by every fit, and the claim must be withdrawn in that form.")
   json.dump({"same_record": same, "within": within, "across": across, "null_95": cut,
              "chi2": {d: fixed[d]["chi2"] for d in good}},
-            open("delta_corrected_vapour.json", "w"), indent=1)
+            open(records.HERE / "delta_corrected_vapour.json", "w"), indent=1)
 
 
 if __name__ == "__main__":

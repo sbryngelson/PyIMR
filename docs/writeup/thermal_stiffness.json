@@ -1,0 +1,82 @@
+{
+ "gelatin_15C|isothermal": {
+  "ok": true,
+  "seconds": 5.424289720132947,
+  "chi2": 25206.485880378248
+ },
+ "gelatin_15C|vapour only": {
+  "ok": true,
+  "seconds": 5.9343041349202394,
+  "chi2": 36621.94903933827
+ },
+ "gelatin_15C|thermal Nt=7": {
+  "ok": true,
+  "seconds": 19.537058115005493,
+  "chi2": 30251.873182940515
+ },
+ "gelatin_15C|thermal Nt=15": {
+  "ok": true,
+  "seconds": 20.616921443026513,
+  "chi2": 29853.78595946817
+ },
+ "gelatin_15C|thermal Nt=25": {
+  "ok": true,
+  "seconds": 20.41377236507833,
+  "chi2": 29998.611611228764
+ },
+ "gelatin_15C|thermal+vapour Nt=7": {
+  "ok": true,
+  "seconds": 27.55074981926009,
+  "chi2": 24910.79539918774
+ },
+ "gelatin_15C|thermal+vapour Nt=15": {
+  "ok": true,
+  "seconds": 30.904967681039125,
+  "chi2": 83663.72290042354
+ },
+ "gelatin_15C|thermal+vapour Nt=25": {
+  "ok": true,
+  "seconds": 34.766950430348516,
+  "chi2": 80506.83361952656
+ },
+ "paam_PA05|isothermal": {
+  "ok": true,
+  "seconds": 5.944669202901423,
+  "chi2": 22354.966254681654
+ },
+ "paam_PA05|vapour only": {
+  "ok": true,
+  "seconds": 5.942548552993685,
+  "chi2": 33009.85251495847
+ },
+ "paam_PA05|thermal Nt=7": {
+  "ok": true,
+  "seconds": 18.892094512935728,
+  "chi2": 57112.49686032525
+ },
+ "paam_PA05|thermal Nt=15": {
+  "ok": true,
+  "seconds": 20.935619887895882,
+  "chi2": 55206.9697240888
+ },
+ "paam_PA05|thermal Nt=25": {
+  "ok": true,
+  "seconds": 20.178790205623955,
+  "chi2": 55274.17476942427
+ },
+ "paam_PA05|thermal+vapour Nt=7": {
+  "ok": false,
+  "seconds": 60.782691224012524,
+  "error": "SimulationError: IMR integration failed: diffrax._solution.RESULTS<The maximum number of solver steps was reached. Try i"
+ },
+ "paam_PA05|thermal+vapour Nt=15": {
+  "ok": true,
+  "seconds": 31.432613102719188,
+  "chi2": 252025.77553111082
+ },
+ "paam_PA05|thermal+vapour Nt=25": {
+  "ok": true,
+  "seconds": 34.229388270992786,
+  "chi2": 243596.02276879357
+ }
+}

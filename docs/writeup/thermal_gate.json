@@ -1,0 +1,122 @@
+{
+ "gelatin_15C|7": {
+  "ok": true,
+  "seconds": 11.5903962533921,
+  "chi2": 24910.79539918774
+ },
+ "gelatin_15C|15": {
+  "ok": true,
+  "seconds": 32.683681468013674,
+  "chi2": 83663.72290042354
+ },
+ "gelatin_15C|25": {
+  "ok": true,
+  "seconds": 36.52264569886029,
+  "chi2": 80506.83361952656
+ },
+ "gelatin_23C|7": {
+  "ok": false,
+  "seconds": 234.82413619663566,
+  "error": "SimulationError: IMR integration failed: diffrax._solution.RESULTS<The maximum number of solver steps was reac"
+ },
+ "gelatin_23C|15": {
+  "ok": true,
+  "seconds": 32.072520688176155,
+  "chi2": 44209.97636993531
+ },
+ "gelatin_23C|25": {
+  "ok": true,
+  "seconds": 36.11638417514041,
+  "chi2": 42182.98522108228
+ },
+ "gelatin_33C|7": {
+  "ok": true,
+  "seconds": 10.9638160020113,
+  "chi2": 3858.0995598202735
+ },
+ "gelatin_33C|15": {
+  "ok": true,
+  "seconds": 30.628473167773336,
+  "chi2": 1823.3787152425334
+ },
+ "gelatin_33C|25": {
+  "ok": true,
+  "seconds": 29.220125909894705,
+  "chi2": 1823.297261063725
+ },
+ "paam_PA05|7": {
+  "ok": false,
+  "seconds": 249.05844281427562,
+  "error": "SimulationError: IMR integration failed: diffrax._solution.RESULTS<The maximum number of solver steps was reac"
+ },
+ "paam_PA05|15": {
+  "ok": true,
+  "seconds": 31.874067839235067,
+  "chi2": 252025.77553111082
+ },
+ "paam_PA05|25": {
+  "ok": true,
+  "seconds": 32.34658270282671,
+  "chi2": 243596.02276879357
+ },
+ "paam_PA05_10C|7": {
+  "ok": false,
+  "seconds": 249.02145423181355,
+  "error": "SimulationError: IMR integration failed: diffrax._solution.RESULTS<The maximum number of solver steps was reac"
+ },
+ "paam_PA05_10C|15": {
+  "ok": true,
+  "seconds": 32.87871953006834,
+  "chi2": 50838.404026030956
+ },
+ "paam_PA05_10C|25": {
+  "ok": true,
+  "seconds": 32.99245413206518,
+  "chi2": 48704.10595721324
+ },
+ "paam_PA05_21C|7": {
+  "ok": false,
+  "seconds": 271.615380350966,
+  "error": "SimulationError: IMR integration failed: diffrax._solution.RESULTS<The maximum number of solver steps was reac"
+ },
+ "paam_PA05_21C|15": {
+  "ok": true,
+  "seconds": 32.559122822247446,
+  "chi2": 144034.9237248323
+ },
+ "paam_PA05_21C|25": {
+  "ok": true,
+  "seconds": 35.95215825084597,
+  "chi2": 139633.6927794929
+ },
+ "paam_PA05_33C|7": {
+  "ok": false,
+  "seconds": 264.5365156168118,
+  "error": "SimulationError: IMR integration failed: diffrax._solution.RESULTS<The maximum number of solver steps was reac"
+ },
+ "paam_PA05_33C|15": {
+  "ok": true,
+  "seconds": 28.07269156118855,
+  "chi2": 19133.756122413557
+ },
+ "paam_PA05_33C|25": {
+  "ok": true,
+  "seconds": 35.707240115851164,
+  "chi2": 17977.32898040105
+ },
+ "paam_PA05003|7": {
+  "ok": false,
+  "seconds": 247.9273764686659,
+  "error": "SimulationError: IMR integration failed: diffrax._solution.RESULTS<The maximum number of solver steps was reac"
+ },
+ "paam_PA05003|15": {
+  "ok": true,
+  "seconds": 32.38926429115236,
+  "chi2": 223092.15187086567
+ },
+ "paam_PA05003|25": {
+  "ok": true,
+  "seconds": 36.42059094412252,
+  "chi2": 216179.1756971977
+ }
+}

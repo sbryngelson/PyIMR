@@ -846,6 +846,23 @@ both strain stiffening and stress relaxation.
 follow, with different answers. How well does the winning model fit? And how much does a good
 $\chi^2/N$ entitle us to claim?
 
+The second is answered by a lack-of-fit test, which asks whether the model's misfit is larger
+than the scatter the replicates themselves show. With $k$ observation times, $J$ replicates at
+each, $p$ fitted parameters, $\bar y_i$ the replicate mean and $\hat y_i$ the model,
+%
+\begin{equation}
+F \;=\; \frac{\mathrm{MS}_{\rm lack}}{\mathrm{MS}_{\rm pure}},
+\qquad
+\mathrm{MS}_{\rm lack} = \frac{J\sum_i (\bar y_i - \hat y_i)^2}{k-p},
+\qquad
+\mathrm{MS}_{\rm pure} = \frac{\sum_{ij} (y_{ij} - \bar y_i)^2}{k(J-1)} .
+\label{eq:lackoffit}
+\end{equation}
+%
+\noindent Both sums are written unweighted here because that is the textbook form the reader
+will recognise; these records are heteroscedastic and the weighted version is what is actually
+used, which is the subject of the paragraph after next.
+
 \paragraph{The grid understates the fit.}
 The model-selection grid evaluates each candidate at log-spaced parameter nodes, so its
 best value is the best \emph{node}, not the best fit. Refitting each model to the
@@ -1853,19 +1870,30 @@ than infinite.
 \subsection*{What the discrepancy is, before asking what removes it}
 
 The bound says how much of a parameter the discrepancy could be eating. It does not say what
-the discrepancy \emph{is}, and $\hat\delta$ is not a shapeless residual: the three datasets'
-$\hat\delta$ correlate at $0.49$ to $0.84$, and between $65$ and $69$ percent of each sits in
-the first collapse. One curve, measured rather than guessed, is a thing a candidate physics can
-be screened against.
+the discrepancy \emph{is}, and $\hat\delta$ is not a shapeless residual: on the common
+normalised-time grid the three gelatin $\hat\delta$ correlate at $0.538$, $0.551$ and $0.871$.
+One curve, measured rather than guessed, is a thing a candidate physics can be screened against.
+
+Where that curve sits is worth stating carefully, because an earlier version of this paragraph
+had it concentrated in the first collapse --- ``between $65$ and $69$ percent of each'' --- and
+that is not what the curves show. Measured as the share of squared norm inside $t/t_c \le 1.2$,
+the three gelatin records give \SI{46}{\percent}, \SI{69}{\percent} and \SI{47}{\percent}: the
+quoted range described one record and was generalised to all three. Across all eight records the
+share runs \SIrange{41}{69}{\percent}, and the common mode of \cref{sec:universal} sits at
+\SI{47.5}{\percent}. So $\hat\delta$ is not a first-collapse feature with a tail; it is spread
+roughly evenly either side of the collapse, which is the reading \cref{sec:universal} arrives at
+independently and the one that makes the ringdown worth looking at.
 
 \paragraph{How much of that agreement is the smoothness, and not the mechanism.} The $0.08$
 this was originally compared against is $1/\sqrt{N}$, the null for two INDEPENDENT vectors, and
-it is the wrong null for two curves that this same paragraph says are two-thirds concentrated in
-one feature. Phase-randomised surrogates, which keep each curve's own power spectrum and destroy
-only what it shares with the other, correlate at a mean of $0.239$ with a \SI{95}{\percent} point
-of $0.508$. The corrected floor is therefore six times the number quoted: the top of the observed
-range clears it comfortably and the bottom of it, $0.49$, sits ON it. On three gelatin datasets
-alone, ``one curve'' is established at the strong end and not at the weak end.
+these curves are not independent draws of anything: they are smooth, so successive samples carry
+much less than one degree of freedom each. Phase-randomised surrogates, which keep each curve's
+own power spectrum and destroy only what it shares with the other, correlate at a mean of
+$0.239$ with a \SI{95}{\percent} point of $0.508$. The corrected floor is therefore six times the
+number quoted, and on a pair-by-pair reading the gelatin agreements clear it without much room.
+That reading is itself too harsh for the median the claim rests on, for the reason
+\cref{sec:universal} gives when it draws the null at the level of the whole ensemble rather than
+of a pair.
 
 \subsection{The discrepancy is one curve, and the curve is not the material's}
 \label{sec:universal}
@@ -1909,6 +1937,21 @@ correlate LESS, at $0.201$ with a \SI{95}{\percent} point of $0.466$, and $13$ o
 cross-material pairs clear that. The constraint tightens the null rather than inflating the
 statistic.
 
+\paragraph{And the null is quoted at the wrong level, in the direction that costs nothing.}
+Both figures above are the \SI{95}{\percent} point for a SINGLE pair, while the number the table
+leads with is a MEDIAN over fifteen pairs built from eight curves. Those pairs are not
+independent -- each curve enters five of them -- so the null distribution of the median is not
+the null distribution of a pair, and a comparison of one against the other is uncalibrated.
+Drawing the whole ensemble instead, eight phase-randomised surrogates at a time, and recomputing
+the same group statistics on each draw, puts the \SI{95}{\percent} point for the cross-material
+median at $0.315$ rather than $0.508$, and for the count of pairs above $0.508$ at two rather
+than twelve. The observed $0.726$ and its twelve pairs sit beyond every one of $4000$ draws
+($p < 3\times10^{-4}$). The error was therefore conservative, and correcting it matters most
+where the evidence looked thinnest: the three gelatin pairs, whose median of $0.551$ reads as
+barely clearing a pair-level bar of $0.508$, sit at $p \approx 0.003$ against the ensemble null
+that the median actually calls for. What is weak about the gelatin-only comparison is that there
+are three pairs of it, not that the agreement is marginal.
+
 \paragraph{Nor is it the shadow of the form that was fitted.} $\hat\delta$ is DEFINED as what a
 qSLS cannot reach, and all eight fits used a qSLS, so eight of them could agree because that form
 is wrong in the same way everywhere, which is the claim, or because the curve is mostly a
@@ -1928,6 +1971,16 @@ comparison is reported and not counted.
 So whatever every model in this document is missing is not the chemistry of either network. It
 survives a change of crosslinking, of gelation mechanism, of temperature and of bubble size, and
 \cref{sec:paam} shows no candidate enrichment reaches it above a \SI{20}{\percent} noise floor.
+
+The scope of that sentence is worth fixing precisely, because it is easy to read as more than it
+is. What varied across the forms above is the CONSTITUTIVE law, and the two that fit are both
+Zener-family, one nested in the other; every fit in this document also shares a Keller--Miksis
+operator and, except where \cref{sec:vapour} says otherwise, an isothermal gas. So the control
+establishes that the missing term is not the material's chemistry and not the elasticity, and it
+leaves ``common to the experiment or to the modelling of it'' spanning both a genuinely absent
+physics and any error shared by the operator and thermal treatment the whole document uses. The
+second of those is not a remote possibility to be waved at, and \cref{sec:vapour} takes it as
+the leading candidate and tests it.
 That is a measured curve, common to two materials, that nothing on the shelf explains, and it is
 a more useful object than the rejection it came from: a target a theory can be tested against
 rather than a bound on how wrong a number might be.
@@ -2009,24 +2062,51 @@ from a shared model is what model-form error should look like, which is the clai
 be told apart from a shape imprinted by the shared processing without a pipeline nobody in this
 document controls. Both are testable by anyone with a second rig, which is the right kind of weakness to have.
 
-A third limit is narrower and belongs with the correction just described. Vapour pressure and
-mass transfer, which \cref{sec:limitations} also lists, are NOT corrected in that test, and the
-reason is not cost. Refitting all eight records with \texttt{bubtherm}, \texttt{masstrans} and
-\texttt{vapor} on, in a box centred on each record's converged isothermal optimum, fitted two of
-them --- both gelatin --- and raised on the other six, every polyacrylamide record among them.
-The failure is in the forward solve rather than in the search: the multistart reports no fit
-only when every start ends in the penalty region, and since the box is centred on the isothermal
-answer, the first start \emph{is} the point the isothermal fit already found. Evaluated there
-directly, the thermal solve either completes in \SI{9.8}{\second} against \SI{3.0}{\second}
-isothermal, or exhausts $4\times10^{5}$ integrator steps after four minutes without reaching the
-end of the record; on the four records probed it completed once and stalled three times. That is
-stiffness, not a step ceiling set too low, so raising the budget buys nothing a fit could use.
-Where it does complete, it barely moves the objective: $\chi^2$ on \texttt{gelatin\_15C} goes
-from $25207$ to $24911$, a little over a percent.
+\subsection{The thermal candidate, and a stall that was a grid rather than a physics}
+\label{sec:vapour}
 
-So what is reported above is that the curve survives freeing $R_{\rm eq}$, and nothing about
-vapour --- not because the vapour test was judged too expensive to run, but because at this
-configuration the corrected forward model cannot be integrated on most of these records.
+Of everything the previous paragraphs leave open, one candidate deserves to be named rather than
+left inside ``common to the modelling of it''. The gas in these bubbles is treated as isothermal
+and vapour pressure is switched off, in every fit in this document. That approximation is a
+property of the MODEL and not of the material, so its error would appear on both materials
+alike; it is largest where the gas is compressed hardest and where the collapse is damped, which
+is the ringdown; and over half of the common mode's squared norm sits after the first collapse,
+in exactly that region. A referee who suspects the universal curve is the isothermal
+approximation's own error is making the strongest available objection, and it should be met with
+a measurement.
+
+\paragraph{The first attempt at that measurement reported a wall, and the wall was not real.}
+Refitting all eight records with \texttt{bubtherm}, \texttt{masstrans} and \texttt{vapor} on, in
+a box centred on each record's converged isothermal optimum, fitted two of them and raised on
+six. The failure sat in the forward solve rather than in the search --- the multistart reports
+no fit only when every start ends in the penalty region, and the box is centred on the point the
+isothermal fit already found --- and the solve there exhausted $4\times10^{5}$ integrator steps
+after four minutes without reaching the end of the record. Read at the time as stiffness, and
+reported as such: the corrected model could not be integrated on most of these records.
+
+That reading was wrong, and the way it was wrong is worth stating because the diagnosis sounded
+mechanical. Those runs carried $N_t = 7$ spectral nodes for the gas thermal field, a number
+chosen once for speed against a package default of $25$. Repeating the identical evaluation at
+three resolutions settles it: at $N_t = 7$ two of eight records integrate, and at both $N_t = 15$
+and $N_t = 25$ all eight do. The stall is also SLOWER than the success it was standing in for,
+about \SI{250}{\second} of collapsing stepsize against \SI{35}{\second} of completed solve, so
+the coarse grid never bought the speed it was chosen for. An implicit solver was in use
+throughout --- \texttt{pyimr} switches to Kvaerno5 whenever the spectral thermal field is on ---
+which is why the failure did not present as ordinary stiffness and why raising \texttt{max\_steps}
+would not have helped. What was measured was the conditioning of an under-resolved spectral
+operator, not a property of the physics.
+
+\paragraph{And the reassurance that came with it was an artifact of the same grid.} The one
+record that did complete at $N_t = 7$ moved $\chi^2$ from $25207$ to $24911$, about a percent,
+which was reported as evidence that the correction changes little. At $N_t = 15$ and $N_t = 25$
+the same evaluation on the same record gives $83664$ and $80507$. The correction is not small;
+it looked small only where it was unconverged. Two of the eight records shift by more than a
+factor of two between $N_t = 7$ and $N_t = 25$, while $N_t = 15$ and $N_t = 25$ agree to within
+\SI{4}{\percent} on every record, which is what makes $25$ a converged answer and $7$ a wrong
+one. The correct statement, replacing the one this section previously carried, is that the
+corrected forward model integrates on all eight records at the package's own default resolution,
+that its effect at the isothermal optimum is large rather than negligible, and that it therefore
+has to be refitted rather than argued about.
 
 \subsection{What could remove it, and what the screen can resolve}
 \label{sec:screenres}
@@ -3548,8 +3628,12 @@ keeping the parameters clean wants it unabsorbed, and both are the same angle.
 
 Carrying it to an unrun geometry needs the transfer of \cref{sec:noisedesign}, under the standing
 caveat of \cref{sec:transfer}, and the premise is checkable rather than assumed. Resampled onto a common $t/t_c$ grid, the three datasets'
-$\hat\delta$ overlap at $0.44$, $0.42$ and $0.81$ against $0.05$ for unrelated curves of that
-length, the same test, and the same verdict, that justified transferring $\sigma$ by phase.
+$\hat\delta$ overlap at $0.44$, $0.42$ and $0.81$ --- the same test, and the same verdict, that
+justified transferring $\sigma$ by phase. The $0.05$ these were first read against is
+$1/\sqrt{N}$, the null for INDEPENDENT vectors, and \cref{sec:transfer} has already replaced it
+with the $0.484$ that spectrum-matched surrogates give; on that bar one of the three overlaps
+supports the transfer and two do not, which is the reading \cref{sec:transfer} states and this
+section inherits rather than softens.
 
 Scoring \eqref{eq:deltacoordinate} at the four geometries \cref{sec:survives} put through two
 synthetic mismatches:
@@ -3567,11 +3651,20 @@ measure support & \SI{60}{\micro\metre} & $18.0$ & $\mathbf{0.763}$ & $5.2\%$ & 
 \end{tabular}
 \end{center}
 
-\noindent A single measured $\hat\delta$ cannot know which mismatch is the real one, so the most
+\noindent The first row is arithmetic and not evidence, and saying so is what makes the rest
+readable. A least-squares residual is orthogonal to the model's sensitivity span AT the fitted
+point, by the normal equations; the ``performed'' row scores visibility at essentially that
+point and that geometry, so a value at or near unity is forced. It reads $0.998$ rather than
+$1$ only because the grid and the parameter point differ slightly from the fit's own. Nothing
+about the criterion is confirmed by it.
+
+A single measured $\hat\delta$ cannot know which mismatch is the real one, so the most
 it can predict is what the two have in common. It does: the rank correlation of visible share
-against the parameter error is $-0.40$ under thermal truth and $-0.60$ under two-mode truth, both
-of the predicted sign, from four points. That is weak evidence and it is the right amount to
-claim, what it establishes is that the criterion is not refuted, not that it is calibrated.
+against the parameter error is $-0.40$ under thermal truth and $-0.60$ under two-mode truth,
+both of the predicted sign. But those are four-point correlations one of whose points is the
+forced one above, so three points carry the information, and a rank correlation on three points
+takes only a handful of values. That is weak evidence and it is the right amount to claim: what
+it establishes is that the criterion is not refuted, not that it is calibrated.
 
 The criterion also disagrees with the one the chapter has been using, which is the reason to
 carry it: material $\log\det$ is largest at \SI{89}{\micro\metre} and stretch $20$, where

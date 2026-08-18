@@ -2420,12 +2420,30 @@ and was not expected to move the span of the sensitivities; it moves it by $6.8$
 much of the share is a property of where a fit landed rather than of the data. That is a third
 reason to leave the correction off.
 
-What does transfer is the test the share was constructed for. Whitening the fit residual by the
-hierarchical covariance $G \Sigma G^{\mathsf T} + \sigma^2 I$ leaves its lag-one correlation at
-$0.42$ to $0.88$, on all nine fits across both materials, against $0.68$ to $0.86$ before. The
-correlation is not latent per-event parameter variation on either material. It is structure the
-model does not contain, which is the conclusion \cref{sec:latent} reaches on one dataset and
-which now holds on eight.
+\paragraph{And a test that does not transfer, because it does not work.} Whitening the fit
+residual by the hierarchical covariance $G \Sigma G^{\mathsf T} + \sigma^2 I$ leaves its lag-one
+correlation at $0.42$ to $0.88$ across both materials, against $0.68$ to $0.86$ before, which
+reads as the correlation surviving the only explanation \cref{sec:latent} offers for it. It was
+reported here as exactly that, and it is withdrawn.
+
+The reading requires the whitener to remove a correlation that IS parameter variation, and
+nothing had checked that it does. On two of the eight records whitening RAISES the lag-one,
+\SI{15}{\celsius} from $0.741$ to $0.878$, which is what a whitener that is not working looks
+like. Running the identical operation on synthetic events whose deviations are parameter
+variation by construction -- each event simulated at its own $\theta_j$ drawn at the measured
+per-trial scatter, with only \num{0.002} of white noise on top -- settles it. The parameter
+share of those synthetic deviations is \SI{52}{}, \SI{62}{} and \SI{57}{\percent}, so the
+mechanism dominates as designed, and the lag-one still rises under whitening on all three:
+$0.362 \to 0.459$, $0.641 \to 0.692$, $0.666 \to 0.834$.
+
+So the whitener does not remove this correlation even when the correlation is entirely parameter
+variation, and its survival on the measured records carries no information about the source. The
+conclusion \cref{sec:latent} draws from it does not hold on eight datasets; it does not hold on
+one either, and that section's use of the same test needs the same treatment. What survives from
+\cref{sec:latent} is the part that never used the whitener: the trial spread is low rank, its
+autocorrelation decays faster than any AR(1), and the dominant mode does not lie in the span of
+the sensitivities. Those are measurements. The whitening step was the inference built on top of
+them, and it is the step that fails.
 
 One number in this document should be read differently from here on. The lack-of-fit ratio
 depends on the assumed equilibrium radius by a factor of about two over that radius's own

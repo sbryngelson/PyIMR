@@ -1,0 +1,23 @@
+{
+ "gelatin_15C": {
+  "events": 24,
+  "share": 0.5165344947835457,
+  "lag_one_raw": 0.3621842998980374,
+  "lag_one_whitened": 0.4588568069584473,
+  "removed_on_sham": false
+ },
+ "gelatin_23C": {
+  "events": 24,
+  "share": 0.6202898990511133,
+  "lag_one_raw": 0.6413040832371071,
+  "lag_one_whitened": 0.6918709012687587,
+  "removed_on_sham": false
+ },
+ "gelatin_33C": {
+  "events": 24,
+  "share": 0.5671975201287708,
+  "lag_one_raw": 0.665985236958743,
+  "lag_one_whitened": 0.8344722115022842,
+  "removed_on_sham": false
+ }
+}

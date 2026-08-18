@@ -3476,9 +3476,15 @@ U_A(\xi) \;=\; \mathbb{E}_y\!\left[\operatorname{KL}\!\big(p(A \mid y,\xi)\,\|\,
 \label{eq:gain}
 \end{equation}
 %
-For a Gaussian likelihood in prior-standardized coordinates (the unit-cube scaling
-\cref{sec:prior} already uses, in which the prior covariance is the identity) the posterior
-precision is $N = I + M(\xi)$ and \eqref{eq:gain} is available in closed form. Partitioning
+For a Gaussian likelihood in prior-standardized coordinates the posterior precision is
+$N = I + M(\xi)$ and \eqref{eq:gain} is available in closed form. Those coordinates are one
+step past the unit-cube map \cref{sec:prior} uses, and the step is worth naming because it is a
+factor and not a convention: a uniform prior on $[0,1]$ has variance $1/12$, not $1$, so the
+cube coordinates carry prior covariance $I/12$ and each axis is further scaled by
+$1/\sqrt{12}$ before $I + M$ means what it says. Equivalently $M$ is the whitened
+$J^{\mathsf T}J$ with each column multiplied by that axis's prior standard deviation, which is
+what \texttt{design.py} does through \texttt{UNIFORM\_VARIANCE}. Omitting it would inflate every
+information number in this chapter by $\tfrac{p}{2}\log 12$, about $1.24$ nats per parameter. Partitioning
 into the coordinates $A$ and the nuisance coordinates $B$,
 %
 \begin{equation}

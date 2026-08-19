@@ -254,7 +254,7 @@ be measured and what lets it handle candidates whose axes are not material field
 
 You must supply the fitted point. Nothing in the package yet locates one for a
 candidate, which is the current gap between having these models and being able to
-rank them -- see [open work](open-work.md).
+rank them; it is tracked in the issue list.
 
 ### The forward operator is a model choice too
 
@@ -280,9 +280,10 @@ for dynamics, liquid_eos in DYNAMICS_MODELS:
 The parameter space is identical across the set, so the Occam terms cancel and the difference
 in log evidence is a Bayes factor between operators. Every candidate in this package assumes
 `dynamics="keller-miksis"`; on the records analysed in the companion analysis repository, two other operators beat it. See
-[open work](open-work.md) for what that comparison does and does not establish --- in
+the issue list for what that comparison does and does not establish --- in
 particular, it must be run in identified coordinates, or the ranking follows the prior box
-rather than the data.
+rather than the data, and the operator is the most absorbed of the model axes, so most of an
+operator change can be mimicked by refitting the material.
 
 ### The Occam factor can pay for parameters the data cannot see
 

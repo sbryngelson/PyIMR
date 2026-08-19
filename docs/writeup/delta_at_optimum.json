@@ -1,0 +1,58 @@
+{
+ "gelatin_15C": {
+  "at_optimum": true,
+  "leak": 1.1650860813004945e-05,
+  "absorbed_norm": 0.0006905659417167995,
+  "identifiable_norm": 59.271666939759946,
+  "summary": "identifiable discrepancy 59.3 against 59.3 total, at the optimum; every parameter could be biased by up to 59 of its own standard deviations if the un"
+ },
+ "gelatin_23C": {
+  "at_optimum": true,
+  "leak": 1.5556167895863565e-05,
+  "absorbed_norm": 0.0008180258744611185,
+  "identifiable_norm": 52.585307630914386,
+  "summary": "identifiable discrepancy 52.6 against 52.6 total, at the optimum; every parameter could be biased by up to 53 of its own standard deviations if the un"
+ },
+ "gelatin_33C": {
+  "at_optimum": true,
+  "leak": 2.549447094485729e-06,
+  "absorbed_norm": 6.290133078774726e-05,
+  "identifiable_norm": 24.672538184296474,
+  "summary": "identifiable discrepancy 24.7 against 24.7 total, at the optimum; every parameter could be biased by up to 25 of its own standard deviations if the un"
+ },
+ "paam_PA05": {
+  "at_optimum": true,
+  "leak": 4.1741488857759224e-05,
+  "absorbed_norm": 0.0034123874553024856,
+  "identifiable_norm": 81.75049682482458,
+  "summary": "identifiable discrepancy 81.8 against 81.8 total, at the optimum; every parameter could be biased by up to 82 of its own standard deviations if the un"
+ },
+ "paam_PA05_10C": {
+  "at_optimum": true,
+  "leak": 1.9469711243945707e-05,
+  "absorbed_norm": 0.0009584698363661165,
+  "identifiable_norm": 49.22876483247786,
+  "summary": "identifiable discrepancy 49.2 against 49.2 total, at the optimum; every parameter could be biased by up to 49 of its own standard deviations if the un"
+ },
+ "paam_PA05_21C": {
+  "at_optimum": true,
+  "leak": 3.239990230988983e-05,
+  "absorbed_norm": 0.0019516629306527119,
+  "identifiable_norm": 60.23669179498108,
+  "summary": "identifiable discrepancy 60.2 against 60.2 total, at the optimum; every parameter could be biased by up to 60 of its own standard deviations if the un"
+ },
+ "paam_PA05_33C": {
+  "at_optimum": true,
+  "leak": 2.675097569239673e-05,
+  "absorbed_norm": 0.0012795767592764932,
+  "identifiable_norm": 47.83290050920788,
+  "summary": "identifiable discrepancy 47.8 against 47.8 total, at the optimum; every parameter could be biased by up to 48 of its own standard deviations if the un"
+ },
+ "paam_PA05003": {
+  "at_optimum": true,
+  "leak": 3.357478321673776e-05,
+  "absorbed_norm": 0.002992504401867317,
+  "identifiable_norm": 89.12952262008395,
+  "summary": "identifiable discrepancy 89.1 against 89.1 total, at the optimum; every parameter could be biased by up to 89 of its own standard deviations if the un"
+ }
+}

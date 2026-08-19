@@ -31,8 +31,7 @@ ORDER = (*records.DATASETS, *records.PAAM)
 def one(dataset):
   # `directions` returns (name, split, jacobian, candidates); `split.absorbed` is ||P d|| and
   # `split.size` is ||delta_hat||, so the total residual norm is recovered from the two.
-  _, split, jacobian, _ = directions(dataset)
-  identifiable = np.asarray(split.identifiable, dtype=float)
+  _, split, _, _ = directions(dataset)
   taken, size = float(split.absorbed), float(split.size)
   total = float(np.hypot(taken, size))
   return dataset, {"at_optimum": bool(split.at_optimum),

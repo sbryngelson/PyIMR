@@ -293,7 +293,9 @@
    "across_n": 15,
    "pinned": 3,
    "at_optimum": 5,
-   "n": 8
+   "n": 8,
+   "clean_across_median": 0.6950571484174073,
+   "clean_n": 6
   }
  }
 }

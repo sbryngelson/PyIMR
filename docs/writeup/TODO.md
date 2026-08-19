@@ -71,12 +71,23 @@ null of 0.559, against 0.726 uncorrected. The earlier collapse to 0.302/0.383 wa
 fitting qSLS, whose optimum under the correction sits on the family's λ₁ boundary — not a
 property of the discrepancy.
 
-**Caveat, and it is not small.** Only 5 of the 8 corrected fits are at a genuine interior
-optimum (leak 4×10⁻⁶ to 2×10⁻⁵); three are pinned on α with leak 0.19–0.23, twenty times the
-tolerance, so their δ̂ carries distance-to-optimum rather than model error. The interior-only
-cross-material statistic (2 gelatin × 3 PAAm = 6 pairs) is **running** and decides whether the
-0.750 is the result or the artifact. Until it lands, the χ² finding above is solid and the
-universality-survives finding is provisional.
+**The caveat was checked and the result survives it.** Only 5 of the 8 corrected fits are at a
+genuine interior optimum (leak 4×10⁻⁶ to 2×10⁻⁵); three are pinned on α with leak 0.19–0.23,
+twenty times the tolerance, so their δ̂ carries distance-to-optimum rather than model error.
+Recomputing on the interior-optimum records alone — 2 gelatin × 3 PAAm, six cross-material
+pairs — gives **0.695, with 4 of 6 above the same null of 0.559**, against 0.750 on all eight
+and 0.726 uncorrected. The agreement is not living on the unconverged fits.
+
+**So the cross-material curve survives the thermal and vapour correction.** The collapse to
+0.302/0.383 reported earlier was a property of fitting qSLS, whose corrected optimum sits on
+that family's own λ₁ boundary — not a property of the discrepancy. Fitted with a form whose
+optimum is interior, at a harsher null than the uncorrected comparison used (0.559 against
+0.466), the agreement returns essentially unchanged.
+
+What is still owed: six pairs is a small comparison, 4 of 6 rather than 6 of 6 clear the null,
+and the three α-pinned records mean the corrected fit is not yet clean on every record. The
+remaining control-battery items (operator swap, R_max clock control, warped-target rerun,
+reliability ceiling, PCA null) are untouched by this and still gate publication.
 
 ### 2. The experiment that would actually settle it
 

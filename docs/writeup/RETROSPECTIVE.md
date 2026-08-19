@@ -66,18 +66,30 @@ physics can be tested against.
 post-collapse, in the ringdown, and the *least* of it is at the collapse minimum — which
 makes the universal curve and the afterbounce failure **the same object seen twice**.
 
-### 2.3 Identifiability, in closed form
+### 2.3 Identifiability — corrected 2026-08-19, the strong λ₁ claim was stale
 
-λ₁ is unidentifiable, and not by accident. The Zener arm's effective viscosity
-μ_eff = μ/(1 + (ωλ₁)²) implies sd(log λ₁) ∝ ω⁻² ∝ R_max², and every reachable IMR geometry
-sits about two decades below the material's own Debye loss peak, where a Zener is
-indistinguishable from a Newtonian fluid of viscosity μ. A profiled (Schur-complement)
-sweep over R_max, stretch and observation window finds no corner of the reachable set that
-resolves it.
+An earlier version of this section said λ₁ is unidentifiable at every reachable geometry, by
+the μ_eff Debye argument, and concluded "every relaxation time reported from an IMR fit is a
+statement about the prior box." **That claim does not survive its own artifacts, and §3 of
+this document had already listed its scaling law as refuted** (predicted R_max², measured
+R_max^−0.03). `lambda_reachable.json` records the profiled sweep finding sd(log λ₁) = 0.029
+at 79 µm and stretch 20 — resolvable to a few percent from ONE bubble — and `selection.tex`
+itself says "viscosity and relaxation time are cleanly determined" (line ~739). The
+contradiction stood here for two days and was caught by outside review against the JSONs,
+after I had repeated the strong form in two audits and fed it to a review panel as context.
 
-**Therefore: every relaxation time reported from an IMR fit is a statement about the prior
-box rather than about the material.** Falsifiable by anyone who finds a geometry the grid
-missed.
+What IS supported, and is the more useful statement:
+
+- **g and α are unidentifiable separately, in closed form** — Z_e → ¼ĝαR³λ⁸, separability
+  ≈ 2/(αλ⁴) (2 % of signal at λ = 2.2); the g-floor sweep moves α's median 45× while gα holds
+  to 6 %. Reported moduli from strain-stiffening IMR fits are prior boxes. This part is solid.
+- **λ₁ is locally well-determined and globally unstable under model error.** The Fisher width
+  is small (0.03–0.07 across the reachable set), yet the fitted value moves ×5.5 when R_eq is
+  freed and more than a decade — bimodally, floor vs interior — when the gas thermodynamics is
+  switched on. The defensible claim is "not estimable under model misspecification," proven by
+  end-to-end perturbation, not "Fisher-unidentifiable," which is false.
+- The `lambda_law`/`lambda_reachable`/`glassy_and_spectrum` thread appears nowhere in the
+  manuscript, so the paper never made the wrong claim; this retrospective did.
 
 ### 2.4 The design machinery is calibrated against data
 

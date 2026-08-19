@@ -145,9 +145,12 @@ item 2 lands.
 - **Publish the curve as a target.** `universal_curve.json` as a first-class deliverable with a
   stated protocol: any proposed physics must, simulated at these geometries, reproduce this
   shape. Conditional on item 1 — publish whichever curve survives.
-- **The λ₁ falsification hunt.** The claim that every reachable IMR geometry sits two decades
-  below the Debye peak is deliberately falsifiable. Acoustic driving, multi-bubble, and
-  non-spherical geometries lie outside the profiled sweep and are the honest counterattack.
+- ~~**The λ₁ falsification hunt.**~~ Withdrawn — the hunt was already over and its own
+  artifacts had won. `lambda_reachable.json` finds sd(log λ₁) = 0.029 at 79 µm / stretch 20
+  (one bubble suffices), and §3's refutation of the R_max² law was sitting in the same
+  document as the claim. The replacement item is better: **run the 79 µm / stretch 20
+  geometry as a design prescription**, and state λ₁'s real pathology — locally
+  well-determined, unstable by ×5.5 (R_eq) to ×10+ (thermal, bimodal) under model error.
 - **A second instrument.** The single-laboratory limit is the one the text keeps permanently.
   The curve reproducing on another rig localises the missing term to the modelling; the curve
   vanishing localises it to the instrument. Either is a second paper.

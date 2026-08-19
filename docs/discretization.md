@@ -119,6 +119,17 @@ branch — so the pinned suite sets it explicitly regardless of the default.
 Choosing the scheme and choosing the resolution are separate decisions, and the
 default makes only the first.
 
+**Do not lower `Nt` for speed.** Below the default the spectral operator does not
+merely lose accuracy, it stops integrating: on eight measured records with
+`bubtherm`, `masstrans` and `vapor` on, two of eight complete at `Nt = 7` against
+eight of eight at both `Nt = 15` and `Nt = 25`. And the failure is *slower* than the
+success it was meant to avoid — roughly 250 s of collapsing stepsize against 35 s
+of completed solve — so a coarse grid chosen to save time costs about seven times
+as much of it. An implicit solver is already in use whenever the spectral thermal
+field is on, which is why the symptom does not present as ordinary stiffness and
+why raising `max_steps` does not help. `Nt = 15` and `Nt = 25` agree to within 4 %
+on every record; `Nt = 7` does not agree with either.
+
 > Earlier revisions of this section recommended `thermal="fd"` for the coupled
 > model, on the grounds that spectral "does not converge" there — the
 > `Giesekus(mobility=0)` to `Oldroyd-B` reduction limit sat at `1.4e-02` and

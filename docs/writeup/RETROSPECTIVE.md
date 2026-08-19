@@ -276,8 +276,12 @@ indifferent and the answer is whatever the prior box says. It is an active desce
 
 Given the full seven-decade prior, the corrected objective turns out **bimodal**. Four records
 drive λ₁ to the floor at 1e-9 — the qSLS family's boundary, not a parameter value — and four
-settle near 3e-6, a decade and a half *above* their isothermal answers, in a different gα basin
-(~3000–3100 against ~1100–1450). The split does not follow the material.
+settle near 3e-6, a decade and a half *above* their isothermal answers. The split does not follow
+the material. It does **not** produce two clean gα basins either, and an earlier version of this
+paragraph said it did: the floor group spans gα of 1106–2292 and the interior group 1111–3108,
+which overlap. Three of the four interior records do sit near 3000–3100, but `gelatin_33C` sits
+at 1111 — and `gelatin_33C` is the one record that never pinned at any box width, here or in the
+×3/×10 sweep. The clean split is in λ₁ alone.
 
 **And the number that settles it is the one I had not been looking at.** Corrected: across
 0.383, within **0.382**, null 0.419. Uncorrected: within-gelatin 0.551, within-PAAm 0.679.

@@ -36,8 +36,10 @@ flat unidentifiable direction; an active descent toward λ₁ → 0.
 **`vapour_lambda_floor.py`** — given the full seven-decade prior, the objective turns out
 **bimodal**. Four records drive λ₁ to the floor at 1e-9 (the qSLS family's boundary, not a
 parameter value); the other four settle near 3e-6, a decade and a half *above* their isothermal
-answers. The two groups occupy different gα basins (~1100–1450 against ~3000–3100), and the
-split does not follow the material.
+answers. The split does not follow the material — and it does **not** give two clean gα basins,
+which an earlier version of this item claimed: floor spans 1106–2292, interior 1111–3108, and
+they overlap. `gelatin_33C` sits interior at gα 1111 and is the one record that never pinned at
+any box width. The clean split is in λ₁ alone.
 
 **The diagnostic that settles it is the within-material number, not the cross-material one.**
 Corrected: across 0.383, within **0.382**, null 0.419. Uncorrected: within-gelatin 0.551,

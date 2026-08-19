@@ -51,6 +51,33 @@ pairs — the signature of δ̂ dominated by fit scatter, not of a discrepancy t
 **`sec:universal` is not withdrawn on this evidence, and not confirmed against it.** Written
 into the paper in those words.
 
+### 1b. RESULT (2026-08-19): the pre-registered prediction is confirmed
+
+`vapour_kelvin_voigt.py` fitted qKV — qSLS at zero relaxation time — globally over the wide
+prior box, isothermally and under the thermal correction, with the prediction written into the
+script's docstring before the run.
+
+**The prediction holds, decisively.** Isothermally, dropping the relaxation arm costs χ²/N of
+3.91–11.67 (median 5.70), reproducing the 4–13 the paper reports. Switch the thermal physics on
+and the *same form* fits at 0.62–1.68 (median 1.15) — a paired improvement of **3.52× to 8.61×,
+median 6.62×, on every one of the eight records**. So the penalty for having no relaxation arm
+very largely *is* the penalty for having no thermal damping: **the Zener arm in the isothermal
+fits was substantially standing in for the gas thermodynamics.** This is a physics result and it
+does not depend on δ̂ at all.
+
+**And the cross-material curve appears to survive the correction.** At an interior optimum under
+the corrected physics, ACROSS median |cos| is **0.750** with 11 of 15 pairs above a constrained
+null of 0.559, against 0.726 uncorrected. The earlier collapse to 0.302/0.383 was a property of
+fitting qSLS, whose optimum under the correction sits on the family's λ₁ boundary — not a
+property of the discrepancy.
+
+**Caveat, and it is not small.** Only 5 of the 8 corrected fits are at a genuine interior
+optimum (leak 4×10⁻⁶ to 2×10⁻⁵); three are pinned on α with leak 0.19–0.23, twenty times the
+tolerance, so their δ̂ carries distance-to-optimum rather than model error. The interior-only
+cross-material statistic (2 gelatin × 3 PAAm = 6 pairs) is **running** and decides whether the
+0.750 is the result or the artifact. Until it lands, the χ² finding above is solid and the
+universality-survives finding is provisional.
+
 ### 2. The experiment that would actually settle it
 
 Half the records want *no relaxation arm at all* once thermal damping is modelled. That is a

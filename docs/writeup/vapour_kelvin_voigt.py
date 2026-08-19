@@ -155,6 +155,24 @@ def main():
           f"within {np.median(within):.3f}")
     print(f"  {'':>10s}  {boundary} of {len(good)} on a box wall, "
           f"{settled} of {len(good)} at an interior optimum")
+    # THE CONTROL THAT DECIDES IT. delta_hat is only meaningful where the residual is
+    # orthogonal to the span; a fit stopped against a bound carries distance-to-optimum in
+    # its curve instead. So the statistic is recomputed on the records that pass the
+    # package's own at_optimum test, and if the agreement lives on the ones that FAIL it,
+    # the headline is an artifact of unconverged fits rather than a property of the model.
+    clean = [d for d in good if got[(d, label)]["at_optimum"]]
+    cg = [d for d in clean if d in records.DATASETS]
+    cp = [d for d in clean if d not in records.DATASETS]
+    if cg and cp:
+      pairs = [abs(curves[a] @ curves[b]) for a in cg for b in cp]
+      print(f"  {'':>10s}  interior-optimum records only ({len(cg)} gelatin, {len(cp)} PAAm): "
+            f"ACROSS median {np.median(pairs):.3f} over {len(pairs)} pairs, "
+            f"{sum(1 for r in pairs if r > cut)} above the same null")
+      summary[label]["clean_across_median"] = float(np.median(pairs))
+      summary[label]["clean_n"] = len(pairs)
+    else:
+      print(f"  {'':>10s}  interior-optimum records do not span both materials "
+            f"({len(cg)} gelatin, {len(cp)} PAAm) -- no clean cross-material statistic")
   print("\n  qSLS isothermal, for comparison: across 0.726, "
         "within-gelatin 0.551, within-PAAm 0.679")
 
@@ -162,6 +180,9 @@ def main():
                               if k not in ("curve", "span")}
              for d in ORDER for label, *_ in CELLS} | {"agreement": summary},
             open(records.HERE / "vapour_kelvin_voigt.json", "w"), indent=1)
+  json.dump({f"{d}|{label}": {k: got[(d, label)].get(k) for k in ("curve", "span")}
+             for d in ORDER for label, *_ in CELLS if "failed" not in got[(d, label)]},
+            open(records.HERE / "vapour_kelvin_voigt_curves.json", "w"))
 
 
 if __name__ == "__main__":

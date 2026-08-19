@@ -53,7 +53,7 @@ def main():
           + "   " + "  ".join(f"{share(centred, c):13.1%}" for c in CUTS))
 
   gel = [raw[d] for d in records.DATASETS]
-  print(f"\n  gelatin only, RAW, t/tc <= 1.2: "
+  print("\n  gelatin only, RAW, t/tc <= 1.2: "
         + ", ".join(f"{share(c, 1.2):.0%}" for c in gel)
         + "   <- compare with the text's 65 to 69 percent")
   print("  gelatin only, CENTRED, t/tc <= 1.2: "

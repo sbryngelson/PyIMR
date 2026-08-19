@@ -86,7 +86,7 @@ def main():
   if shares:
     print(f"\n  PAAm: {np.median(shares):.1%} median, {min(shares):.1%} to {max(shares):.1%}"
           f" over {len(shares)} records")
-    print(f"  gelatin_15C, from trial_variation.py: 39.3%  <- the number in use as"
+    print("  gelatin_15C, from trial_variation.py: 39.3%  <- the number in use as"
           " PARAMETER_SHARE")
     print("\n  ---- what it says ----\n")
     if min(shares) > 0.20:

@@ -133,7 +133,7 @@ def main():
   print(f"\n  ACROSS materials: median {np.median(across):.3f} "
         f"({sum(1 for r in across if r > cut)} of {len(across)} above null {cut:.3f})")
   print(f"  within materials: median {np.median(within):.3f}")
-  print(f"  for comparison, uncorrected: across 0.726, within-gelatin 0.551, within-PAAm 0.679")
+  print("  for comparison, uncorrected: across 0.726, within-gelatin 0.551, within-PAAm 0.679")
 
   # THE DIAGNOSTIC, and it is not the across-material number. If the correction merely
   # revealed the shared curve as an artifact, then same-material records -- same chemistry,

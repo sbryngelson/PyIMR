@@ -93,7 +93,7 @@ def main():
   with records.pool(len(jobs)) as pool:
     got = dict(pool.map(one, jobs))
 
-  print(f"  qSLS refitted with vapour on, box centred on the isothermal optimum\n")
+  print("  qSLS refitted with vapour on, box centred on the isothermal optimum\n")
   print(f"  {'record':>16s}  " + "  ".join(
     f"{'x' + str(int(w)) + ' chi2/N':>11s} {'pinned axes':>22s}" for w in WIDTHS))
   out = {}

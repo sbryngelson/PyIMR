@@ -132,7 +132,7 @@ def main():
     print("  defect common to every fit rather than a missing constitutive physics, and")
     print("  sec:universal has to be restated in those terms.")
   elif beat > 2 * expected:
-    print(f"  The thermal correction does not have the universal curve's shape -- median")
+    print("  The thermal correction does not have the universal curve's shape -- median")
     print(f"  {np.median(mode_scores):.3f} against a null of {cut:.3f}, and nowhere near the")
     print(f"  {0.726:.3f} the two materials agree at. But {beat} of {len(good)} records align")
     print(f"  above their OWN null where {expected:.1f} would be expected, so a MINORITY")

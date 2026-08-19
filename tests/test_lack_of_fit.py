@@ -74,7 +74,7 @@ def test_the_verdict_reads_the_right_way():
 
 
 def test_it_reproduces_the_gelatin_numbers():
-  """The three records, from the sums `docs/writeup/lackoffit.py` reports.
+  """The three records, from the sums the companion analysis `lackoffit.py` reports.
 
   Reconstructed from the published mean squares rather than refitting, so this is a check of
   the statistic's arithmetic against an independent implementation of the same formula.

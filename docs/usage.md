@@ -279,7 +279,7 @@ for dynamics, liquid_eos in DYNAMICS_MODELS:
 
 The parameter space is identical across the set, so the Occam terms cancel and the difference
 in log evidence is a Bayes factor between operators. Every candidate in this package assumes
-`dynamics="keller-miksis"`; on the records analysed in `docs/writeup`, two other operators beat it. See
+`dynamics="keller-miksis"`; on the records analysed in the companion analysis repository, two other operators beat it. See
 [open work](open-work.md) for what that comparison does and does not establish --- in
 particular, it must be run in identified coordinates, or the ranking follows the prior box
 rather than the data.

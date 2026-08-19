@@ -125,7 +125,7 @@ PARAMETER_BOUNDS = {
   "tau_ratio": (1.1, 1e3), "share": (1e-3, 9e-1),
   # `Req` as a multiple of its inferred value -- a CONFIGURATION axis, not a material one.
   # This bound is a prior, not a measurement, and it is the most consequential one here:
-  # `docs/writeup/initial_state.py` finds that a 1.68% error in Req leaves the residual that
+  # `initial_state.py` in the companion analysis repository finds that a 1.68% error in Req
   # changing the bubble-dynamics operator does. Too wide and the operator comparison is
   # absorbed and reads as "the operators are indistinguishable"; too narrow and Req is pinned
   # at a precision the experiment does not have. +/-10% log-symmetric is the default, and
@@ -589,7 +589,7 @@ def fit_candidate(candidate, solve, observed, deviation, *, correlation_time_s=N
   points[0] = 0.5
 
   # WARM STARTS. A Latin hypercube knows nothing about the problem, and where the objective is
-  # rough that is a liability rather than neutral: `docs/writeup/thermal.py` raised its budget
+  # rough that is a liability rather than neutral: the companion analysis `thermal.py` raised its budget
   # from 5 to 10 to 24 restarts and two cells fitted WORSE at 24 than at 10, which cannot
   # happen at a converged optimum and means the search was sampling basins rather than
   # refining one. When a neighbouring fit is already converged -- the same material through a

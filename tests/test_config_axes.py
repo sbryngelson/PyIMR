@@ -1,7 +1,7 @@
 """Fitted axes that reach the configuration rather than the material.
 
 `Req` is the case this exists for. It is inferred rather than measured, and
-`docs/writeup/initial_state.py` finds a 1.68% error in it leaves the same residual as
+The companion analysis `initial_state.py` finds a 1.68% error in it leaves the same residual as
 changing the bubble-dynamics operator -- so a study that pins it asserts a precision the
 experiment does not have. A `CandidateModel` could not express that: every axis it had went
 into `build`, and `build` returns a material.

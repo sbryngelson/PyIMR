@@ -14,7 +14,7 @@ stopped improving. A measure is also what an experimenter runs anyway: `n_1` bub
 setting and `n_2` at another.
 
 A discrimination utility that averages over the design is linear in `xi` too, hence concave,
-so it blends into the same objective and stays certified. See `docs/writeup/selection.tex`
+so it blends into the same objective and stays certified. See the companion analysis repository
 for the measurements behind these choices.
 """
 

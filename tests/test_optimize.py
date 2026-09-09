@@ -81,8 +81,15 @@ def test_a_reported_error_bar_keeps_it_from_chasing_luck(measured):
 def test_the_result_records_everything_it_evaluated():
   """`best_value` is the posterior mean at `best_point`, not the raw observation there.
 
-  On a noiseless objective the GP interpolates, so the two agree to ~3e-05 relative and
-  the chosen point is still the best observation -- the distinction only bites under noise.
+  On a noiseless objective the GP interpolates, so the two agree to ~1e-07 absolute -- the
+  interpolation floor set by `_JITTER` and the conditioning of the Cholesky -- and the
+  chosen point is still the best observation. The distinction only bites under noise.
+
+  The tolerance here must be absolute, not relative. `_bowl` peaks at exactly zero, so the
+  closer the search lands to the optimum the smaller `values[chosen]` gets, while the
+  interpolation error stays put; a purely relative bound would tighten without limit and
+  fail precisely on the *best* runs. Seeds 6 and 9 land inside 0.004 of the optimum and
+  reach 4e-03 and 4e-04 relative on an absolute error of 4e-08 and 5e-09.
   """
   result = bayesian_maximize(_bowl(np.array([0.0, 0.0])), _BOX, evaluations=12, initial=4, seed=0)
   assert result.points.shape == (12, 2)
@@ -92,7 +99,8 @@ def test_the_result_records_everything_it_evaluated():
   chosen = int(np.argmin(np.linalg.norm(result.points - result.best_point, axis=1)))
   np.testing.assert_allclose(result.points[chosen], result.best_point)
   assert chosen == int(result.values.argmax()), "noiseless, the best posterior mean is the best observation"
-  assert result.best_value == pytest.approx(result.values[chosen], rel=1e-3)
+  # rel guards the large-|value| end, abs the optimum, where the relative form degenerates.
+  assert result.best_value == pytest.approx(result.values[chosen], rel=1e-3, abs=1e-6)
 
 
 @pytest.mark.parametrize(

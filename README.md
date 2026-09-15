@@ -38,7 +38,7 @@ result.radius_ratio     # R(t)/R0
 result.internal_pressure_pa
 ```
 
-Every input is dimensional and every material is explicit and typed — no integer
+Every input is dimensional, and every material is explicit and typed — no integer
 constitutive selector, no shared bag of parameters.
 
 ## What it models
@@ -54,7 +54,7 @@ constitutive selector, no shared bag of parameters.
 Materials compose: pick an elastic law and a viscous law and combine them, or
 reach for a closed-form memory model when it applies. Neo-Hookean, Mooney-Rivlin,
 Yeoh, Fung, Gent, Arruda-Boyce and Ogden on the elastic side; Carreau-Yasuda,
-Cross, Powell-Eyring, Herschel-Bulkley and Bingham on the viscous; the Zener
+Cross, Powell-Eyring, Herschel-Bulkley and Bingham on the viscous side; the Zener
 family (linear, quadratic, cubic, two-mode and Carreau-thinning), Oldroyd-B and
 linear Maxwell in closed form; Giesekus and linear PTT as distributed memory.
 `RelaxingMaterial` puts a Maxwell arm on any elastic law. See
@@ -71,7 +71,7 @@ multistart, and process-parallel batch evaluation. A PyMC bridge runs NUTS on
 the exact tangents.
 
 **Model selection.** Constitutive models nest, so comparing best fits always
-favours the flexible ones. `pyimr.selection` scores by evidence instead, with
+favors the flexible ones. `pyimr.selection` scores by evidence instead, with
 redundancy and Occam penalties.
 
 **Knowing your resolution.** `pyimr.resolution` measures the cheapest grid and
@@ -79,7 +79,7 @@ tolerance meeting an accuracy target on *your* problem, and raises rather than
 guessing when the target is out of reach.
 
 **Experiment design.** `pyimr.design` scores a design that has not been run;
-`pyimr.measure` optimises over a batch of them and returns a certificate of
+`pyimr.measure` optimizes over a batch of them and returns a certificate of
 global optimality with the answer; `pyimr.gain` scores any question, a material
 parameter or a model label, in nats, so one batch can serve several;
 `pyimr.discriminate` screens which rivals are still worth an experiment;
@@ -96,7 +96,7 @@ See **[docs/usage.md](docs/usage.md)**.
 ## Validation
 
 The suite pins IMRv2 trajectories across radial equations, forcing, vapor, heat
-transfer, mass transfer and the specialized constitutive models, and separately
+transfer, mass transfer, and the specialized constitutive models, and separately
 checks closed forms, reduction limits, and every analytic tangent against
 independent centered differences.
 
@@ -139,8 +139,12 @@ If you use PyIMR, please cite it via [CITATION.cff](CITATION.cff), along with:
   with relaxation*, Physics of Fluids 27, 063103 (2015).
   <https://doi.org/10.1063/1.4922598>
 
-Built on [IMRv2](https://github.com/InertialMicrocavitationRheometry/IMRv2).
+Built with some initial guidance from [IMRv2](https://github.com/InertialMicrocavitationRheometry/IMRv2).
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Disclosure
+
+This code in this tool was built, in part, with Anthropic Claude Code Opus 5. The documentation was sketched and polished via the same tool.

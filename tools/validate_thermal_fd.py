@@ -13,6 +13,11 @@ and a quartic is used only as a DOCUMENTED, hand-predicted O(h^2) check
 behaviour explicit rather than hiding it behind a loose tolerance.
 """
 
+import sys
+from pathlib import Path
+
+# Runnable from a checkout without `pip install -e .`, as benchmarks/run.py is.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 
 from pyimr.thermal_fd import finite_diff_mat

@@ -10,10 +10,12 @@ __all__ = ["IMRLogLikelihood", "build_model", "log_marginal_likelihood", "sample
 _MISSING = "pyimr.pymc_op requires PyMC: pip install 'PyIMR[inference]'"
 
 def _pymc():
+  # PyMC is an optional extra, so the type check has to pass in an environment without it;
+  # the ImportError below is the runtime answer, and these ignores are the static one.
   try:
-    import pymc
-    import pytensor.tensor as tensor
-    from pytensor.graph.op import Op
+    import pymc  # pyright: ignore[reportMissingImports]
+    import pytensor.tensor as tensor  # pyright: ignore[reportMissingImports]
+    from pytensor.graph.op import Op  # pyright: ignore[reportMissingImports]
   except ImportError as error:  # pragma: no cover - exercised only without pymc
     raise ImportError(_MISSING) from error
   return pymc, tensor, Op

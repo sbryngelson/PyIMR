@@ -70,7 +70,7 @@ config = SimulationConfig(
 ## Sensitivities
 
 The tangent-linear solver differentiates the production RHS rather than a
-reduced surrogate. It covers every operator but `gilmore/mie-gruneisen`, every typed material, thermal
+reduced surrogate. It covers every operator, every typed material, thermal
 and mass-transfer states, distributed nonlinear memory, forcing, geometry,
 initial conditions, and continuous physical parameters.
 
@@ -139,7 +139,14 @@ against experimental radius data; keep `1e-10, 1e-12` for sensitivities and
 
 Tolerance does not bound how long one solve can take. `max_steps` (default
 `1_000_000`) turns a trajectory that will not finish into a `SimulationError` at
-a point of your choosing, which is what makes a grid sweep affordable.
+a point of your choosing, which is what makes a grid sweep affordable. Three
+guards refuse a trajectory the model has left rather than returning it:
+`max_radius_ratio` (default 50) raises when the bubble runs away,
+`min_radius_ratio` (off by default) when it collapses past where the material
+is trustworthy, and `max_wall_mach` (off by default) when a rebound approaches
+the sonic line. The last two are different guards for a reason;
+[boundaries.md](boundaries.md) has the measurement. When a solve fails and the
+message does not say why, `pyimr.diagnose` does (below).
 
 `Nt` and tolerance requirements depend on record length, material stiffness and
 which observable is fitted, so a setting adequate for one collapse can be badly
@@ -223,8 +230,9 @@ just as confident. Worked studies are in `examples/`.
 ### Models the grid cannot reach
 
 `solve_grid` is a Cartesian product at one count on every axis, so it costs
-`count**dimension` and runs out at four or five parameters. At `count = 12`, six
-axes is 5,971,968 solves against 168,072 for the whole of `STANDARD_MODELS`.
+`count**dimension` and runs out at four or five parameters. At `count = 12`, one
+six-axis candidate is 2,985,984 solves against 139,272 for the whole of
+`STANDARD_MODELS`.
 
 Candidates past that limit live in `EXTENDED_MODELS` and are scored by expansion
 about a fit instead of by quadrature over a grid:
@@ -252,10 +260,6 @@ coordinates the prior is uniform on, which is both where the Occam factor has to
 be measured and what lets it handle candidates whose axes are not material fields
 -- `qSLS2` has `tau_ratio`, a ratio of two of them, and `oldroydb` likewise.
 
-You must supply the fitted point. Nothing in the package yet locates one for a
-candidate, which is the current gap between having these models and being able to
-rank them; it is tracked in the issue list.
-
 ### The forward operator is a model choice too
 
 `DYNAMICS_MODELS` names the fourteen operators, as `(dynamics, liquid_eos)` pairs. Six
@@ -279,8 +283,8 @@ for dynamics, liquid_eos in DYNAMICS_MODELS:
 
 The parameter space is identical across the set, so the Occam terms cancel and the difference
 in log evidence is a Bayes factor between operators. Every candidate in this package assumes
-`dynamics="keller-miksis"`; on the records analysed in the companion analysis repository, two other operators beat it. See
-the issue list for what that comparison does and does not establish --- in
+`dynamics="keller-miksis"`; on the records analysed in the companion analysis repository, two other operators beat it.
+[#294](https://github.com/sbryngelson/PyIMR/issues/294) records what that comparison does and does not establish --- in
 particular, it must be run in identified coordinates, or the ranking follows the prior box
 rather than the data, and the operator is the most absorbed of the model axes, so most of an
 operator change can be mimicked by refitting the material.
@@ -301,7 +305,139 @@ form to round-off wherever every direction is already sharper than the prior, so
 it changes an answer only where the plain form was not entitled to one.
 `candidate_log_evidence` turns it on, because it compares across dimensions.
 
-## Designing when the criteria disagree
+## Designing experiments
+
+Before a record exists, the question is which experiment to run. Four modules
+answer it. Every number they return is in nats, so the answers can be compared
+and added.
+
+### Scoring one design
+
+`pyimr.design` scores a design that has not been run. A `DesignInference` is a
+`PreparedInference` whose observations are placeholders: the same
+configuration, time grid, noise level and parameter box, with no data.
+`expected_information_gain` averages the Laplace/Fisher gain over prior draws
+and returns its Monte Carlo error bar alongside:
+
+```python
+from pyimr.design import design_inference, expected_information_gain
+
+design = design_inference(config, times, standard_deviation_m=2e-6, parameters=parameters)
+score = expected_information_gain(design, draws=128, workers=4)
+score.expected_information_gain, score.standard_error   # nats
+```
+
+`optimize_design` in `pyimr.optimize` searches a continuous design space for
+the largest gain. You supply `build_inference(design) -> DesignInference`, so a
+design is whatever you say it is -- pulse amplitude, window, radius, or a
+mixture -- and the error bar is passed to the surrogate as observation noise so
+that a point which scored well by luck is not chased:
+
+```python
+from pyimr.optimize import optimize_design
+
+search = optimize_design(build_inference, [(0.0, 8e4)], draws=64, evaluations=24)
+search.best_point, search.best_value
+```
+
+### A batch with a certificate
+
+A single best design is the answer to the wrong question: an experimenter runs
+`n_1` bubbles at one setting and `n_2` at another, and a search over one point
+is not convex, so nothing in its result says whether it stopped at the optimum.
+`pyimr.measure` optimises over a probability measure on a candidate set instead.
+The averaged information matrix is linear in the weights, the criterion is
+concave, and the Kiefer-Wolfowitz equivalence theorem turns the first-order
+condition into a proof of global optimality: `gap` is the largest directional
+derivative toward any candidate, and it is zero at the optimum.
+
+```python
+import numpy as np
+from pyimr.design import design_information
+from pyimr.measure import apportion, optimal_measure
+
+matrices = []
+for R0 in (100e-6, 200e-6, 400e-6):
+    design = design_inference(config_at(R0), times, 2e-6, parameters)
+    information, requested, failed = design_information(design, draws=64)
+    matrices.append(information.mean(axis=0))   # one prior-averaged J^T J per candidate
+
+measure = optimal_measure(np.array(matrices))
+measure.weights, measure.support, measure.gap    # weights [0, 0.54, 0.46], gap ~1e-10
+
+batch = apportion(measure.weights, 12, np.array(matrices))
+batch.counts, batch.efficiency                   # [0, 6, 6], D-efficiency 0.998
+```
+
+`apportion` is the efficient rounding of Pukelsheim and Rieder. Passing
+`matrices` makes it measure the D-efficiency of the integer batch against the
+measure rather than assume the rounding was harmless, which for a dozen runs it
+need not be.
+
+A plain measure is not always the right object. An information criterion is
+happiest concentrating, and a batch on one setting cannot detect that every
+model is wrong, so `constrained_measure` forces weight onto at least `settings`
+distinct candidates. Counting runs asserts that every candidate costs the same,
+which fails once a trace of `2N` frames competes with a trace of `N`, so
+`budgeted_measure` normalises by cost. `identification_front` returns integer
+batches that trade parameter precision against separating two models. Each
+reports whether its certificate still holds under the constraint.
+
+### What would this experiment change your mind about
+
+`log det` scores the material parameters. A Schur complement scores the model
+label. Neither says which question a batch should serve, because they do not
+share a scale. `pyimr.gain` puts every question in nats: the expected
+information gain about any subset of coordinates, with the rest treated as
+nuisance, is `(1/2) log det` of a Schur complement of `I + M` in
+prior-standardised coordinates. It is concave, so `optimal_measure` still
+certifies it, and it is finite when `M` is singular, so a design that cannot
+determine every parameter scores low rather than `-inf`.
+
+```python
+from pyimr.gain import Question, expected_gain, gain_criterion
+
+questions = [Question("modulus", (0,)), Question("viscosity", (1,), weight=0.5)]
+expected_gain(matrices[0], questions).per_question           # nats, unweighted
+measure = optimal_measure(np.array(matrices), criterion=gain_criterion(questions))
+```
+
+Nats say how much a batch teaches, not whether it settles anything.
+`runs_to_settle` inverts the Gaussian-linear Bayes factor distribution to say
+how many runs clear a threshold in favour of the truth at a stated confidence;
+`runs_to_precision` asks the same of one parameter; `lack_of_fit_degrees`
+reports whether the batch leaves any degrees of freedom to discover that every
+model in the catalogue is wrong.
+
+### Which rivals still matter
+
+`pyimr.discriminate` scores model discrimination as an integral rather than a
+minimum. T-optimality takes `min` over the rival's parameters, and that inner
+problem is multimodal here: a local method landing in the wrong basin returns a
+wrong answer with nothing to signal it. `expected_log_bayes_factor` replaces it
+with the expected log Bayes factor between prior-predictive banks, and every
+result carries an effective sample size so the silent collapse of a
+prior-sample evidence onto one draw is visible. `laplace_log_evidence` is the
+fallback for when it collapses, and is what `candidate_log_evidence` uses.
+
+`screen_models` decides which rivals are worth designing for at all. A rival
+the records have already decided against by more than `decisive` nats needs no
+experiment, and a design that spends runs separating it is spending them on a
+settled matter:
+
+```python
+from pyimr.discriminate import screen_models
+
+screen = screen_models(evidences)   # one log evidence per model, on the data in hand
+screen.live, screen.decided, screen.weights
+```
+
+The survivors' weights feed `gain_criterion` as question weights, and the
+close pairs are what `measure.augmented_information` and `separability` are for:
+the model label becomes one more Jacobian column, and what matters is how much
+of the difference between two models survives refitting the material.
+
+### When the criteria disagree
 
 `optimize_design` maximises one number. That is the right question only while
 the design criteria happen to agree, and on the qSLS study they do not.
@@ -347,6 +483,76 @@ holding them fixed overstates discrimination badly. On this study it inflated
 qSLS-versus-SLS separation by about an order of magnitude — the honest figure at
 the present design is 0.668 noise units, meaning SLS imitates qSLS to well within
 the noise.
+
+## Diagnosing a failed solve
+
+`SimulationError: maximum number of solver steps was reached` is true and
+nearly useless: it is the same message whether the trajectory needs a bigger
+budget, violates a material's domain, or is so sensitive to its inputs that no
+tolerance will be met, and those want opposite responses. `pyimr.diagnose` runs
+the ladder that distinguishes them:
+
+```python
+from pyimr.diagnose import diagnose
+
+report = diagnose(config, times)
+report.outcome    # ok, runaway, ill-conditioned, domain, budget, unresolved
+report.summary
+```
+
+It is several solves, meant for a point that already misbehaved, not for a
+sweep. A solve that succeeds is checked too. `ill-conditioned` means a `1e-9`
+change in `R0` is amplified until the trajectory has shed digits, and the
+result is one draw from a sensitive system rather than an answer. `budget`
+means a larger `max_steps` finishes. `domain` means the material refused a state
+the collapse reached. `runaway` means no tolerance or solver will help.
+`unresolved` means a loose tolerance completes and the requested one does not,
+which is worth a look by hand.
+
+## Caching solves
+
+A parameter study is re-run many times while the analysis around it changes.
+`ResultStore` keys on the content of `(times, config)`, so the second run is
+free, and it caches failures too, which is most of the value: a point that
+exhausts its step budget spends the whole budget before saying so, every time
+it is asked.
+
+```python
+from pyimr.store import ResultStore
+
+store = ResultStore("~/.cache/pyimr")
+result = store.simulate(times, config)   # same signature and result as pyimr.simulate
+```
+
+The key cannot see a change to PyIMR itself; pass `version=` to invalidate a
+directory by hand after one.
+
+## State estimation
+
+`pyimr.assimilation` estimates the initial state of a prepared problem from a
+window of observations. `four_dvar` minimises the strong-constraint 4D-Var
+cost with exact gradients from the tangent-linear operator, which is why true
+4D-Var is reachable here rather than an ensemble approximation to it.
+`ensemble_smoother` answers the same question from ensemble statistics,
+`ienks` re-linearises about the current estimate each iteration and closes on
+the minimum `four_dvar` finds, and `enkf_analysis`, `ensemble_update` and
+`kalman_analysis` are the one-step analyses those are built from. The smoothers
+take the `PreparedProblem`, the times, the observations and a linear
+observation operator; `noise` is a scalar or vector of standard deviations, or
+a full covariance. The docstrings give the shapes.
+
+## Running in parallel
+
+Every `workers=` argument in the package goes through `pyimr.parallel`. It
+exists because XLA sizes its CPU thread pool from the process's affinity mask
+and OpenBLAS does the same at import: sixteen spawn workers on a 128-core host
+were measured asking for roughly 6,500 threads between them. `worker_pool` gives
+each worker one core and one thread per library, `map_work` decides serial or
+pooled by timing the first item rather than counting them, and
+`default_workers` reads the affinity mask rather than `cpu_count`, so a job on a
+shared node claims only what the scheduler granted. `PYIMR_WORKERS` overrides
+the default. Set the thread-count environment variables before importing numpy
+if you build your own pool; `limit_worker_threads` does it for you.
 
 ## Trace estimators
 

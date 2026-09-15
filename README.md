@@ -54,8 +54,10 @@ constitutive selector, no shared bag of parameters.
 Materials compose: pick an elastic law and a viscous law and combine them, or
 reach for a closed-form memory model when it applies. Neo-Hookean, Mooney-Rivlin,
 Yeoh, Fung, Gent, Arruda-Boyce and Ogden on the elastic side; Carreau-Yasuda,
-Cross, Powell-Eyring, Herschel-Bulkley and Bingham on the viscous; Zener,
-Oldroyd-B, Giesekus and linear PTT for memory. See
+Cross, Powell-Eyring, Herschel-Bulkley and Bingham on the viscous; the Zener
+family (linear, quadratic, cubic, two-mode and Carreau-thinning), Oldroyd-B and
+linear Maxwell in closed form; Giesekus and linear PTT as distributed memory.
+`RelaxingMaterial` puts a Maxwell arm on any elastic law. See
 **[docs/materials.md](docs/materials.md)**.
 
 ## Beyond a forward solve
@@ -75,6 +77,19 @@ redundancy and Occam penalties.
 **Knowing your resolution.** `pyimr.resolution` measures the cheapest grid and
 tolerance meeting an accuracy target on *your* problem, and raises rather than
 guessing when the target is out of reach.
+
+**Experiment design.** `pyimr.design` scores a design that has not been run;
+`pyimr.measure` optimises over a batch of them and returns a certificate of
+global optimality with the answer; `pyimr.gain` scores any question, a material
+parameter or a model label, in nats, so one batch can serve several;
+`pyimr.discriminate` screens which rivals are still worth an experiment;
+`pyimr.pareto` traces the front when the criteria disagree.
+
+**Knowing why a solve failed.** `pyimr.diagnose` separates a step budget, a
+material-domain violation and an ill-conditioned trajectory, which raise the
+same error. `pyimr.store` caches solves and failures on disk so a re-run of an
+unchanged study costs nothing. `pyimr.assimilation` runs 4D-Var and ensemble
+state estimation on the exact tangents.
 
 See **[docs/usage.md](docs/usage.md)**.
 
@@ -102,7 +117,7 @@ visible.
 
 | | |
 |---|---|
-| [Usage](docs/usage.md) | solving, sensitivities, inference, model selection, resolution |
+| [Usage](docs/usage.md) | solving, sensitivities, inference, model selection, experiment design, diagnostics |
 | [Materials](docs/materials.md) | every constitutive law, and what each one requires |
 | [Accuracy](docs/accuracy.md) | what error each tolerance and discretization actually buys |
 | [Discretization](docs/discretization.md) | stress quadrature and the two thermal backends |
@@ -110,7 +125,8 @@ visible.
 | [Upstream](docs/upstream.md) | defects found in IMRv2, and what PyIMR does instead |
 | [Boundaries](docs/boundaries.md) | where PyIMR stops, and where it diverges deliberately |
 
-API reference: `pip install 'PyIMR[docs]'`, then `python -m pdoc pyimr`.
+API reference: `pip install 'PyIMR[docs]'`, then `python tools/api_docs.py`
+(every public module; `python -m pdoc pyimr` alone stops at the package page).
 
 ## Citation
 

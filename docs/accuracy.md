@@ -47,9 +47,10 @@ augmented state/tangent system is integrated. On the coupled fd case at
 
 | `rtol` / `atol` | relative error |
 |---|---|
-| `1e-9` / `1e-11` (default) | 8.43e-05 |
+| `1e-9` / `1e-11` (the suite's setting for this check) | 8.43e-05 |
 | `1e-12` / `1e-14` | 1.53e-06 |
 
+The package default is `1e-8` / `1e-10`, one order looser than the first row.
 So three orders of tolerance buys a factor of about 55, at a large cost in
 runtime -- the coupled tangent solve is already the slowest operation in the
 package. Tightening further stops helping, because the centered-difference

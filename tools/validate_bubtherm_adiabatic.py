@@ -19,6 +19,11 @@ FORM) using bubtherm=1's OWN Pb, so both sides start from the identical
 initial condition and only the RHS structure is being tested.
 """
 
+import sys
+from pathlib import Path
+
+# Runnable from a checkout without `pip install -e .`, as benchmarks/run.py is.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 from scipy.integrate import solve_ivp
 

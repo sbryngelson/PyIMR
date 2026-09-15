@@ -85,8 +85,8 @@ and the equivalent composable material agree to solver tolerance.
 
 ## Closed-form memory
 
-The finite-dimensional hot paths are `Zener`, `QuadraticZener`, `OldroydB` and
-`LinearMaxwell`:
+The finite-dimensional hot paths are `Zener`, `QuadraticZener`, `CubicZener`,
+`QuadraticKelvinVoigt`, `OldroydB` and `LinearMaxwell`:
 
 ```python
 material = Zener(
@@ -96,6 +96,43 @@ material = Zener(
     retardation_time_s=8e-6,
 )
 ```
+
+`QuadraticKelvinVoigt` is `NeoHookeanKelvinVoigt` with a stiffening term
+quadratic in `I1 - 3`, which is Yeoh truncated after `c2`; `QuadraticZener`
+adds the Maxwell arm to it, and `Zener` is `QuadraticZener` at zero stiffening.
+`CubicZener` carries the next term of the same expansion, with `cubic = 0`
+reducing to `QuadraticZener` exactly. On measured collapses `I1 - 3` reaches
+24 to 119, where the cubic term is not a small correction. `LinearMaxwell` is
+Zener without the parallel spring: no modulus, no retardation, an elastic
+target of zero.
+
+### Relaxation for any elastic law
+
+Each Zener above carries its own hand-derived stress integral, so relaxation
+was available to the neo-Hookean family and to nothing else. Gent, Fung,
+Arruda-Boyce, Mooney-Rivlin, Yeoh and Ogden existed only as
+`InstantaneousMaterial`, elastic with no memory, which is the wrong comparison
+to make against a relaxing model. `RelaxingMaterial` is the Zener construction
+freed from one potential: any `ElasticModel` as the equilibrium target, with a
+Maxwell arm on top.
+
+```python
+from pyimr import RelaxingMaterial, Yeoh
+
+material = RelaxingMaterial(
+    elastic=Yeoh(c1_pa=1250.0, c2_pa=100.0, c3_pa=10.0),
+    viscosity_pa_s=0.1,
+    relaxation_time_s=40e-6,
+    retardation_time_s=8e-6,
+)
+```
+
+The equilibrium target is taken by the same quadrature `InstantaneousMaterial`
+uses rather than by a closed form derived per law, so one class covers every
+elastic model in the package and any added later. That costs the quadrature at
+each step (`quadrature_points`, default 32) and buys a controlled comparison.
+With `elastic=NeoHookean(...)` it agrees with `Zener`; the closed form is the
+one to use where it applies.
 
 ### Beyond one relaxation time
 
@@ -143,7 +180,7 @@ material = CarreauZener(
 
 Both are comparison candidates, in `EXTENDED_MODELS` rather than `STANDARD_MODELS`: at six
 free parameters the grid quadrature in `pyimr.selection` costs `count**6`, so they are
-scored by `candidate_log_evidence` instead. See [selection](../README.md#model-selection).
+scored by `candidate_log_evidence` instead. See [model selection](usage.md#model-selection).
 
 ## Distributed nonlinear memory
 

@@ -54,7 +54,7 @@ def test_one_solve_serves_both_halves(inference, monkeypatch):
   calls = []
   real = type(inference).evaluate_with_jacobian
   monkeypatch.setattr(type(inference), "evaluate_with_jacobian", lambda self, unit: (calls.append(np.asarray(unit).copy()), real(self, unit))[1])
-  import pytensor.tensor as tensor
+  import pytensor.tensor as tensor  # pyright: ignore[reportMissingImports] - optional extra, see importorskip above
 
   operation = pymc_op.IMRLogLikelihood(inference)
   unit = tensor.as_tensor_variable(np.array([0.5, 0.5]))

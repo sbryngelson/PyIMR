@@ -1,7 +1,7 @@
 # Reference implementation
 
 Defects found in IMRv2 at `dea31cd`, all reproduced with MATLAB R2025a via
-`tools/gen_imrv2_cases.m` and `tools/probe_viscosity.m`. The full list is below;
+`tools/gen_imrv2_cases.m` and `tools/probe_viscosity.m`. The eight are listed below;
 the original scoping notes are in git history, in a `PLAN.md` retired in #218.
 
 - **Giesekus and linear PTT cannot be run.** `f_call_params.m` dispatches
@@ -34,7 +34,8 @@ the original scoping notes are in git history, in a `PLAN.md` retired in #218.
   as `A -> 0`; `f_radial_eq.m` takes `(-b + sqrt(d))/(2a)`, which is the
   `-1/nog` branch -- a 32.5% density deficit at ambient pressure, a 48-60%
   enthalpy error, and a negative `c^2`. That negative `c^2` is why `radial = 6`
-  returns complex radii: it is the only branch that evaluates the sound speed
+  (Gilmore/Mie-Gruneisen) returns complex radii, reaching `max|imag(R/R0)| =
+  4.069` without raising: it is the only branch that evaluates the sound speed
   from the EoS. The branch also omits the stress term from `Pb`, which
   `radial = 3` and `4` both include.
 
@@ -48,21 +49,15 @@ the original scoping notes are in git history, in a `PLAN.md` retired in #218.
 - **`f_init_stress.m` uses an undefined `z1`** in the `De == 0 || De == Inf`
   branch. Unreachable for the memory models that call it, so latent rather
   than active.
+- **`calc_omega_N` treats the gas pressure at `Rmax` as the equilibrium
+  value.** This one is in IMR-vanilla rather than IMRv2. It inflates the
+  linearised stiffness by `alpha**(-3*kappa)` and overpredicts the natural
+  frequency by 42x on the reference case, which is why PyIMR's
+  `data.natural_frequency` is a reimplementation rather than a port.
 
 These are the reason several PyIMR models are validated by reduction limit
 rather than against a pinned upstream trajectory: for those models, no working
 upstream implementation exists to pin against.
-
-[Back to the README](../README.md)
-
-- **`calc_omega_N` (IMR-vanilla) treats the gas pressure at `Rmax` as the
-  equilibrium value.** That inflates the linearised stiffness by
-  `alpha**(-3*kappa)` and overpredicts the natural frequency by 42x on the
-  reference case, which is why PyIMR's `data.natural_frequency` is a
-  reimplementation rather than a port.
-- **`radial = 6` (Gilmore/Mie-Gruneisen) returns complex radii.** Upstream
-  reaches `max|imag(R/R0)| = 4.069` without raising, from a wrong root of the
-  Mie-Gruneisen density quadratic.
 
 ## Which branches replicate upstream, and which correct it
 
@@ -114,3 +109,5 @@ is internally inconsistent, and the reduction limit to `LinearMaxwell` converges
 only with the `LAM` factor restored. Three Zener reference trajectories were
 regenerated from PyIMR as a result, and pin regressions rather than
 cross-checking upstream (#174, IMRv2#18).
+
+[Back to the README](../README.md)

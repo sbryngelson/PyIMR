@@ -444,11 +444,19 @@ def separability(jacobian, differences, *, weights=None):
   """
   material, columns, amplitude = _augmented_parts(jacobian, differences, weights)
   count, rivals = material.shape[1], columns.shape[0]
-  try:
-    variance = np.diag(np.linalg.inv(_augmented_gram(material, columns, amplitude)))[count:].copy()
-  except np.linalg.LinAlgError:
-    variance = np.full(rivals, np.inf)
-  variance = np.where(variance > 0.0, variance, np.inf)
+  # Not `inv` with `LinAlgError` as the unidentified signal. A difference in the span of the
+  # material makes the Gram singular only to roundoff, and LAPACK raises only on an exactly
+  # zero pivot: OpenBLAS on x86 happened to produce one, Accelerate on arm64 produced 1e-14
+  # and a variance of 2.8e14 where the promise is `inf`. The null space is found at
+  # `matrix_rank`'s tolerance instead, and a coordinate with a component in it is unidentified.
+  gram = _augmented_gram(material, columns, amplitude)
+  values, vectors = np.linalg.eigh(gram)
+  tolerance = values.max() * gram.shape[0] * np.finfo(float).eps
+  kept = values > tolerance
+  null = vectors[count:, ~kept]
+  unidentified = np.linalg.norm(null, axis=1) > np.sqrt(np.finfo(float).eps)
+  pseudo = (vectors[:, kept] / values[kept]) @ vectors[:, kept].T
+  variance = np.where(unidentified, np.inf, np.diag(pseudo)[count:])
 
   basis, _ = np.linalg.qr(material)
   absorbed = np.empty(rivals)

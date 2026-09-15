@@ -255,11 +255,17 @@ def test_the_correlated_gradient_is_still_the_derivative(correlated, measured):
 
 
 def test_vanishing_correlation_time_reduces_to_independent_noise(correlated):
-  """The limit that must hold exactly, not approximately: at tau -> 0 the"""
+  """At tau -> 0 the kernel is the identity and the two likelihoods are the same number.
+
+  To roundoff, not bitwise: the correlated path sums its log-determinant as
+  `n log 2pi + 2 sum log L_ii` and whitens by a triangular solve, the independent path as
+  `sum log(2 pi s^2)` and a division, and the two agree to an ulp that moved between scipy
+  1.17 and 1.18.
+  """
   times, observed, independent, _ = correlated
   tiny = prepare_inference(independent.config, FieldObservation("radius_m", times, observed, 5e-7, correlation_time_s=1e-15), independent.parameters)
   unit = np.array([0.42, 0.37])
-  assert tiny.evaluate(unit).log_likelihood == independent.evaluate(unit).log_likelihood
+  assert tiny.evaluate(unit).log_likelihood == pytest.approx(independent.evaluate(unit).log_likelihood, rel=1e-12)
 
 
 def test_correlated_noise_carries_less_information(correlated, measured):

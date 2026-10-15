@@ -204,7 +204,7 @@ class PreparedInference:
     if len(set(paths)) != len(paths): raise ValueError("inference parameter paths must be unique")
     for parameter in parameters:
       value = _path_value(self.config, _path_parts(parameter.path, "inference"), parameter.path, "inference")
-      if not np.isscalar(value) or not np.isfinite(value): raise ValueError(f"{parameter.path!r} must identify a finite scalar field")
+      if not np.isscalar(value) or not np.isfinite(np.asarray(value)): raise ValueError(f"{parameter.path!r} must identify a finite scalar field")
       _normalize_parameters(self.config, (SensitivityParameter(parameter.path),))
     object.__setattr__(self, "_problem", prepare(self.config))
     object.__setattr__(self, "parameters", parameters)

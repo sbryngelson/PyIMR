@@ -274,6 +274,13 @@ def test_the_guard_can_be_disabled_and_reconfigured():
     pyimr.prepare(_runaway_config(material, max_radius_ratio=0.5))
 
 
+def _steps(error):
+  """Steps a failed solve took. Wall time would also count each config's compile, which
+  dominates these solves and jitters on a shared runner by more than they differ."""
+  assert error.stats is not None and error.stats.nfev > 0
+  return error.stats.nfev
+
+
 def test_a_collapse_floor_stops_the_solve_instead_of_burning_the_budget(measured):
   """The collapse mirror of the runaway guard, and the reason it must be an EVENT.
 
@@ -283,7 +290,6 @@ def test_a_collapse_floor_stops_the_solve_instead_of_burning_the_budget(measured
   budget, which cannot help: the model is asking for 2e15 Pa from a 3 kPa gel. A check applied
   after the solve would never run, because the solve never finishes.
   """
-  import time
   material = pyimr.RelaxingMaterial(
     elastic=pyimr.Yeoh(3e3, 1e2, 1e1), viscosity_pa_s=1.5e-1,
     relaxation_time_s=3.162e-5, retardation_time_s=0.0)
@@ -296,17 +302,12 @@ def test_a_collapse_floor_stops_the_solve_instead_of_burning_the_budget(measured
                                   rtol=1e-8, atol=1e-10, max_steps=200_000,
                                   min_radius_ratio=floor)
 
-  started = time.perf_counter()
-  with pytest.raises(pyimr.SimulationError, match="maximum number of solver steps"):
+  with pytest.raises(pyimr.SimulationError, match="maximum number of solver steps") as free:
     pyimr.simulate(times, build(None))
-  unguarded = time.perf_counter() - started
-
-  guarded_config = build(0.05)
-  started = time.perf_counter()
   with pytest.raises(pyimr.SimulationError, match="collapsed below min_radius_ratio") as caught:
-    pyimr.simulate(times, guarded_config)
-  guarded = time.perf_counter() - started
-  measured("collapse floor", f"{unguarded:.1f}s unguarded -> {guarded:.1f}s guarded")
+    pyimr.simulate(times, build(0.05))
+  unguarded, guarded = _steps(free.value), _steps(caught.value)
+  measured("collapse floor", f"{unguarded} steps unguarded -> {guarded} steps guarded")
   assert guarded < unguarded, "the floor exists to stop early, not to relabel the same grind"
   assert "not physical" in str(caught.value)
 
@@ -363,17 +364,12 @@ def test_the_sonic_guard_names_the_singularity_rather_than_the_step_budget(measu
   going to zero -- a coordinate singularity of the first-order-in-Mach form, reached from
   below, so no step budget arrives and raising one only buys a longer grind.
   """
-  import time
-  started = time.perf_counter()
-  with pytest.raises(pyimr.SimulationError, match="maximum number of solver steps"):
+  with pytest.raises(pyimr.SimulationError, match="maximum number of solver steps") as free:
     pyimr.simulate(_SONIC_TIMES, _sonic_config(6.81e-6))
-  unguarded = time.perf_counter() - started
-
-  started = time.perf_counter()
   with pytest.raises(pyimr.SimulationError, match="reached max_wall_mach") as caught:
     pyimr.simulate(_SONIC_TIMES, _sonic_config(6.81e-6, max_wall_mach=0.99))
-  guarded = time.perf_counter() - started
-  measured("sonic guard", f"{unguarded:.1f}s unguarded -> {guarded:.1f}s guarded")
+  unguarded, guarded = _steps(free.value), _steps(caught.value)
+  measured("sonic guard", f"{unguarded} steps unguarded -> {guarded} steps guarded")
   assert guarded < unguarded, "the guard exists to stop early, not to relabel the same grind"
   assert "keller-miksis form is singular" in str(caught.value)
 

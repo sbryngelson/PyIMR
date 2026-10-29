@@ -227,20 +227,29 @@ def test_an_unreachable_target_is_reported_not_approximated(measured, reference_
   measured("unreachable target", "raises rather than returning the best available")
 
 
-def test_choose_discretization_returns_the_faster_candidate(reference_for):
-  """The winner is picked by measured time, not by any analytic cost proxy."""
-  from pyimr.resolution import _choose_discretization, _smallest_adequate, _at, _timed
+@pytest.mark.parametrize("faster", ["spectral", "fd"])
+def test_choose_discretization_returns_the_faster_candidate(monkeypatch, reference_for, faster):
+  """The winner is picked by measured time, not by any analytic cost proxy.
 
+  The two candidates' real solve times are close enough that a shared runner reorders
+  them between any two measurements, so the times `_choose_discretization` ranks on are
+  injected. Adequacy still runs for real. Each candidate wins once, so a chooser that
+  ignored the timings and always named one discretization would fail.
+  """
+  import pyimr.resolution as resolution_module
+  from pyimr.resolution import _choose_discretization
+
+  real_timed = resolution_module._timed
+
+  def injected(config, times, fields):
+    _, values = real_timed(config, times, fields)
+    return (1.0 if config.thermal == faster else 2.0), values
+
+  monkeypatch.setattr(resolution_module, "_timed", injected)
   ladder = (5, 9)
   reference, _ = reference_for(ladder)
-  timings = {}
-  for thermal in ("spectral", "fd"):
-    index = _smallest_adequate(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, thermal, ladder)
-    if index is not None:
-      timings[thermal] = _timed(_at(_config(), thermal, ladder[index], 1e-10, 1e-12), _TIMES, ("radius_ratio",))[0]
-  assert timings, "neither discretization met a loose target"
   chosen, _nodes = _choose_discretization(_config(), _TIMES, ("radius_ratio",), 1e-2, reference, ladder)
-  assert chosen == min(timings, key=lambda name: timings[name])
+  assert chosen == faster
 
 
 def test_fd_is_genuinely_evaluated_not_just_offered(reference_for):
